@@ -45,6 +45,27 @@
  *	@(#)ufs_vnops.c 8.27 (Berkeley) 5/27/95
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_vnops.c,v 1.75 2003/01/04 08:47:19 phk Exp $
  */
+/*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #ifndef APPLE
 #include "opt_suiddir.h"
@@ -66,8 +87,8 @@
 #include <sys/time.h>
 #include <sys/vnode.h>
 #include <sys/namei.h>
-#include <sys/lockf.h>
 #ifndef APPLE
+#include <sys/lockf.h>
 #include <sys/event.h>
 #endif
 #include <sys/conf.h>
@@ -100,6 +121,10 @@
 #include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
 #include <gnu/ext2fs/ext2_fs.h>
+
+#ifdef APPLE
+#include <kern/ext2_lockf.h>
+#endif
 
 static int ext2_makeinode(int mode, struct vnode *, struct vnode **, struct componentname *);
 
@@ -215,6 +240,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
   	{ &vop_cmap_desc,			(vop_t *) ext2_cmap },
    { &vop_mmap_desc,       (vop_t *) ext2_mmap },		/* mmap */
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   /* { &vop_update_desc, (vop_t *) ext2_update }, */
    { &vop_getattrlist_desc,	(vop_t *) ext2_getattrlist },
 /*   { &vop_setattrlist_desc,	(vop_t *) ext2_setattrlist }, */
    #endif /* APPLE */
@@ -267,6 +293,7 @@ static struct vnodeopv_entry_desc ext2_specop_entries[] = {
   	{ &vop_cmap_desc,			(vop_t *) spec_cmap },
    { &vop_mmap_desc,       (vop_t *) spec_mmap },		/* mmap */
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   /* { &vop_update_desc, (vop_t *) ext2_update }, */
    #endif /* APPLE */
 	{ NULL, NULL }
 };
@@ -320,6 +347,7 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
   	{ &vop_cmap_desc,			(vop_t *) ext2_cmap },
    { &vop_mmap_desc,       (vop_t *) fifo_mmap },		/* mmap */
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   /* { &vop_update_desc, (vop_t *) ext2_update }, */
    #endif /* APPLE */
 	{ NULL, NULL }
 };
@@ -412,6 +440,8 @@ ext2_create(ap)
 	} */ *ap;
 {
 	int error;
+   
+   ext2_trace_enter();
 
 	error =
 	    ext2_makeinode(MAKEIMODE(ap->a_vap->va_type, ap->a_vap->va_mode),
@@ -436,7 +466,8 @@ ext2_open(ap)
 	} */ *ap;
 {
 
-	/*
+	ext2_trace_enter();
+   /*
 	 * Files marked append-only must be opened for appending.
 	 */
 	if ((VTOI(ap->a_vp)->i_flags & APPEND) &&
@@ -463,16 +494,46 @@ ext2_close(ap)
    #ifndef APPLE
 	struct mount *mp;
    #endif
+   
+   ext2_trace_enter();
 
 	VI_LOCK(vp);
    #ifndef APPLE
 	if (vp->v_usecount > 1) {
    #else
    if ((!UBCISVALID(vp) && vp->v_usecount > 1)
-	    || (UBCISVALID(vp) && ubc_isinuse(vp, 1))) {
+	    || (UBCISVALID(vp) && ubc_isinuse(vp, 1)))
    #endif
 		ext2_itimes(vp);
 		VI_UNLOCK(vp);
+
+#ifdef APPLE
+   /*
+    * VOP_CLOSE can be called with vp locked (from vclean).
+    */
+   if (!VOP_ISLOCKED(vp)) {
+      struct inode *ip = VTOI(vp);
+      enum vtype type = vp->v_type;
+      u_long vid = vp->v_id;
+      
+		if (vn_lock(vp, LK_EXCLUSIVE | LK_RETRY, ap->a_p))
+         return (0);
+         
+      /* vn_lock is a possible preemption point, prevent a 
+       * possible race with the likes of umount -f.
+       */
+      if (vp->v_type != type || vp->v_id != vid
+          || ip != VTOI(vp) || !UBCINFOEXISTS(vp)) {
+         VOP_UNLOCK(vp, 0, ap->a_p);
+         return (0);
+      }
+
+		cluster_push(vp);
+
+		VOP_UNLOCK(vp, 0, ap->a_p);
+	}
+   
+#else
 	} else {
 		VI_UNLOCK(vp);
 		/*
@@ -486,16 +547,13 @@ ext2_close(ap)
 		 * repeating the vrele operation.
 		 */
 		if (vp->v_type == VREG && VTOI(vp)->i_nlink == 0) {
-			#ifndef APPLE
          (void) vn_start_write(vp, &mp, V_WAIT);
-         #endif
 			vrele(vp);
-         #ifndef APPLE
 			vn_finished_write(mp);
-         #endif
 			return (EAGAIN);
 		}
 	}
+#endif
 	return (0);
 }
 
@@ -512,6 +570,8 @@ ext2_access(ap)
 	struct inode *ip = VTOI(vp);
 	mode_t mode = ap->a_mode;
 	int error;
+   
+   ext2_trace_enter();
 
 	/*
 	 * Disallow write attempts on read-only file systems;
@@ -566,6 +626,8 @@ ext2_getattr(ap)
    
    VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
    #endif
+   
+   ext2_trace_enter();
 
 	ext2_itimes(vp);
 	/*
@@ -591,6 +653,13 @@ ext2_getattr(ap)
 	vap->va_ctime.tv_nsec = ip->i_ctimensec;
 	vap->va_flags = ip->i_flags;
 	vap->va_gen = ip->i_gen;
+   #ifdef APPLE
+   if (vp->v_type == VBLK)
+		vap->va_blocksize = BLKDEV_IOSIZE;
+	else if (vp->v_type == VCHR)
+		vap->va_blocksize = MAXPHYSIO;
+	else
+   #endif
 	vap->va_blocksize = vp->v_mount->mnt_stat.f_iosize;
 	vap->va_bytes =
    #ifndef APPLE
@@ -621,6 +690,8 @@ ext2_setattr(ap)
 	struct ucred *cred = ap->a_cred;
 	struct thread *td = ap->a_td;
 	int error;
+   
+   ext2_trace_enter();
 
 	/*
 	 * Check for unsettable attributes.
@@ -641,7 +712,6 @@ ext2_setattr(ap)
 		 */
 		if ((error = VOP_ACCESS(vp, VADMIN, cred, td)))
 			return (error);
-      #endif /* APPLE */
       
 		/*
 		 * Unprivileged processes and privileged processes in
@@ -650,10 +720,12 @@ ext2_setattr(ap)
 		 * Privileged non-jail processes may not modify system flags
 		 * if securelevel > 0 and any existing system flags are set.
 		 */
-      #ifndef APPLE
 		if (!suser_cred(cred, PRISON_ROOT)) {
       #else
-      if (!suser(cred, &td->p_acflag)) {
+      if (cred->cr_uid != ip->i_uid &&
+		    (error = suser(cred, &td->p_acflag)))
+         return (error);
+      if (cred->cr_uid == 0) {
       #endif
 			if (ip->i_flags
 			    & (SF_NOUNLINK | SF_IMMUTABLE | SF_APPEND)) {
@@ -720,7 +792,8 @@ ext2_setattr(ap)
       #ifndef APPLE
 		if ((error = VOP_ACCESS(vp, VADMIN, cred, td)) &&
       #else
-      if (
+      if (cred->cr_uid != ip->i_uid &&
+		    (error = suser(cred, &td->p_acflag)) &&
       #endif
 		    ((vap->va_vaflags & VA_UTIMES_NULL) == 0 ||
 		    (error = VOP_ACCESS(vp, VWRITE, cred, td))))
@@ -766,9 +839,9 @@ ext2_chmod(vp, mode, cred, td)
 	struct thread *td;
 {
 	struct inode *ip = VTOI(vp);
-   #ifndef APPLE
 	int error;
-   #endif
+   
+   ext2_trace_enter();
 
    #ifndef APPLE
 	/*
@@ -784,7 +857,10 @@ ext2_chmod(vp, mode, cred, td)
 	 */
 	if (suser_cred(cred, PRISON_ROOT)) {
    #else
-   if (suser(cred, &td->p_acflag)) {
+   if (cred->cr_uid != ip->i_uid &&
+       (error = suser(cred, &td->p_acflag)))
+      return (error);
+   if (cred->cr_uid) {
    #endif /* APPLE */
 		if (vp->v_type != VDIR && (mode & S_ISTXT))
 			return (EFTYPE);
@@ -813,6 +889,8 @@ ext2_chown(vp, uid, gid, cred, td)
 	uid_t ouid;
 	gid_t ogid;
 	int error = 0;
+   
+   ext2_trace_enter();
 
 	if (uid == (uid_t)VNOVAL)
 		uid = ip->i_uid;
@@ -871,10 +949,19 @@ ext2_fsync(ap)
 	struct buf *bp;
 	struct buf *nbp;
 	int s;
+   
+   ext2_trace_enter();
 
 	/* 
 	 * XXX why is all this fs specific?
 	 */
+
+#ifdef APPLE
+   /*
+	 * Write out any clusters.
+	 */
+	cluster_push(vp);
+#endif
 
 	/*
 	 * Flush all dirty buffers associated with a vnode.
@@ -897,10 +984,18 @@ loop:
 			VI_LOCK(vp);
 			continue;
 		}
+      #else
+      if ((bp->b_flags & B_BUSY)) {
+         VI_LOCK(vp);
+         continue;
+      }
       #endif
 		if ((bp->b_flags & B_DELWRI) == 0)
 			panic("ext2_fsync: not dirty");
 		bremfree(bp);
+      #ifdef APPLE
+      bp->b_flags |= B_BUSY;
+      #endif
 		splx(s);
 		/*
 		 * Wait for I/O associated with indirect blocks to complete,
@@ -914,14 +1009,9 @@ loop:
 	}
 	if (ap->a_waitfor == MNT_WAIT) {
 		while (vp->v_numoutput) {
-			#ifndef APPLE
          vp->v_iflag |= VI_BWAIT;
 			msleep(&vp->v_numoutput, VI_MTX(vp), 
 			    PRIBIO + 1, "e2fsyn", 0);
-         #else
-         tsleep(&vp->v_numoutput,
-			    PRIBIO + 1, "e2fsyn", 0);
-         #endif /* APPLE */
 		}
 #if DIAGNOSTIC
       #ifndef APPLE
@@ -957,6 +1047,8 @@ ext2_mknod(ap)
 	struct inode *ip;
 	ino_t ino;
 	int error;
+   
+   ext2_trace_enter();
 
 	error = ext2_makeinode(MAKEIMODE(vap->va_type, vap->va_mode),
 	    ap->a_dvp, vpp, ap->a_cnp);
@@ -982,13 +1074,14 @@ ext2_mknod(ap)
 	vgone(*vpp);
    #ifndef APPLE
 	error = VFS_VGET(ap->a_dvp->v_mount, ino, LK_EXCLUSIVE, vpp);
-   #else
-   error = VFS_VGET(ap->a_dvp->v_mount, (void*)ino, vpp);
-   #endif
 	if (error) {
 		*vpp = NULL;
 		return (error);
 	}
+   #else
+   /* lookup will reload the inode for us */
+   *vpp = NULL;
+   #endif
 	return (0);
 }
 
@@ -1004,6 +1097,8 @@ ext2_remove(ap)
 	struct vnode *vp = ap->a_vp;
 	struct vnode *dvp = ap->a_dvp;
 	int error;
+   
+   ext2_trace_enter();
 
 	ip = VTOI(vp);
 	if ((ip->i_flags & (NOUNLINK | IMMUTABLE | APPEND)) ||
@@ -1027,13 +1122,30 @@ ext2_remove(ap)
 	if (error == 0) {
 		ip->i_nlink--;
 		ip->i_flag |= IN_CHANGE;
-      
-      #ifdef APPLE
-      /* ufs calls ubc_uncache even for errors, but we follow hfs precedent */
-      (void)ubc_uncache(vp);
-      #endif
 	}
+   
+#ifdef APPLE
+   if (dvp != vp)
+		VOP_UNLOCK(vp, 0, ap->a_cnp->cn_proc);
+   
+   /* ufs calls ubc_uncache even for errors, but we follow hfs precedent */
+   if (!error)
+      (void)ubc_uncache(vp);
+   
+   vrele(vp);
+	vput(dvp);
+
+	return (error);
+#endif
+   
 out:
+#ifdef APPLE
+   if (dvp == vp)
+      vrele(vp);
+   else
+      vput(vp);
+   vput(dvp);
+#endif
 	return (error);
 }
 
@@ -1052,24 +1164,44 @@ ext2_link(ap)
 	struct vnode *tdvp = ap->a_tdvp;
 	struct componentname *cnp = ap->a_cnp;
 	struct inode *ip;
+#ifdef APPLE
+   struct proc *p = curproc;
+#endif
 	int error;
+   
+   ext2_trace_enter();
 
 #ifdef DIAGNOSTIC
 	if ((cnp->cn_flags & HASBUF) == 0)
 		panic("ext2_link: no name");
 #endif
 	if (tdvp->v_mount != vp->v_mount) {
+   #ifdef APPLE
+      VOP_ABORTOP(tdvp, cnp);
+   #endif
 		error = EXDEV;
 		goto out;
 	}
-	ip = VTOI(vp);
-	if ((nlink_t)ip->i_nlink >= LINK_MAX) {
-		error = EMLINK;
+#ifdef APPLE
+   if (tdvp != vp && (error = vn_lock(vp, LK_EXCLUSIVE, p))) {
+		VOP_ABORTOP(tdvp, cnp);
 		goto out;
 	}
+#endif
+	ip = VTOI(vp);
+	if ((nlink_t)ip->i_nlink >= LINK_MAX) {
+   #ifdef APPLE
+      VOP_ABORTOP(tdvp, cnp);
+   #endif
+		error = EMLINK;
+		goto out1;
+	}
 	if (ip->i_flags & (IMMUTABLE | APPEND)) {
+   #ifdef APPLE
+      VOP_ABORTOP(tdvp, cnp);
+   #endif
 		error = EPERM;
-		goto out;
+		goto out1;
 	}
 	ip->i_nlink++;
 	ip->i_flag |= IN_CHANGE;
@@ -1080,7 +1212,19 @@ ext2_link(ap)
 		ip->i_nlink--;
 		ip->i_flag |= IN_CHANGE;
 	}
+#ifdef APPLE
+   FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
+   
+out1:
+   if (tdvp != vp)
+		VOP_UNLOCK(vp, 0, p);
+#else
+out1:
+#endif
 out:
+#ifdef APPLE
+   vput(tdvp);
+#endif
 	return (error);
 }
 
@@ -1111,6 +1255,8 @@ ext2_rename(ap)
 	int doingdirectory = 0, oldparent = 0, newparent = 0;
 	int error = 0;
 	u_char namlen;
+   
+   ext2_trace_enter();
 
 #ifdef DIAGNOSTIC
 	if ((tcnp->cn_flags & HASBUF) == 0 ||
@@ -1124,12 +1270,18 @@ ext2_rename(ap)
 	    (tvp && (fvp->v_mount != tvp->v_mount))) {
 		error = EXDEV;
 abortit:
+   #ifdef APPLE
+      VOP_ABORTOP(tdvp, tcnp);
+   #endif
 		if (tdvp == tvp)
 			vrele(tdvp);
 		else
 			vput(tdvp);
 		if (tvp)
 			vput(tvp);
+   #ifdef APPLE
+      VOP_ABORTOP(fdvp, fcnp);
+   #endif
 		vrele(fdvp);
 		vrele(fvp);
 		return (error);
@@ -1171,7 +1323,7 @@ abortit:
 		 * Avoid ".", "..", and aliases of "." for obvious reasons.
 		 */
 		if ((fcnp->cn_namelen == 1 && fcnp->cn_nameptr[0] == '.') ||
-		    dp == ip || (fcnp->cn_flags | tcnp->cn_flags) & ISDOTDOT ||
+		    dp == ip || ((fcnp->cn_flags | tcnp->cn_flags) & ISDOTDOT) ||
 		    (ip->i_flag & IN_RENAME)) {
 			VOP_UNLOCK(fvp, 0, td);
 			error = EINVAL;
@@ -1227,6 +1379,10 @@ abortit:
 		error = ext2_checkpath(ip, dp, tcnp->cn_cred);
 		if (error)
 			goto out;
+   #ifdef APPLE
+      if ((tcnp->cn_flags & SAVESTART) == 0)
+			panic("ext2_rename: lost to startdir");
+   #endif
 		VREF(tdvp);
 		error = relookup(tdvp, &tvp, tcnp);
 		if (error)
@@ -1409,7 +1565,7 @@ abortit:
 				    dirbuf.dotdot_name[0] != '.' ||
 				    dirbuf.dotdot_name[1] != '.') {
 					ext2_dirbad(xp, (doff_t)12,
-					    "rename: mangled dir");
+					    "ext2_rename: mangled dir");
 				} else {
 					dirbuf.dotdot_ino = newparent;
 					(void) vn_rdwr(UIO_WRITE, fvp,
@@ -1477,6 +1633,8 @@ ext2_mkdir(ap)
 	struct vnode *tvp;
 	struct dirtemplate dirtemplate, *dtp;
 	int error, dmode;
+   
+   ext2_trace_enter();
 
 #ifdef DIAGNOSTIC
 	if ((cnp->cn_flags & HASBUF) == 0)
@@ -1547,14 +1705,15 @@ ext2_mkdir(ap)
 	else
 		dtp = &omastertemplate;
 	dirtemplate = *dtp;
-	dirtemplate.dot_ino = ip->i_number;
-	dirtemplate.dotdot_ino = dp->i_number;
+   dirtemplate.dot_reclen = cpu_to_le16(dirtemplate.dot_reclen);
+	dirtemplate.dot_ino = cpu_to_le32(ip->i_number);
+	dirtemplate.dotdot_ino = cpu_to_le32(dp->i_number);
 	/* note that in ext2 DIRBLKSIZ == blocksize, not DEV_BSIZE 
 	 * so let's just redefine it - for this function only
 	 */
 #undef  DIRBLKSIZ 
 #define DIRBLKSIZ  VTOI(dvp)->i_e2fs->s_blocksize
-	dirtemplate.dotdot_reclen = DIRBLKSIZ - 12;
+	dirtemplate.dotdot_reclen = cpu_to_le16(DIRBLKSIZ - 12);
 	error = vn_rdwr(UIO_WRITE, tvp, (caddr_t)&dirtemplate,
 	    sizeof (dirtemplate), (off_t)0, UIO_SYSSPACE,
 	    IO_NODELOCKED | IO_SYNC | IO_NOMACCHECK, cnp->cn_cred,
@@ -1594,6 +1753,10 @@ bad:
 	} else
 		*ap->a_vpp = tvp;
 out:
+#ifdef APPLE
+   FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
+	vput(dvp);
+#endif
 	return (error);
 #undef  DIRBLKSIZ
 #define DIRBLKSIZ  DEV_BSIZE
@@ -1619,6 +1782,19 @@ ext2_rmdir(ap)
 
 	ip = VTOI(vp);
 	dp = VTOI(dvp);
+   
+   ext2_trace_enter();
+   
+#ifdef APPLE
+   /*
+	 * No rmdir "." please.
+	 */
+	if (dp == ip) {
+		vrele(dvp);
+		vput(vp);
+		return (EINVAL);
+	}
+#endif
 
 	/*
 	 * Verify the directory is empty (and valid).
@@ -1648,7 +1824,12 @@ ext2_rmdir(ap)
 	dp->i_nlink--;
 	dp->i_flag |= IN_CHANGE;
 	cache_purge(dvp);
+#ifndef APPLE
 	VOP_UNLOCK(dvp, 0, td);
+#else
+   vput(dvp);
+	dvp = NULL;
+#endif
 	/*
 	 * Truncate inode.  The only stuff left
 	 * in the directory is "." and "..".  The
@@ -1663,8 +1844,15 @@ ext2_rmdir(ap)
 	ip->i_nlink -= 2;
 	error = ext2_truncate(vp, (off_t)0, IO_SYNC, cnp->cn_cred, td);
 	cache_purge(ITOV(ip));
+#ifndef APPLE
 	vn_lock(dvp, LK_EXCLUSIVE | LK_RETRY, td);
+#endif
 out:
+#ifdef APPLE
+   if (dvp)
+		vput(dvp);
+	vput(vp);
+#endif
 	return (error);
 }
 
@@ -1684,6 +1872,8 @@ ext2_symlink(ap)
 	struct vnode *vp, **vpp = ap->a_vpp;
 	struct inode *ip;
 	int len, error;
+   
+   ext2_trace_enter();
 
 	error = ext2_makeinode(IFLNK | ap->a_vap->va_mode, ap->a_dvp,
 	    vpp, ap->a_cnp);
@@ -1705,7 +1895,9 @@ ext2_symlink(ap)
           #else
           (int *)0, (struct proc *)0);
           #endif
-	if (error)
+#ifndef APPLE
+   if (error)
+#endif
 		vput(vp);
 	return (error);
 }
@@ -1724,6 +1916,8 @@ ext2_readlink(ap)
 	struct vnode *vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	int isize;
+   
+   ext2_trace_enter();
 
 	isize = ip->i_size;
 	if (isize < vp->v_mount->mnt_maxsymlinklen) {
@@ -1759,8 +1953,13 @@ ext2_strategy(ap)
 	struct inode *ip;
 	int32_t blkno;
 	int error;
+   
+   ext2_trace_enter();
 
 	ip = VTOI(vp);
+   #ifdef APPLE
+   if ( !(bp->b_flags & B_VECTORLIST)) {
+   #endif
 	if (vp->v_type == VBLK || vp->v_type == VCHR)
 		panic("ext2_strategy: spec");
       
@@ -1772,6 +1971,18 @@ ext2_strategy(ap)
          * deal with a page request that might span non-
          * contiguous physical blocks on the disk...
          */
+#if 1
+      if (bp->b_blkno == bp->b_lblkno) {
+         error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
+         bp->b_blkno = blkno;
+         if (error) {
+            bp->b_error = error;
+            bp->b_ioflags |= BIO_ERROR;
+            bufdone(bp);
+            return (error);
+         }
+      }
+#endif
       error = cluster_bp(bp);
       vp = ip->i_devvp;
       bp->b_dev = vp->v_rdev;
@@ -1796,6 +2007,10 @@ ext2_strategy(ap)
 		bufdone(bp);
 		return (0);
 	}
+   #ifdef APPLE
+   }
+   #endif /* B_VECTORLIST */
+   
 	vp = ip->i_devvp;
    #ifndef APPLE
 	bp->b_dev = vp->v_rdev;
@@ -1846,6 +2061,8 @@ ext2spec_read(ap)
 	int error, resid;
 	struct inode *ip;
 	struct uio *uio;
+   
+   ext2_trace_enter();
 
 	uio = ap->a_uio;
 	resid = uio->uio_resid;
@@ -1875,6 +2092,8 @@ ext2spec_write(ap)
 	int error, resid;
 	struct inode *ip;
 	struct uio *uio;
+   
+   ext2_trace_enter();
 
 	uio = ap->a_uio;
 	resid = uio->uio_resid;
@@ -1900,6 +2119,8 @@ ext2spec_close(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
+   
+   ext2_trace_enter();
 
 	VI_LOCK(vp);
 	if (vp->v_usecount > 1)
@@ -1923,6 +2144,8 @@ ext2fifo_read(ap)
 	int error, resid;
 	struct inode *ip;
 	struct uio *uio;
+   
+   ext2_trace_enter();
 
 	uio = ap->a_uio;
 	resid = uio->uio_resid;
@@ -1949,6 +2172,8 @@ ext2fifo_write(ap)
 	int error, resid;
 	struct inode *ip;
 	struct uio *uio;
+   
+   ext2_trace_enter();
 
 	uio = ap->a_uio;
 	resid = uio->uio_resid;
@@ -1974,6 +2199,8 @@ ext2fifo_close(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
+   
+   ext2_trace_enter();
 
 	VI_LOCK(vp);
 	if (vp->v_usecount > 1)
@@ -2058,8 +2285,85 @@ ext2_advlock(ap)
 
    return (lf_advlock(ap, &(ip->i_lockf), ip->i_size));
    #else
-   /* BUGBUG -- Need to figure out correct args for Apple call. */
-   return (ENOTSUP);
+   /* Cribbed straigt from ufs */
+   register struct inode *ip = VTOI(ap->a_vp);
+	register struct flock *fl = ap->a_fl;
+	register struct ext2lockf *lock;
+	off_t start, end;
+	int error;
+   
+   ext2_trace_enter();
+
+	/*
+	 * Avoid the common case of unlocking when inode has no locks.
+	 */
+	if (ip->i_lockf == (struct ext2lockf *)0) {
+		if (ap->a_op != F_SETLK) {
+			fl->l_type = F_UNLCK;
+			return (0);
+		}
+	}
+	/*
+	 * Convert the flock structure into a start and end.
+	 */
+	switch (fl->l_whence) {
+
+	case SEEK_SET:
+	case SEEK_CUR:
+		/*
+		 * Caller is responsible for adding any necessary offset
+		 * when SEEK_CUR is used.
+		 */
+		start = fl->l_start;
+		break;
+
+	case SEEK_END:
+		start = ip->i_size + fl->l_start;
+		break;
+
+	default:
+		return (EINVAL);
+	}
+	if (start < 0)
+		return (EINVAL);
+	if (fl->l_len == 0)
+		end = -1;
+	else
+		end = start + fl->l_len - 1;
+	/*
+	 * Create the ext2lockf structure
+	 */
+	MALLOC(lock, struct ext2lockf *, sizeof *lock, M_LOCKF, M_WAITOK);
+	lock->lf_start = start;
+	lock->lf_end = end;
+	lock->lf_id = ap->a_id;
+	lock->lf_inode = ip;
+	lock->lf_type = fl->l_type;
+	lock->lf_next = (struct ext2lockf *)0;
+	TAILQ_INIT(&lock->lf_blkhd);
+	lock->lf_flags = ap->a_flags;
+	/*
+	 * Do the requested operation.
+	 */
+	switch(ap->a_op) {
+	case F_SETLK:
+		return (ext2_lf_setlock(lock));
+
+	case F_UNLCK:
+		error = ext2_lf_clearlock(lock);
+		FREE(lock, M_LOCKF);
+		return (error);
+
+	case F_GETLK:
+		error = ext2_lf_getlock(lock, fl);
+		FREE(lock, M_LOCKF);
+		return (error);
+	
+	default:
+		_FREE(lock, M_LOCKF);
+		return (EINVAL);
+	}
+	/* NOTREACHED */
    #endif
 }
 
@@ -2076,6 +2380,9 @@ ext2_vinit(mntp, specops, fifoops, vpp)
 {
 	struct inode *ip;
 	struct vnode *vp;
+#ifdef APPLE
+   struct vnode *nvp;
+#endif
 	struct timeval tv;
 
 	vp = *vpp;
@@ -2086,8 +2393,25 @@ ext2_vinit(mntp, specops, fifoops, vpp)
 		vp->v_op = specops;
       #ifndef APPLE
 		vp = addaliasu(vp, ip->i_rdev);
+      #else
+      if (nvp = checkalias(vp, ip->i_rdev, mntp)) {
+			/*
+			 * Discard unneeded vnode, but save its inode.
+			 * Note that the lock is carried over in the inode
+			 * to the replacement vnode.
+			 */
+			nvp->v_data = vp->v_data;
+			vp->v_data = NULL;
+			vp->v_op = spec_vnodeop_p;
+			vrele(vp);
+			vgone(vp);
+			/*
+			 * Reinitialize aliased inode.
+			 */
+			vp = nvp;
+			ip->i_vnode = vp;
+		}
       #endif
-		ip->i_vnode = vp;
 		break;
 	case VFIFO:
 		vp->v_op = fifoops;
@@ -2133,6 +2457,10 @@ ext2_makeinode(mode, dvp, vpp, cnp)
 
 	error = ext2_valloc(dvp, mode, cnp->cn_cred, &tvp);
 	if (error) {
+   #ifdef APPLE
+      _FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
+		vput(dvp);
+   #endif
 		return (error);
 	}
 	ip = VTOI(tvp);
@@ -2153,10 +2481,20 @@ ext2_makeinode(mode, dvp, vpp, cnp)
 			ip->i_uid = pdir->i_uid;
 			mode &= ~07111;
 		} else {
+      #ifdef APPLE
+         if ((mode & IFMT) == IFLNK)
+            ip->i_uid = pdir->i_uid;
+         else
+      #endif
 			ip->i_uid = cnp->cn_cred->cr_uid;
 		}
 	}
 #else
+#ifdef APPLE
+   if ((mode & IFMT) == IFLNK)
+		ip->i_uid = pdir->i_uid;
+	else
+#endif
 	ip->i_uid = cnp->cn_cred->cr_uid;
 #endif
 	ip->i_flag |= IN_ACCESS | IN_CHANGE | IN_UPDATE;
@@ -2167,12 +2505,24 @@ ext2_makeinode(mode, dvp, vpp, cnp)
       #ifndef APPLE
 	    suser_cred(cnp->cn_cred, PRISON_ROOT))
       #else
-       suser(cnp->cn_cred, &cnp->cn_proc->p_acflag))
+       suser(cnp->cn_cred, NULL))
       #endif
 		ip->i_mode &= ~ISGID;
 
 	if (cnp->cn_flags & ISWHITEOUT)
 		ip->i_flags |= UF_OPAQUE;
+   
+#ifdef APPLE
+   /*
+	 * initialize UBC before calling ext2_update and ext2_direnter
+	 * Not doing so introduces probelms in handling error from
+	 * those calls.
+	 * It results in a "vget: stolen ubc_info" panic due to attempt
+	 * to shutdown uninitialized UBC.
+	 */
+	if (UBCINFOMISSING(tvp) || UBCINFORECLAIMED(tvp))
+		ubc_info_init(tvp);
+#endif
 
 	/*
 	 * Make sure inode goes to disk before directory entry.
@@ -2183,6 +2533,12 @@ ext2_makeinode(mode, dvp, vpp, cnp)
 	error = ext2_direnter(ip, dvp, cnp);
 	if (error)
 		goto bad;
+   
+#ifdef APPLE
+   if ((cnp->cn_flags & SAVESTART) == 0)
+		FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
+	vput(dvp);
+#endif
 
 	*vpp = tvp;
 	return (0);
@@ -2192,6 +2548,11 @@ bad:
 	 * Write error occurred trying to update the inode
 	 * or the directory so must deallocate the inode.
 	 */
+#ifdef APPLE
+   if ((cnp->cn_flags & SAVESTART) == 0)
+      _FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
+	vput(dvp);
+#endif
 	ip->i_nlink = 0;
 	ip->i_flag |= IN_CHANGE;
 	vput(tvp);
@@ -2312,6 +2673,7 @@ ext2fs_truncate(ap)
 		struct proc *a_p;
 	} */ *ap;
 {
+   ext2_trace_enter();
    return (ext2_truncate(ap->a_vp, ap->a_length, ap->a_flags, ap->a_cred, ap->a_p));
 }
 #endif /* APPLE */
