@@ -406,13 +406,13 @@ ext2_lookup(ap)
 	int slotsize;			/* size of area at slotoffset */
 	int slotfreespace;		/* amount of space free in slot */
 	int slotneeded;			/* size of the entry we're seeking */
-	int numdirpasses;		/* strategy for directory search */
+	int numdirpasses=0;		/* strategy for directory search */
 	doff_t endsearch;		/* offset to end directory search */
-	doff_t prevoff;			/* prev entry dp->i_offset */
+	doff_t prevoff=0;			/* prev entry dp->i_offset */
 	struct vnode *pdp;		/* saved dp during symlink work */
 	struct vnode *tdp;		/* returned by VFS_VGET */
-	doff_t enduseful;		/* pointer past last used dir slot */
-	u_long bmask;			/* block offset mask */
+	doff_t enduseful=0;		/* pointer past last used dir slot */
+	u_long bmask=0;			/* block offset mask */
 	int lockparent;			/* 1 => lockparent flag is set */
 	int wantparent;			/* 1 => wantparent or lockparent flag */
 	int namlen, error;
@@ -988,7 +988,7 @@ ext2_direnter(ip, dvp, cnp)
             return (error);
          dp->f_pos = 0;
          dp->i_flag |= IN_CHANGE;
-         return (make_indexed_dir(&h, &dentry, ip, bp));
+         ext2_trace_return (make_indexed_dir(&h, &dentry, ip, bp));
       }
       
 		auio.uio_offset = dp->i_offset;
