@@ -669,8 +669,10 @@ ext2_setattr(ap)
 			ip->i_flags |= (vap->va_flags & UF_SETTABLE);
 		}
 		ip->i_flag |= IN_CHANGE;
-		if (vap->va_flags & (IMMUTABLE | APPEND))
+		if (vap->va_flags & (IMMUTABLE | APPEND)) {
+         VN_KNOTE(vp, NOTE_ATTRIB);
 			return (0);
+      }
 	}
 	if (ip->i_flags & (IMMUTABLE | APPEND))
 		ext2_trace_return(EPERM);
@@ -1385,7 +1387,7 @@ abortit:
 		}
 		xp->i_flag &= ~IN_RENAME;
 	}
-   VN_KNOTE(fvp, NOTE_RENAME);
+   VN_KNOTE(ap->a_fvp, NOTE_RENAME);
 	if (dp)
 		vput(fdvp);
 	if (xp)
