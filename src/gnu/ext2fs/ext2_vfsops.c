@@ -40,7 +40,7 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_vfsops.c,v 1.101 2003/01/01 18:48:52 schweikh Exp $
  */
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -406,13 +406,10 @@ ext2_mount(mp, path, data, ndp, td)
    /* ump is setup by ext2_mountfs */
    ump = VFSTOEXT2(mp);
 	fs = ump->um_e2fs;
-   /*
-	 * Note that this strncpy() is ok because of a check at the start
-	 * of ext2_mount().
-	 */
-   bcopy((caddr_t)mp->mnt_stat.f_mntonname, (caddr_t)fs->fs_fsmnt,
-	    sizeof(fs->fs_fsmnt) - 1);
-   fs->fs_fsmnt[sizeof(fs->fs_fsmnt) - 1] = '\0';
+   
+   strncpy(fs->fs_fsmnt, mp->mnt_stat.f_mntonname, MAXMNTLEN-1);
+	// size is from copyinstr() above
+	bzero(fs->fs_fsmnt + size, MAXMNTLEN - size);
 	fs->s_mount_opt = args.e2_mnt_flags;
    
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
@@ -1093,7 +1090,10 @@ loop:
          using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
       VI_LOCK(vp); */
 		ip = VTOI(vp);
-		if (vp->v_type == VNON ||
+		/* The inode can be NULL when ext2_vget encounters an error from bread()
+			and a sync() gets in before the vnode is invalidated.
+		 */
+		if (vp->v_type == VNON || NULL == ip ||
 		    ((ip->i_flag &
 		    (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
           LIST_EMPTY(&vp->v_dirtyblkhd))) {

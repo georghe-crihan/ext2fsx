@@ -3,7 +3,7 @@
 	089C1669FE841209C02AAC07 = {
 		activeBuildStyle = 06AA1263FFB20DD611CA28AA;
 		activeExecutable = D387FCAB0595632700C31A93;
-		activeTarget = D39ED63004060E7300A80164;
+		activeTarget = D3D4AF220579135600A80164;
 		addToTargets = (
 			D3D4AF220579135600A80164,
 		);
@@ -17,14 +17,140 @@
 			D387FCAB0595632700C31A93,
 		);
 		perUserDictionary = {
-			PBXPerProjectTemplateStateSaveDate = 97176419;
+			PBXPerProjectTemplateStateSaveDate = 97905847;
+			"PBXTemplateGeometry-F5CA7ECB015C094F0DCA290F" = {
+				ContentSize = "{668, 621}";
+				LeftSlideOut = {
+					Collapsed = NO;
+					Frame = "{{0, 0}, {668, 621}}";
+					Split0 = {
+						Collapsed = NO;
+						Frame = "{{0, 0}, {668, 621}}";
+						Split0 = {
+							Frame = "{{0, 0}, {668, 621}}";
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Frame = "{{0, 0}, {484, 208}}";
+						};
+						Tab1 = {
+							Debugger = {
+								Collapsed = NO;
+								Frame = "{{0, 0}, {664, 208}}";
+								Split0 = {
+									Frame = "{{0, 24}, {664, 184}}";
+									Split0 = {
+										Frame = "{{0, 0}, {325, 184}}";
+									};
+									Split1 = {
+										DebugVariablesTableConfiguration = (
+											Name,
+											123,
+											Value,
+											85,
+											Summary,
+											96.123,
+										);
+										Frame = "{{334, 0}, {330, 184}}";
+									};
+									SplitCount = 2;
+								};
+								SplitCount = 1;
+								Tab0 = {
+									Frame = "{{0, 0}, {100, 50}}";
+								};
+								Tab1 = {
+									Frame = "{{0, 0}, {100, 50}}";
+								};
+								TabCount = 2;
+								TabsVisible = YES;
+							};
+							Frame = "{{0, 0}, {664, 208}}";
+							LauncherConfigVersion = 7;
+						};
+						Tab2 = {
+							Frame = "{{0, 0}, {664, 50}}";
+							LauncherConfigVersion = 3;
+							Runner = {
+								Frame = "{{0, 0}, {664, 50}}";
+							};
+						};
+						Tab3 = {
+							BuildMessageFrame = "{{0, 0}, {614, 262}}";
+							BuildTranscriptFrame = "{{0, 271}, {614, 2}}";
+							BuildTranscriptFrameExpanded = YES;
+							Frame = "{{0, 0}, {612, 295}}";
+						};
+						Tab4 = {
+							Frame = "{{0, 0}, {612, 295}}";
+						};
+						TabCount = 5;
+						TabsVisible = NO;
+					};
+					SplitCount = 1;
+					Tab0 = {
+						Frame = "{{0, 0}, {313, 531}}";
+						GroupTreeTableConfiguration = (
+							TargetStatusColumn,
+							18,
+							MainColumn,
+							280,
+						);
+					};
+					Tab1 = {
+						ClassesFrame = "{{0, 0}, {280, 398}}";
+						ClassesTreeTableConfiguration = (
+							PBXBookColumnIdentifier,
+							20,
+							PBXClassColumnIdentifier,
+							237,
+						);
+						Frame = "{{0, 0}, {278, 659}}";
+						MembersFrame = "{{0, 407}, {280, 252}}";
+						MembersTreeTableConfiguration = (
+							PBXBookColumnIdentifier,
+							20,
+							PBXMethodColumnIdentifier,
+							236,
+						);
+					};
+					Tab2 = {
+						Frame = "{{0, 0}, {200, 100}}";
+					};
+					Tab3 = {
+						Frame = "{{0, 0}, {200, 557}}";
+						TargetTableConfiguration = (
+							ActiveObject,
+							16,
+							ObjectNames,
+							202.296,
+						);
+					};
+					Tab4 = {
+						BreakpointsTreeTableConfiguration = (
+							breakpointColumn,
+							197,
+							enabledColumn,
+							31,
+						);
+						Frame = "{{0, 0}, {250, 100}}";
+					};
+					TabCount = 5;
+					TabsVisible = NO;
+				};
+				NavBarShownByDefault = YES;
+				StatusViewVisible = NO;
+				Template = F5CA7ECB015C094F0DCA290F;
+				ToolbarVisible = NO;
+				WindowLocation = "{733, 340}";
+			};
 			PBXWorkspaceContents = (
 				{
 					LeftSlideOut = {
 						Split0 = {
 							Split0 = {
 								NavContent0 = {
-									bookmark = D3A7229005CACB910052E714;
+									bookmark = D3401B4805D6D667004410C1;
 									history = (
 										D3A9B7D0058274D000B93FC7,
 										D3A9B81D058305BA00B93FC7,
@@ -40,19 +166,13 @@
 										D387FCB905966D5200C31A93,
 										D387FCBA05966D5200C31A93,
 										D387FCBB05966D5200C31A93,
-										D387FCBD05966D5200C31A93,
-										D387FCBE05966D5200C31A93,
 										D387FCBF05966D5200C31A93,
-										D387FCC005966D5200C31A93,
 										D387FCC105966D5200C31A93,
 										D387FCC205966D5200C31A93,
 										D3560A9B05992B1A00890EA3,
 										D30A63DA059E00B000E435E6,
 										D30A63E2059E00B000E435E6,
-										D30A63E3059E00B000E435E6,
 										D30A63E5059E00B000E435E6,
-										D30A63E7059E00B000E435E6,
-										D30A63E8059E00B000E435E6,
 										D38E63E605A0A47C0003E646,
 										D38E63E705A0A47C0003E646,
 										D38E63E805A0A47C0003E646,
@@ -72,20 +192,26 @@
 										D3E9F38E05B0811400FE7BAB,
 										D3E9F38F05B0811400FE7BAB,
 										D3E9F39005B0811400FE7BAB,
-										D3E9F39105B0811400FE7BAB,
-										D3E9F39205B0811400FE7BAB,
 										D3E9F39305B0811400FE7BAB,
 										D3E9F39405B0811400FE7BAB,
 										D3E9F39505B0811400FE7BAB,
-										D3E9F3B905B0819A00FE7BAB,
 										D3A721F605C3325A0052E714,
 										D3A721F705C3325A0052E714,
 										D3A7223005C59F500052E714,
 										D3A7223105C59F500052E714,
-										D3A7223205C59F500052E714,
-										D3A7223A05C61F3B0052E714,
-										D3A7228905CAC70D0052E714,
-										D3A7228E05CACAFE0052E714,
+										D3401B1105D30BCA004410C1,
+										D3401B1205D30BCA004410C1,
+										D3401B1305D30BCA004410C1,
+										D3401B1405D30BCA004410C1,
+										D3401B2F05D6D667004410C1,
+										D3401B3005D6D667004410C1,
+										D3401B3105D6D667004410C1,
+										D3401B3205D6D667004410C1,
+										D3401B3305D6D667004410C1,
+										D3401B3405D6D667004410C1,
+										D3401B3505D6D667004410C1,
+										D3401B3605D6D667004410C1,
+										D3401B3705D6D667004410C1,
 									);
 									prevStack = (
 										D3A9B7D6058274D000B93FC7,
@@ -692,11 +818,36 @@
 										D3A7224005C61F3B0052E714,
 										D3A7224105C61F3B0052E714,
 										D3A7228B05CAC70D0052E714,
+										D3401B1705D30BCA004410C1,
+										D3401B1805D30BCA004410C1,
+										D3401B1905D30BCA004410C1,
+										D3401B1A05D30BCA004410C1,
+										D3401B1B05D30BCA004410C1,
+										D3401B1C05D30BCA004410C1,
+										D3401B1D05D30BCA004410C1,
+										D3401B1E05D30BCA004410C1,
+										D3401B1F05D30BCA004410C1,
+										D3401B3805D6D667004410C1,
+										D3401B3905D6D667004410C1,
+										D3401B3A05D6D667004410C1,
+										D3401B3B05D6D667004410C1,
+										D3401B3C05D6D667004410C1,
+										D3401B3D05D6D667004410C1,
+										D3401B3E05D6D667004410C1,
+										D3401B3F05D6D667004410C1,
+										D3401B4005D6D667004410C1,
+										D3401B4105D6D667004410C1,
+										D3401B4205D6D667004410C1,
+										D3401B4305D6D667004410C1,
+										D3401B4405D6D667004410C1,
+										D3401B4505D6D667004410C1,
+										D3401B4605D6D667004410C1,
+										D3401B4705D6D667004410C1,
 									);
 								};
 								NavCount = 1;
 								NavGeometry0 = {
-									Frame = "{{0, 0}, {696, 969}}";
+									Frame = "{{0, 0}, {666, 969}}";
 									NavBarVisible = YES;
 								};
 								NavSplitVertical = NO;
@@ -731,15 +882,15 @@
 				{
 					ContentSize = "{906, 1016}";
 					LeftSlideOut = {
-						ActiveTab = 3;
-						ActiveTabName = PBXTargetTreeModule;
+						ActiveTab = 0;
+						ActiveTabName = PBXGroupTreeModule;
 						Collapsed = NO;
 						Frame = "{{0, 23}, {906, 993}}";
 						Split0 = {
 							Collapsed = NO;
-							Frame = "{{210, 0}, {696, 993}}";
+							Frame = "{{240, 0}, {666, 993}}";
 							Split0 = {
-								Frame = "{{0, 24}, {696, 969}}";
+								Frame = "{{0, 24}, {666, 969}}";
 							};
 							SplitCount = 1;
 							Tab0 = {
@@ -790,10 +941,10 @@
 								};
 							};
 							Tab3 = {
-								BuildMessageFrame = "{{0, 0}, {698, 109}}";
-								BuildTranscriptFrame = "{{0, 118}, {698, 124}}";
+								BuildMessageFrame = "{{0, 0}, {668, 109}}";
+								BuildTranscriptFrame = "{{0, 118}, {668, 124}}";
 								BuildTranscriptFrameExpanded = YES;
-								Frame = "{{0, 0}, {696, 264}}";
+								Frame = "{{0, 0}, {666, 264}}";
 							};
 							Tab4 = {
 								Frame = "{{0, 0}, {666, 294}}";
@@ -861,15 +1012,12 @@
 					WindowLocation = "{16, 89}";
 				},
 			);
-			PBXWorkspaceStateSaveDate = 97176419;
+			PBXWorkspaceStateSaveDate = 97905847;
 		};
 		perUserProjectItems = {
 			D30A63DA059E00B000E435E6 = D30A63DA059E00B000E435E6;
 			D30A63E2059E00B000E435E6 = D30A63E2059E00B000E435E6;
-			D30A63E3059E00B000E435E6 = D30A63E3059E00B000E435E6;
 			D30A63E5059E00B000E435E6 = D30A63E5059E00B000E435E6;
-			D30A63E7059E00B000E435E6 = D30A63E7059E00B000E435E6;
-			D30A63E8059E00B000E435E6 = D30A63E8059E00B000E435E6;
 			D30A63EB059E00B000E435E6 = D30A63EB059E00B000E435E6;
 			D30A63EC059E00B000E435E6 = D30A63EC059E00B000E435E6;
 			D30A63ED059E00B000E435E6 = D30A63ED059E00B000E435E6;
@@ -1051,6 +1199,45 @@
 			D3360F04058EEFCC004AF361 = D3360F04058EEFCC004AF361;
 			D3360F05058EEFCC004AF361 = D3360F05058EEFCC004AF361;
 			D3360F06058EEFCC004AF361 = D3360F06058EEFCC004AF361;
+			D3401B1105D30BCA004410C1 = D3401B1105D30BCA004410C1;
+			D3401B1205D30BCA004410C1 = D3401B1205D30BCA004410C1;
+			D3401B1305D30BCA004410C1 = D3401B1305D30BCA004410C1;
+			D3401B1405D30BCA004410C1 = D3401B1405D30BCA004410C1;
+			D3401B1705D30BCA004410C1 = D3401B1705D30BCA004410C1;
+			D3401B1805D30BCA004410C1 = D3401B1805D30BCA004410C1;
+			D3401B1905D30BCA004410C1 = D3401B1905D30BCA004410C1;
+			D3401B1A05D30BCA004410C1 = D3401B1A05D30BCA004410C1;
+			D3401B1B05D30BCA004410C1 = D3401B1B05D30BCA004410C1;
+			D3401B1C05D30BCA004410C1 = D3401B1C05D30BCA004410C1;
+			D3401B1D05D30BCA004410C1 = D3401B1D05D30BCA004410C1;
+			D3401B1E05D30BCA004410C1 = D3401B1E05D30BCA004410C1;
+			D3401B1F05D30BCA004410C1 = D3401B1F05D30BCA004410C1;
+			D3401B2F05D6D667004410C1 = D3401B2F05D6D667004410C1;
+			D3401B3005D6D667004410C1 = D3401B3005D6D667004410C1;
+			D3401B3105D6D667004410C1 = D3401B3105D6D667004410C1;
+			D3401B3205D6D667004410C1 = D3401B3205D6D667004410C1;
+			D3401B3305D6D667004410C1 = D3401B3305D6D667004410C1;
+			D3401B3405D6D667004410C1 = D3401B3405D6D667004410C1;
+			D3401B3505D6D667004410C1 = D3401B3505D6D667004410C1;
+			D3401B3605D6D667004410C1 = D3401B3605D6D667004410C1;
+			D3401B3705D6D667004410C1 = D3401B3705D6D667004410C1;
+			D3401B3805D6D667004410C1 = D3401B3805D6D667004410C1;
+			D3401B3905D6D667004410C1 = D3401B3905D6D667004410C1;
+			D3401B3A05D6D667004410C1 = D3401B3A05D6D667004410C1;
+			D3401B3B05D6D667004410C1 = D3401B3B05D6D667004410C1;
+			D3401B3C05D6D667004410C1 = D3401B3C05D6D667004410C1;
+			D3401B3D05D6D667004410C1 = D3401B3D05D6D667004410C1;
+			D3401B3E05D6D667004410C1 = D3401B3E05D6D667004410C1;
+			D3401B3F05D6D667004410C1 = D3401B3F05D6D667004410C1;
+			D3401B4005D6D667004410C1 = D3401B4005D6D667004410C1;
+			D3401B4105D6D667004410C1 = D3401B4105D6D667004410C1;
+			D3401B4205D6D667004410C1 = D3401B4205D6D667004410C1;
+			D3401B4305D6D667004410C1 = D3401B4305D6D667004410C1;
+			D3401B4405D6D667004410C1 = D3401B4405D6D667004410C1;
+			D3401B4505D6D667004410C1 = D3401B4505D6D667004410C1;
+			D3401B4605D6D667004410C1 = D3401B4605D6D667004410C1;
+			D3401B4705D6D667004410C1 = D3401B4705D6D667004410C1;
+			D3401B4805D6D667004410C1 = D3401B4805D6D667004410C1;
 			D355614705865C53008148F9 = D355614705865C53008148F9;
 			D355615205865C53008148F9 = D355615205865C53008148F9;
 			D355615305865C53008148F9 = D355615305865C53008148F9;
@@ -1116,10 +1303,7 @@
 			D387FCB905966D5200C31A93 = D387FCB905966D5200C31A93;
 			D387FCBA05966D5200C31A93 = D387FCBA05966D5200C31A93;
 			D387FCBB05966D5200C31A93 = D387FCBB05966D5200C31A93;
-			D387FCBD05966D5200C31A93 = D387FCBD05966D5200C31A93;
-			D387FCBE05966D5200C31A93 = D387FCBE05966D5200C31A93;
 			D387FCBF05966D5200C31A93 = D387FCBF05966D5200C31A93;
-			D387FCC005966D5200C31A93 = D387FCC005966D5200C31A93;
 			D387FCC105966D5200C31A93 = D387FCC105966D5200C31A93;
 			D387FCC205966D5200C31A93 = D387FCC205966D5200C31A93;
 			D387FCC605966D5200C31A93 = D387FCC605966D5200C31A93;
@@ -1286,21 +1470,16 @@
 			D3A721FF05C3325A0052E714 = D3A721FF05C3325A0052E714;
 			D3A7223005C59F500052E714 = D3A7223005C59F500052E714;
 			D3A7223105C59F500052E714 = D3A7223105C59F500052E714;
-			D3A7223205C59F500052E714 = D3A7223205C59F500052E714;
 			D3A7223405C59F510052E714 = D3A7223405C59F510052E714;
 			D3A7223505C59F510052E714 = D3A7223505C59F510052E714;
 			D3A7223605C59F510052E714 = D3A7223605C59F510052E714;
 			D3A7223705C59F510052E714 = D3A7223705C59F510052E714;
-			D3A7223A05C61F3B0052E714 = D3A7223A05C61F3B0052E714;
 			D3A7223D05C61F3B0052E714 = D3A7223D05C61F3B0052E714;
 			D3A7223E05C61F3B0052E714 = D3A7223E05C61F3B0052E714;
 			D3A7223F05C61F3B0052E714 = D3A7223F05C61F3B0052E714;
 			D3A7224005C61F3B0052E714 = D3A7224005C61F3B0052E714;
 			D3A7224105C61F3B0052E714 = D3A7224105C61F3B0052E714;
-			D3A7228905CAC70D0052E714 = D3A7228905CAC70D0052E714;
 			D3A7228B05CAC70D0052E714 = D3A7228B05CAC70D0052E714;
-			D3A7228E05CACAFE0052E714 = D3A7228E05CACAFE0052E714;
-			D3A7229005CACB910052E714 = D3A7229005CACB910052E714;
 			D3A9B7D0058274D000B93FC7 = D3A9B7D0058274D000B93FC7;
 			D3A9B7D6058274D000B93FC7 = D3A9B7D6058274D000B93FC7;
 			D3A9B7D8058274D000B93FC7 = D3A9B7D8058274D000B93FC7;
@@ -1488,8 +1667,6 @@
 			D3E9F38E05B0811400FE7BAB = D3E9F38E05B0811400FE7BAB;
 			D3E9F38F05B0811400FE7BAB = D3E9F38F05B0811400FE7BAB;
 			D3E9F39005B0811400FE7BAB = D3E9F39005B0811400FE7BAB;
-			D3E9F39105B0811400FE7BAB = D3E9F39105B0811400FE7BAB;
-			D3E9F39205B0811400FE7BAB = D3E9F39205B0811400FE7BAB;
 			D3E9F39305B0811400FE7BAB = D3E9F39305B0811400FE7BAB;
 			D3E9F39405B0811400FE7BAB = D3E9F39405B0811400FE7BAB;
 			D3E9F39505B0811400FE7BAB = D3E9F39505B0811400FE7BAB;
@@ -1527,7 +1704,6 @@
 			D3E9F3B505B0811400FE7BAB = D3E9F3B505B0811400FE7BAB;
 			D3E9F3B605B0811400FE7BAB = D3E9F3B605B0811400FE7BAB;
 			D3E9F3B705B0811400FE7BAB = D3E9F3B705B0811400FE7BAB;
-			D3E9F3B905B0819A00FE7BAB = D3E9F3B905B0819A00FE7BAB;
 			D3E9F3BB05B0819A00FE7BAB = D3E9F3BB05B0819A00FE7BAB;
 		};
 		projectwideBuildSettings = {
@@ -1553,39 +1729,9 @@
 		vrLen = 2677;
 		vrLoc = 0;
 	};
-	D30A63E3059E00B000E435E6 = {
-		fRef = D36725B2057A698B00A80164;
-		isa = PBXTextBookmark;
-		name = "ExtFSMedia.h: fsTypeHFSJCS";
-		rLen = 0;
-		rLoc = 1670;
-		rType = 0;
-		vrLen = 1927;
-		vrLoc = 699;
-	};
 	D30A63E5059E00B000E435E6 = {
 		bstl = 06AA1262FFB20DD611CA28AA;
 		isa = PBXBuildStyleBookmark;
-	};
-	D30A63E7059E00B000E435E6 = {
-		fRef = D36725B3057A698B00A80164;
-		isa = PBXTextBookmark;
-		name = "ExtFSMedia.m: fsInfo";
-		rLen = 14;
-		rLoc = 5582;
-		rType = 0;
-		vrLen = 1197;
-		vrLoc = 13480;
-	};
-	D30A63E8059E00B000E435E6 = {
-		fRef = D36725B5057A698B00A80164;
-		isa = PBXTextBookmark;
-		name = "ExtFSMediaController.m: createMediaWithIOService:properties:";
-		rLen = 0;
-		rLoc = 5701;
-		rType = 0;
-		vrLen = 1884;
-		vrLoc = 1579;
 	};
 	D30A63EB059E00B000E435E6 = {
 		isa = PBXTargetBookmark;
@@ -1614,7 +1760,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 71";
 		rLen = 0;
-		rLoc = 3733;
+		rLoc = 3738;
 		rType = 0;
 		vrLen = 2158;
 		vrLoc = 3376;
@@ -1634,7 +1780,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: ext2_sysctl";
 		rLen = 86;
-		rLoc = 5665;
+		rLoc = 5670;
 		rType = 0;
 		vrLen = 2229;
 		vrLoc = 4383;
@@ -1664,7 +1810,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: ext2fs_vnodeop_opv_desc";
 		rLen = 192;
-		rLoc = 48227;
+		rLoc = 48287;
 		rType = 0;
 		vrLen = 2183;
 		vrLoc = 46758;
@@ -1744,7 +1890,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1541";
 		rLen = 10;
-		rLoc = 44288;
+		rLoc = 44348;
 		rType = 0;
 		vrLen = 1133;
 		vrLoc = 43693;
@@ -1754,7 +1900,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 834";
 		rLen = 0;
-		rLoc = 28110;
+		rLoc = 28195;
 		rType = 0;
 		vrLen = 2108;
 		vrLoc = 25258;
@@ -1774,7 +1920,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: didUnselect";
 		rLen = 0;
-		rLoc = 28110;
+		rLoc = 28195;
 		rType = 0;
 		vrLen = 2103;
 		vrLoc = 25258;
@@ -1804,7 +1950,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: didUnselect";
 		rLen = 0;
-		rLoc = 28110;
+		rLoc = 28195;
 		rType = 0;
 		vrLen = 2103;
 		vrLoc = 25258;
@@ -2014,7 +2160,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 22041;
+		rLoc = 22126;
 		rType = 0;
 		vrLen = 2045;
 		vrLoc = 23526;
@@ -2124,7 +2270,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 22041;
+		rLoc = 22126;
 		rType = 0;
 		vrLen = 1989;
 		vrLoc = 1988;
@@ -2144,7 +2290,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: generateInfo:";
 		rLen = 0;
-		rLoc = 11176;
+		rLoc = 11181;
 		rType = 0;
 		vrLen = 2215;
 		vrLoc = 9936;
@@ -2164,7 +2310,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 26688;
+		rLoc = 26773;
 		rType = 0;
 		vrLen = 2699;
 		vrLoc = 24987;
@@ -2184,7 +2330,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mediaAdd:";
 		rLen = 0;
-		rLoc = 4660;
+		rLoc = 4665;
 		rType = 0;
 		vrLen = 1889;
 		vrLoc = 3607;
@@ -2204,7 +2350,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mediaAdd:";
 		rLen = 0;
-		rLoc = 4660;
+		rLoc = 4665;
 		rType = 0;
 		vrLen = 1889;
 		vrLoc = 3607;
@@ -2224,7 +2370,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 106";
 		rLen = 44;
-		rLoc = 3766;
+		rLoc = 3771;
 		rType = 0;
 		vrLen = 1889;
 		vrLoc = 3607;
@@ -2244,7 +2390,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 629";
 		rLen = 29;
-		rLoc = 19547;
+		rLoc = 19632;
 		rType = 0;
 		vrLen = 2561;
 		vrLoc = 20016;
@@ -2324,7 +2470,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 907";
 		rLen = 0;
-		rLoc = 29437;
+		rLoc = 29522;
 		rType = 0;
 		vrLen = 1998;
 		vrLoc = 1768;
@@ -2398,7 +2544,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 20;
-		rLoc = 26075;
+		rLoc = 26160;
 		rType = 0;
 		vrLen = 2578;
 		vrLoc = 24009;
@@ -2418,7 +2564,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 25511;
+		rLoc = 25596;
 		rType = 0;
 		vrLen = 2130;
 		vrLoc = 24411;
@@ -2448,7 +2594,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 25511;
+		rLoc = 25596;
 		rType = 0;
 		vrLen = 2549;
 		vrLoc = 24078;
@@ -2488,7 +2634,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mediaAdd:";
 		rLen = 0;
-		rLoc = 5131;
+		rLoc = 5136;
 		rType = 0;
 		vrLen = 1625;
 		vrLoc = 5513;
@@ -2526,7 +2672,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mediaAdd:";
 		rLen = 0;
-		rLoc = 5131;
+		rLoc = 5136;
 		rType = 0;
 		vrLen = 1623;
 		vrLoc = 5513;
@@ -2546,7 +2692,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: volMount:";
 		rLen = 10;
-		rLoc = 6371;
+		rLoc = 6376;
 		rType = 0;
 		vrLen = 1623;
 		vrLoc = 5513;
@@ -2566,7 +2712,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: volMount:";
 		rLen = 10;
-		rLoc = 6371;
+		rLoc = 6376;
 		rType = 0;
 		vrLen = 1623;
 		vrLoc = 5513;
@@ -2596,7 +2742,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: volMount:";
 		rLen = 0;
-		rLoc = 6458;
+		rLoc = 6463;
 		rType = 0;
 		vrLen = 2609;
 		vrLoc = 0;
@@ -2626,7 +2772,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: volMount:";
 		rLen = 0;
-		rLoc = 6458;
+		rLoc = 6463;
 		rType = 0;
 		vrLen = 2609;
 		vrLoc = 0;
@@ -2724,7 +2870,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: volInfoUpdated:";
 		rLen = 0;
-		rLoc = 7080;
+		rLoc = 7085;
 		rType = 0;
 		vrLen = 1440;
 		vrLoc = 5647;
@@ -3110,7 +3256,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 729";
 		rLen = 12;
-		rLoc = 22997;
+		rLoc = 22905;
 		rType = 0;
 		vrLen = 2045;
 		vrLoc = 27347;
@@ -3130,7 +3276,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 729";
 		rLen = 12;
-		rLoc = 22997;
+		rLoc = 22905;
 		rType = 0;
 		vrLen = 2045;
 		vrLoc = 27347;
@@ -3150,7 +3296,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 409";
 		rLen = 0;
-		rLoc = 13122;
+		rLoc = 13125;
 		rType = 0;
 		vrLen = 1765;
 		vrLoc = 11866;
@@ -3160,7 +3306,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 373";
 		rLen = 0;
-		rLoc = 12137;
+		rLoc = 12142;
 		rType = 0;
 		vrLen = 1765;
 		vrLoc = 11866;
@@ -3219,6 +3365,416 @@
 		isa = PBXTargetBookmark;
 		trg = 089C1673FE841209C02AAC07;
 	};
+	D3401B1105D30BCA004410C1 = {
+		fRef = D3C06DAD040A137600A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_io_apple.c: 747";
+		rLen = 0;
+		rLoc = 19158;
+		rType = 0;
+		vrLen = 3149;
+		vrLoc = 0;
+	};
+	D3401B1205D30BCA004410C1 = {
+		fRef = D3D4AF3D0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.h: savePrefs";
+		rLen = 9;
+		rLoc = 2260;
+		rType = 0;
+		vrLen = 2357;
+		vrLoc = 517;
+	};
+	D3401B1305D30BCA004410C1 = {
+		isa = PBXTargetBookmark;
+		trg = D3D4AF220579135600A80164;
+	};
+	D3401B1405D30BCA004410C1 = {
+		fRef = D36725B2057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMedia.h: fsTypeHFSJCS";
+		rLen = 0;
+		rLoc = 1670;
+		rType = 0;
+		vrLen = 1587;
+		vrLoc = 2626;
+	};
+	D3401B1705D30BCA004410C1 = {
+		fRef = D3C06DAD040A137600A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_io_apple.c: 747";
+		rLen = 0;
+		rLoc = 19158;
+		rType = 0;
+		vrLen = 3149;
+		vrLoc = 0;
+	};
+	D3401B1805D30BCA004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: 325";
+		rLen = 40;
+		rLoc = 10108;
+		rType = 0;
+		vrLen = 1995;
+		vrLoc = 9106;
+	};
+	D3401B1905D30BCA004410C1 = {
+		fRef = D3D4AF3D0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.h: savePrefs";
+		rLen = 9;
+		rLoc = 2260;
+		rType = 0;
+		vrLen = 2357;
+		vrLoc = 517;
+	};
+	D3401B1A05D30BCA004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: generateInfo:";
+		rLen = 0;
+		rLoc = 14361;
+		rType = 0;
+		vrLen = 2537;
+		vrLoc = 12382;
+	};
+	D3401B1B05D30BCA004410C1 = {
+		isa = PBXTargetBookmark;
+		trg = D3D4AF220579135600A80164;
+	};
+	D3401B1C05D30BCA004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: __USER_LABEL_PREFIX__";
+		rLen = 0;
+		rLoc = 24;
+		rType = 0;
+		vrLen = 2020;
+		vrLoc = 9395;
+	};
+	D3401B1D05D30BCA004410C1 = {
+		fRef = D36725B3057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMedia.m: fsInfo";
+		rLen = 14;
+		rLoc = 5582;
+		rType = 0;
+		vrLen = 1220;
+		vrLoc = 13457;
+	};
+	D3401B1E05D30BCA004410C1 = {
+		fRef = D36725B2057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMedia.h: fsTypeHFSJCS";
+		rLen = 0;
+		rLoc = 1670;
+		rType = 0;
+		vrLen = 1587;
+		vrLoc = 2626;
+	};
+	D3401B1F05D30BCA004410C1 = {
+		fRef = D36725B3057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMedia.m: fsInfo";
+		rLen = 0;
+		rLoc = 5405;
+		rType = 0;
+		vrLen = 1939;
+		vrLoc = 3561;
+	};
+	D3401B2F05D6D667004410C1 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {450, 303}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {177, 915}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	D3401B3005D6D667004410C1 = {
+		isa = PBXTargetBookmark;
+		trg = D3D485850405AEF400A80164;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {451, 495}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 915}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	D3401B3105D6D667004410C1 = {
+		fRef = D33C06890418779900A80164;
+		isa = PBXTextBookmark;
+		name = "newfs_ext2.c: __VERSION__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2250;
+		vrLoc = 0;
+	};
+	D3401B3205D6D667004410C1 = {
+		fRef = D387FC9F059558E400C31A93;
+		isa = PBXTextBookmark;
+		name = "fsck_ext2.c: 32";
+		rLen = 0;
+		rLoc = 1666;
+		rType = 0;
+		vrLen = 1851;
+		vrLoc = 639;
+	};
+	D3401B3305D6D667004410C1 = {
+		fRef = D387FCA20595597500C31A93;
+		isa = PBXTextBookmark;
+		name = "super.c: extsuper_read";
+		rLen = 0;
+		rLoc = 2771;
+		rType = 0;
+		vrLen = 1613;
+		vrLoc = 2192;
+	};
+	D3401B3405D6D667004410C1 = {
+		fRef = D36725B3057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMedia.m: ioRegistryName";
+		rLen = 10;
+		rLoc = 8942;
+		rType = 0;
+		vrLen = 1564;
+		vrLoc = 8113;
+	};
+	D3401B3505D6D667004410C1 = {
+		fRef = D36725B5057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMediaController.m: updateAttributesFromIOService:";
+		rLen = 0;
+		rLoc = 11771;
+		rType = 0;
+		vrLen = 1949;
+		vrLoc = 11161;
+	};
+	D3401B3605D6D667004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: __VERSION__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2618;
+		vrLoc = 0;
+	};
+	D3401B3705D6D667004410C1 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 1805";
+		rLen = 0;
+		rLoc = 51555;
+		rType = 0;
+		vrLen = 1989;
+		vrLoc = 12398;
+	};
+	D3401B3805D6D667004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: 32";
+		rLen = 0;
+		rLoc = 1643;
+		rType = 0;
+		vrLen = 2618;
+		vrLoc = 0;
+	};
+	D3401B3905D6D667004410C1 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 1097";
+		rLen = 0;
+		rLoc = 34032;
+		rType = 0;
+		vrLen = 1872;
+		vrLoc = 33431;
+	};
+	D3401B3A05D6D667004410C1 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {450, 303}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {177, 915}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	D3401B3B05D6D667004410C1 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 412";
+		rLen = 0;
+		rLoc = 13233;
+		rType = 0;
+		vrLen = 1768;
+		vrLoc = 11893;
+	};
+	D3401B3C05D6D667004410C1 = {
+		isa = PBXTargetBookmark;
+		trg = D3D485850405AEF400A80164;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {451, 495}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 915}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	D3401B3D05D6D667004410C1 = {
+		fRef = D33C06890418779900A80164;
+		isa = PBXTextBookmark;
+		name = "newfs_ext2.c: __VERSION__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2250;
+		vrLoc = 0;
+	};
+	D3401B3E05D6D667004410C1 = {
+		fRef = D387FC9F059558E400C31A93;
+		isa = PBXTextBookmark;
+		name = "fsck_ext2.c: 32";
+		rLen = 0;
+		rLoc = 1666;
+		rType = 0;
+		vrLen = 1851;
+		vrLoc = 639;
+	};
+	D3401B3F05D6D667004410C1 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 412";
+		rLen = 0;
+		rLoc = 13233;
+		rType = 0;
+		vrLen = 1749;
+		vrLoc = 11914;
+	};
+	D3401B4005D6D667004410C1 = {
+		fRef = D387FCA20595597500C31A93;
+		isa = PBXTextBookmark;
+		name = "super.c: extsuper_read";
+		rLen = 0;
+		rLoc = 2771;
+		rType = 0;
+		vrLen = 1613;
+		vrLoc = 2192;
+	};
+	D3401B4105D6D667004410C1 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 1153";
+		rLen = 9;
+		rLoc = 35522;
+		rType = 0;
+		vrLen = 2095;
+		vrLoc = 35931;
+	};
+	D3401B4205D6D667004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: outlineView:objectValueForTableColumn:byItem:";
+		rLen = 49;
+		rLoc = 29249;
+		rType = 0;
+		vrLen = 2088;
+		vrLoc = 27446;
+	};
+	D3401B4305D6D667004410C1 = {
+		fRef = D36725B3057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMedia.m: ioRegistryName";
+		rLen = 10;
+		rLoc = 8942;
+		rType = 0;
+		vrLen = 1564;
+		vrLoc = 8113;
+	};
+	D3401B4405D6D667004410C1 = {
+		fRef = D36725B5057A698B00A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSMediaController.m: updateAttributesFromIOService:";
+		rLen = 0;
+		rLoc = 11771;
+		rType = 0;
+		vrLen = 1949;
+		vrLoc = 11161;
+	};
+	D3401B4505D6D667004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: click_automount:";
+		rLen = 0;
+		rLoc = 17390;
+		rType = 0;
+		vrLen = 1674;
+		vrLoc = 16520;
+	};
+	D3401B4605D6D667004410C1 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 1805";
+		rLen = 0;
+		rLoc = 51555;
+		rType = 0;
+		vrLen = 1989;
+		vrLoc = 12398;
+	};
+	D3401B4705D6D667004410C1 = {
+		fRef = D3D4AF3E0579166400A80164;
+		isa = PBXTextBookmark;
+		name = "ExtFSManager.m: __VERSION__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2618;
+		vrLoc = 0;
+	};
+	D3401B4805D6D667004410C1 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 3620;
+		vrLoc = 0;
+	};
 	D34AE6840417173400A80164 = {
 		activeExec = 0;
 	};
@@ -3237,7 +3793,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMount:";
 		rLen = 18;
-		rLoc = 18723;
+		rLoc = 18808;
 		rType = 0;
 		vrLen = 2089;
 		vrLoc = 16430;
@@ -3257,7 +3813,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMount:";
 		rLen = 18;
-		rLoc = 18723;
+		rLoc = 18808;
 		rType = 0;
 		vrLen = 2089;
 		vrLoc = 16430;
@@ -3317,7 +3873,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: media";
 		rLen = 0;
-		rLoc = 7080;
+		rLoc = 7085;
 		rType = 0;
 		vrLen = 2608;
 		vrLoc = 0;
@@ -3477,7 +4033,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 884";
 		rLen = 0;
-		rLoc = 29436;
+		rLoc = 29521;
 		rType = 0;
 		vrLen = 2608;
 		vrLoc = 0;
@@ -3545,7 +4101,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mediaError:";
 		rLen = 0;
-		rLoc = 7725;
+		rLoc = 7730;
 		rType = 0;
 		vrLen = 1931;
 		vrLoc = 6562;
@@ -3565,7 +4121,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 22014;
+		rLoc = 22099;
 		rType = 0;
 		vrLen = 2513;
 		vrLoc = 20357;
@@ -3585,7 +4141,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 39;
-		rLoc = 21877;
+		rLoc = 21962;
 		rType = 0;
 		vrLen = 2513;
 		vrLoc = 20357;
@@ -3605,7 +4161,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 21973;
+		rLoc = 22058;
 		rType = 0;
 		vrLen = 2543;
 		vrLoc = 20357;
@@ -3629,7 +4185,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 884";
 		rLen = 0;
-		rLoc = 29436;
+		rLoc = 29521;
 		rType = 0;
 		vrLen = 2608;
 		vrLoc = 0;
@@ -3825,26 +4381,6 @@
 		vrLen = 1610;
 		vrLoc = 0;
 	};
-	D387FCBD05966D5200C31A93 = {
-		fRef = D387FC9F059558E400C31A93;
-		isa = PBXTextBookmark;
-		name = "fsck_ext2.c: 49";
-		rLen = 0;
-		rLoc = 1954;
-		rType = 0;
-		vrLen = 1971;
-		vrLoc = 517;
-	};
-	D387FCBE05966D5200C31A93 = {
-		fRef = D387FCA20595597500C31A93;
-		isa = PBXTextBookmark;
-		name = "super.c: extsuper_read";
-		rLen = 0;
-		rLoc = 2771;
-		rType = 0;
-		vrLen = 2350;
-		vrLoc = 546;
-	};
 	D387FCBF05966D5200C31A93 = {
 		fRef = D3D485870405C3B900A80164;
 		isa = PBXTextBookmark;
@@ -3853,16 +4389,6 @@
 		rLoc = 0;
 		rType = 0;
 		vrLen = 2813;
-		vrLoc = 0;
-	};
-	D387FCC005966D5200C31A93 = {
-		fRef = D33C06890418779900A80164;
-		isa = PBXTextBookmark;
-		name = "newfs_ext2.c: __VERSION__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2250;
 		vrLoc = 0;
 	};
 	D387FCC105966D5200C31A93 = {
@@ -3922,7 +4448,7 @@
 		rLen = 0;
 		rLoc = 0;
 		rType = 0;
-		vrLen = 1401;
+		vrLen = 1005;
 		vrLoc = 1556;
 	};
 	D387FCCA05966D5200C31A93 = {
@@ -3942,7 +4468,7 @@
 		rLen = 0;
 		rLoc = 0;
 		rType = 0;
-		vrLen = 1401;
+		vrLen = 1005;
 		vrLoc = 1556;
 	};
 	D387FCCC05966D5200C31A93 = {
@@ -4402,7 +4928,7 @@
 		rLen = 0;
 		rLoc = 2273;
 		rType = 0;
-		vrLen = 856;
+		vrLen = 830;
 		vrLoc = 1660;
 	};
 	D387FCFA05966D5200C31A93 = {
@@ -4776,7 +5302,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 191";
 		rLen = 0;
-		rLoc = 6300;
+		rLoc = 6305;
 		rType = 0;
 		vrLen = 2184;
 		vrLoc = 24362;
@@ -4956,7 +5482,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doOptions:";
 		rLen = 0;
-		rLoc = 20029;
+		rLoc = 20114;
 		rType = 0;
 		vrLen = 1676;
 		vrLoc = 15750;
@@ -4976,7 +5502,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: startup";
 		rLen = 0;
-		rLoc = 9748;
+		rLoc = 9753;
 		rType = 0;
 		vrLen = 2388;
 		vrLoc = 7870;
@@ -5284,7 +5810,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 864";
 		rLen = 5;
-		rLoc = 27494;
+		rLoc = 27402;
 		rType = 0;
 		vrLen = 2530;
 		vrLoc = 26152;
@@ -5334,7 +5860,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 26185;
+		rLoc = 26270;
 		rType = 0;
 		vrLen = 2739;
 		vrLoc = 23907;
@@ -5374,7 +5900,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: generateInfo:";
 		rLen = 0;
-		rLoc = 10456;
+		rLoc = 10461;
 		rType = 0;
 		vrLen = 2219;
 		vrLoc = 10056;
@@ -5457,7 +5983,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1247";
 		rLen = 0;
-		rLoc = 38185;
+		rLoc = 38245;
 		rType = 0;
 		vrLen = 2134;
 		vrLoc = 36841;
@@ -5497,7 +6023,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1247";
 		rLen = 0;
-		rLoc = 38185;
+		rLoc = 38245;
 		rType = 0;
 		vrLen = 2166;
 		vrLoc = 36238;
@@ -5521,16 +6047,6 @@
 		rType = 0;
 		vrLen = 2908;
 		vrLoc = 0;
-	};
-	D3A7223205C59F500052E714 = {
-		fRef = F5106D60035A69B701A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vfsops.c: 525";
-		rLen = 0;
-		rLoc = 16740;
-		rType = 0;
-		vrLen = 1991;
-		vrLoc = 15139;
 	};
 	D3A7223405C59F510052E714 = {
 		fRef = F53FE983035E84F001A80165;
@@ -5567,20 +6083,10 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 525";
 		rLen = 0;
-		rLoc = 16740;
+		rLoc = 16648;
 		rType = 0;
 		vrLen = 1991;
 		vrLoc = 15139;
-	};
-	D3A7223A05C61F3B0052E714 = {
-		fRef = D3D4AF3D0579166400A80164;
-		isa = PBXTextBookmark;
-		name = "ExtFSManager.h: didUnselect";
-		rLen = 9;
-		rLoc = 2260;
-		rType = 0;
-		vrLen = 2328;
-		vrLoc = 546;
 	};
 	D3A7223D05C61F3B0052E714 = {
 		fRef = D3C06DAD040A137600A80164;
@@ -5597,7 +6103,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMount:";
 		rLen = 0;
-		rLoc = 18372;
+		rLoc = 18487;
 		rType = 0;
 		vrLen = 2003;
 		vrLoc = 17519;
@@ -5617,7 +6123,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 918";
 		rLen = 0;
-		rLoc = 29441;
+		rLoc = 29526;
 		rType = 0;
 		vrLen = 2613;
 		vrLoc = 0;
@@ -5632,44 +6138,14 @@
 		vrLen = 3145;
 		vrLoc = 0;
 	};
-	D3A7228905CAC70D0052E714 = {
-		fRef = D3D4AF3E0579166400A80164;
-		isa = PBXTextBookmark;
-		name = "ExtFSManager.m: 918";
-		rLen = 0;
-		rLoc = 29441;
-		rType = 0;
-		vrLen = 2613;
-		vrLoc = 0;
-	};
 	D3A7228B05CAC70D0052E714 = {
 		fRef = D3D4AF3E0579166400A80164;
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 918";
 		rLen = 0;
-		rLoc = 29441;
+		rLoc = 29526;
 		rType = 0;
 		vrLen = 2613;
-		vrLoc = 0;
-	};
-	D3A7228E05CACAFE0052E714 = {
-		fRef = D3C06DAD040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_io_apple.c: 747";
-		rLen = 0;
-		rLoc = 19158;
-		rType = 0;
-		vrLen = 3149;
-		vrLoc = 0;
-	};
-	D3A7229005CACB910052E714 = {
-		fRef = D3C06DAD040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_io_apple.c: 747";
-		rLen = 0;
-		rLoc = 19158;
-		rType = 0;
-		vrLen = 3149;
 		vrLoc = 0;
 	};
 	D3A9B7D0058274D000B93FC7 = {
@@ -5687,7 +6163,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 190";
 		rLen = 0;
-		rLoc = 16144;
+		rLoc = 16237;
 		rType = 0;
 		vrLen = 1598;
 		vrLoc = 5174;
@@ -5697,7 +6173,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: click_indexedDirs:";
 		rLen = 0;
-		rLoc = 16144;
+		rLoc = 16237;
 		rType = 0;
 		vrLen = 1624;
 		vrLoc = 5433;
@@ -5717,7 +6193,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMediaSelection:";
 		rLen = 0;
-		rLoc = 15769;
+		rLoc = 15862;
 		rType = 0;
 		vrLen = 1560;
 		vrLoc = 5433;
@@ -5737,7 +6213,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: button";
 		rLen = 0;
-		rLoc = 16321;
+		rLoc = 16414;
 		rType = 0;
 		vrLen = 1511;
 		vrLoc = 6025;
@@ -5767,7 +6243,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doOptions:";
 		rLen = 0;
-		rLoc = 16208;
+		rLoc = 16301;
 		rType = 0;
 		vrLen = 2017;
 		vrLoc = 4934;
@@ -5787,7 +6263,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 201";
 		rLen = 0;
-		rLoc = 14346;
+		rLoc = 14439;
 		rType = 0;
 		vrLen = 2094;
 		vrLoc = 5066;
@@ -5807,7 +6283,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 206";
 		rLen = 0;
-		rLoc = 14311;
+		rLoc = 14316;
 		rType = 0;
 		vrLen = 1996;
 		vrLoc = 5199;
@@ -5827,7 +6303,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doOptions:";
 		rLen = 0;
-		rLoc = 19575;
+		rLoc = 19660;
 		rType = 0;
 		vrLen = 1020;
 		vrLoc = 8748;
@@ -5837,7 +6313,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMediaSelection:";
 		rLen = 0;
-		rLoc = 16144;
+		rLoc = 16237;
 		rType = 0;
 		vrLen = 1807;
 		vrLoc = 7058;
@@ -5857,7 +6333,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: probeDisks";
 		rLen = 0;
-		rLoc = 2899;
+		rLoc = 2904;
 		rType = 0;
 		vrLen = 1589;
 		vrLoc = 2435;
@@ -5877,7 +6353,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: generateInfo:";
 		rLen = 0;
-		rLoc = 10540;
+		rLoc = 10545;
 		rType = 0;
 		vrLen = 2849;
 		vrLoc = 6587;
@@ -5897,7 +6373,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 125;
-		rLoc = 24118;
+		rLoc = 24203;
 		rType = 0;
 		vrLen = 1530;
 		vrLoc = 11972;
@@ -5917,7 +6393,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: didSelect";
 		rLen = 0;
-		rLoc = 27215;
+		rLoc = 27300;
 		rType = 0;
 		vrLen = 1159;
 		vrLoc = 14245;
@@ -5937,7 +6413,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMediaSelection:";
 		rLen = 0;
-		rLoc = 16208;
+		rLoc = 16301;
 		rType = 0;
 		vrLen = 1755;
 		vrLoc = 9112;
@@ -5957,7 +6433,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: button";
 		rLen = 8;
-		rLoc = 20790;
+		rLoc = 20875;
 		rType = 0;
 		vrLen = 2463;
 		vrLoc = 12609;
@@ -6009,7 +6485,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: generateInfo:";
 		rLen = 0;
-		rLoc = 13947;
+		rLoc = 13952;
 		rType = 0;
 		vrLen = 2219;
 		vrLoc = 10088;
@@ -6029,7 +6505,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 337";
 		rLen = 0;
-		rLoc = 15376;
+		rLoc = 15469;
 		rType = 0;
 		vrLen = 2304;
 		vrLoc = 9827;
@@ -6049,7 +6525,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: tmp";
 		rLen = 0;
-		rLoc = 15007;
+		rLoc = 15100;
 		rType = 0;
 		vrLen = 2321;
 		vrLoc = 9827;
@@ -6069,7 +6545,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMediaSelection:";
 		rLen = 0;
-		rLoc = 15376;
+		rLoc = 15469;
 		rType = 0;
 		vrLen = 2227;
 		vrLoc = 10213;
@@ -6089,7 +6565,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: outlineView:child:ofItem:";
 		rLen = 19;
-		rLoc = 26802;
+		rLoc = 26887;
 		rType = 0;
 		vrLen = 1950;
 		vrLoc = 16723;
@@ -6109,7 +6585,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 357";
 		rLen = 0;
-		rLoc = 15035;
+		rLoc = 15128;
 		rType = 0;
 		vrLen = 2016;
 		vrLoc = 11306;
@@ -6153,7 +6629,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: click_automount:";
 		rLen = 0;
-		rLoc = 17368;
+		rLoc = 17452;
 		rType = 0;
 		vrLen = 1118;
 		vrLoc = 13878;
@@ -6173,7 +6649,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: click_indexedDirs:";
 		rLen = 0;
-		rLoc = 17859;
+		rLoc = 17952;
 		rType = 0;
 		vrLen = 1617;
 		vrLoc = 14120;
@@ -6197,7 +6673,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: click_indexedDirs:";
 		rLen = 0;
-		rLoc = 17859;
+		rLoc = 17952;
 		rType = 0;
 		vrLen = 1617;
 		vrLoc = 14120;
@@ -6207,7 +6683,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: tmp";
 		rLen = 0;
-		rLoc = 15374;
+		rLoc = 15467;
 		rType = 0;
 		vrLen = 2035;
 		vrLoc = 11385;
@@ -6217,7 +6693,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 135";
 		rLen = 0;
-		rLoc = 6114;
+		rLoc = 6119;
 		rType = 0;
 		vrLen = 1663;
 		vrLoc = 3061;
@@ -6237,7 +6713,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mediaAdd:";
 		rLen = 5;
-		rLoc = 4749;
+		rLoc = 4754;
 		rType = 0;
 		vrLen = 1767;
 		vrLoc = 3333;
@@ -6277,7 +6753,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 152";
 		rLen = 0;
-		rLoc = 5566;
+		rLoc = 5571;
 		rType = 0;
 		vrLen = 1617;
 		vrLoc = 4432;
@@ -6297,7 +6773,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: generateInfo:";
 		rLen = 0;
-		rLoc = 10918;
+		rLoc = 10923;
 		rType = 0;
 		vrLen = 2520;
 		vrLoc = 8833;
@@ -6317,7 +6793,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1802";
 		rLen = 0;
-		rLoc = 51491;
+		rLoc = 51551;
 		rType = 0;
 		vrLen = 2121;
 		vrLoc = 3476;
@@ -6327,7 +6803,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doOptions:";
 		rLen = 0;
-		rLoc = 20707;
+		rLoc = 20792;
 		rType = 0;
 		vrLen = 2296;
 		vrLoc = 17458;
@@ -6347,7 +6823,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doOptions:";
 		rLen = 0;
-		rLoc = 20304;
+		rLoc = 20389;
 		rType = 0;
 		vrLen = 2327;
 		vrLoc = 17709;
@@ -6357,7 +6833,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doOptions:";
 		rLen = 0;
-		rLoc = 20627;
+		rLoc = 20712;
 		rType = 0;
 		vrLen = 2339;
 		vrLoc = 18024;
@@ -6377,7 +6853,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 24432;
+		rLoc = 24517;
 		rType = 0;
 		vrLen = 2642;
 		vrLoc = 20110;
@@ -6397,7 +6873,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 24432;
+		rLoc = 24517;
 		rType = 0;
 		vrLen = 2642;
 		vrLoc = 20110;
@@ -6417,7 +6893,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 25555;
+		rLoc = 25640;
 		rType = 0;
 		vrLen = 2633;
 		vrLoc = 9406;
@@ -6437,7 +6913,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 23317;
+		rLoc = 23402;
 		rType = 0;
 		vrLen = 2480;
 		vrLoc = 19541;
@@ -6457,7 +6933,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 750";
 		rLen = 0;
-		rLoc = 26801;
+		rLoc = 26886;
 		rType = 0;
 		vrLen = 1826;
 		vrLoc = 22428;
@@ -6485,7 +6961,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 23317;
+		rLoc = 23402;
 		rType = 0;
 		vrLen = 2343;
 		vrLoc = 21196;
@@ -6535,7 +7011,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 73";
 		rLen = 0;
-		rLoc = 2773;
+		rLoc = 2778;
 		rType = 0;
 		vrLen = 1913;
 		vrLoc = 1889;
@@ -6917,7 +7393,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 841";
 		rLen = 0;
-		rLoc = 29436;
+		rLoc = 29521;
 		rType = 0;
 		vrLen = 2292;
 		vrLoc = 12467;
@@ -6949,7 +7425,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 848";
 		rLen = 0;
-		rLoc = 29436;
+		rLoc = 29521;
 		rType = 0;
 		vrLen = 2301;
 		vrLoc = 21628;
@@ -6969,7 +7445,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: generateInfo:";
 		rLen = 0;
-		rLoc = 11925;
+		rLoc = 11930;
 		rType = 0;
 		vrLen = 2790;
 		vrLoc = 9766;
@@ -6989,7 +7465,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: generateInfo:";
 		rLen = 0;
-		rLoc = 11925;
+		rLoc = 11930;
 		rType = 0;
 		vrLen = 2714;
 		vrLoc = 9766;
@@ -7019,7 +7495,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 860";
 		rLen = 0;
-		rLoc = 29436;
+		rLoc = 29521;
 		rType = 0;
 		vrLen = 2715;
 		vrLoc = 9502;
@@ -7039,7 +7515,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 860";
 		rLen = 0;
-		rLoc = 29436;
+		rLoc = 29521;
 		rType = 0;
 		vrLen = 2608;
 		vrLoc = 0;
@@ -7049,7 +7525,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: mainViewDidLoad";
 		rLen = 0;
-		rLoc = 24818;
+		rLoc = 24903;
 		rType = 0;
 		vrLen = 2057;
 		vrLoc = 22640;
@@ -7109,7 +7585,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: volMount:";
 		rLen = 15;
-		rLoc = 6501;
+		rLoc = 6506;
 		rType = 0;
 		vrLen = 1702;
 		vrLoc = 5137;
@@ -7129,7 +7605,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: 470";
 		rLen = 43;
-		rLoc = 15382;
+		rLoc = 15475;
 		rType = 0;
 		vrLen = 1862;
 		vrLoc = 1809;
@@ -7211,7 +7687,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: updateMountState:";
 		rLen = 0;
-		rLoc = 3931;
+		rLoc = 3936;
 		rType = 0;
 		vrLen = 1962;
 		vrLoc = 2784;
@@ -7255,7 +7731,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: doMount:";
 		rLen = 6;
-		rLoc = 18448;
+		rLoc = 18535;
 		rType = 0;
 		vrLen = 1948;
 		vrLoc = 17522;
@@ -7347,7 +7823,7 @@
 		isa = PBXTextBookmark;
 		name = "ExtFSManager.m: updateMountState:";
 		rLen = 0;
-		rLoc = 4097;
+		rLoc = 4102;
 		rType = 0;
 		vrLen = 1878;
 		vrLoc = 3604;
@@ -7505,14 +7981,6 @@
 	D3E9F39005B0811400FE7BAB = {
 		isa = PBXTargetBookmark;
 		trg = D3D4857D0405AE8E00A80164;
-	};
-	D3E9F39105B0811400FE7BAB = {
-		isa = PBXTargetBookmark;
-		trg = 089C1673FE841209C02AAC07;
-	};
-	D3E9F39205B0811400FE7BAB = {
-		isa = PBXTargetBookmark;
-		trg = D3D485850405AEF400A80164;
 	};
 	D3E9F39305B0811400FE7BAB = {
 		isa = PBXTargetBookmark;
@@ -7805,10 +8273,6 @@
 	D3E9F3B705B0811400FE7BAB = {
 		isa = PBXTargetBookmark;
 		trg = D31F7D360569E3E700A80164;
-	};
-	D3E9F3B905B0819A00FE7BAB = {
-		isa = PBXTargetBookmark;
-		trg = D3D4AF220579135600A80164;
 	};
 	D3E9F3BB05B0819A00FE7BAB = {
 		isa = PBXTargetBookmark;

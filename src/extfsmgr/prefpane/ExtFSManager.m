@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -436,6 +436,9 @@ data = [data stringByAppendingString:@"\n"]; \
       ExtInfoInsert(ExtLocalizedString(@"Device Block Size", ""), data);
    }
    
+   // Scroll back to the top
+   [_infoText scrollRangeToVisible:NSMakeRange(0,0)]; 
+   
    [_infoText setEditable:NO];
 }
 
@@ -580,7 +583,7 @@ data = [data stringByAppendingString:@"\n"]; \
    }
    
    boolVal = [NSNumber numberWithBool:
-      (NSOnState == [_dontAutomountBox state] ? YES : NO)];
+      (NSOnState == [_indexedDirsBox state] ? YES : NO)];
    [dict setObject:boolVal forKey:EXT_PREF_KEY_DIRINDEX];
    _prefsChanged = YES;
 }
@@ -595,11 +598,12 @@ data = [data stringByAppendingString:@"\n"]; \
       [_curSelection bsdName]);
 #endif
    
-   if (mount) {
-      // Save the prefs so mount will behave correctly if an Ext2 disk was changed.
-      [self savePrefs];
+   // Save the prefs so mount will behave correctly if an Ext2 disk was changed.
+   [self savePrefs];
+   
+   if (mount)
       err = [[ExtFSMediaController mediaController] mount:_curSelection on:nil];
-   } else
+   else
       err = [[ExtFSMediaController mediaController] unmount:_curSelection
          force:NO eject:NO];
    if (!err)

@@ -134,7 +134,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.1;
+				MODULE_VERSION = 1.1.1;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -172,11 +172,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -1573,7 +1573,7 @@
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_ext2</string>
 			<key>FSVerificationArguments</key>
-			<string>-n</string>
+			<string>-q</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_ext2</string>
 		</dict>
@@ -1735,11 +1735,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1</string>
+	<string>1.0.2</string>
 	<key>NSMainNibFile</key>
 	<string>ExtFSManager</string>
 	<key>NSPrefPaneIconFile</key>

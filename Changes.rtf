@@ -4,7 +4,16 @@
 \margl1440\margr1440\vieww11160\viewh11700\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.1\
+\f0\fs24 \cf0 1.1.1\
+Fixed a mount panic that should have been hit on every mount since day one. For some reason though, I've never had anyone report this panic, and I myself just hit it recently. It was a pretty stupid (but not readily apparent) error too.\
+\
+Fixed another partial inode kernel panic on an error path (related to the one fixed in 1.1 final).\
+\
+Minor behavior change to ExtFS Manager (EFSM). It will now scroll to the top of the disk info text after generating the text.\
+\
+Fixed a bug in EFSM that prevented enabling Indexed Directories.\
+\
+1.1\
 Fixed a rare kernel panic that happened on an error path where an inode was not completely initialized. (Thanks to R. Marsh for the panic data that helped track this down.)\
 \
 ExtFS Manager (EFSM) includes a German localization. (Also, fixed some localization issues exposed by this.)\
