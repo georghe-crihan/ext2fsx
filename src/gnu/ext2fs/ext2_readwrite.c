@@ -96,7 +96,7 @@ READ(ap)
 	int error, orig_resid;
 	u_short mode;
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	vp = ap->a_vp;
 	ip = VTOI(vp);
@@ -114,14 +114,14 @@ READ(ap)
 		panic("%s: invalid v_type %d", READ_S, vp->v_type);
 #endif
 	fs = ip->I_FS;
-   if (uio->uio_offset < 0)
+    if (uio->uio_offset < 0)
 		ext2_trace_return (EINVAL);
 
 	if ((u_quad_t)uio->uio_offset > fs->s_maxfilesize)
 		ext2_trace_return (EFBIG);
 
 	orig_resid = uio->uio_resid;
-   if (UBCISVALID(vp)) {
+    if (UBCISVALID(vp)) {
 		bp = NULL; /* So we don't try to free it later. */
       error = cluster_read(vp, uio, (off_t)ip->i_size, 
 			ip->i_e2fs->s_d_blocksize, 0);
@@ -208,10 +208,10 @@ WRITE(ap)
 	daddr_t lbn;
 	off_t osize;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
-   int rsd, blkalloc=0, save_error=0, save_size=0;
-   int file_extended = 0;
+    int rsd, blkalloc=0, save_error=0, save_size=0;
+    int file_extended = 0;
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	ioflag = ap->a_ioflag;
 	uio = ap->a_uio;
@@ -245,7 +245,7 @@ WRITE(ap)
 	if (uio->uio_offset < 0 ||
 	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
-   if (uio->uio_resid == 0)
+    if (uio->uio_resid == 0)
       return (0);
    
 	/*
@@ -379,7 +379,7 @@ WRITE(ap)
          ip->i_e2fs->s_d_blocksize, flags);
       
       if (uio->uio_offset > osize) {
-         if (error && (ioflag & IO_UNIT))
+         if (error && 0 == (ioflag & IO_UNIT))
             (void)VOP_TRUNCATE(vp, uio->uio_offset,
                ioflag & IO_SYNC, ap->a_cred, uio->uio_procp);
          ip->i_size = uio->uio_offset; 
