@@ -78,8 +78,6 @@ struct dentry {
 
 /* Linux compat fn's */
 
-#define EXT3_SB(fs) (fs)->s_es
-
 #define BUFFER_TRACE(bh,msg)
 
 static __inline__
@@ -89,8 +87,7 @@ static __inline__
 int ext3_journal_dirty_metadata(handle_t *handle, struct buf *bh)
 {
    bh->b_flags |= B_NORELSE;
-   bwrite(bh);
-   return (0);
+   return (-bwrite(bh));
 }
 
 static __inline__
