@@ -63,20 +63,12 @@ static MALLOC_DEFINE(M_EXT2IHASH, "EXT2 ihash", "EXT2 Inode hash tables");
 #define M_EXT2IHASH M_MISCFSNODE
 #endif
 /*
- * Structures associated with inode cacheing.
+ * Structures associated with inode caching.
  */
 static LIST_HEAD(ihashhead, inode) *ihashtbl;
 static u_long	ihash;		/* size of hash table - 1 */
 #define	INOHASH(device, inum)	(&ihashtbl[(minor(device) + (inum)) & ihash])
-
-/* XXX - Redefining mtx_*  -- We have to use a spinlock on Darwin*/
-#undef mtx_lock
-#undef mtx_unlock
-#undef mtx_destroy
-#define mtx_lock(l) simple_lock(l)
-#define mtx_unlock(l) simple_unlock(l)
-#define mtx_destroy(l)
-static struct slock ext2_ihash_mtx;
+static struct slock ext2_ihash_slock;
 
 /*
  * Initialize inode hash table.
@@ -87,7 +79,7 @@ ext2_ihashinit()
 
 	KASSERT(ihashtbl == NULL, ("ext2_ihashinit called twice"));
 	ihashtbl = hashinit(desiredvnodes, M_EXT2IHASH, &ihash);
-   simple_lock_init(&ext2_ihash_mtx);
+    simple_lock_init(&ext2_ihash_slock);
 }
 
 /*
@@ -98,7 +90,6 @@ ext2_ihashuninit()
 {
 
 	hashdestroy(ihashtbl, M_EXT2IHASH, ihash);
-	mtx_destroy(&ext2_ihash_mtx);
 }
 
 /*
@@ -112,11 +103,11 @@ ext2_ihashlookup(dev, inum)
 {
 	struct inode *ip;
 
-	mtx_lock(&ext2_ihash_mtx);
+	simple_lock(&ext2_ihash_slock);
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash)
-		if (inum == ip->i_number && dev == ip->i_dev)
-			break;
-	mtx_unlock(&ext2_ihash_mtx);
+	if (inum == ip->i_number && dev == ip->i_dev)
+		break;
+	simple_unlock(&ext2_ihash_slock);
 
 	if (ip)
 		return (ITOV(ip));
@@ -141,14 +132,14 @@ ext2_ihashget(dev, inum, flags, vpp)
 
 	*vpp = NULL;
 loop:
-	mtx_lock(&ext2_ihash_mtx);
+	simple_lock(&ext2_ihash_slock);
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash) {
 		if (inum == ip->i_number && dev == ip->i_dev) {
 			vp = ITOV(ip);
-			/* XXX Causes spinlock deadlock because of a bug in vget() when
+			/* XXX Can cause spinlock deadlock because of a bug in vget() when
 				using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
-         simple_lock(&vp->v_interlock);*/
-			mtx_unlock(&ext2_ihash_mtx);
+            simple_lock(&vp->v_interlock); */
+			simple_unlock(&ext2_ihash_slock);
 			error = vget(vp, flags /*| LK_INTERLOCK*/, td);
 			if (error == ENOENT)
 				goto loop;
@@ -158,7 +149,7 @@ loop:
 			return (0);
 		}
 	}
-	mtx_unlock(&ext2_ihash_mtx);
+	simple_unlock(&ext2_ihash_slock);
 	return (0);
 }
 
@@ -175,11 +166,11 @@ ext2_ihashins(ip)
 	/* lock the inode, then put it on the appropriate hash list */
 	vn_lock(ITOV(ip), LK_EXCLUSIVE | LK_RETRY, td);
 
-	mtx_lock(&ext2_ihash_mtx);
+	simple_lock(&ext2_ihash_slock);
 	ipp = INOHASH(ip->i_dev, ip->i_number);
 	LIST_INSERT_HEAD(ipp, ip, i_hash);
 	ip->i_flag |= IN_HASHED;
-	mtx_unlock(&ext2_ihash_mtx);
+	simple_unlock(&ext2_ihash_slock);
 }
 
 /*
@@ -189,10 +180,10 @@ void
 ext2_ihashrem(ip)
 	struct inode *ip;
 {
-	mtx_lock(&ext2_ihash_mtx);
+	simple_lock(&ext2_ihash_slock);
 	if (ip->i_flag & IN_HASHED) {
 		ip->i_flag &= ~IN_HASHED;
 		LIST_REMOVE(ip, i_hash);
 	}
-	mtx_unlock(&ext2_ihash_mtx);
+	simple_unlock(&ext2_ihash_slock);
 }

@@ -87,19 +87,9 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/syslog.h>
 #include <sys/sysctl.h>
 
-#define mntvnode_mtx mntvnode_slock
-/* XXX Redefining mtx_* */
-#define mtx_lock(l) simple_lock((l))
-#define mtx_unlock(l) simple_unlock((l))
-
 #include "ext2_apple.h"
 
 static int vn_isdisk(struct vnode *, int *);
-
-/* Temp. disable KERNEL so we don't bring in some dup macros. */
-#undef KERNEL
-#include <ufs/ufs/ufsmount.h>
-#define KERNEL
 #endif /* APPLE */
 
 #include <gnu/ext2fs/ext2_mount.h>
@@ -309,7 +299,7 @@ ext2_mount(mp, path, data, ndp, td)
 			 * If upgrade to read-write by non-root, then verify
 			 * that user has necessary permissions on the device.
 			 */
-         if (suser(td->p_ucred, &td->p_acflag)) {
+            if (suser(td->p_ucred, &td->p_acflag)) {
 				vn_lock(devvp, LK_EXCLUSIVE | LK_RETRY, td);
 				if ((error = VOP_ACCESS(devvp, VREAD | VWRITE,
 				    td->td_ucred, td)) != 0) {
@@ -356,9 +346,9 @@ ext2_mount(mp, path, data, ndp, td)
 	NDINIT(ndp, LOOKUP, FOLLOW, UIO_SYSSPACE, fspec, td);
 	if ((error = namei(ndp)) != 0)
 		ext2_trace_return(error);
-	#ifndef APPLE
-   NDFREE(ndp, NDF_ONLY_PNBUF);
-   #endif /* APPLE */
+#ifndef APPLE
+    NDFREE(ndp, NDF_ONLY_PNBUF);
+#endif /* APPLE */
 	devvp = ndp->ni_vp;
 
 	if (!vn_isdisk(devvp, &error)) {
@@ -403,11 +393,11 @@ ext2_mount(mp, path, data, ndp, td)
 		vrele(devvp);
 		ext2_trace_return(error);
 	}
-   /* ump is setup by ext2_mountfs */
-   ump = VFSTOEXT2(mp);
+    /* ump is setup by ext2_mountfs */
+    ump = VFSTOEXT2(mp);
 	fs = ump->um_e2fs;
    
-   strncpy(fs->fs_fsmnt, mp->mnt_stat.f_mntonname, MAXMNTLEN-1);
+    strncpy(fs->fs_fsmnt, mp->mnt_stat.f_mntonname, MAXMNTLEN-1);
 	// size is from copyinstr() above
 	bzero(fs->fs_fsmnt + size, MAXMNTLEN - size);
 	fs->s_mount_opt = args.e2_mnt_flags;
@@ -689,26 +679,26 @@ ext2_reload(mountp, cred, td)
 	brelse(bp);
 
 loop:
-	mtx_lock(&mntvnode_mtx);
+   simple_lock(&mntvnode_slock);
    for (vp = LIST_FIRST(&mountp->mnt_vnodelist); vp != NULL; vp = nvp) {
 		if (vp->v_mount != mountp) {
-			mtx_unlock(&mntvnode_mtx);
+			simple_unlock(&mntvnode_slock);
 			goto loop;
 		}
-      nvp = LIST_NEXT(vp, v_mntvnodes);
-		mtx_unlock(&mntvnode_mtx);
+        nvp = LIST_NEXT(vp, v_mntvnodes);
 		/*
 		 * Step 4: invalidate all inactive vnodes.
 		 */
-  		if (vrecycle(vp, NULL, td))
+  		if (vrecycle(vp, &mntvnode_slock, td))
   			goto loop;
 		/*
 		 * Step 5: invalidate all cached file data.
 		 */
-      /* XXX Causes spinlock deadlock because of a bug in vget() when
-         using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
-      simple_lock (&vp->v_interlock);*/
-		if (vget(vp, LK_EXCLUSIVE /*| LK_INTERLOCK*/, td)) {
+        /* XXX Can cause spinlock deadlock because of a bug in vget() when
+           using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
+        simple_lock (&vp->v_interlock); */
+		simple_unlock(&mntvnode_slock);
+		if (vget(vp, LK_EXCLUSIVE /*| LK_INTERLOCK */, td)) {
 			goto loop;
 		}
 		if (vinvalbuf(vp, 0, cred, td, 0, 0))
@@ -728,9 +718,9 @@ loop:
 		    EXT2_INODE_SIZE * ino_to_fsbo(fs, ip->i_number)), ip);
 		brelse(bp);
 		vput(vp);
-		mtx_lock(&mntvnode_mtx);
+		simple_lock(&mntvnode_slock);
 	}
-	mtx_unlock(&mntvnode_mtx);
+	simple_unlock(&mntvnode_slock);
 	return (0);
 }
 
@@ -869,9 +859,9 @@ ext2_mountfs(devvp, mp, td)
 	brelse(bp);
 	bp = NULL;
 	fs = ump->um_e2fs;
-   /* Init the lock */
-   fs->s_lock = mutex_alloc(0);
-   assert(fs->s_lock != NULL);
+    /* Init the lock */
+    fs->s_lock = mutex_alloc(0);
+    assert(fs->s_lock != NULL);
    
 	fs->s_rd_only = ronly;	/* ronly is set according to mnt_flags */
 	/* if the fs is not mounted read-only, make sure the super block is 
@@ -884,7 +874,7 @@ ext2_mountfs(devvp, mp, td)
          cpu_to_le16(le16_to_cpu(fs->s_es->s_state) & ~EXT2_VALID_FS);	/* set fs invalid */
 	}
 	mp->mnt_data = (qaddr_t)ump;
-   vfs_getnewfsid(mp);
+    vfs_getnewfsid(mp);
 	mp->mnt_maxsymlinklen = EXT2_MAXSYMLINKLEN;
 	mp->mnt_flag |= MNT_LOCAL;
 	ump->um_mountp = mp;
@@ -896,7 +886,7 @@ ext2_mountfs(devvp, mp, td)
 	ump->um_nindir = EXT2_ADDR_PER_BLOCK(fs);
 	ump->um_bptrtodb = le32_to_cpu(fs->s_es->s_log_block_size) + 1;
 	ump->um_seqinc = EXT2_FRAGS_PER_BLOCK(fs);
-   devvp->v_specflags |= SI_MOUNTEDON;
+    devvp->v_specflags |= SI_MOUNTEDON;
    
    /* set device block size */
    fs->s_d_blocksize = devBlockSize;
@@ -904,12 +894,12 @@ ext2_mountfs(devvp, mp, td)
    fs->s_es->s_mtime = cpu_to_le32(tv.tv_sec);
    if (!(int16_t)fs->s_es->s_max_mnt_count)
 		fs->s_es->s_max_mnt_count = (int16_t)cpu_to_le16(EXT2_DFL_MAX_MNT_COUNT);
-	fs->s_es->s_mnt_count = cpu_to_le16(le16_to_cpu(fs->s_es->s_mnt_count) + 1);
+   fs->s_es->s_mnt_count = cpu_to_le16(le16_to_cpu(fs->s_es->s_mnt_count) + 1);
    /* last mount point */
    bzero(&fs->s_es->s_last_mounted[0], sizeof(fs->s_es->s_last_mounted));
    bcopy((caddr_t)mp->mnt_stat.f_mntonname,
-			(caddr_t)&fs->s_es->s_last_mounted[0],
-         min(sizeof(fs->s_es->s_last_mounted), MNAMELEN));
+		(caddr_t)&fs->s_es->s_last_mounted[0],
+		min(sizeof(fs->s_es->s_last_mounted), MNAMELEN));
 	if (ronly == 0) 
 		ext2_sbupdate(ump, MNT_WAIT);
 	return (0);
@@ -1077,7 +1067,7 @@ ext2_sync(mp, waitfor, cred, td)
 	struct ext2mount *ump = VFSTOEXT2(mp);
 	struct ext2_sb_info *fs;
 	int error, allerror = 0;
-   int didhold;
+    int didhold;
 
 	fs = ump->um_e2fs;
 	if (fs->s_dirt != 0 && fs->s_rd_only != 0) {		/* XXX */
@@ -1087,7 +1077,7 @@ ext2_sync(mp, waitfor, cred, td)
 	/*
 	 * Write back each (modified) inode.
 	 */
-	mtx_lock(&mntvnode_mtx);
+	simple_lock(&mntvnode_slock);
 loop:
    for (vp = LIST_FIRST(&mp->mnt_vnodelist); vp != NULL; vp = nvp) {
 		/*
@@ -1096,48 +1086,52 @@ loop:
 		 */
 		if (vp->v_mount != mp)
 			goto loop;
-      nvp = LIST_NEXT(vp, v_mntvnodes);
-		mtx_unlock(&mntvnode_mtx);
-      /* XXX Causes spinlock deadlock because of a bug in vget() when
-         using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
-      VI_LOCK(vp); */
+        VI_LOCK(vp);
+		nvp = LIST_NEXT(vp, v_mntvnodes);
 		ip = VTOI(vp);
 		/* The inode can be NULL when ext2_vget encounters an error from bread()
 			and a sync() gets in before the vnode is invalidated.
 		 */
-		if (vp->v_type == VNON || NULL == ip ||
-		    ((ip->i_flag &
-		    (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
-          LIST_EMPTY(&vp->v_dirtyblkhd))) {
-			/* VI_UNLOCK(vp); */
-			mtx_lock(&mntvnode_mtx);
+		if (NULL == ip || vp->v_flag & (VXLOCK|VORECLAIM)) {
+			VI_UNLOCK(vp);
 			continue;
 		}
-		error = vget(vp, LK_EXCLUSIVE | LK_NOWAIT /*| LK_INTERLOCK*/, td);
+		if (vp->v_type == VNON ||
+		    ((ip->i_flag & (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
+            LIST_EMPTY(&vp->v_dirtyblkhd) && !(vp->v_flag & VHASDIRTY))) {
+			VI_UNLOCK(vp);
+			continue;
+		}
+		
+		/* XXX Can cause spinlock deadlock because of a bug in vget() when
+           using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly". */
+		/* XXX */ VI_UNLOCK(vp); /* XXX */
+		simple_unlock(&mntvnode_slock);
+		error = vget(vp, LK_EXCLUSIVE | LK_NOWAIT /*| LK_INTERLOCK */, td);
 		if (error) {
-			mtx_lock(&mntvnode_mtx);
+			simple_lock(&mntvnode_slock);
 			if (error == ENOENT)
 				goto loop;
 			continue;
 		}
       
-      didhold = ubc_hold(vp);
-		if ((error = VOP_FSYNC(vp, cred, waitfor, td)) != 0)
+       didhold = ubc_hold(vp);
+	   if ((error = VOP_FSYNC(vp, cred, waitfor, td)) != 0)
 			allerror = error;
-		VOP_UNLOCK(vp, 0, td);
-      if (didhold)
+	   VOP_UNLOCK(vp, 0, td);
+       if (didhold)
          ubc_rele(vp);
-		vrele(vp);
-		mtx_lock(&mntvnode_mtx);
+	   vrele(vp);
+	   simple_lock(&mntvnode_slock);
 	}
-	mtx_unlock(&mntvnode_mtx);
+	simple_unlock(&mntvnode_slock);
 	/*
 	 * Force stale file system control information to be flushed.
 	 */
    #if 0
-	if (waitfor != MNT_LAZY)
+    if (waitfor != MNT_LAZY)
    #endif
-   {
+    {
 		vn_lock(ump->um_devvp, LK_EXCLUSIVE | LK_RETRY, td);
 		if ((error = VOP_FSYNC(ump->um_devvp, cred, waitfor, td)) != 0)
 			allerror = error;
@@ -1175,8 +1169,8 @@ ext2_vget(mp, inop, vpp)
 	dev_t dev;
 	int i, error;
 	int used_blocks;
-   int flags = LK_EXCLUSIVE;
-   ino_t ino = (ino_t)inop;
+    int flags = LK_EXCLUSIVE;
+    ino_t ino = (ino_t)inop;
    
    /* Check for unmount in progress */
 	if (mp->mnt_kern_flag & MNTK_UNMOUNT) {
@@ -1193,7 +1187,7 @@ restart:
 		return (0);
 
 	/*
-	 * Lock out the creation of new entries in the FFS hash table in
+	 * Lock out the creation of new entries in the hash table in
 	 * case getnewvnode() or MALLOC() blocks, otherwise a duplicate
 	 * may occur!
 	 */
@@ -1214,7 +1208,7 @@ restart:
 	 * dereferences vp->v_data (as well it should).
 	 */
 	MALLOC(ip, struct inode *, sizeof(struct inode), M_EXT2NODE, M_WAITOK);
-   assert(NULL != ip);
+    assert(NULL != ip);
 
 	/* Allocate a new vnode/inode. */
    if ((error = getnewvnode(VT_EXT2, mp, ext2_vnodeop_p, &vp)) != 0) {
@@ -1231,8 +1225,8 @@ restart:
 	ip->i_e2fs = fs = ump->um_e2fs;
 	ip->i_dev = dev;
 	ip->i_number = ino;
-   /* Init our private lock */
-   lockinit(&ip->i_lock, PINOD, "ext2 inode", 0, 0);
+    /* Init our private lock */
+    lockinit(&ip->i_lock, PINOD, "ext2 inode", 0, 0);
    
 	/*
 	 * Put it onto its hash chain and lock it so that other requests for
@@ -1271,8 +1265,8 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 	ip->i_next_alloc_goal = 0;
 	ip->i_prealloc_count = 0;
 	ip->i_prealloc_block = 0;
-        /* now we want to make sure that block pointers for unused
-           blocks are zeroed out - ext2_balloc depends on this 
+	/* now we want to make sure that block pointers for unused
+	   blocks are zeroed out - ext2_balloc depends on this 
 	   although for regular files and directories only
 	*/
 	if(S_ISDIR(ip->i_mode) || S_ISREG(ip->i_mode)) {
@@ -1309,8 +1303,8 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 			ip->i_flag |= IN_MODIFIED;
 	}
    
-   /* Setup UBC info. */
-   if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
+    /* Setup UBC info. */
+    if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
       ubc_info_init(vp);
    
 	*vpp = vp;
