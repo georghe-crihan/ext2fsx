@@ -789,13 +789,12 @@ ext2_mountfs(devvp, mp, td)
    
 	bp = NULL;
 	ump = NULL;
+	#if defined(DIAGNOSTIC)
+	printf("ext2fs: reading superblock from block %u, with size %u and offset %u\n",
+		SBLOCK, SBSIZE, SBOFF);
+	#endif
 	if ((error = meta_bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		goto out;
-   #if defined(DIAGNOSTIC)
-   printf("ext2fs: first two sb words (%lX, %lX) -- sb=%u, sb size=%u\n",
-      *(u_long*)(bp->b_data+SBOFF), *(u_long*)(bp->b_data+(SBOFF+4)),
-      SBLOCK, SBSIZE);
-   #endif
 	es = (struct ext2_super_block *)(bp->b_data+SBOFF);
 	if (ext2_check_sb_compat(es, dev, ronly) != 0) {
 		error = EINVAL;		/* XXX needs translation */
