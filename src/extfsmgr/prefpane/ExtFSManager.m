@@ -162,7 +162,7 @@ unmount_state:
    
    media = [notification object];
 #ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: **** Media '%s' appeared ***\n", BSDNAMESTR(media));
+   NSLog(@"ExtFSM: **** Media '%s' appeared ***\n", BSDNAMESTR(media));
 #endif
 
    if ((parent = [media parent])) {
@@ -204,14 +204,11 @@ _curSelection = nil; \
    media = [notification object];
    
 #ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: **** Media '%s' disappeared ***\n", BSDNAMESTR(media));
+   NSLog(@"ExtFSM: **** Media '%s' disappeared ***\n", BSDNAMESTR(media));
 #endif
 
    if ((parent = [media parent])) {
-      if ([_volData containsObject:parent] && [_vollist isItemExpanded:parent])
-         [_vollist reloadItem:parent reloadChildren:YES];
-      else
-         [_vollist reloadItem:parent reloadChildren:NO];
+      [_vollist reloadItem:parent reloadChildren:YES];
       return;
    }
    
@@ -228,7 +225,7 @@ _curSelection = nil; \
    EndOp();
    media = [notification object];
 #ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: **** Media '%s' mounted ***\n", BSDNAMESTR(media));
+   NSLog(@"ExtFSM: **** Media '%s' mounted ***\n", BSDNAMESTR(media));
 #endif
    if (media == _curSelection)
       [self doMediaSelection:media];
@@ -242,7 +239,7 @@ _curSelection = nil; \
    EndOp();
    media = [notification object];
 #ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: **** Media '%s' unmounted ***\n", BSDNAMESTR([notification object]));
+   NSLog(@"ExtFSM: **** Media '%s' unmounted ***\n", BSDNAMESTR([notification object]));
 #endif
    if (media == _curSelection)
       [self doMediaSelection:media];
@@ -409,6 +406,9 @@ data = [data stringByAppendingString:@"\n"]; \
       ExtInfoInsert(ExtLocalizedString(@"Volume UUID", ""),
          (data ? data : @""));
       
+      ExtInfoInsert(ExtLocalizedString(@"Permissions Enabled", ""),
+         ([media hasPermissions] ? _yes : _no));
+      
       ExtInfoInsert(ExtLocalizedString(@"Supports Journaling", ""),
          ([media hasJournal] ? _yes : _no));
       
@@ -532,8 +532,8 @@ data = [data stringByAppendingString:@"\n"]; \
    }
    
    _curSelection = media;
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: media %@ selected, canMount=%d",
+#ifdef TRACE
+   NSLog(@"ExtFSM: media %@ selected, canMount=%d",
       [media bsdName], [media canMount]);
 #endif
    
@@ -547,7 +547,7 @@ data = [data stringByAppendingString:@"\n"]; \
          [self setOptionState:media];
          [_infoButton setEnabled:YES];
       } else {
-         NSLog(@"ExtFS: Options for '%@' disabled -- missing UUID.\n",
+         NSLog(@"ExtFSM: Options for '%@' disabled -- missing UUID.\n",
             [media bsdName]);
          [_infoButton setEnabled:NO];
       }
@@ -570,8 +570,8 @@ data = [data stringByAppendingString:@"\n"]; \
 {
    NSNumber *boolVal;
    
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: readonly clicked.\n");
+#ifdef TRACE
+   NSLog(@"ExtFSM: readonly clicked.\n");
 #endif
    
    boolVal = [NSNumber numberWithBool:
@@ -583,8 +583,8 @@ data = [data stringByAppendingString:@"\n"]; \
 {
    NSNumber *boolVal;
    
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: automount clicked.\n");
+#ifdef TRACE
+   NSLog(@"ExtFSM: automount clicked.\n");
 #endif
 
    boolVal = [NSNumber numberWithBool:
@@ -604,8 +604,8 @@ data = [data stringByAppendingString:@"\n"]; \
 - (IBAction)click_indexedDirs:(id)sender
 {
    NSNumber *boolVal;
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: indexed dirs clicked.\n");
+#ifdef TRACE
+   NSLog(@"ExtFSM: indexed dirs clicked.\n");
 #endif
 
    boolVal = [NSNumber numberWithBool:
@@ -618,8 +618,8 @@ data = [data stringByAppendingString:@"\n"]; \
    int err, mount;
    
    mount = ![_curSelection isMounted];
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: %@ '%@'.\n", (mount ? @"Mounting" : @"Unmounting"),
+#ifdef TRACE
+   NSLog(@"ExtFSM: %@ '%@'.\n", (mount ? @"Mounting" : @"Unmounting"),
       [_curSelection bsdName]);
 #endif
    
@@ -648,8 +648,8 @@ data = [data stringByAppendingString:@"\n"]; \
 - (void)doEject:(id)sender
 {
    int err;
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: Ejecting '%@'.\n", [_curSelection bsdName]);
+#ifdef TRACE
+   NSLog(@"ExtFSM: Ejecting '%@'.\n", [_curSelection bsdName]);
 #endif
    
    err = [[ExtFSMediaController mediaController] unmount:_curSelection
@@ -674,8 +674,8 @@ data = [data stringByAppendingString:@"\n"]; \
    info = !opts && !startup;
    enabled = [_infoButton isEnabled];
    
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: doOptions: start=%d, opts=%d, info=%d, enabled=%d, infoAlt=%d\n",
+#ifdef TRACE
+   NSLog(@"ExtFSM: doOptions: start=%d, opts=%d, info=%d, enabled=%d, infoAlt=%d\n",
       startup, opts, info, enabled, _infoButtonAlt);
 #endif
    
@@ -746,8 +746,8 @@ info_alt_switch:
    _prefRoot = [[NSMutableDictionary alloc] initWithDictionary:
       [[NSUserDefaults standardUserDefaults] persistentDomainForName:_bundleid]];
    if (![_prefRoot count]) {
-   #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Creating preferences\n");
+   #ifdef TRACE
+      NSLog(@"ExtFSM: Creating preferences\n");
    #endif
       // Create the defaults
       [_prefRoot setObject:[NSMutableDictionary dictionary] forKey:EXT_PREF_KEY_GLOBAL];
@@ -766,7 +766,7 @@ info_alt_switch:
    [_prefRoot setObject:_prefMedia forKey:EXT_PREF_KEY_MEDIA];
    [_prefRoot setObject:_prefMgr forKey:EXT_PREF_KEY_MGR];
 #ifdef notnow
-   NSLog(@"ExtFS: Prefs = %@\n", _prefRoot);
+   NSLog(@"ExtFSM: Prefs = %@\n", _prefRoot);
 #endif
    
    /* Setup localized string globals */
@@ -898,7 +898,7 @@ info_alt_switch:
       (void)[[NSFileManager defaultManager] removeFileAtPath:path handler:nil];
    }
    if (![_prefRoot writeToFile:path atomically:YES]) {
-      NSLog(@"ExtFS: Could not copy preferences to %@."
+      NSLog(@"ExtFSM: Could not copy preferences to %@."
          @" This is most likely because you do not have write permissions."
          @" Changes made will have no effect when mounting volumes.", path);
       NSBeep();
@@ -909,7 +909,9 @@ info_alt_switch:
 
 - (int)outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item
 {
-   //NSLog(@"extfs: outline # children for %@", item);
+#ifdef TRACE
+   NSLog(@"ExtFSM: outline # children for %@", item);
+#endif
    if (!item)
       return ([_volData count]); // Return # of children for top-level item
       
@@ -918,7 +920,9 @@ info_alt_switch:
 
 - (BOOL)outlineView:(NSOutlineView *)outlineView isItemExpandable:(id)item
 {
-   //NSLog(@"extfs: outline expand for %@", item);
+#ifdef TRACE
+   NSLog(@"ExtFSM: outline expand for %@", item);
+#endif
    if ([item childCount])
       return (YES);
    
@@ -927,7 +931,9 @@ info_alt_switch:
 
 - (id)outlineView:(NSOutlineView *)outlineView child:(int)index ofItem:(id)item
 {
-   //NSLog(@"extfs: outline get child at index %d for %@", index, item);
+#ifdef TRACE
+   NSLog(@"ExtFSM: outline get child at index %d for %@", index, item);
+#endif
    if (!item) {
       return ([_volData objectAtIndex:index]);
    }
@@ -942,15 +948,26 @@ info_alt_switch:
    objectValueForTableColumn:(NSTableColumn *)tableColumn byItem:(id)item
 {
    NSString *name;
-   //NSLog(@"extfs: outline obj val for %@", item);
+#ifdef TRACE
+   NSLog(@"ExtFSM: outline obj val for %@", item);
+#endif
    
+   NS_DURING
    name = [item volName];
+   NS_HANDLER
+#ifdef DIAGNOSTIC
+   NSLog(@"ExtFSM: Item (0x%08X) is not a valid media object.\n", item);
+#endif
+   return (nil);
+   NS_ENDHANDLER
    return (name ? name : [item ioRegistryName]);
 }
 
 - (void)outlineViewSelectionDidChange:(NSNotification *)notification
 {
-   //NSLog(@"extfs: outline selection row = %u", [_vollist selectedRow]);
+#ifdef TRACE
+   NSLog(@"ExtFSM: outline selection row = %u", [_vollist selectedRow]);
+#endif
    [self doMediaSelection:[_vollist itemAtRow:[_vollist selectedRow]]];
 }
 
