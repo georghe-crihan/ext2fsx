@@ -42,7 +42,12 @@
 #ifndef _SYS_GNU_EXT2FS_INODE_H_
 #define	_SYS_GNU_EXT2FS_INODE_H_
 
+#ifndef APPLE
 #include <sys/lock.h>
+#define ext2lockf lockf
+#else
+#include <kern/ext2_lockf.h>
+#endif
 #include <sys/queue.h>
 
 #define	ROOTINO	((ino_t)2)
@@ -77,7 +82,7 @@ struct inode {
 
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
-	struct	 lockf *i_lockf;/* Head of byte-level lock list. */
+	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
 	/*
 	 * Side effects; used during directory lookup.
 	 */
