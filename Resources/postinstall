@@ -1,0 +1,8 @@
+#! /bin/sh
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+
+#Rebuild the kext cache
+if [ -f ./System/Library/Extensions.kextcache ]; then
+	rm ./System/Library/Extensions.kextcache
+	kextcache -k ./System/Library/Extensions
+fi
