@@ -28,6 +28,11 @@
 
 #ifdef KERNEL
 
+#ifdef DIAGNOSTIC
+#define MACH_ASSERT 1
+#include <kern/assert.h>
+#endif
+
 #include <sys/ubc.h>
 
 #include <xnu/bsd/miscfs/specfs/specdev.h>
@@ -57,6 +62,12 @@ __private_extern__ int ext2_unlock __P((struct vop_unlock_args *));
 __private_extern__ int ext2_islocked __P((struct vop_islocked_args *));
 __private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
 __private_extern__ int ext2_ioctl __P((struct vop_ioctl_args *));
+
+#if 0 //DIAGNOSTIC
+__private_extern__ void ext2_checkdirsize(struct vnode *dvp);
+#else
+#define ext2_checkdirsize(dvp)
+#endif
 
 #define UNKNOWNUID ((uid_t)99)
 

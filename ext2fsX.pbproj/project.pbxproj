@@ -120,7 +120,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.0.0a2;
+				MODULE_VERSION = 1.0.0a3;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -156,11 +156,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0a2</string>
+	<string>1.0.0a3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0a2</string>
+	<string>1.0.0a3</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -795,11 +795,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0a2</string>
+	<string>1.0.0a3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0a2</string>
+	<string>1.0.0a3</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Apple_UNIX_SVR2</key>
@@ -816,7 +816,23 @@
 			<key>FSProbeExecutable</key>
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
-			<integer>5000</integer>
+			<integer>1000</integer>
+		</dict>
+		<key>CD</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>CD_ROM_Mode_1</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ext2fs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>4000</integer>
 		</dict>
 		<key>EXT2</key>
 		<dict>
@@ -832,7 +848,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
-			<integer>5000</integer>
+			<integer>2000</integer>
 		</dict>
 		<key>Ext2</key>
 		<dict>
@@ -848,7 +864,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
-			<integer>5000</integer>
+			<integer>2000</integer>
 		</dict>
 		<key>Ext3</key>
 		<dict>
@@ -864,7 +880,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
-			<integer>5000</integer>
+			<integer>3000</integer>
 		</dict>
 		<key>Linux_Ext2FS</key>
 		<dict>
@@ -880,7 +896,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
-			<integer>5000</integer>
+			<integer>2000</integer>
 		</dict>
 		<key>Partitionless</key>
 		<dict>

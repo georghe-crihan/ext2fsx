@@ -29,6 +29,9 @@
  * when a file system is mounted (see ext2_read_super).
  */
 
+static const char vwhatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #ifndef APPLE
@@ -340,8 +343,8 @@ repeat:
 		i = dir->u.ext2_i.i_block_group;
 		for (j = 0; j < sb->u.ext2_sb.s_groups_count; j++) {
 			tmp = get_group_desc (sb, i, &bh2);
-			if ((tmp->bg_used_dirs_count << 8) < 
-			    tmp->bg_free_inodes_count) {
+			if ((le16_to_cpu(tmp->bg_used_dirs_count) << 8) < 
+			    le16_to_cpu(tmp->bg_free_inodes_count)) {
 				gdp = tmp;
 				break;
 			}
@@ -430,7 +433,7 @@ repeat:
 */
 		mark_buffer_dirty(bh);
 	} else {
-		if (le16_to_cpu(gdp->bg_free_inodes_count) != 0) {
+		if (gdp->bg_free_inodes_count != 0) {
 			printf ( "ext2_new_inode:"
 				    "Free inodes count corrupted in group %d",
 				    i);

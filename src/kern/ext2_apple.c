@@ -55,6 +55,10 @@
  * SUCH DAMAGE.
  *
  */
+
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/buf.h>
@@ -344,3 +348,41 @@ ext2_ioctl(ap)
    nop_ioctl(ap);
    return (err);
 }
+
+#if 0 //DIAGNOSTIC
+/*
+   BDB - This only works with directories that fit in a single block.
+   So it works about 98% of the time. I wrote it as a quick 'n dirty
+   hack to track down the panics/corruptions in bug #742939.
+*/
+__private_extern__ void
+ext2_checkdirsize(dvp)
+   struct vnode *dvp;
+{
+   struct buf *bp;
+   struct ext2_dir_entry_2 *ep;
+   char *dirbuf;
+   struct inode *dp;
+   int  size, error;
+   
+   dp = VTOI(dvp);
+   if ((error = ext2_blkatoff(dvp, (off_t)0, &dirbuf,
+	    &bp)) != 0)
+		return;
+   
+   size = 0;
+   while (size < dp->i_size) {
+      ep = (struct ext2_dir_entry_2 *)
+			((char *)bp->b_data + size);
+      if (ep->rec_len == 0)
+         break;
+      size += le16_to_cpu(ep->rec_len);
+   }
+   
+   if (size != dp->i_size)
+      printf("ext2: dir (%d) entries do not match dir size! (%d,%qu)\n",
+         dp->i_number, size, dp->i_size);
+   
+   brelse(bp);
+}
+#endif

@@ -55,6 +55,9 @@
  *	@(#)ufs_readwrite.c	8.11 (Berkeley) 5/8/95
  */
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 
 #include <sys/resourcevar.h>
@@ -133,7 +136,7 @@ ext2_pagein(ap)
   	error = cluster_pagein(vp, pl, pl_offset, f_offset, size,
 			    (off_t)ip->i_size, devBlockSize, flags);
 	/* ip->i_flag |= IN_ACCESS; */
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -188,7 +191,7 @@ ext2_pageout(ap)
 		if (!nocommit)
   			ubc_upl_abort_range(pl, pl_offset, size, 
 				UPL_ABORT_FREE_ON_EMPTY);
-		return (EROFS);
+		ext2_trace_return(EROFS);
 	}
 	fs = ip->I_FS;
 
@@ -196,7 +199,7 @@ ext2_pageout(ap)
 	        if (!nocommit)
 		        ubc_upl_abort_range(pl, pl_offset, size, 
 				UPL_ABORT_FREE_ON_EMPTY);
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	}
 
 	/*
@@ -263,7 +266,7 @@ ext2_pageout(ap)
 		if(!error)
 			error= save_error;
 	}
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -312,7 +315,7 @@ ext2_cmap(ap)
 	}
 
 	if (error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks)) {
-			return(error);
+			ext2_trace_return(error);
 	}
 
 	retsize = nblks * EXT2_BLOCK_SIZE(fs);
@@ -435,7 +438,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			    ext2_blkpref(ip, lbn, (int)lbn, &ip->i_db[0], 0),
 			    nsize, cred, &newb);
 			if (error)
-				return (error);
+				ext2_trace_return(error);
 			ip->i_db[lbn] = newb;
 			ip->i_flag |= IN_CHANGE | IN_UPDATE;
 			return (0);
@@ -446,7 +449,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	 */
 	pref = 0;
 	if (error = ext2_getlbns(vp, lbn, indirs, &num))
-		return(error);
+		ext2_trace_return(error);
 
 	if(num < 1) {
 		panic("ext2_blkalloc: file with direct blocks only\n"); 
@@ -468,7 +471,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 #endif
 	        if (error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs),
 		    cred, &newb))
-			return (error);
+			ext2_trace_return(error);
 		nb = newb;
 		*allocblk++ = nb;
 		bp = getblk(vp, indirs[1].in_lbn, EXT2_BLOCK_SIZE(fs), 0, 0, BLK_META);
@@ -585,7 +588,7 @@ fail:
 		ip->i_blocks -= btodb(deallocated, devBlockSize);
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -627,8 +630,6 @@ ext2_blktooff (ap)
 	fs = ip->i_e2fs;
 	*ap->a_offset = lblktosize(fs, bn);
    
-   ext2_trace_leave();
-   
    return (0);
 }
 
@@ -643,7 +644,7 @@ ext2_offtoblk (ap)
    ext2_trace_enter();
    
    if (ap->a_vp == NULL)
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
    
    ip = VTOI(ap->a_vp);
 	fs = ip->i_e2fs;
@@ -680,12 +681,12 @@ ext2_cache_lookup(ap)
 	 * Check accessiblity of directory.
 	 */
 	if (dvp->v_type != VDIR)
-		return (ENOTDIR);
+		ext2_trace_return(ENOTDIR);
 	if ((flags & ISLASTCN) && (dvp->v_mount->mnt_flag & MNT_RDONLY) &&
 	    (cnp->cn_nameiop == DELETE || cnp->cn_nameiop == RENAME))
-		return (EROFS);
+		ext2_trace_return(EROFS);
 	if ((error = VOP_ACCESS(dvp, VEXEC, cred, cnp->cn_proc)))
-		return (error);
+		ext2_trace_return(error);
    
    /*
 	 * Lookup an entry in the cache
@@ -697,11 +698,11 @@ ext2_cache_lookup(ap)
 	error = cache_lookup(dvp, vpp, cnp);
 	if (error == 0)  {		/* Unsuccessfull */
 		error = ext2_lookup((struct vop_cachedlookup_args*)ap);
-		return (error);
+		ext2_trace_return(error);
 	}
 	
 	if (error == ENOENT)
-		return (error);
+		ext2_trace_return(error);
 	
 	/* We have a name that matched */
 	vp = *vpp;
@@ -712,7 +713,7 @@ ext2_cache_lookup(ap)
 		error = 0;
 	} else if (flags & ISDOTDOT) {
 		/* 
-		 * Carefull on the locking policy,
+		 * Careful on the locking policy,
 		 * remember we always lock from parent to child, so have
 		 * to release lock on child before trying to lock parent
 		 * then regain lock if needed
@@ -744,5 +745,5 @@ ext2_cache_lookup(ap)
    if ((error = vn_lock(dvp, LK_EXCLUSIVE, p)))
 		return (error);
 
-	return (ext2_lookup((struct vop_cachedlookup_args*)ap));
+	ext2_trace_return(ext2_lookup((struct vop_cachedlookup_args*)ap));
 }

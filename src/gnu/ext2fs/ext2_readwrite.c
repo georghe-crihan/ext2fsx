@@ -61,6 +61,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #define	BLKSIZE(a, b, c)	blksize(a, b, c)
 #define	FS			struct ext2_sb_info
 #define	I_FS			i_e2fs
@@ -117,7 +120,7 @@ READ(ap)
 	fs = ip->I_FS;
 #if 0
 	if ((u_quad_t)uio->uio_offset > fs->fs_maxfilesize)
-		return (EFBIG);
+		ext2_trace_return (EFBIG);
 #endif
 
 	orig_resid = uio->uio_resid;
@@ -197,7 +200,7 @@ READ(ap)
 	if (orig_resid > 0 && (error == 0 || uio->uio_resid != orig_resid) &&
 	    (vp->v_mount->mnt_flag & MNT_NOATIME) == 0)
 		ip->i_flag |= IN_ACCESS;
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -244,7 +247,7 @@ WRITE(ap)
 		if (ioflag & IO_APPEND)
 			uio->uio_offset = ip->i_size;
 		if ((ip->i_flags & APPEND) && uio->uio_offset != ip->i_size)
-			return (EPERM);
+			ext2_trace_return(EPERM);
 		/* FALLTHROUGH */
 	case VLNK:
 		break;
@@ -260,7 +263,7 @@ WRITE(ap)
 #if 0
 	if (uio->uio_offset < 0 ||
 	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->fs_maxfilesize)
-		return (EFBIG);
+		ext2_trace_return(EFBIG);
 #endif
 	/*
 	 * Maybe this should be above the vnode op call, but so long as
@@ -285,7 +288,7 @@ WRITE(ap)
       #else
       psignal(td, SIGXFSZ);
       #endif
-		return (EFBIG);
+		ext2_trace_return(EFBIG);
 	}
 
 	resid = uio->uio_resid;
@@ -523,6 +526,5 @@ WRITE(ap)
 	} else if (resid > uio->uio_resid && (ioflag & IO_SYNC))
 		error = ext2_update(vp, 1);
       
-   ext2_trace_leave();
-	return (error);
+   ext2_trace_return(error);
 }

@@ -23,9 +23,9 @@
 *
 */
 
-#if defined(APPLE) && !defined(lint)
+#if !defined(lint)
 static const char whatid[] __attribute__ ((unused)) =
-"@(#)Revision: $Revision$ Built: " __DATE__ __TIME__;
+"@(#) $Revision$ Built: " __DATE__ __TIME__;
 #endif
 
 /*

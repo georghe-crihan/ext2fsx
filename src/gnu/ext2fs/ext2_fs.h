@@ -85,11 +85,17 @@ extern void logwakeup (void);
 
 #if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 #define ext2_trace_enter() ext2_debug("ENTER\n")
-#define ext2_trace_leave() ext2_debug("DONE\n")
+#define ext2_trace_return(code) \
+do { \
+   int local_err = (code); \
+   if (local_err) \
+      ext2_debug("Returning Error! (%d)\n", (local_err)); \
+   return (local_err); \
+} while(0)
 #define ext2_trace ext2_debug
 #else
 #define ext2_trace_enter()
-#define ext2_trace_leave()
+#define ext2_trace_return(code) return(code)
 #define ext2_trace(f, a...)
 #endif
 
@@ -139,7 +145,7 @@ extern void logwakeup (void);
 #ifdef __KERNEL__
 # define EXT2_BLOCK_SIZE_BITS(s)	((s)->s_blocksize_bits)
 #else
-# define EXT2_BLOCK_SIZE_BITS(s)	((s)->s_log_block_size + 10)
+# define EXT2_BLOCK_SIZE_BITS(s)	(le32_to_cpu((s)->s_log_block_size) + 10)
 #endif
 #ifdef notyet
 #ifdef __KERNEL__
@@ -456,7 +462,21 @@ struct ext2_super_block {
 	__u8	s_prealloc_blocks;	/* Nr of blocks to try to preallocate*/
 	__u8	s_prealloc_dir_blocks;	/* Nr to preallocate for dirs */
 	__u16	s_padding1;
-	__u32	s_reserved[204];	/* Padding to the end of the block */
+	/*
+	 * Journaling support valid if EXT2_FEATURE_COMPAT_HAS_JOURNAL set.
+	 */
+	__u8	s_journal_uuid[16];	/* uuid of journal superblock */
+	__u32	s_journal_inum;		/* inode number of journal file */
+	__u32	s_journal_dev;		/* device number of journal file */
+	__u32	s_last_orphan;		/* start of list of inodes to delete */
+	__u32	s_hash_seed[4];		/* HTREE hash seed */
+	__u8	s_def_hash_version;	/* Default hash version to use */
+	__u8	s_reserved_char_pad;
+	__u16	s_reserved_word_pad;
+	__u32	s_default_mount_opts;
+	__u32	s_first_meta_bg;	/* First metablock group */
+	__u32	s_mkfs_time;		/* When the filesystem was created */
+	__u32	s_reserved[189];	/* Padding to the end of the block */
 };
 
 #ifdef __KERNEL__

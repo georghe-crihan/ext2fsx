@@ -64,6 +64,9 @@
 *
 */
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/namei.h>
@@ -242,7 +245,7 @@ ext2_mountroot()
 	
 	if ((error = bdevvp(rootdev, &rootvp))) {
 		printf("ext2_mountroot: can't find rootvp\n");
-		return (error);
+		ext2_trace_return(error);
 	}
 	mp = bsd_malloc((u_long)sizeof(struct mount), M_MOUNT, M_WAITOK);
 	bzero((char *)mp, (u_long)sizeof(struct mount));
@@ -252,12 +255,12 @@ ext2_mountroot()
 	mp->mnt_flag = MNT_RDONLY;
 	if (error = ext2_mountfs(rootvp, mp, td)) {
 		bsd_free(mp, M_MOUNT);
-		return (error);
+		ext2_trace_return(error);
 	}
 	if (error = vfs_lock(mp)) {
 		(void)ext2_unmount(mp, 0, td);
 		bsd_free(mp, M_MOUNT);
-		return (error);
+		ext2_trace_return(error);
 	}
 	TAILQ_INSERT_HEAD(&mountlist, mp, mnt_list);
 	mp->mnt_flag |= MNT_ROOTFS;
@@ -323,15 +326,15 @@ ext2_mount(mp, path, data, ndp, td)
 	vfs_getopt(opts, "fspath", (void **)&path, NULL);
 	/* Double-check the length of path.. */
 	if (strlen(path) >= MAXMNTLEN - 1)
-		return (ENAMETOOLONG);
+		ext2_trace_return(ENAMETOOLONG);
 
 	fspec = NULL;
 	error = vfs_getopt(opts, "from", (void **)&fspec, &len);
 	if (!error && fspec[len - 1] != '\0')
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
    #else
    if ((error = copyin(data, (caddr_t)&args, sizeof (ext2_args))) != 0)
-		return (error);
+		ext2_trace_return(error);
    
    export = &args.export;
    
@@ -356,7 +359,7 @@ ext2_mount(mp, path, data, ndp, td)
 			if (mp->mnt_flag & MNT_FORCE)
 				flags |= FORCECLOSE;
 			if (vfs_busy(mp, LK_NOWAIT, 0, td))
-				return (EBUSY);
+				ext2_trace_return(EBUSY);
 			error = ext2_flushfiles(mp, flags, td);
 			vfs_unbusy(mp, td);
 			if (!error && fs->s_wasvalid) {
@@ -369,11 +372,11 @@ ext2_mount(mp, path, data, ndp, td)
 		if (!error && (mp->mnt_flag & MNT_RELOAD))
 			error = ext2_reload(mp, ndp->ni_cnd.cn_cred, td);
 		if (error)
-			return (error);
+			ext2_trace_return(error);
 		devvp = ump->um_devvp;
 		if (ext2_check_sb_compat(fs->s_es, (dev_t)devvp->v_rdev,
 		    (mp->mnt_kern_flag & MNTK_WANTRDWR) == 0) != 0)
-			return (EPERM);
+			ext2_trace_return(EPERM);
 		if (fs->s_rd_only && (mp->mnt_kern_flag & MNTK_WANTRDWR)) {
 			/*
 			 * If upgrade to read-write by non-root, then verify
@@ -388,7 +391,7 @@ ext2_mount(mp, path, data, ndp, td)
 				if ((error = VOP_ACCESS(devvp, VREAD | VWRITE,
 				    td->td_ucred, td)) != 0) {
 					VOP_UNLOCK(devvp, 0, td);
-					return (error);
+					ext2_trace_return(error);
 				}
 				VOP_UNLOCK(devvp, 0, td);
 			}
@@ -403,7 +406,7 @@ ext2_mount(mp, path, data, ndp, td)
 					printf(
 "WARNING: R/W mount of %s denied.  Filesystem is not clean - run fsck\n",
 					    fs->fs_fsmnt);
-					return (EPERM);
+					ext2_trace_return(EPERM);
 				}
 			}
 			fs->s_es->s_state =
@@ -416,17 +419,17 @@ ext2_mount(mp, path, data, ndp, td)
 			error = vfs_getopt(opts, "export", (void **)&export,
 			    &len);
 			if (error || len != sizeof(struct export_args))
-				return (EINVAL);
+				ext2_trace_return(EINVAL);
 				/* Process export requests. */
-			return (vfs_export(mp, export));
+			ext2_trace_return(vfs_export(mp, export));
          #else
          #if 0
          struct export_args apple_exp;
          struct netexport apple_netexp;
          
-         return (vfs_export(mp, &apple_netexp, export));
+         ext2_trace_return(vfs_export(mp, &apple_netexp, export));
          #endif
-         return (EINVAL);
+         ext2_trace_return(EINVAL);
          #endif
 		}
 	}
@@ -435,10 +438,10 @@ ext2_mount(mp, path, data, ndp, td)
 	 * and verify that it refers to a sensible block device.
 	 */
 	if (fspec == NULL)
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	NDINIT(ndp, LOOKUP, FOLLOW, UIO_SYSSPACE, fspec, td);
 	if ((error = namei(ndp)) != 0)
-		return (error);
+		ext2_trace_return(error);
 	#ifndef APPLE
    NDFREE(ndp, NDF_ONLY_PNBUF);
    #endif /* APPLE */
@@ -446,7 +449,7 @@ ext2_mount(mp, path, data, ndp, td)
 
 	if (!vn_isdisk(devvp, &error)) {
 		vrele(devvp);
-		return (error);
+		ext2_trace_return(error);
 	}
 
 	/*
@@ -464,7 +467,7 @@ ext2_mount(mp, path, data, ndp, td)
 		vn_lock(devvp, LK_EXCLUSIVE | LK_RETRY, td);
 		if ((error = VOP_ACCESS(devvp, accessmode, td->td_ucred, td)) != 0) {
 			vput(devvp);
-			return (error);
+			ext2_trace_return(error);
 		}
 		VOP_UNLOCK(devvp, 0, td);
 	}
@@ -492,7 +495,7 @@ ext2_mount(mp, path, data, ndp, td)
 	}
 	if (error) {
 		vrele(devvp);
-		return (error);
+		ext2_trace_return(error);
 	}
    /* ump is setup by ext2_mountfs */
    ump = VFSTOEXT2(mp);
@@ -581,21 +584,21 @@ ext2_check_sb_compat(es, dev, ronly)
 	if (le16_to_cpu(es->s_magic) != EXT2_SUPER_MAGIC) {
 		printf("ext2fs: %s: wrong magic number %#x (expected %#x)\n",
 		    devtoname(dev), le16_to_cpu(es->s_magic), EXT2_SUPER_MAGIC);
-		return (1);
+		ext2_trace_return(1);
 	}
 	if (le32_to_cpu(es->s_rev_level) > EXT2_GOOD_OLD_REV) {
 		if (le32_to_cpu(es->s_feature_incompat) & ~EXT2_FEATURE_INCOMPAT_SUPP) {
 			printf(
 "WARNING: mount of %s denied due to unsupported optional features\n",
 			    devtoname(dev));
-			return (1);
+			ext2_trace_return(1);
 		}
 		if (!ronly &&
 		    (le32_to_cpu(es->s_feature_ro_compat) & ~EXT2_FEATURE_RO_COMPAT_SUPP)) {
 			printf(
 "WARNING: R/W mount of %s denied due to unsupported optional features\n",
 			    devtoname(dev));
-			return (1);
+			ext2_trace_return(1);
 		}
 	}
 	return (0);
@@ -615,7 +618,7 @@ static int compute_sb_data(devvp, es, fs)
     int db_count, error;
     int i, j;
     int logic_sb_block = 1;	/* XXX for now */
-    #if 0 /*#ifdef APPLE*/
+    #ifdef APPLE
     int devBlockSize=0;
     
     VOP_DEVBLOCKSIZE(devvp, &devBlockSize);
@@ -635,7 +638,7 @@ static int compute_sb_data(devvp, es, fs)
     V(s_fsbtodb)
     fs->s_qbmask = fs->s_blocksize - 1;
     V(s_bmask)
-    fs->s_blocksize_bits = le32_to_cpu(EXT2_BLOCK_SIZE_BITS(es));
+    fs->s_blocksize_bits = EXT2_BLOCK_SIZE_BITS(es);
     V(s_blocksize_bits)
     fs->s_frag_size = EXT2_MIN_FRAG_SIZE << le32_to_cpu(es->s_log_frag_size);
     V(s_frag_size)
@@ -669,7 +672,7 @@ static int compute_sb_data(devvp, es, fs)
 		M_EXT2MNT, M_WAITOK);
 
     /* adjust logic_sb_block */
-    if(fs->s_blocksize > 1024 /*SBSIZE*/) 
+    if(fs->s_blocksize > SBSIZE)
 	/* Godmar thinks: if the blocksize is greater than 1024, then
 	   the superblock is logically part of block zero. 
 	 */
@@ -738,7 +741,7 @@ ext2_reload(mountp, cred, td)
    #endif
 
 	if ((mountp->mnt_flag & MNT_RDONLY) == 0)
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	/*
 	 * Step 1: invalidate all cached meta-data.
 	 */
@@ -754,11 +757,11 @@ ext2_reload(mountp, cred, td)
    VOP_DEVBLOCKSIZE(devvp, &devBlockSize);
    #endif
 	if ((error = meta_bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
-		return (error);
+		ext2_trace_return(error);
 	es = (struct ext2_super_block *)(bp->b_data+SBOFF);
 	if (ext2_check_sb_compat(es, (dev_t)devvp->v_rdev, 0) != 0) {
 		brelse(bp);
-		return (EIO);		/* XXX needs translation */
+		ext2_trace_return(EIO);		/* XXX needs translation */
 	}
 	fs = VFSTOEXT2(mountp)->um_e2fs;
 	bcopy(es, fs->s_es, sizeof(struct ext2_super_block));
@@ -817,7 +820,7 @@ loop:
 		    (int)fs->s_blocksize, NOCRED, &bp);
 		if (error) {
 			vput(vp);
-			return (error);
+			ext2_trace_return(error);
 		}
 		ext2_ei2i((struct ext2_inode *) ((char *)bp->b_data +
 		    EXT2_INODE_SIZE * ino_to_fsbo(fs, ip->i_number)), ip);
@@ -859,11 +862,11 @@ ext2_mountfs(devvp, mp, td)
 	 * Flush out any old buffers remaining from a previous use.
 	 */
 	if ((error = vfs_mountedon(devvp)) != 0)
-		return (error);
+		ext2_trace_return(error);
 	if (vcount(devvp) > 1 && devvp != rootvp)
-		return (EBUSY);
+		ext2_trace_return(EBUSY);
 	if ((error = vinvalbuf(devvp, V_SAVE, td->td_ucred, td, 0, 0)) != 0)
-		return (error);
+		ext2_trace_return(error);
 #ifdef READONLY
 /* turn on this to force it to be read-only */
 	mp->mnt_flag |= MNT_RDONLY;
@@ -874,7 +877,7 @@ ext2_mountfs(devvp, mp, td)
 	error = VOP_OPEN(devvp, ronly ? FREAD : FREAD|FWRITE, FSCRED, td);
 	VOP_UNLOCK(devvp, 0, td);
 	if (error)
-		return (error);
+		ext2_trace_return(error);
    #ifndef APPLE
 	if (devvp->v_rdev->si_iosize_max != 0)
 		mp->mnt_iosize_max = devvp->v_rdev->si_iosize_max;
@@ -889,7 +892,7 @@ ext2_mountfs(devvp, mp, td)
    devBlockSize = 512;
    if (VOP_IOCTL(devvp, DKIOCSETBLOCKSIZE, (caddr_t)&devBlockSize,
          FWRITE, td->td_ucred, td)) {
-      return (ENXIO);
+      ext2_trace_return(ENXIO);
    }
    /* force specfs to re-read the new size */
    set_fsblocksize(devvp);
@@ -898,7 +901,7 @@ ext2_mountfs(devvp, mp, td)
 	if ((error = vfs_init_io_attributes(devvp, mp))) {
 		printf("ext2_mountfs: vfs_init_io_attributes returned %d\n",
 			error);
-		return (error);
+		ext2_trace_return(error);
 	}
    
    /* VOP_DEVBLOCKSIZE(devvp, &devBlockSize); */
@@ -1012,7 +1015,7 @@ ext2_mountfs(devvp, mp, td)
    #endif
    
    fs->s_es->s_mtime = cpu_to_le32(tv.tv_sec);
-   if (!(int16_t)le16_to_cpu(fs->s_es->s_max_mnt_count))
+   if (!(int16_t)fs->s_es->s_max_mnt_count)
 		fs->s_es->s_max_mnt_count = (int16_t)cpu_to_le16(EXT2_DFL_MAX_MNT_COUNT);
 	fs->s_es->s_mnt_count = cpu_to_le16(le16_to_cpu(fs->s_es->s_mnt_count) + 1);
    /* last mount point */
@@ -1033,7 +1036,7 @@ out:
 		bsd_free(ump, M_EXT2MNT);
 		mp->mnt_data = (qaddr_t)0;
 	}
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1052,11 +1055,11 @@ ext2_unmount(mp, mntflags, td)
 	flags = 0;
 	if (mntflags & MNT_FORCE) {
 		if (mp->mnt_flag & MNT_ROOTFS)
-			return (EINVAL);
+			ext2_trace_return(EINVAL);
 		flags |= FORCECLOSE;
 	}
 	if ((error = ext2_flushfiles(mp, flags, td)) != 0)
-		return (error);
+		ext2_trace_return(error);
 	ump = VFSTOEXT2(mp);
 	fs = ump->um_e2fs;
 	ronly = fs->s_rd_only;
@@ -1094,7 +1097,7 @@ ext2_unmount(mp, mntflags, td)
 	bsd_free(ump, M_EXT2MNT);
 	mp->mnt_data = (qaddr_t)0;
 	mp->mnt_flag &= ~MNT_LOCAL;
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1112,7 +1115,7 @@ ext2_flushfiles(mp, flags, td)
    error = vflush(mp, NULLVP, SKIPSWAP|flags);
 #endif
 	error = vflush(mp, 0, flags);
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1276,7 +1279,7 @@ loop:
 		if ((error = ext2_sbupdate(ump, waitfor)) != 0)
 			allerror = error;
 	}
-	return (allerror);
+	ext2_trace_return(allerror);
 }
 
 /*
@@ -1315,7 +1318,7 @@ ext2_vget(mp, inop, vpp)
    /* Check for unmount in progress */
 	if (mp->mnt_kern_flag & MNTK_UNMOUNT) {
 		*vpp = NULL;
-		return (EPERM);
+		ext2_trace_return(EPERM);
 	}
    #endif
 
@@ -1323,7 +1326,7 @@ ext2_vget(mp, inop, vpp)
 	dev = ump->um_dev;
 restart:
 	if ((error = ext2_ihashget(dev, ino, flags, vpp)) != 0)
-		return (error);
+		ext2_trace_return(error);
 	if (*vpp != NULL)
 		return (0);
 
@@ -1349,6 +1352,7 @@ restart:
 	 * dereferences vp->v_data (as well it should).
 	 */
 	MALLOC(ip, struct inode *, sizeof(struct inode), M_EXT2NODE, M_WAITOK);
+   assert(NULL != ip);
 
 	/* Allocate a new vnode/inode. */
    if ((error = getnewvnode(VT_EXT2, mp, ext2_vnodeop_p, &vp)) != 0) {
@@ -1357,7 +1361,7 @@ restart:
 		ext2fs_inode_hash_lock = 0;
 		*vpp = NULL;
 		FREE(ip, M_EXT2NODE);
-		return (error);
+		ext2_trace_return(error);
 	}
 	bzero((caddr_t)ip, sizeof(struct inode));
 	vp->v_data = ip;
@@ -1396,7 +1400,7 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 		vput(vp);
 		brelse(bp);
 		*vpp = NULL;
-		return (error);
+		ext2_trace_return(error);
 	}
 	/* convert ext2 inode to dinode */
 	ext2_ei2i((struct ext2_inode *) ((char *)bp->b_data + EXT2_INODE_SIZE *
@@ -1427,7 +1431,7 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 	if ((error = ext2_vinit(mp, ext2_specop_p, ext2_fifoop_p, &vp)) != 0) {
 		vput(vp);
 		*vpp = NULL;
-		return (error);
+		ext2_trace_return(error);
 	}
 	/*
 	 * Finish inode initialization now that aliasing has been resolved.
@@ -1491,7 +1495,7 @@ ext2_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
 	fs = VFSTOEXT2(mp)->um_e2fs;
 	if (ufhp->ufid_ino < ROOTINO ||
 	    ufhp->ufid_ino > fs->s_groups_count * le32_to_cpu(fs->s_es->s_inodes_per_group))
-		return (ESTALE);
+		ext2_trace_return(ESTALE);
    
    #ifndef APPLE
 	error = VFS_VGET(mp, ufhp->ufid_ino, LK_EXCLUSIVE, &nvp);
@@ -1500,14 +1504,14 @@ ext2_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
    #endif / * APPLE */
 	if (error) {
 		*vpp = NULLVP;
-		return (error);
+		ext2_trace_return(error);
 	}
 	ip = VTOI(nvp);
 	if (ip->i_mode == 0 ||
 	    ip->i_gen != ufhp->ufid_gen || ip->i_nlink <= 0) {
 		vput(nvp);
 		*vpp = NULLVP;
-		return (ESTALE);
+		ext2_trace_return(ESTALE);
 	}
 	*vpp = nvp;
 	return (0);
@@ -1553,7 +1557,7 @@ ext2_sbupdate(mp, waitfor)
 /*
 printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 */
-	bp = getblk(mp->um_devvp, SBLOCK, fs->s_blocksize, 0, 0, BLK_META);
+	bp = getblk(mp->um_devvp, SBLOCK, SBSIZE, 0, 0, BLK_META);
 	bcopy((caddr_t)es, (bp->b_data+SBOFF), (u_int)sizeof(struct ext2_super_block));
 	if (waitfor == MNT_WAIT)
 		error = bwrite(bp);
@@ -1566,7 +1570,7 @@ printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 	 * usual sync mechanism. No need to write them here
 		 */
 
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1586,7 +1590,7 @@ ext2_root(mp, vpp)
    error = VFS_VGET(mp, (void*)ROOTINO, &nvp);
    #endif / * APPLE */
 	if (error)
-		return (error);
+		ext2_trace_return(error);
 	*vpp = nvp;
 	return (0);
 }
@@ -1631,7 +1635,7 @@ vn_isdisk(vp, errp)
 
 	if (errp != NULL)
 		*errp = 0;
-	return (1);
+	ext2_trace_return(1);
 }
 
 /*
@@ -1666,7 +1670,7 @@ static int
 ext2_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
 	   size_t newlen, struct proc *p)
 {
-   return (ENOTSUP);
+   ext2_trace_return(ENOTSUP);
 }
 
 extern int vfs_opv_numops; // kernel
@@ -1790,9 +1794,9 @@ funnel_release:
 	thread_funnel_set(kernel_flock, funnelState);
    
    if (kret)
-      return (KERN_FAILURE);
+      ext2_trace_return(KERN_FAILURE);
    
-   return (KERN_SUCCESS);
+   ext2_trace_return(KERN_SUCCESS);
 }
 
 kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
@@ -1816,7 +1820,7 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
       /* There are still mounts active. */
       log(LOG_INFO, "ext2fs_stop: failed to unload kext, mounts still active\n");
       thread_funnel_set(kernel_flock, funnelState);
-      return (KERN_FAILURE);
+      ext2_trace_return(KERN_FAILURE);
    }
 
 	/* Deregister with the kernel */
@@ -1829,7 +1833,7 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
 	thread_funnel_set(kernel_flock, funnelState);
    
    ext2_uninit(NULL);
-   return (KERN_SUCCESS);
+   ext2_trace_return(KERN_SUCCESS);
 }
 
 #endif /* APPLE */

@@ -45,6 +45,9 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_lookup.c,v 1.37 2002/10/18 21:41:41 bde Exp $
  */
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/namei.h>
@@ -58,7 +61,10 @@
 #include <sys/dirent.h>
 #include <sys/sysctl.h>
 
+/* Temp. disable KERNEL so we don't bring in some dup macros. */
+#undef KERNEL
 #include <ufs/ufs/dir.h>
+#define KERNEL
 
 #ifdef APPLE
 /* From kernel */
@@ -226,7 +232,7 @@ ext2_readdir(ap)
 			    dstdp.d_reclen - offsetof(struct dirent, d_name) -
 			    dstdp.d_namlen);
 
-			if (le16_to_cpu(dp->rec_len) > 0) {
+			if (dp->rec_len > 0) {
 				if(dstdp.d_reclen <= uio->uio_resid) {
 					/* advance dp */
 					dp = (struct ext2_dir_entry_2 *)
@@ -268,7 +274,7 @@ ext2_readdir(ap)
 	FREE(dirbuf, M_TEMP);
 	if (ap->a_eofflag)
 		*ap->a_eofflag = VTOI(ap->a_vp)->i_size <= uio->uio_offset;
-        return (error);
+        ext2_trace_return(error);
 }
 
 /*
@@ -391,7 +397,7 @@ ext2_lookup(ap)
 		if ((entryoffsetinblock = dp->i_offset & bmask) &&
 		    (error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL,
 		    &bp)))
-			return (error);
+			ext2_trace_return(error);
 		numdirpasses = 2;
 		nchstats.ncs_2passes++;
 	}
@@ -410,7 +416,7 @@ searchloop:
 			if ((error =
 			    ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL,
 			    &bp)) != 0)
-				return (error);
+				ext2_trace_return(error);
 			entryoffsetinblock = 0;
 		}
 		/*
@@ -431,7 +437,7 @@ searchloop:
 		 */
 		ep = (struct ext2_dir_entry_2 *)
 			((char *)bp->b_data + entryoffsetinblock);
-		if (le16_to_cpu(ep->rec_len) == 0 ||
+		if (ep->rec_len == 0 ||
 		    (dirchk && ext2_dirbadentry(vdp, ep, entryoffsetinblock))) {
 			int i;
 			ext2_dirbad(dp, dp->i_offset, "mangled entry");
@@ -463,8 +469,8 @@ searchloop:
 						slotoffset = dp->i_offset;
 					if (slotfreespace >= slotneeded) {
 						slotstatus = COMPACT;
-						slotsize = dp->i_offset +
-						      le16_to_cpu(ep->rec_len) - slotoffset;
+						slotsize = (dp->i_offset +
+						      le16_to_cpu(ep->rec_len)) - slotoffset;
 					}
 				}
 			}
@@ -519,7 +525,7 @@ searchloop:
 		 * creation of files in the directory.
 		 */
 		if ((error = VOP_ACCESS(vdp, VWRITE, cred, cnp->cn_thread)) != 0)
-			return (error);
+			ext2_trace_return(error);
 		/*
 		 * Return an indication of where the new directory
 		 * entry should be put.  If we didn't find a slot,
@@ -557,14 +563,14 @@ searchloop:
 		cnp->cn_flags |= SAVENAME;
 		if (!lockparent)
 			VOP_UNLOCK(vdp, 0, td);
-		return (EJUSTRETURN);
+		ext2_trace_return(EJUSTRETURN);
 	}
 	/*
 	 * Insert name into cache (as non-existent) if appropriate.
 	 */
 	if ((cnp->cn_flags & MAKEENTRY) && nameiop != CREATE)
 		cache_enter(vdp, *vpp, cnp);
-	return (ENOENT);
+	ext2_trace_return(ENOENT);
 
 found:
 	if (numdirpasses == 2)
@@ -601,7 +607,7 @@ found:
 		 * Write access to directory required to delete files.
 		 */
 		if ((error = VOP_ACCESS(vdp, VWRITE, cred, cnp->cn_thread)) != 0)
-			return (error);
+			ext2_trace_return(error);
 		/*
 		 * Return pointer to current entry in dp->i_offset,
 		 * and distance past previous entry (if there
@@ -623,7 +629,7 @@ found:
       #else
       if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
       #endif
-			return (error);
+			ext2_trace_return(error);
 		/*
 		 * If directory is "sticky", then user must own
 		 * the directory, or the file in it, else she
@@ -635,7 +641,7 @@ found:
 		    cred->cr_uid != dp->i_uid &&
 		    VTOI(tdp)->i_uid != cred->cr_uid) {
 			vput(tdp);
-			return (EPERM);
+			ext2_trace_return(EPERM);
 		}
 		*vpp = tdp;
 		if (!lockparent)
@@ -652,20 +658,20 @@ found:
 	if (nameiop == RENAME && wantparent &&
 	    (flags & ISLASTCN)) {
 		if ((error = VOP_ACCESS(vdp, VWRITE, cred, cnp->cn_thread)) != 0)
-			return (error);
+			ext2_trace_return(error);
 		/*
 		 * Careful about locking second inode.
 		 * This can only occur if the target is ".".
 		 */
 		if (dp->i_number == dp->i_ino)
-			return (EISDIR);
+			ext2_trace_return(EISDIR);
       #ifndef APPLE
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
       #else
       if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
       #endif
-			return (error);
+			ext2_trace_return(error);
 		*vpp = tdp;
 		cnp->cn_flags |= SAVENAME;
 		if (!lockparent)
@@ -703,12 +709,12 @@ found:
       #endif
       {
 			vn_lock(pdp, LK_EXCLUSIVE | LK_RETRY, td);
-			return (error);
+			ext2_trace_return(error);
 		}
 		if (lockparent && (flags & ISLASTCN) &&
 		    (error = vn_lock(pdp, LK_EXCLUSIVE, td))) {
 			vput(tdp);
-			return (error);
+			ext2_trace_return(error);
 		}
 		*vpp = tdp;
 	} else if (dp->i_number == dp->i_ino) {
@@ -721,7 +727,7 @@ found:
       #else
       if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
       #endif
-			return (error);
+			ext2_trace_return(error);
 		if (!lockparent || !(flags & ISLASTCN))
 			VOP_UNLOCK(pdp, 0, td);
 		*vpp = tdp;
@@ -785,7 +791,7 @@ ext2_dirbadentry(dp, de, entryoffsetinblock)
 	*/
 
         if (error_msg != NULL) {
-                printf("bad directory entry: %s\n", error_msg);
+                printf("ext2 bad directory entry: %s\n", error_msg);
                 printf("offset=%d, inode=%lu, rec_len=%u, name_len=%u\n",
 			entryoffsetinblock, (unsigned long)le32_to_cpu(de->inode),
 			le16_to_cpu(de->rec_len), de->name_len);
@@ -821,7 +827,7 @@ ext2_direnter(ip, dvp, cnp)
 
 #if DIAGNOSTIC
 	if ((cnp->cn_flags & SAVENAME) == 0)
-		panic("direnter: missing name");
+		panic("ext2_direnter: missing name");
 #endif
 	dp = VTOI(dvp);
 	newdir.inode = cpu_to_le32(ip->i_number);
@@ -900,7 +906,7 @@ ext2_direnter(ip, dvp, cnp)
 	spacefree = le16_to_cpu(ep->rec_len) - dsize;
 	for (loc = le16_to_cpu(ep->rec_len); loc < dp->i_count; ) {
 		nep = (struct ext2_dir_entry_2 *)(dirbuf + loc);
-		if (le32_to_cpu(ep->inode)) {
+		if (ep->inode) {
 			/* trim the existing slot */
 			ep->rec_len = cpu_to_le16(dsize);
 			ep = (struct ext2_dir_entry_2 *)((char *)ep + dsize);
@@ -917,7 +923,7 @@ ext2_direnter(ip, dvp, cnp)
 	 * Update the pointer fields in the previous entry (if any),
 	 * copy in the new entry, and write out the block.
 	 */
-	if (le32_to_cpu(ep->inode) == 0) {
+	if (ep->inode == 0) {
 		if (spacefree + dsize < newentrysize)
 			panic("ext2_direnter: compact1");
 		newdir.rec_len = cpu_to_le16(spacefree + dsize);
@@ -979,7 +985,7 @@ ext2_dirremove(dvp, cnp)
 	if ((error = ext2_blkatoff(dvp, (off_t)(dp->i_offset - dp->i_count),
 	    (char **)&ep, &bp)) != 0)
 		return (error);
-	ep->rec_len += cpu_to_le16(dp->i_reclen);
+	ep->rec_len = cpu_to_le16(le16_to_cpu(ep->rec_len) + dp->i_reclen);
 	error = BUF_WRITE(bp);
 	dp->i_flag |= IN_CHANGE | IN_UPDATE;
 	return (error);
@@ -1051,7 +1057,7 @@ ext2_dirempty(ip, parentino, cred)
 		if (error || count != 0)
 			return (0);
 		/* avoid infinite loops */
-		if (le16_to_cpu(dp->rec_len) == 0)
+		if (dp->rec_len == 0)
 			return (0);
 		/* skip empty entries */
 		if (dp->inode == 0)
@@ -1089,6 +1095,7 @@ ext2_checkpath(source, target, cred)
 	struct vnode *vp;
 	int error, rootino, namlen;
 	struct dirtemplate dirbuf;
+   u_int32_t dotdot_ino;
 
 	vp = ITOV(target);
 	if (target->i_number == source->i_number) {
@@ -1123,18 +1130,19 @@ ext2_checkpath(source, target, cred)
 			error = ENOTDIR;
 			break;
 		}
-		if (dirbuf.dotdot_ino == source->i_number) {
+      dotdot_ino = le32_to_cpu(dirbuf.dotdot_ino);
+		if (dotdot_ino == source->i_number) {
 			error = EINVAL;
 			break;
 		}
-		if (dirbuf.dotdot_ino == rootino)
+		if (dotdot_ino == rootino)
 			break;
 		vput(vp);
       #ifndef APPLE
-		if ((error = VFS_VGET(vp->v_mount, dirbuf.dotdot_ino,
+		if ((error = VFS_VGET(vp->v_mount, dotdot_ino,
           LK_EXCLUSIVE, &vp)) != 0)
       #else
-      if ((error = VFS_VGET(vp->v_mount, (void*)dirbuf.dotdot_ino, &vp)) != 0)
+      if ((error = VFS_VGET(vp->v_mount, (void*)dotdot_ino, &vp)) != 0)
       #endif
 		{
 			vp = NULL;
@@ -1144,9 +1152,8 @@ ext2_checkpath(source, target, cred)
 
 out:
 	if (error == ENOTDIR)
-		printf("checkpath: .. not a directory\n");
+		printf("ext2_checkpath: .. not a directory\n");
 	if (vp != NULL)
 		vput(vp);
 	return (error);
 }
-

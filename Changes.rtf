@@ -1,10 +1,21 @@
 {\rtf1\mac\ansicpg10000\cocoartf102
-{\fonttbl\f0\fswiss\fcharset77 Helvetica;}
+{\fonttbl\f0\fswiss\fcharset77 Helvetica;\f1\fnil\fcharset77 Verdana;}
 {\colortbl;\red255\green255\blue255;}
 \margl1440\margr1440\vieww9000\viewh9000\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.0a2\
+\f0\fs24 \cf0 1.0a3\
+Fixed directory corruption and a very possible kernel panic when renaming an object (bug #742939). This was due to some meta-data not being byte-swapped. Many thanks to J. Peel for helping to track this down (and suffering through all of those panics).\
+\
+Fixed another instance of directory corruption (and a panic from the corruption) related to bug #742939. This would happen during removal of an object. This was more elusive than the previous bug, because it would only happen when the directory contained a certain number of entries. The problem was that an integer field was being overflowed because we were doing addition AFTER byte swapping the inode sizes. Switching the addition to native byte order fixed the bug. This should also fix bug #
+\f1 737973.
+\f0  J. Peel helped track this one down too. \
+\
+Fixed filesystem corruption for drives with block sizes larger than 1K (bugs #747666 and #748535). The corruption was caused by reading too much data for the superblock, changing the superblock and then writing back all of the data. This ended up corrupting part of the superblock and most of the group descriptors (which follow the superblock). J. Troeger helped find this problem.\
+\
+Added automount content hint for the CD partition type.\
+\
+1.0a2\
 Fixed a nasty kernel panic on mount that I'm surprised more people didn't run into.\
 \
 The mount routine no longer releases the passed namei data. This is how UFS does things, so presumably this is released by the kernel mount routine.\

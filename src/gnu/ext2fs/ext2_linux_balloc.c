@@ -27,6 +27,9 @@
  * the free blocks count in the block.  The descriptors are loaded in memory
  * when a file system is mounted (see ext2_read_super).
  */
+ 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -293,7 +296,7 @@ repeat:
 		goal = le32_to_cpu(es->s_first_data_block);
 	i = (goal - le32_to_cpu(es->s_first_data_block)) / EXT2_BLOCKS_PER_GROUP(sb);
 	gdp = get_group_desc (mp, i, &bh2);
-	if (le16_to_cpu(gdp->bg_free_blocks_count) > 0) {
+	if (gdp->bg_free_blocks_count > 0) {
 		j = ((goal - le32_to_cpu(es->s_first_data_block)) % EXT2_BLOCKS_PER_GROUP(sb));
 #ifdef EXT2FS_DEBUG
 		if (j)
@@ -364,7 +367,7 @@ repeat:
 		if (i >= sb->s_groups_count)
 			i = 0;
 		gdp = get_group_desc (mp, i, &bh2);
-		if (le16_to_cpu(gdp->bg_free_blocks_count) > 0)
+		if (gdp->bg_free_blocks_count > 0)
 			break;
 	}
 	if (k >= sb->s_groups_count) {
@@ -441,7 +444,9 @@ got_block:
          if (ext2_set_bit (j + k, bh->b_data))
 				break;
 			(*prealloc_count)++;
-		}	
+		}
+      assert(*prealloc_count < 0x10000);
+      	
 		gdp->bg_free_blocks_count =
          cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count) - *prealloc_count);
 		es->s_free_blocks_count =

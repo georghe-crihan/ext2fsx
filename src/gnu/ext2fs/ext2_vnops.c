@@ -67,6 +67,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/* Use vwhatid so we don't conflict with whatid in ext2_readwrite.c. */
+static const char vwhatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #ifndef APPLE
 #include "opt_suiddir.h"
 #endif
@@ -452,7 +456,7 @@ ext2_create(ap)
 	    ext2_makeinode(MAKEIMODE(ap->a_vap->va_type, ap->a_vap->va_mode),
 	    ap->a_dvp, ap->a_vpp, ap->a_cnp);
 	if (error)
-		return (error);
+		ext2_trace_return(error);
 	return (0);
 }
 
@@ -477,7 +481,7 @@ ext2_open(ap)
 	 */
 	if ((VTOI(ap->a_vp)->i_flags & APPEND) &&
 	    (ap->a_mode & (FWRITE | O_APPEND)) == FWRITE)
-		return (EPERM);
+		ext2_trace_return(EPERM);
 	return (0);
 }
 
@@ -555,7 +559,7 @@ ext2_close(ap)
          (void) vn_start_write(vp, &mp, V_WAIT);
 			vrele(vp);
 			vn_finished_write(mp);
-			return (EAGAIN);
+			ext2_trace_return(EAGAIN);
 		}
 	}
 #endif
@@ -589,7 +593,7 @@ ext2_access(ap)
 		case VLNK:
 		case VREG:
 			if (vp->v_mount->mnt_flag & MNT_RDONLY)
-				return (EROFS);
+				ext2_trace_return(EROFS);
 			break;
 		default:
 			break;
@@ -598,7 +602,7 @@ ext2_access(ap)
 
 	/* If immutable bit set, nobody gets to write it. */
 	if ((mode & VWRITE) && (ip->i_flags & (IMMUTABLE | SF_SNAPSHOT)))
-		return (EPERM);
+		ext2_trace_return(EPERM);
 
 	error = vaccess(
        #ifndef APPLE
@@ -611,7 +615,7 @@ ext2_access(ap)
        #else
        );
        #endif
-	return (error);
+	ext2_trace_return(error);
 }
 
 static int
@@ -709,14 +713,14 @@ ext2_setattr(ap)
 	}
 	if (vap->va_flags != VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
-			return (EROFS);
+			ext2_trace_return(EROFS);
 		#ifndef APPLE
       /*
 		 * Callers may only modify the file flags on objects they
 		 * have VADMIN rights for.
 		 */
 		if ((error = VOP_ACCESS(vp, VADMIN, cred, td)))
-			return (error);
+			ext2_trace_return(error);
       
 		/*
 		 * Unprivileged processes and privileged processes in
@@ -729,21 +733,21 @@ ext2_setattr(ap)
       #else
       if (cred->cr_uid != ip->i_uid &&
 		    (error = suser(cred, &td->p_acflag)))
-         return (error);
+         ext2_trace_return(error);
       if (cred->cr_uid == 0) {
       #endif
 			if (ip->i_flags
 			    & (SF_NOUNLINK | SF_IMMUTABLE | SF_APPEND)) {
             error = securelevel_gt(cred, 0);
 				if (error)
-					return (error);
+					ext2_trace_return(error);
 			}
 			ip->i_flags = vap->va_flags;
 		} else {
 			if (ip->i_flags
 			    & (SF_NOUNLINK | SF_IMMUTABLE | SF_APPEND) ||
 			    (vap->va_flags & UF_SETTABLE) != vap->va_flags)
-				return (EPERM);
+				ext2_trace_return(EPERM);
 			ip->i_flags &= SF_SETTABLE;
 			ip->i_flags |= (vap->va_flags & UF_SETTABLE);
 		}
@@ -752,16 +756,16 @@ ext2_setattr(ap)
 			return (0);
 	}
 	if (ip->i_flags & (IMMUTABLE | APPEND))
-		return (EPERM);
+		ext2_trace_return(EPERM);
 	/*
 	 * Go through the fields and update iff not VNOVAL.
 	 */
 	if (vap->va_uid != (uid_t)VNOVAL || vap->va_gid != (gid_t)VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
-			return (EROFS);
+			ext2_trace_return(EROFS);
 		if ((error = ext2_chown(vp, vap->va_uid, vap->va_gid, cred,
 		    td)) != 0)
-			return (error);
+			ext2_trace_return(error);
 	}
 	if (vap->va_size != VNOVAL) {
 		/*
@@ -771,21 +775,21 @@ ext2_setattr(ap)
 		 */
 		switch (vp->v_type) {
 		case VDIR:
-			return (EISDIR);
+			ext2_trace_return(EISDIR);
 		case VLNK:
 		case VREG:
 			if (vp->v_mount->mnt_flag & MNT_RDONLY)
-				return (EROFS);
+				ext2_trace_return(EROFS);
 			break;
 		default:
 			break;
 		}
 		if ((error = ext2_truncate(vp, vap->va_size, 0, cred, td)) != 0)
-			return (error);
+			ext2_trace_return(error);
 	}
 	if (vap->va_atime.tv_sec != VNOVAL || vap->va_mtime.tv_sec != VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
-			return (EROFS);
+			ext2_trace_return(EROFS);
 		/*
 		 * From utimes(2):
 		 * If times is NULL, ... The caller must be the owner of
@@ -802,7 +806,7 @@ ext2_setattr(ap)
       #endif
 		    ((vap->va_vaflags & VA_UTIMES_NULL) == 0 ||
 		    (error = VOP_ACCESS(vp, VWRITE, cred, td))))
-			return (error);
+			ext2_trace_return(error);
 		if (vap->va_atime.tv_sec != VNOVAL)
 			ip->i_flag |= IN_ACCESS;
 		if (vap->va_mtime.tv_sec != VNOVAL)
@@ -818,18 +822,18 @@ ext2_setattr(ap)
 		}
 		error = ext2_update(vp, 0);
 		if (error)
-			return (error);
+			ext2_trace_return(error);
 	}
 	error = 0;
 	if (vap->va_mode != (mode_t)VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
-			return (EROFS);
+			ext2_trace_return(EROFS);
 		error = ext2_chmod(vp, (int)vap->va_mode, cred, td);
 	}
    #ifndef APPLE
 	VN_KNOTE(vp, NOTE_ATTRIB);
    #endif
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -854,7 +858,7 @@ ext2_chmod(vp, mode, cred, td)
 	 * for that file.
 	 */
 	if ((error = VOP_ACCESS(vp, VADMIN, cred, td)))
-		return (error);
+		ext2_trace_return(error);
 	/*
 	 * Privileged processes may set the sticky bit on non-directories,
 	 * as well as set the setgid bit on a file with a group that the
@@ -864,13 +868,13 @@ ext2_chmod(vp, mode, cred, td)
    #else
    if (cred->cr_uid != ip->i_uid &&
        (error = suser(cred, &td->p_acflag)))
-      return (error);
+      ext2_trace_return(error);
    if (cred->cr_uid) {
    #endif /* APPLE */
 		if (vp->v_type != VDIR && (mode & S_ISTXT))
-			return (EFTYPE);
+			ext2_trace_return(EFTYPE);
 		if (!groupmember(ip->i_gid, cred) && (mode & ISGID))
-			return (EPERM);
+			ext2_trace_return(EPERM);
 	}
 	ip->i_mode &= ~ALLPERMS;
 	ip->i_mode |= (mode & ALLPERMS);
@@ -907,7 +911,7 @@ ext2_chown(vp, uid, gid, cred, td)
 	 * for that file.
 	 */
 	if ((error = VOP_ACCESS(vp, VADMIN, cred, td)))
-		return (error);
+		ext2_trace_return(error);
    #endif
 	/*
 	 * To change the owner of a file, or change the group of a file
@@ -921,7 +925,7 @@ ext2_chown(vp, uid, gid, cred, td)
        #else
        (error = suser(cred, &td->p_acflag)))
        #endif
-		return (error);
+		ext2_trace_return(error);
 	ogid = ip->i_gid;
 	ouid = ip->i_uid;
 	ip->i_gid = gid;
@@ -966,7 +970,7 @@ ext2_fsync(ap)
    
    vop_stdfsync(ap);
 
-	return (ext2_update(ap->a_vp, ap->a_waitfor == MNT_WAIT));
+	ext2_trace_return(ext2_update(ap->a_vp, ap->a_waitfor == MNT_WAIT));
 }
 
 /*
@@ -993,7 +997,7 @@ ext2_mknod(ap)
 	error = ext2_makeinode(MAKEIMODE(vap->va_type, vap->va_mode),
 	    ap->a_dvp, vpp, ap->a_cnp);
 	if (error)
-		return (error);
+		ext2_trace_return(error);
 	ip = VTOI(*vpp);
 	ip->i_flag |= IN_ACCESS | IN_CHANGE | IN_UPDATE;
 	if (vap->va_rdev != VNOVAL) {
@@ -1016,7 +1020,7 @@ ext2_mknod(ap)
 	error = VFS_VGET(ap->a_dvp->v_mount, ino, LK_EXCLUSIVE, vpp);
 	if (error) {
 		*vpp = NULL;
-		return (error);
+		ext2_trace_return(error);
 	}
    #else
    /* lookup will reload the inode for us */
@@ -1075,7 +1079,7 @@ ext2_remove(ap)
    vrele(vp);
 	vput(dvp);
 
-	return (error);
+	ext2_trace_return(error);
 #endif
    
 out:
@@ -1086,7 +1090,7 @@ out:
       vput(vp);
    vput(dvp);
 #endif
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1165,7 +1169,7 @@ out:
 #ifdef APPLE
    vput(tdvp);
 #endif
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1224,7 +1228,7 @@ abortit:
    #endif
 		vrele(fdvp);
 		vrele(fvp);
-		return (error);
+		ext2_trace_return(error);
 	}
 
 	if (tvp && ((VTOI(tvp)->i_flags & (NOUNLINK | IMMUTABLE | APPEND)) ||
@@ -1535,7 +1539,7 @@ abortit:
 	if (xp)
 		vput(fvp);
 	vrele(ap->a_fvp);
-	return (error);
+	ext2_trace_return(error);
 
 bad:
 	if (xp)
@@ -1551,7 +1555,7 @@ out:
 		vput(fvp);
 	} else
 		vrele(fvp);
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1697,7 +1701,7 @@ out:
    FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
 	vput(dvp);
 #endif
-	return (error);
+	ext2_trace_return(error);
 #undef  DIRBLKSIZ
 #define DIRBLKSIZ  DEV_BSIZE
 }
@@ -1732,7 +1736,7 @@ ext2_rmdir(ap)
 	if (dp == ip) {
 		vrele(dvp);
 		vput(vp);
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	}
 #endif
 
@@ -1793,7 +1797,7 @@ out:
 		vput(dvp);
 	vput(vp);
 #endif
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1818,7 +1822,7 @@ ext2_symlink(ap)
 	error = ext2_makeinode(IFLNK | ap->a_vap->va_mode, ap->a_dvp,
 	    vpp, ap->a_cnp);
 	if (error)
-		return (error);
+		ext2_trace_return(error);
 	vp = *vpp;
 	len = strlen(ap->a_target);
 	if (len < vp->v_mount->mnt_maxsymlinklen) {
@@ -1839,7 +1843,7 @@ ext2_symlink(ap)
    if (error)
 #endif
 		vput(vp);
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -1864,7 +1868,7 @@ ext2_readlink(ap)
 		uiomove((char *)ip->i_shortlink, isize, ap->a_uio);
 		return (0);
 	}
-	return (VOP_READ(vp, ap->a_uio, 0, ap->a_cred));
+	ext2_trace_return(VOP_READ(vp, ap->a_uio, 0, ap->a_cred));
 }
 
 /*
@@ -1919,7 +1923,7 @@ ext2_strategy(ap)
             bp->b_error = error;
             bp->b_ioflags |= BIO_ERROR;
             bufdone(bp);
-            return (error);
+            ext2_trace_return(error);
          }
       }
 #endif
@@ -1927,7 +1931,7 @@ ext2_strategy(ap)
       vp = ip->i_devvp;
       bp->b_dev = vp->v_rdev;
 
-      return (error);
+      ext2_trace_return(error);
    }
    #endif
    
@@ -1938,7 +1942,7 @@ ext2_strategy(ap)
 			bp->b_error = error;
 			bp->b_ioflags |= BIO_ERROR;
 			bufdone(bp);
-			return (error);
+			ext2_trace_return(error);
 		}
 		if ((long)bp->b_blkno == -1)
 			vfs_bio_clrbuf(bp);
@@ -1955,11 +1959,11 @@ ext2_strategy(ap)
    #ifndef APPLE
 	bp->b_dev = vp->v_rdev;
 	VOP_STRATEGY(vp, bp);
+   return (0);
    #else
    bp->b_dev = vp->v_rdev;
-   return (VOCALL (vp->v_op, VOFFSET(vop_strategy), ap));
+   ext2_trace_return(VOCALL (vp->v_op, VOFFSET(vop_strategy), ap));
    #endif
-	return (0);
 }
 
 /*
@@ -2013,7 +2017,7 @@ ext2spec_read(ap)
 	ip = VTOI(ap->a_vp);
 	if (ip != NULL && (uio->uio_resid != resid || (error == 0 && resid != 0)))
 		ip->i_flag |= IN_ACCESS;
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -2040,7 +2044,7 @@ ext2spec_write(ap)
 	ip = VTOI(ap->a_vp);
 	if (ip != NULL && (uio->uio_resid != resid || (error == 0 && resid != 0)))
 		VTOI(ap->a_vp)->i_flag |= IN_CHANGE | IN_UPDATE;
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -2065,7 +2069,7 @@ ext2spec_close(ap)
 	if (vp->v_usecount > 1)
 		ext2_itimes(vp);
 	VI_UNLOCK(vp);
-	return (VOCALL(spec_vnodeop_p, VOFFSET(vop_close), ap));
+	ext2_trace_return(VOCALL(spec_vnodeop_p, VOFFSET(vop_close), ap));
 }
 
 /*
@@ -2093,7 +2097,7 @@ ext2fifo_read(ap)
 	if ((ap->a_vp->v_mount->mnt_flag & MNT_NOATIME) == 0 && ip != NULL &&
 	    (uio->uio_resid != resid || (error == 0 && resid != 0)))
 		VTOI(ap->a_vp)->i_flag |= IN_ACCESS;
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -2120,7 +2124,7 @@ ext2fifo_write(ap)
 	ip = VTOI(ap->a_vp);
 	if (ip != NULL && (uio->uio_resid != resid || (error == 0 && resid != 0)))
 		VTOI(ap->a_vp)->i_flag |= IN_CHANGE | IN_UPDATE;
-	return (error);
+	ext2_trace_return(error);
 }
 
 /*
@@ -2145,7 +2149,7 @@ ext2fifo_close(ap)
 	if (vp->v_usecount > 1)
 		ext2_itimes(vp);
 	VI_UNLOCK(vp);
-	return (VOCALL(fifo_vnodeop_p, VOFFSET(vop_close), ap));
+	ext2_trace_return(VOCALL(fifo_vnodeop_p, VOFFSET(vop_close), ap));
 }
 
 #ifndef APPLE
@@ -2164,7 +2168,7 @@ ext2fifo_kqfilter(ap)
 	error = VOCALL(fifo_vnodeop_p, VOFFSET(vop_kqfilter), ap);
 	if (error)
 		error = ext2_kqfilter(ap);
-	return (error);
+	ext2_trace_return(error);
 }
 
 #endif /* APPLE */
@@ -2206,7 +2210,7 @@ ext2_pathconf(ap)
       return(0);
    #endif
 	default:
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	}
 	/* NOTREACHED */
 }
@@ -2266,10 +2270,10 @@ ext2_advlock(ap)
 		break;
 
 	default:
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	}
 	if (start < 0)
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	if (fl->l_len == 0)
 		end = -1;
 	else
@@ -2291,21 +2295,21 @@ ext2_advlock(ap)
 	 */
 	switch(ap->a_op) {
 	case F_SETLK:
-		return (ext2_lf_setlock(lock));
+		ext2_trace_return(ext2_lf_setlock(lock));
 
 	case F_UNLCK:
 		error = ext2_lf_clearlock(lock);
 		FREE(lock, M_LOCKF);
-		return (error);
+		ext2_trace_return(error);
 
 	case F_GETLK:
 		error = ext2_lf_getlock(lock, fl);
 		FREE(lock, M_LOCKF);
-		return (error);
+		ext2_trace_return(error);
 	
 	default:
 		_FREE(lock, M_LOCKF);
-		return (EINVAL);
+		ext2_trace_return(EINVAL);
 	}
 	/* NOTREACHED */
    #endif
@@ -2405,7 +2409,7 @@ ext2_makeinode(mode, dvp, vpp, cnp)
       _FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
 		vput(dvp);
    #endif
-		return (error);
+		ext2_trace_return(error);
 	}
 	ip = VTOI(tvp);
 	ip->i_gid = pdir->i_gid;
@@ -2500,7 +2504,7 @@ bad:
 	ip->i_nlink = 0;
 	ip->i_flag |= IN_CHANGE;
 	vput(tvp);
-	return (error);
+	ext2_trace_return(error);
 }
 
 #ifndef APPLE
