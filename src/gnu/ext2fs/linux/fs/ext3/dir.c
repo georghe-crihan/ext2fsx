@@ -87,7 +87,7 @@ static void free_rb_tree_fname(struct rb_root *root)
 		while (fname) {
 			struct fname * old = fname;
 			fname = fname->next;
-         FREE((void*)old, M_EXT3DIRPRV);
+			kfree (old);
 		}
 		if (!parent)
 			root->rb_node = 0;
@@ -104,8 +104,8 @@ static void free_rb_tree_fname(struct rb_root *root)
 struct dir_private_info *create_dir_info(loff_t pos)
 {
 	struct dir_private_info *p;
-
-   MALLOC(p, struct dir_private_info *, sizeof(struct dir_private_info), M_EXT3DIRPRV, M_WAITOK);
+	
+	p = kmalloc(sizeof(struct dir_private_info), GFP_KERNEL);
 	if (!p)
 		return NULL;
 	p->root.rb_node = 0;
@@ -121,7 +121,7 @@ struct dir_private_info *create_dir_info(loff_t pos)
 void ext3_htree_free_dir_info(struct dir_private_info *p)
 {
 	free_rb_tree_fname(&p->root);
-   FREE((void*)p, M_EXT3DIRPRV);
+	kfree(p);
 }
 
 /*
@@ -134,17 +134,17 @@ int ext3_htree_store_dirent(struct vnode *dir_file, __u32 hash,
 	struct rb_node **p, *parent = NULL;
 	struct fname * fname, *new_fn;
 	struct dir_private_info *info;
-   struct inode *ip;
+	struct inode *ip;
 	int len;
-   
-   ip = VTOI(dir_file);
+	
+	ip = VTOI(dir_file);
    
 	info = (struct dir_private_info *) ip->private_data;
 	p = &info->root.rb_node;
 
 	/* Create and allocate the fname structure */
 	len = sizeof(struct fname) + dirent->name_len + 1;
-   MALLOC(new_fn, struct fname *, sizeof(struct fname), M_EXT3DIRPRV, M_WAITOK);
+	new_fn = kmalloc(len, GFP_KERNEL);
 	if (!new_fn)
 		return -ENOMEM;
 	memset(new_fn, 0, len);
@@ -223,14 +223,6 @@ static int call_filldir(struct vnode * filp, void * dirent,
 	}
 	return 0;
 }
-
-#ifndef linux
-#define update_atime(ip) \
-do { \
- (ip)->i_flag |= IN_ACCESS; \
- ext2_itimes(ITOV((ip))); \
-} while(0)
-#endif /* linux */
 
 static int ext3_release_dir (struct vnode *, struct inode *);
 
