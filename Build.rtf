@@ -11,9 +11,11 @@ The Ext2 (and Ext3) source consists of several code bases culled from three diff
 \
 Kernel Driver - This is the core of the project. It implements the algorithms that translate the Ext2 on-disk format into something the Mac OS X kernel can understand. The source files for this component are located in src/gnu/ext2fs and src/kern. The files in src/kern are Mac OS X specific. Recommended starting points: src/gnu/ext2fs/ext2_vfsops.c and src/gnu/ext2fs/ext2_vnops.c -- these implement the entry points for the OS X Kernel to manipulate the file system.\
 \
-e2fsprogs - This is a collection of userland utilities that manage Ext2 filesystems. They include fsck, mke2fs, debugfs, tunefs, etc. The source for all e2fsprogs utils are located in src/e2fsprogs. The ./e2fsprogsbuild.sh script is used to build the Darwin version.\
+e2fsprogs - This is a collection of userland utilities that manage Ext2 filesystems. They include fsck, mke2fs, debugfs, tunefs, etc. The source for all e2fsprogs utils is located in src/e2fsprogs. The ./e2fsprogsbuild.sh script is used to build the Darwin version.\
 \
-mount_ext2 - This component mounts Ext2 volumes, loading the kernel extension if necessary. The source files are located in src/mount_ext2fs.\
+mount_ext2 - This component mounts Ext2 volumes, loading the kernel extension if necessary. The source files are located in src/mount_ext2fs and src/util/.\
+\
+fsck_ext2 - This component is a small wrapper around e2fsck. It implements the '-q' (quick check) option for compatibility with Mac OS X tools that expect this option to be present. The source is located in src/utils/fsck_ext2.c.\
 \
 ext2.fs - This component is the glue that allows Mac OS X to "auto-mount" Ext2 partitions. It's main function is to describe the filesystem attributes so the auto-mount daemon can match a disk filesystem and then mount it. The source for the matching utility is located in src/ext2util.c. \
 \
@@ -26,7 +28,7 @@ All components are written in the C language, except for ExtFS Manager which is 
 \cf0 Setup
 \f1\b0 \
 \
-Certain links must be created and permissions changed on some scripts. The "setup.sh" script performs the necessary actions.\
+Certain links must be created and permissions changed on some scripts. The "setup.sh" script performs the necessary actions. This script will also copy any missing kernel header files (see the Dependencies section), and build/install the disklib dependency.\
 \
 chmod u+x ./setup.sh\
 ./setup.sh
@@ -37,13 +39,23 @@ chmod u+x ./setup.sh\
 \cf0 Dependencies
 \f1\b0 \
 \
-You will need the following external code to build Ext2FS.\
+All external dependencies are included with the project. setup.sh will configure them as necessary.\
 \
-The disklib Darwin project. This is available from Apple's Darwin CVS repository. You'll want to checkout "diskdev_cmds/disklib". After checking out the project, cd to the dir, then 'make' and 'make install'.\
+The July, August, Oct and Dec 2002 tools removed vital kernel headers from the Kernel framework. They have never been added back. The setup.sh script will copy the missing headers into place if necessary.\
 \
-The July, August, Oct (and it seems Dec) 2002 tools removed vital kernel headers from the Kernel framework  and they have to be added back in manually from Darwin CVS.\
+Here is a list of the missing headers. These can be found in xnu/bsd/ in the Darwin source tree. \
 \
-Here is a list of the missing headers. These can be found in xnu/bsd/ in the Darwin repository.\
+Panther (10.3.x) / Darwin 7.x\
+\
+sys/signalvar.h\
+ufs/ufs/*.h\
+netinet/in_var.h\
+netinet/tcp_var.h\
+netinet/ip_var.h\
+netinet6/in6_var.h\
+netkey/key_var.h\
+\
+Jaguar (10.2.x) / Darwin 6.x\
 \
 sys/unistd.h\
 netinet/in_var.h\
@@ -54,17 +66,9 @@ netinet/ip_var.h\
 netinet/tcp_var.h\
 netkey/key_var.h\
 \
-Once you have checked these headers out, you will need to copy them to "/System/Library/Frameworks/Kernel.framework/Versions/Current/Headers".\
-\
 
 \f0\b e2fsprogs Notes
 \f1\b0 \
-\
-If you are working from pre-A1 sources, you will have to update your e2fsprogs dir to the latest vendor code.\
-\
-cd src/\
-rm -rf e2fsprogs\
-cvs up e2fsprogs\
 \
 If you are having problems with e2fsprogs, do a clean build (this is necessary, if non-vendor changes have been made):\
 \
@@ -73,6 +77,12 @@ rm ./.e2configdone\
 make clean\
 cd ../..\
 ./e2fsprogsbuild.sh\
+\
+As a last resort, due a fresh update from the tree:\
+\
+cd src/\
+rm -rf e2fsprogs\
+cvs up e2fsprogs\
 \
 
 \f0\b e2undel Notes
