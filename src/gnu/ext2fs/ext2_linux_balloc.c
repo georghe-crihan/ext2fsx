@@ -72,7 +72,11 @@ static const char whatid[] __attribute__ ((unused)) =
 
 static void read_block_bitmap (struct mount * mp,
 			       unsigned int block_group,
-			       unsigned long bitmap_nr)
+			       unsigned long bitmap_nr
+            #if !EXT2_SB_BITMAP_CACHE
+                , struct buffer_head **bhpp
+            #endif
+                )
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	struct ext2_group_desc * gdp;
@@ -82,13 +86,17 @@ static void read_block_bitmap (struct mount * mp,
 	gdp = get_group_desc (mp, block_group, NULL);
 	if ((error = meta_bread (VFSTOEXT2(mp)->um_devvp,
 		fsbtodb(sb, le32_to_cpu(gdp->bg_block_bitmap)),sb->s_blocksize, NOCRED, &bh)) != 0)
-		panic ( "read_block_bitmap: "
+		panic ( "ext2: read_block_bitmap: "
 			    "Cannot read block bitmap - "
 			    "block_group = %d, block_bitmap = %lu",
 			    block_group, (unsigned long) le32_to_cpu(gdp->bg_block_bitmap));
+#if EXT2_SB_BITMAP_CACHE
 	sb->s_block_bitmap_number[bitmap_nr] = block_group;
 	sb->s_block_bitmap[bitmap_nr] = bh;
 	LCK_BUF(bh)
+#else
+   *bhpp = bh;
+#endif
 }
 
 /*
@@ -103,7 +111,11 @@ static void read_block_bitmap (struct mount * mp,
  *    this function reads the bitmap without maintaining a LRU cache.
  */
 static int load__block_bitmap (struct mount * mp,
-			       unsigned int block_group)
+			       unsigned int block_group
+            #if !EXT2_SB_BITMAP_CACHE
+                , struct buffer_head **bhpp
+            #endif
+                )
 {
 	int i, j;
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
@@ -111,7 +123,7 @@ static int load__block_bitmap (struct mount * mp,
 	struct buffer_head * block_bitmap;
 
 	if (block_group >= sb->s_groups_count)
-		panic ( "load_block_bitmap: "
+		panic ( "ext2: load_block_bitmap: "
 			    "block_group >= groups_count - "
 			    "block_group = %d, groups_count = %lu",
 			    block_group, sb->s_groups_count);
@@ -120,12 +132,16 @@ static int load__block_bitmap (struct mount * mp,
 		if (sb->s_block_bitmap[block_group]) {
 			if (sb->s_block_bitmap_number[block_group] !=
 			    block_group)
-				panic ( "load_block_bitmap: "
+				panic ( "ext2: load_block_bitmap: "
 					    "block_group != block_bitmap_number");
 			else
 				return block_group;
 		} else {
+      #if EXT2_SB_BITMAP_CACHE
 			read_block_bitmap (mp, block_group, block_group);
+      #else
+         read_block_bitmap (mp, block_group, block_group, bhpp);
+      #endif
 			return block_group;
 		}
 	}
@@ -146,6 +162,7 @@ static int load__block_bitmap (struct mount * mp,
 		sb->s_block_bitmap_number[0] = block_bitmap_number;
 		sb->s_block_bitmap[0] = block_bitmap;
 	} else {
+#if EXT2_SB_BITMAP_CACHE
 		if (sb->s_loaded_block_bitmaps < EXT2_MAX_GROUP_LOADED)
 			sb->s_loaded_block_bitmaps++;
 		else
@@ -158,13 +175,21 @@ static int load__block_bitmap (struct mount * mp,
 				sb->s_block_bitmap[j - 1];
 		}
 		read_block_bitmap (mp, block_group, 0);
+#else
+      read_block_bitmap (mp, block_group, block_group, bhpp);
+#endif /* EXT2_SB_BITMAP_CACHE */
 	}
 	return 0;
 }
 
 static __inline int load_block_bitmap (struct mount * mp,
-				       unsigned int block_group)
+				       unsigned int block_group
+               #if !EXT2_SB_BITMAP_CACHE
+                   , struct buffer_head **bhpp
+               #endif
+                   )
 {
+#if EXT2_SB_BITMAP_CACHE
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	if (sb->s_loaded_block_bitmaps > 0 &&
 	    sb->s_block_bitmap_number[0] == block_group)
@@ -176,6 +201,9 @@ static __inline int load_block_bitmap (struct mount * mp,
 		return block_group;
 
 	return load__block_bitmap (mp, block_group);
+#else
+   return load__block_bitmap (mp, block_group, bhpp);
+#endif
 }
 
 void ext2_free_blocks (struct mount * mp, unsigned long block,
@@ -205,7 +233,7 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 		return;
 	}
 
-	ext2_debug ("freeing blocks %lu to %lu\n", block, block+count-1);
+	ext2_debug ("ext2_free_blocks: freeing blocks %lu to %lu\n", block, block+count-1);
 
 	block_group = (block - le32_to_cpu(es->s_first_data_block)) /
 		      EXT2_BLOCKS_PER_GROUP(sb);
@@ -215,8 +243,12 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 			    "Freeing blocks across group boundary - "
 			    "Block = %lu, count = %lu",
 			    block, count);
+#if EXT2_SB_BITMAP_CACHE
 	bitmap_nr = load_block_bitmap (mp, block_group);
 	bh = sb->s_block_bitmap[bitmap_nr];
+#else
+   bitmap_nr = load_block_bitmap (mp, block_group, &bh);
+#endif
 	gdp = get_group_desc (mp, block_group, &bh2);
 
 	if (/* test_opt (sb, CHECK_STRICT) && 	assume always strict ! */
@@ -243,7 +275,9 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 	}
 
 	mark_buffer_dirty(bh2);
+#if EXT2_SB_BITMAP_CACHE
 	mark_buffer_dirty(bh);
+#endif
 /****
 	if (sb->s_flags & MS_SYNCHRONOUS) {
 		ll_rw_block (WRITE, 1, &bh);
@@ -252,6 +286,9 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 ****/
 	sb->s_dirt = 1;
 	unlock_super (VFSTOEXT2(mp)->um_devvp);
+#if !EXT2_SB_BITMAP_CACHE
+	bdwrite(bh);
+#endif
 	return;
 }
 
@@ -267,7 +304,7 @@ int ext2_new_block (struct mount * mp, unsigned long goal,
 		    u_int32_t * prealloc_block)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
-	struct buffer_head * bh;
+	struct buffer_head * bh = NULL;
 	struct buffer_head * bh2;
 	char * p, * r;
 	int i, j, k, tmp;
@@ -284,7 +321,7 @@ int ext2_new_block (struct mount * mp, unsigned long goal,
 	}
 	lock_super (VFSTOEXT2(mp)->um_devvp);
 
-        ext2_debug ("goal=%lu.\n", goal);
+   ext2_debug ("ext2_new_block: goal=%lu.\n", goal);
 
 repeat:
 	/*
@@ -300,15 +337,19 @@ repeat:
 		if (j)
 			goal_attempts++;
 #endif
+#if EXT2_SB_BITMAP_CACHE
 		bitmap_nr = load_block_bitmap (mp, i);
 		bh = sb->s_block_bitmap[bitmap_nr];
+#else
+      bitmap_nr = load_block_bitmap (mp, i, &bh);
+#endif
 
-		ext2_debug ("goal is at %d:%d.\n", i, j); 
+		ext2_debug ("ext2_new_block: goal is at %d:%d.\n", i, j); 
 
 		if (!ext2_test_bit(j, (u_long*)bh->b_data)) {
 #ifdef EXT2FS_DEBUG
 			goal_hits++;
-			ext2_debug ("goal bit allocated.\n");
+			ext2_debug ("ext2_new_block: goal bit allocated.\n");
 #endif
 			goto got_block;
 		}
@@ -327,7 +368,7 @@ repeat:
 				goto got_block;
 		}
       
-		ext2_debug ("Bit not found near goal\n");
+		ext2_debug ("ext2_new_block: Bit not found near goal\n");
 
 		/*
 		 * There has been no free block found in the near vicinity
@@ -354,7 +395,10 @@ repeat:
 		}
 	}
 
-	ext2_debug ("Bit not found in block group %d.\n", i); 
+#if !EXT2_SB_BITMAP_CACHE
+   if (bh) brelse(bh);
+#endif
+	ext2_debug ("ext2_new_block: Bit not found in block group %d.\n", i); 
 
 	/*
 	 * Now search the rest of the groups.  We assume that 
@@ -372,8 +416,12 @@ repeat:
 		unlock_super (VFSTOEXT2(mp)->um_devvp);
 		return 0;
 	}
+#if EXT2_SB_BITMAP_CACHE
 	bitmap_nr = load_block_bitmap (mp, i);
 	bh = sb->s_block_bitmap[bitmap_nr];
+#else
+   bitmap_nr = load_block_bitmap (mp, i, &bh);
+#endif
 	r = memscan(bh->b_data, 0, EXT2_BLOCKS_PER_GROUP(sb) >> 3);
 	j = (r - bh->b_data) << 3;
 
@@ -386,6 +434,9 @@ repeat:
 		printf ( "ext2_new_block: "
 			 "Free blocks count corrupted for block group %d", i);
 		unlock_super (VFSTOEXT2(mp)->um_devvp);
+#if !EXT2_SB_BITMAP_CACHE
+      brelse(bh);
+#endif
 		return 0;
 	}
 
@@ -413,6 +464,10 @@ got_block:
       /* Instead of panicing, Linux does the following (after logging the panic msg) */
       /*
       ext2_set_bit(j, bh->b_data);
+#if !EXT2_SB_BITMAP_CACHE
+      brelse(bh);
+		bh = NULL;
+#endif
 		goto repeat;
       */
    }
@@ -420,10 +475,14 @@ got_block:
    if (ext2_set_bit (j, bh->b_data)) {
 		printf ( "ext2_new_block: "
 			 "bit already set for block %d", j);
+#if !EXT2_SB_BITMAP_CACHE
+      brelse(bh);
+		bh = NULL;
+#endif
 		goto repeat;
 	}
 
-	ext2_debug ("found bit %d\n", j);
+	ext2_debug ("ext2_new_block: found bit %d\n", j);
 
 	/*
 	 * Do block preallocation now if required.
@@ -449,14 +508,16 @@ got_block:
          cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count) - *prealloc_count);
 		es->s_free_blocks_count =
          cpu_to_le32(le32_to_cpu(es->s_free_blocks_count) - *prealloc_count);
-		ext2_debug ("Preallocated a further %lu bits.\n",
+		ext2_debug ("ext2_new_block: Preallocated a further %lu bits.\n",
 			    *((unsigned long*)prealloc_count)); 
 	}
 #endif
 
 	j = tmp;
 
+#if EXT2_SB_BITMAP_CACHE
 	mark_buffer_dirty(bh);
+#endif
 /****
 	if (sb->s_flags & MS_SYNCHRONOUS) {
 		ll_rw_block (WRITE, 1, &bh);
@@ -468,10 +529,13 @@ got_block:
 			    "block(%d) >= blocks count(%d) - "
 			    "block_group = %d", j, le32_to_cpu(es->s_blocks_count), i);
 		unlock_super (VFSTOEXT2(mp)->um_devvp);
+#if !EXT2_SB_BITMAP_CACHE
+	bdwrite(bh);
+#endif
 		return 0;
 	}
 
-	ext2_debug ("allocating block %d. "
+	ext2_debug ("ext2_new_block: allocating block %d. "
 		    "Goal hits %d of %d.\n", j, goal_hits, goal_attempts);
 
 	gdp->bg_free_blocks_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count) - 1);
@@ -479,6 +543,9 @@ got_block:
 	es->s_free_blocks_count = cpu_to_le32(le32_to_cpu(es->s_free_blocks_count) - 1);
 	sb->s_dirt = 1;
 	unlock_super (VFSTOEXT2(mp)->um_devvp);
+#if !EXT2_SB_BITMAP_CACHE
+	bdwrite(bh);
+#endif
 	return j;
 }
 

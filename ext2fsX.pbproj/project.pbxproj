@@ -494,19 +494,21 @@
 			refType = 4;
 		};
 		D376F3C8040DF6C200A80164 = {
-			fileEncoding = 30;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			name = English;
 			path = fs_bndl/English.lproj/InfoPlist.strings;
 			refType = 4;
 		};
 		D376F3CA040DF78800A80164 = {
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			name = French;
 			path = fs_bndl/French.lproj/InfoPlist.strings;
 			refType = 4;
 		};
 		D376F3CB040DF79100A80164 = {
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			name = German;
 			path = fs_bndl/German.lproj/InfoPlist.strings;
@@ -764,7 +766,6 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2;
-				PROFILING_CODE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = fs;
@@ -795,11 +796,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0a3</string>
+	<string>1.0.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0a3</string>
+	<string>1.0.0</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Apple_UNIX_SVR2</key>
@@ -1116,6 +1117,7 @@
 			isa = PBXFileReference;
 			path = ext2_ihash.c;
 			refType = 4;
+			usesTabs = 1;
 		};
 		F53FE980035E7DB501A80165 = {
 			fileRef = F53FE97F035E7DB501A80165;
@@ -1140,6 +1142,7 @@
 			isa = PBXFileReference;
 			path = ext2_inode.c;
 			refType = 4;
+			usesTabs = 1;
 		};
 		F53FE984035E84F001A80165 = {
 			fileRef = F53FE983035E84F001A80165;
@@ -1152,6 +1155,7 @@
 			isa = PBXFileReference;
 			path = ext2_linux_balloc.c;
 			refType = 4;
+			usesTabs = 1;
 		};
 		F53FE986035E8E5201A80165 = {
 			fileRef = F53FE985035E8E5201A80165;
@@ -1164,6 +1168,7 @@
 			isa = PBXFileReference;
 			path = ext2_linux_ialloc.c;
 			refType = 4;
+			usesTabs = 1;
 		};
 		F54E5108035FDEE601A80165 = {
 			fileRef = F54E5107035FDEE601A80165;

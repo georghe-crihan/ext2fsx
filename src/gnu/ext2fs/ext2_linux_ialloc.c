@@ -84,7 +84,7 @@ struct ext2_group_desc * get_group_desc (struct mount * mp,
 	struct ext2_group_desc * gdp;
 
 	if (block_group >= sb->s_groups_count) {
-		panic ("get_group_desc: "
+		panic ("ext2_group_desc: "
 			    "block_group >= groups_count - "
 			    "block_group = %d, groups_count = %lu",
 			    block_group, sb->s_groups_count);
@@ -94,7 +94,7 @@ struct ext2_group_desc * get_group_desc (struct mount * mp,
 	group_desc = block_group / EXT2_DESC_PER_BLOCK(sb);
 	desc = block_group % EXT2_DESC_PER_BLOCK(sb);
 	if (!sb->s_group_desc[group_desc]) {
-		panic ( "get_group_desc:"
+		panic ( "ext2_group_desc:"
 			    "Group descriptor not loaded - "
 			    "block_group = %d, group_desc = %lu, desc = %lu",
 			     block_group, group_desc, desc);
@@ -109,7 +109,11 @@ struct ext2_group_desc * get_group_desc (struct mount * mp,
 
 static void read_inode_bitmap (struct mount * mp,
 			       unsigned long block_group,
-			       unsigned int bitmap_nr)
+			       unsigned int bitmap_nr
+				#if !EXT2_SB_BITMAP_CACHE
+                , struct buffer_head **bhpp
+            #endif
+					 )
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	struct ext2_group_desc * gdp;
@@ -121,13 +125,17 @@ static void read_inode_bitmap (struct mount * mp,
 			    fsbtodb(sb, le32_to_cpu(gdp->bg_inode_bitmap)), 
 			    sb->s_blocksize,
 			    NOCRED, &bh)) != 0)
-		panic ( "read_inode_bitmap:"
+		panic ( "ext2: read_inode_bitmap:"
 			    "Cannot read inode bitmap - "
 			    "block_group = %lu, inode_bitmap = %lu",
 			    block_group, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
+#if EXT2_SB_BITMAP_CACHE
 	sb->s_inode_bitmap_number[bitmap_nr] = block_group;
 	sb->s_inode_bitmap[bitmap_nr] = bh;
 	LCK_BUF(bh)
+#else
+	*bhpp = bh;
+#endif
 }
 
 /*
@@ -142,7 +150,11 @@ static void read_inode_bitmap (struct mount * mp,
  *    this function reads the bitmap without maintaining a LRU cache.
  */
 static int load_inode_bitmap (struct mount * mp,
-			      unsigned int block_group)
+			      unsigned int block_group
+				#if !EXT2_SB_BITMAP_CACHE
+					, struct buffer_head **bhpp
+            #endif
+					)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	int i, j;
@@ -150,7 +162,7 @@ static int load_inode_bitmap (struct mount * mp,
 	struct buffer_head * inode_bitmap;
 
 	if (block_group >= sb->s_groups_count)
-		panic ("load_inode_bitmap:"
+		panic ("ext2: load_inode_bitmap:"
 			    "block_group >= groups_count - "
 			    "block_group = %d, groups_count = %lu",
 			     block_group, sb->s_groups_count);
@@ -161,12 +173,16 @@ static int load_inode_bitmap (struct mount * mp,
 		if (sb->s_inode_bitmap[block_group]) {
 			if (sb->s_inode_bitmap_number[block_group] != 
 				block_group)
-				panic ( "load_inode_bitmap:"
+				panic ( "ext2: load_inode_bitmap:"
 				    "block_group != inode_bitmap_number");
 			else
 				return block_group;
 		} else {
+		#if EXT2_SB_BITMAP_CACHE
 			read_inode_bitmap (mp, block_group, block_group);
+		#else
+			read_inode_bitmap (mp, block_group, block_group, bhpp);
+		#endif
 			return block_group;
 		}
 	}
@@ -188,6 +204,7 @@ static int load_inode_bitmap (struct mount * mp,
 		sb->s_inode_bitmap_number[0] = inode_bitmap_number;
 		sb->s_inode_bitmap[0] = inode_bitmap;
 	} else {
+#if EXT2_SB_BITMAP_CACHE
 		if (sb->s_loaded_inode_bitmaps < EXT2_MAX_GROUP_LOADED)
 			sb->s_loaded_inode_bitmaps++;
 		else
@@ -199,6 +216,9 @@ static int load_inode_bitmap (struct mount * mp,
 				sb->s_inode_bitmap[j - 1];
 		}
 		read_inode_bitmap (mp, block_group, 0);
+#else
+		read_inode_bitmap (mp, block_group, 0, bhpp);
+#endif /* EXT2_SB_BITMAP_CACHE */
 	}
 	return 0;
 }
@@ -224,7 +244,7 @@ void ext2_free_inode (struct inode * inode)
 		return;
 	}
 
-	ext2_debug ("freeing inode %lu\n", (unsigned long)inode->i_number);
+	ext2_debug ("ext2: freeing inode %lu\n", (unsigned long)inode->i_number);
 
 	sb = inode->i_e2fs;
 	lock_super (DEVVP(inode));
@@ -237,8 +257,12 @@ void ext2_free_inode (struct inode * inode)
 	es = sb->s_es;
 	block_group = (inode->i_number - 1) / EXT2_INODES_PER_GROUP(sb);
 	bit = (inode->i_number - 1) % EXT2_INODES_PER_GROUP(sb);
+#if EXT2_SB_BITMAP_CACHE
 	bitmap_nr = load_inode_bitmap (ITOV(inode)->v_mount, block_group);
 	bh = sb->s_inode_bitmap[bitmap_nr];
+#else
+	bitmap_nr = load_inode_bitmap (ITOV(inode)->v_mount, block_group, &bh);
+#endif
    if (!ext2_clear_bit (bit, bh->b_data))
 		printf ( "ext2_free_inode:"
 		      "bit already cleared for inode %lu",
@@ -251,7 +275,9 @@ void ext2_free_inode (struct inode * inode)
 		mark_buffer_dirty(bh2);
 		es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) + 1);
 	}
+#if EXT2_SB_BITMAP_CACHE
 	mark_buffer_dirty(bh);
+#endif
 /*** XXX
 	if (sb->s_flags & MS_SYNCHRONOUS) {
 		ll_rw_block (WRITE, 1, &bh);
@@ -260,6 +286,9 @@ void ext2_free_inode (struct inode * inode)
 ***/
 	sb->s_dirt = 1;
 	unlock_super (DEVVP(inode));
+#if !EXT2_SB_BITMAP_CACHE
+	bdwrite(bh);
+#endif
 }
 
 #if linux
@@ -409,14 +438,21 @@ repeat:
 		unlock_super (DEVVP(dir));
 		return 0;
 	}
+#if EXT2_SB_BITMAP_CACHE
 	bitmap_nr = load_inode_bitmap (ITOV(dir)->v_mount, i);
 	bh = sb->s_inode_bitmap[bitmap_nr];
+#else
+	bitmap_nr = load_inode_bitmap (ITOV(dir)->v_mount, i, &bh);
+#endif
 	if ((j = ext2_find_first_zero_bit ((unsigned long *) bh->b_data,
 				      EXT2_INODES_PER_GROUP(sb))) <
 	    EXT2_INODES_PER_GROUP(sb)) {
       if (ext2_set_bit (j, bh->b_data)) {
 			printf ( "ext2_new_inode:"
 				      "bit already set for inode %d", j);
+		#if !EXT2_SB_BITMAP_CACHE
+			brelse(bh);
+		#endif
 			goto repeat;
 		}
 /* Linux now does the following:
@@ -426,8 +462,13 @@ repeat:
 			wait_on_buffer (bh);
 		}
 */
+	#if EXT2_SB_BITMAP_CACHE
 		mark_buffer_dirty(bh);
+	#endif
 	} else {
+	#if !EXT2_SB_BITMAP_CACHE
+		brelse(bh);
+	#endif
 		if (gdp->bg_free_inodes_count != 0) {
 			printf ( "ext2_new_inode:"
 				    "Free inodes count corrupted in group %d",
@@ -443,6 +484,9 @@ repeat:
 			    "reserved inode or inode > inodes count - "
 			    "block_group = %d,inode=%d", i, j);
 		unlock_super (DEVVP(dir));
+	#if !EXT2_SB_BITMAP_CACHE
+		brelse(bh);
+	#endif
 		return 0;
 	}
 	gdp->bg_free_inodes_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_inodes_count) - 1);
@@ -453,6 +497,9 @@ repeat:
 	/* mark_buffer_dirty(sb->u.ext2_sb.s_sbh, 1); */
 	sb->s_dirt = 1;
 	unlock_super (DEVVP(dir));
+#if !EXT2_SB_BITMAP_CACHE
+	bdwrite(bh);
+#endif
 	return j;
 }
 

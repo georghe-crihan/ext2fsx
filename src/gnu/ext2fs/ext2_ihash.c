@@ -37,6 +37,9 @@
 static const char whatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
@@ -145,9 +148,11 @@ loop:
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash) {
 		if (inum == ip->i_number && dev == ip->i_dev) {
 			vp = ITOV(ip);
-         simple_lock(&vp->v_interlock);
+			/* XXX Causes spinlock deadlock because of a bug in vget() when
+				using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
+         simple_lock(&vp->v_interlock);*/
 			mtx_unlock(&ext2_ihash_mtx);
-			error = vget(vp, flags | LK_INTERLOCK, td);
+			error = vget(vp, flags /*| LK_INTERLOCK*/, td);
 			if (error == ENOENT)
 				goto loop;
 			if (error)

@@ -155,13 +155,65 @@ extern u_char *fragtbl[];
 /*
  * To lock a buffer, set the B_LOCKED flag and then brelse() it. To unlock,
  * reset the B_LOCKED flag and brelse() the buffer back on the LRU list
- */
+ */ 
+#ifdef E2_BUF_CHECK
+TAILQ_HEAD(bqueues, buf);
+extern struct bqueues bufqueues[];
+extern unsigned	splbio(void);
+extern void	splx(unsigned level);
+
+#define e2_decl_buf_cp struct buf obuf;
+#define e2_buf_cp(b) \
+obuf = *(b); \
+obuf.b_hash = (b)->b_hash; \
+obuf.b_vnbufs = (b)->b_vnbufs; \
+obuf.b_freelist = (b)->b_freelist;
+
+static __inline__ void e2_chk_buf_lck(struct buf *bp, struct buf *obp)
+{
+   struct buf *ent;
+   struct bqueues *bqh;
+   int found = 0, s, idx;
+   char *bufnames[BQUEUES+1] = {"LOCKED","LRU","AGE","EMPTY","META","LAUNDRY",""};
+   
+   s = splbio();
+   for(bqh = bufqueues, idx=-1; bqh <= &bufqueues[BQUEUES-1] && !found; bqh++, idx++) {
+      TAILQ_FOREACH(ent, bqh, b_freelist) {
+         if (ent == bp) {
+            found = 1;
+            break;
+         }
+      }
+   }
+   
+   if (!found) {
+      panic("ext2: locked buf 0x%x not found on any list! "
+      "pre-brelse buf = 0x%x, pre-brelse flags = %d, pre-brelse q = %ld",
+      bp, obp, obp->b_flags, obp->b_whichq);
+   }
+   
+   if (idx != BQ_LOCKED) {
+      panic("ext2: locked buf 0x%x is not on locked list! "
+      "Actual list = %s, pre-brelse buf = 0x%x, pre-brelse flags = %d, pre-brelse q = %ld",
+      bp, bufnames[idx], obp, obp->b_flags, obp->b_whichq);
+   }
+   splx(s);
+}
+#else
+#define e2_chk_buf_lck(bp,obp)
+#define e2_decl_buf_cp
+#define e2_buf_cp(bp)
+#endif /* E2_BUF_CHECK */
+
 #define LCK_BUF(bp) { \
 	int s; \
+   e2_decl_buf_cp \
 	s = splbio(); \
+   e2_buf_cp(bp) \
 	(bp)->b_flags |= B_LOCKED; \
 	splx(s); \
 	brelse(bp); \
+   e2_chk_buf_lck(bp, &obuf); \
 }
 
 #define ULCK_BUF(bp) { \

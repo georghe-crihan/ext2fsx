@@ -210,6 +210,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
          
 			bp->b_blkno = blkptrtodb(ump, daddr);
          bp->b_flags |= B_READ;
+         bp->b_flags &= ~B_ERROR;
 			VOP_STRATEGY(bp);
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
 			error = bufwait(bp);

@@ -39,7 +39,7 @@ else
 fi
 
 mkdir -p "${INSTALL}/System/Library/Extensions"
-mkdir -p "${INSTALL}/System/Library/FileSystems"
+mkdir -p "${INSTALL}/System/Library/Filesystems"
 mkdir "${INSTALL}/sbin"
 mkdir -p "${INSTALL}/usr/share/man/man8"
 mkdir -p "${INSTALL}/usr/local/lib"
@@ -76,7 +76,7 @@ ln -sf ./libuuid.1.1.dylib ./libuuid.dylib
 cd "${EXT2BUILD}"
 
 cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/System/Library/Extensions"
-cp -pR "${BUILD}/ext2.fs" "${INSTALL}/System/Library/FileSystems"
+cp -pR "${BUILD}/ext2.fs" "${INSTALL}/System/Library/Filesystems"
 
 #mount
 cp -p "${BUILD}/mount_ext2" "${INSTALL}/sbin"

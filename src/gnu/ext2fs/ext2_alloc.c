@@ -111,7 +111,6 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 {
 	struct ext2_sb_info *fs;
 	int32_t bno;
-   int devBlockSize=0;
 	
 	*bnp = 0;
 	fs = ip->i_e2fs;
@@ -171,9 +170,7 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 		ip->i_next_alloc_block = lbn;
 		ip->i_next_alloc_goal = bno;
       
-      VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
-      ip->i_blocks += btodb(size, devBlockSize);
-      
+      ip->i_blocks += btodb(size, ip->i_e2fs->s_d_blocksize);
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 		*bnp = bno;
 		return (0);

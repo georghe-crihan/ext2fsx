@@ -518,6 +518,7 @@ static int compute_sb_data(devvp, es, fs)
     int db_count, error;
     int i, j;
     int logic_sb_block = 1;	/* XXX for now */
+    /* fs->s_d_blocksize has not been set yet */
     int devBlockSize=0;
     
     VOP_DEVBLOCKSIZE(devvp, &devBlockSize);
@@ -581,17 +582,16 @@ static int compute_sb_data(devvp, es, fs)
         logic_sb_block = 0;
     
     for (i = 0; i < db_count; i++) {
-	error = meta_bread(devvp , fsbtodb(fs, logic_sb_block + i + 1), 
-		fs->s_blocksize, NOCRED, &fs->s_group_desc[i]);
-	if(error) {
-	    for (j = 0; j < i; j++)
-		brelse(fs->s_group_desc[j]);
-	    bsd_free(fs->s_group_desc, M_EXT2MNT);
-	    printf("EXT2-fs: unable to read group descriptors (%d)\n", error);
-	    return EIO;
-	}
-	/* Set the B_LOCKED flag on the buffer, then brelse() it */
-	LCK_BUF(fs->s_group_desc[i])
+      error = meta_bread(devvp , fsbtodb(fs, logic_sb_block + i + 1), 
+         fs->s_blocksize, NOCRED, &fs->s_group_desc[i]);
+      if(error) {
+            for (j = 0; j < i; j++)
+               ULCK_BUF(fs->s_group_desc[j]);
+            bsd_free(fs->s_group_desc, M_EXT2MNT);
+            printf("EXT2-fs: unable to read group descriptors (%d)\n", error);
+            return EIO;
+      }
+      LCK_BUF(fs->s_group_desc[i])
     }
     if(!ext2_check_descriptors(fs)) {
 	    for (j = 0; j < db_count; j++)
@@ -692,8 +692,10 @@ loop:
 		/*
 		 * Step 5: invalidate all cached file data.
 		 */
-      simple_lock (&vp->v_interlock);
-		if (vget(vp, LK_EXCLUSIVE | LK_INTERLOCK, td)) {
+      /* XXX Causes spinlock deadlock because of a bug in vget() when
+         using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
+      simple_lock (&vp->v_interlock);*/
+		if (vget(vp, LK_EXCLUSIVE /*| LK_INTERLOCK*/, td)) {
 			goto loop;
 		}
 		if (vinvalbuf(vp, 0, cred, td, 0, 0))
@@ -880,6 +882,9 @@ ext2_mountfs(devvp, mp, td)
 	ump->um_seqinc = EXT2_FRAGS_PER_BLOCK(fs);
    devvp->v_specflags |= SI_MOUNTEDON;
    
+   /* set device block size */
+   fs->s_d_blocksize = devBlockSize;
+   
    fs->s_es->s_mtime = cpu_to_le32(tv.tv_sec);
    if (!(int16_t)fs->s_es->s_max_mnt_count)
 		fs->s_es->s_max_mnt_count = (int16_t)cpu_to_le16(EXT2_DFL_MAX_MNT_COUNT);
@@ -942,13 +947,13 @@ ext2_unmount(mp, mntflags, td)
 	bsd_free(fs->s_group_desc, M_EXT2MNT);
 
 	/* release cached inode/block bitmaps */
-        for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++)
-                if (fs->s_inode_bitmap[i])
-			ULCK_BUF(fs->s_inode_bitmap[i])
-
-        for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++)
-                if (fs->s_block_bitmap[i])
-			ULCK_BUF(fs->s_block_bitmap[i])
+   for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++)
+      if (fs->s_inode_bitmap[i])
+         ULCK_BUF(fs->s_inode_bitmap[i])
+   
+   for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++)
+      if (fs->s_block_bitmap[i])
+         ULCK_BUF(fs->s_block_bitmap[i])
    
    ump->um_devvp->v_specflags &= ~SI_MOUNTEDON;
 	error = VOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE,
@@ -1011,10 +1016,10 @@ ext2_statfs(mp, sbp, td)
 	} else
 		nsb = fs->s_groups_count;
 	overhead = le32_to_cpu(es->s_first_data_block) + 
-	    /* Superblocks and block group descriptors: */
-	    nsb * (1 + fs->s_db_per_group) +
-	    /* Inode bitmap, block bitmap, and inode table: */
-	    fs->s_groups_count * (1 + 1 + fs->s_itb_per_group);
+   /* Superblocks and block group descriptors: */
+   nsb * (1 + fs->s_db_per_group) +
+   /* Inode bitmap, block bitmap, and inode table: */
+   fs->s_groups_count * (1 + 1 + fs->s_itb_per_group);
 
 	sbp->f_bsize = EXT2_FRAG_SIZE(fs);	
 	sbp->f_iosize = EXT2_BLOCK_SIZE(fs);
@@ -1073,17 +1078,19 @@ loop:
 			goto loop;
       nvp = LIST_NEXT(vp, v_mntvnodes);
 		mtx_unlock(&mntvnode_mtx);
-		VI_LOCK(vp);
+      /* XXX Causes spinlock deadlock because of a bug in vget() when
+         using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
+      VI_LOCK(vp); */
 		ip = VTOI(vp);
 		if (vp->v_type == VNON ||
 		    ((ip->i_flag &
 		    (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
           LIST_EMPTY(&vp->v_dirtyblkhd))) {
-			VI_UNLOCK(vp);
+			/* VI_UNLOCK(vp); */
 			mtx_lock(&mntvnode_mtx);
 			continue;
 		}
-		error = vget(vp, LK_EXCLUSIVE | LK_NOWAIT | LK_INTERLOCK, td);
+		error = vget(vp, LK_EXCLUSIVE | LK_NOWAIT /*| LK_INTERLOCK*/, td);
 		if (error) {
 			mtx_lock(&mntvnode_mtx);
 			if (error == ENOENT)
@@ -1383,7 +1390,7 @@ printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 	 * The buffers for group descriptors, inode bitmaps and block bitmaps
 	 * are not busy at this point and are (hopefully) written by the
 	 * usual sync mechanism. No need to write them here
-		 */
+    */
 
 	ext2_trace_return(error);
 }
@@ -1481,7 +1488,7 @@ ext2_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
    ext2_trace_return(ENOTSUP);
 }
 
-extern int vfs_opv_numops; // kernel
+extern int vfs_opv_numops; /* kernel */
 typedef int (*PFI)();
 
 /* Must be called while holding kernel funnel */

@@ -75,6 +75,10 @@ struct ext2_sb_info {
 	char    s_rd_only;                      /* read-only 		*/
 	char    s_dirt;                         /* fs modified flag */
 	char	s_wasvalid;			/* valid at mount time */
+   
+   #ifdef APPLE
+   int32_t s_d_blocksize; /* block size of underlying device */
+   #endif
 
 	char    fs_fsmnt[MAXMNTLEN];            /* name mounted on */
 };

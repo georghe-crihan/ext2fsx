@@ -10,6 +10,22 @@ Large file (> 2GB) support.\
 \
 e2fsprogs 1.34\
 \
+1.0\
+Fixed bugs #796132 and #826406. These were caused by a kernel bug and fixed by working around the kernel bug.\
+\
+Worked around a panic bug (from corrupted kernel structures) by disabling inode/block bitmap caching. Unfortunately, this slows down writes a little -- but that's better than causing a panic and corrupting the filesystem.\
+\
+Fixed bug #842468. Cosmetic bug that only affected French users on Panther. Reported by L. Bigonville.\
+\
+1.0b2\
+Finally fixed bug #742939. In certain cases, we were zero-filling a valid page causing the resource fork header to be overwritten. Apps that used the ANSI C FILE routines were also affected (such as wget).\
+\
+Minor speed optimization. The device block size is now cached in the in memory superblock so we don't have to query the underlying device for it every time.\
+\
+Fixed a bug in the uninstall script that left the System kext cache in an invalid state (nothing a reboot wouldn't fix though).\
+\
+Added more feedback to the uninstall script.\
+\
 1.0b1\
 Volume labels containing plus (+), period (.), or a comma (,) are now supported by the automount plug-in.\
 \

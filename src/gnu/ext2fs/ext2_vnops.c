@@ -181,7 +181,6 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_getattr_desc,		(vop_t *) ext2_getattr },
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
 	{ &vop_link_desc,		(vop_t *) ext2_link },
-	{ &vop_lookup_desc,		(vop_t *) vfs_cache_lookup },
 	{ &vop_mkdir_desc,		(vop_t *) ext2_mkdir },
 	{ &vop_mknod_desc,		(vop_t *) ext2_mknod },
 	{ &vop_open_desc,		(vop_t *) ext2_open },
@@ -557,9 +556,7 @@ ext2_getattr(ap)
 	struct vnode *vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	struct vattr *vap = ap->a_vap;
-   int devBlockSize=0;
-   
-   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   int devBlockSize = ip->i_e2fs->s_d_blocksize;
    
    ext2_trace_enter();
 

@@ -94,7 +94,7 @@ ext2_update(vp, waitfor)
 	if (vp->v_mount->mnt_flag & MNT_RDONLY)
 		return (0);
 	fs = ip->i_e2fs;
-	if ((error = bread(ip->i_devvp,
+	if ((error = meta_bread(ip->i_devvp,
 	    fsbtodb(fs, ino_to_fsba(fs, ip->i_number)),
 		(int)fs->s_blocksize, NOCRED, &bp)) != 0) {
 		brelse(bp);
@@ -399,7 +399,7 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
    int devBlockSize=0;
    struct buf *tbp;
    
-   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   devBlockSize = ip->i_e2fs->s_d_blocksize;
    
    /* Doing a MALLOC here is asking for trouble. We can still
 	 * deadlock on pagerfile lock, in case we are running
@@ -563,6 +563,7 @@ ext2_reclaim(ap)
 {
 	struct inode *ip;
 	struct vnode *vp = ap->a_vp;
+	void *tdata;
 
 	if (prtactive && vrefcnt(vp) != 0)
 		vprint("ext2_reclaim: pushing active", vp);
@@ -580,10 +581,12 @@ ext2_reclaim(ap)
 	 */
 	cache_purge(vp);
 	if (ip->i_devvp) {
-		vrele(ip->i_devvp);
-		ip->i_devvp = 0;
+		struct vnode *tvp = ip->i_devvp;
+      ip->i_devvp = 0;
+		vrele(tvp);
 	}
-	FREE(vp->v_data, M_EXT2NODE);
-	vp->v_data = 0;
+	tdata = vp->v_data;
+   vp->v_data = 0;
+	FREE(tdata, M_EXT2NODE);
 	return (0);
 }

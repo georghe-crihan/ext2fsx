@@ -368,7 +368,7 @@ ext2_packvolattr (struct attrlist *alist,
       
       if (a & (ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT)) {
          // Get a count of directories
-         struct ext2_group_desc *gdp;
+         struct ext2_group_desc *gdp = NULL;
          int block = 0;
          lock_super (VFSTOEXT2(mp)->um_devvp);
          for (i=0; i < fs->s_groups_count; ++i) {

@@ -94,7 +94,7 @@ READ(ap)
 	off_t bytesinfile;
 	long size, xfersize, blkoffset;
 	int error, orig_resid;
-   int devBlockSize=0;
+	int seqcount = ap->a_ioflag >> 16;
 	u_short mode;
    
    ext2_trace_enter();
@@ -128,7 +128,7 @@ READ(ap)
    if (UBCISVALID(vp)) {
 		bp = NULL; /* So we don't try to free it later. */
       error = cluster_read(vp, uio, (off_t)ip->i_size, 
-			devBlockSize, 0);
+			ip->i_e2fs->s_d_blocksize, 0);
 	} else {
 	for (error = 0, bp = NULL; uio->uio_resid > 0; bp = NULL) {
 		if ((bytesinfile = ip->i_size - uio->uio_offset) <= 0)
@@ -213,7 +213,7 @@ WRITE(ap)
 	off_t osize;
 	int seqcount;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
-   int devBlockSize=0, rsd, blkalloc=0, save_error=0, save_size=0;
+   int rsd, blkalloc=0, save_error=0, save_size=0;
    
    ext2_trace_enter();
 
@@ -299,7 +299,7 @@ WRITE(ap)
       local_offset = uio->uio_offset;
       local_flags = ioflag & IO_SYNC ? B_SYNC : 0;
       local_flags |= B_NOBUFF;
-      
+
       first_block = 1;
       fboff = 0;
       fblk = 0;
@@ -346,7 +346,11 @@ WRITE(ap)
       }
    
       flags = ioflag & IO_SYNC ? IO_SYNC : 0;
-      /* flags |= IO_NOZEROVALID; */
+      /* UFS does not set this flag, but if we don't then 
+         previously written data is zero filled and the file is corrupt.
+         Must be due to a difference in balloc(?).
+      */
+      flags |= IO_NOZEROVALID;
    
       if((error == 0) && fblk && fboff) {
          if( fblk > fs->s_frag_size) 
@@ -376,8 +380,9 @@ WRITE(ap)
       * if the write starts beyond the current EOF then
       * we we'll zero fill from the current EOF to where the write begins
       */
-
-      error = cluster_write(vp, uio, osize, filesize, head_offset, local_offset,  devBlockSize, flags);
+      
+      error = cluster_write(vp, uio, osize, filesize, head_offset, local_offset,
+         ip->i_e2fs->s_d_blocksize, flags);
       
       if (uio->uio_offset > osize) {
          if (error && (ioflag & IO_UNIT))
