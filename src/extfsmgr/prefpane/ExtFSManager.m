@@ -838,6 +838,10 @@ info_alt_switch:
    [_optionNoteText setStringValue:
       ExtLocalizedString(@"Changes to these options will take effect during the next mount.", "")];
    
+   [_copyrightText setStringValue:
+      [[[self bundle] localizedInfoDictionary] objectForKey:@"CFBundleGetInfoString"]];
+   [_copyrightText setTextColor:[NSColor disabledControlTextColor]];
+   
    /* The correct way to get these names is to enum the FS bundles and
       get the FSName value for each personality. This turns out to be more
       work than it's worth though. */
@@ -954,6 +958,8 @@ info_alt_switch:
    
    NS_DURING
    name = [item volName];
+   if (!name)
+      name = [[item mountPoint] lastPathComponent];
    NS_HANDLER
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFSM: Item (0x%08X) is not a valid media object.\n", item);
