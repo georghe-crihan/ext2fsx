@@ -8,6 +8,21 @@
 \
 The disklib Darwin project. This is available from Apple's Darwin CVS repository. You'll want to checkout "diskdev_cmds/disklib". After checking out the project, cd to the dir, then 'make' and 'make install'.\
 \
+The July, August, Oct (and it seems Dec) tools removed vital kernel headers from the Kernel framework  and they have to be added back in manually from Darwin CVS.\
+\
+Here is a list of the missing headers. These can be found in xnu/bsd/ in the Darwin repository.\
+\
+sys/unistd.h\
+netinet/in_var.h\
+netinet6/in6_var.h\
+sys/signalvar.h\
+ufs/ufs/*.h\
+netinet/ip_var.h\
+netinet/tcp_var.h\
+netkey/key_var.h\
+\
+Once you have checked these headers out, you will need to copy them to "/System/Library/Frameworks/Kernel.framework/Versions/Current/Headers".\
+\
 You will also need to create a symbolic link to your ext2fs source directory in /usr/local/src if you want to build the Install package. The sym. link must be named "ext2fs".\
 \
 Finally, the following scripts need to have execute permissions.\
