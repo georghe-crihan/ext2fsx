@@ -65,6 +65,9 @@
  * active, and is put back when the file is no longer being used.
  */
 struct inode {
+   #ifdef APPLE
+   struct lock__bsd__ i_lock;
+   #endif
 	LIST_ENTRY(inode) i_hash;/* Hash chain. */
 	struct	vnode  *i_vnode;/* Vnode associated with this inode. */
 	struct	vnode  *i_devvp;/* Vnode for block I/O. */
