@@ -96,8 +96,6 @@ cp -p "${BUILD}/newfs_ext2" "${INSTALL}/sbin"
 cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
 cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
 
-#strip binaries for prod build here
-
 #get rid of unwanted files
 find "${INSTALL}" -name "\.DS_Store" -exec rm {} \;
 find "${INSTALL}" -name "pbdevelopment.plist" -exec rm {} \;
@@ -106,14 +104,50 @@ find "${INSTALL}" -name "CVS" -type d -exec rm -fr {} \;
 #e2fsprogs copyright
 cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSPROGS_COPYRIGHT"
 
+# build the jag version of the kext
+mv "${BUILD}/ext2fs.kext" "${BUILD}/ext2fs_panther.kext"
+BUILDER=pbxbuild
+if [ -d "${EXT2BUILD}/ext2fsX.xcode" ]; then
+	BUILDER=xcodebuild
+	cd "${EXT2BUILD}/ext2fsX.xcode"
+else
+	cd "${EXT2BUILD}/ext2fsX.pbproj"
+fi
+# XXX hack to determine if we are building a debug version
+BUILDSTYLE="JagDeployment"
+DBG=`nm -m "${BUILD}/ext2fs_panther.kext/Contents/MacOS/ext2fs" | grep logwakeup`
+if [ "${DBG}" != "" ]; then
+	BUILDSTYLE="JagDevelopment"
+fi
+BUILDLOG=`basename ${0}`
+BUILDLOG=/tmp/Ext2${BUILDLOG}.log
+echo "Building Jaguar Kext..."
+${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean > ${BUILDLOG} 2>&1
+${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} build >> ${BUILDLOG} 2>&1
+if [ ! -d "${BUILD}/ext2fs.kext" ]; then
+	mv "${BUILD}/ext2fs_panther.kext" "${BUILD}/ext2fs.kext"
+	echo "Jag Kext build failed! Stopping. See ${BUILDLOG}."
+	exit 1
+fi
+rm ${BUILDLOG}
+# Set the correct kernel dependency
+sed -f "${EXT2BUILD}/inst/infover.sed" "${BUILD}/ext2fs_panther.kext/Contents/Info.plist" \
+> "${BUILD}/ext2fs.kext/Contents/Info.plist"
+#copy to install
+cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/System/Library/Extensions/ext2fs_jag.kext"
+#build clean, so rebuilding from PB won't pick up stale object files.
+${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean > /dev/null 2>&1
+mv "${BUILD}/ext2fs_panther.kext" "${BUILD}/ext2fs.kext"
+# Get back to the root
+cd "${EXT2BUILD}"
+
+# set perms
+chmod -R go-w "${INSTALL}"
+chmod 775 "${INSTALL}/Library/" "${INSTALL}/Library/PreferencePanes/"
+chmod -R u-w "${INSTALL}"/sbin/* "${INSTALL}"/usr/local/bin/* "${INSTALL}"/usr/local/sbin/* \
+"${INSTALL}"/usr/local/lib/*
 sudo chown -R root:wheel "${INSTALL}"
-sudo chmod -R go-w "${INSTALL}"
 sudo chgrp -R admin "${INSTALL}/Library/"
-sudo chmod 775 "${INSTALL}/Library/" "${INSTALL}/Library/PreferencePanes/"
-sudo chmod -R u-w build/install/sbin/* 
-sudo chmod -R u-w build/install/usr/local/bin/*
-sudo chmod -R u-w build/install/usr/local/sbin/* 
-sudo chmod -R u-w build/install/usr/local/lib/*
 
 }
 
@@ -237,6 +271,17 @@ case "$WHAT" in
 		break
 	;;
 	1 )
+		echo "Warning. The Jaguar kext will not be built. Continue? [y]"
+		read CONT
+		case "${CONT}" in
+			"n" | "N" )
+				exit
+				break
+			;;
+			* )
+				break
+			;;
+		esac
 		build_image
 		break
 	;;
