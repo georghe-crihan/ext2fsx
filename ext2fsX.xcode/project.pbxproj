@@ -919,9 +919,8 @@
 				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
 				INFOPLIST_FILE = "Resources/ExtFSDiskManager-Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-framework Cocoa";
+				OTHER_LDFLAGS = "-framework Cocoa -seg1addr 0xEB110000";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ExtFSDiskManager;
 				SECTORDER_FLAGS = "";
