@@ -43,10 +43,10 @@ static const char whatid[] __attribute__ ((unused)) =
 #import <IOKit/storage/IOCDMedia.h>
 #import <IOKit/storage/IODVDMedia.h>
 
+#import "ExtFSLock.h"
 #import "ExtFSMedia.h"
 #import "ExtFSMediaController.h"
 
-static ExtFSMediaController *_instance;
 NSString * const ExtFSMediaNotificationAppeared = @"ExtFSMediaNotificationAppeared";
 NSString * const ExtFSMediaNotificationDisappeared = @"ExtFSMediaNotificationDisappeared";
 NSString * const ExtFSMediaNotificationMounted = @"ExtFSMediaNotificationMounted";
@@ -54,6 +54,9 @@ NSString * const ExtFSMediaNotificationUnmounted = @"ExtFSMediaNotificationUnmou
 NSString * const ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotificationCreationFailed";
 NSString * const ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
 
+static ExtFSMediaController *_instance;
+static void* e_instanceLock = nil; // Ptr to global controller internal lock
+static pthread_mutex_t e_initMutex = PTHREAD_MUTEX_INITIALIZER;
 static IONotificationPortRef notify_port_ref=0;
 static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
 
@@ -72,7 +75,7 @@ static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
 #define MSDOS_NAME "msdos"
 #define NTFS_NAME "ntfs"
 
-static char *_fsNames[] = {
+static const char *_fsNames[] = {
    EXT2FS_NAME,
    EXT3FS_NAME,
    HFS_NAME,
@@ -121,6 +124,11 @@ enum {
     kPendingUMounts = 1,
     kPendingCount
 };
+enum {
+    kNoteArgName = 0,
+    kNoteArgObject = 1,
+    kNoteArgInfo = 2
+};
 
 // This may end up conflicting with Disk Arb at some point,
 // but as of Panther the largest DA Error is (1<<3).
@@ -132,18 +140,35 @@ enum {
 
 /* Private */
 
+- (void)postNotification:(NSArray*)args
+{
+    unsigned ct = [args count];
+    id obj = (ct >= kNoteArgObject+1) ? [args objectAtIndex:kNoteArgObject] : nil;
+    NSDictionary *info = (ct >= kNoteArgInfo+1) ? [args objectAtIndex:kNoteArgInfo] : nil;
+    [[NSNotificationCenter defaultCenter]
+         postNotificationName:[args objectAtIndex:kNoteArgName] object:obj userInfo:info];
+}
+#define EFSMCPostNotification(note, obj, info) do {\
+NSArray *args = [[NSArray alloc] initWithObjects:note, obj, info, nil]; \
+[[ExtFSMediaController mediaController] performSelectorOnMainThread:@selector(postNotification:) \
+withObject:args waitUntilDone:NO]; \
+[args release]; \
+} while(0)
+
 - (void)updateMountStatus
 {
    int count, i;
    struct statfs *stats;
    NSString *device;
    ExtFSMedia *e2media;
-   NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
+   NSMutableArray *pMounts;
    
    count = getmntinfo(&stats, MNT_WAIT);
    if (!count)
       return;
    
+   ewlock(e_lock);
+   pMounts = [_pending objectAtIndex:kPendingMounts];
    for (i = 0; i < count; ++i) {
       device = [NSSTR(stats[i].f_mntfromname) lastPathComponent];      
       e2media = [_media objectForKey:device];
@@ -154,23 +179,29 @@ enum {
       
       [e2media setIsMounted:&stats[i]];
    }
+   eulock(e_lock);
 }
 
 - (BOOL)volumeDidUnmount:(NSString*)device
 {
    ExtFSMedia *e2media;
+   BOOL isMounted;
    
+   ewlock(e_lock);
    e2media = [_media objectForKey:device];
-   if (e2media && [e2media isMounted]) {
+   isMounted = [e2media isMounted];
+   if (e2media && isMounted) {
       NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
       [pUMounts removeObject:e2media];
+      eulock(e_lock);
       [e2media setIsMounted:nil];
       return (YES);
    }
+   eulock(e_lock);
 #ifdef DIAGNOSTIC
-   else if (!e2media)
+   if (nil == e2media)
       NSLog(@"ExtFS: Oops! Received unmount for an unknown device: '%@'.\n", device);
-   else if (NO == [e2media isMounted])
+   else if (NO == isMounted)
       NSLog(@"ExtFS: Oops! Received unmount for a device that is already unmounted: '%@'.\n", device);
 #endif
    return (NO);
@@ -182,7 +213,9 @@ enum {
    
    e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
    if (e2media) {
+      ewlock(e_lock);
       [_media setObject:e2media forKey:[e2media bsdName]];
+      eulock(e_lock);
       
       [e2media updateAttributesFromIOService:service];
       if ((parent = [e2media parent]))
@@ -191,15 +224,11 @@ enum {
       NSLog(@"ExtFS: Media %@ created with parent %@.\n", [e2media bsdName], parent);
    #endif
       
-      [[NSNotificationCenter defaultCenter]
-         postNotificationName:ExtFSMediaNotificationAppeared object:e2media
-         userInfo:nil];
+      EFSMCPostNotification(ExtFSMediaNotificationAppeared, e2media, nil);
       [e2media release];
    } else {
-      [[NSNotificationCenter defaultCenter]
-         postNotificationName:ExtFSMediaNotificationCreationFailed
-         object:[props objectForKey:NSSTR(kIOBSDNameKey)]
-         userInfo:nil];
+      EFSMCPostNotification(ExtFSMediaNotificationCreationFailed,
+        [props objectForKey:NSSTR(kIOBSDNameKey)], nil);
    }
    return (e2media);
 }
@@ -211,17 +240,16 @@ enum {
    if ([e2media isMounted])
       NSLog(@"ExtFS: Oops! Media '%@' removed while still mounted!\n", device);
    
-   [e2media retain];
-   [_media removeObjectForKey:device];
-   
    if ((parent = [e2media parent]))
       [parent remChild:e2media];
 
+   [e2media retain];
+   ewlock(e_lock);
+   [_media removeObjectForKey:device];
+   eulock(e_lock);
    [self removePending:e2media];
 
-   [[NSNotificationCenter defaultCenter]
-      postNotificationName:ExtFSMediaNotificationDisappeared
-      object:e2media userInfo:nil];
+   EFSMCPostNotification(ExtFSMediaNotificationDisappeared, e2media, nil);
 
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFS: Media '%@' removed. Retain count = %u.\n",
@@ -244,7 +272,9 @@ enum {
          kCFAllocatorDefault, 0);
       if (0 == kr) {
          device = [(NSMutableDictionary*)properties objectForKey:NSSTR(kIOBSDNameKey)];
+         erlock(e_lock);
          e2media = [_media objectForKey:device];
+         eulock(e_lock);
          if (e2media) {
             if (remove)
                [self removeMedia:e2media device:device];
@@ -271,25 +301,35 @@ enum {
 
 - (void)mountError:(NSTimer*)timer
 {
-    NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
+    NSMutableArray *pMounts;
     ExtFSMedia *media = [timer userInfo];
     
+    erlock(e_lock);
+    pMounts = [_pending objectAtIndex:kPendingMounts];
     if ([pMounts containsObject:media]) {
+        eulock(e_lock);
         // Send an error
         DiskArbCallback_CallFailedNotification(BSDNAMESTR(media),
             /* XXX - 0x1FFFFFFF will cause an 'Unknown error' since
                 the value overflows the error table. */
             EXT_DISK_ARB_MOUNT_FAILURE, 0x1FFFFFFF);
+        return;
     }
+    eulock(e_lock);
 }
 
 - (void)removePending:(ExtFSMedia*)media
 {
-    NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
-    NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+    NSMutableArray *pMounts;
+    NSMutableArray *pUMounts;
+    
+    ewlock(e_lock);
+    pMounts = [_pending objectAtIndex:kPendingMounts];
+    pUMounts = [_pending objectAtIndex:kPendingUMounts];
    
     [pMounts removeObject:media];
     [pUMounts removeObject:media];
+    eulock(e_lock);
 }
 
 /* Public */
@@ -305,12 +345,20 @@ enum {
 
 - (unsigned)mediaCount
 {
-   return ([_media count]);
+   unsigned ct;
+   erlock(e_lock);
+   ct = [_media count];
+   eulock(e_lock);
+   return (ct);
 }
 
 - (NSArray*)media
 {
-   return ([_media allValues]);
+   NSArray *m;
+   erlock(e_lock);
+   m = [_media allValues];
+   eulock(e_lock);
+   return (m);
 }
 
 - (NSArray*)rootMedia
@@ -320,12 +368,14 @@ enum {
    ExtFSMedia *e2media;
    
    array = [NSMutableArray array];
+   erlock(e_lock);
    en = [_media objectEnumerator];
    while ((e2media = [en nextObject])) {
       if (nil == [e2media parent]) {
          [array addObject:e2media];
       }
    }
+   eulock(e_lock);
    
    return (array);
 }
@@ -337,28 +387,38 @@ enum {
    ExtFSMedia *e2media;
    
    array = [NSMutableArray array];
+   erlock(e_lock);
    en = [_media objectEnumerator];
    while ((e2media = [en nextObject])) {
       if (fstype == [e2media fsType]) {
          [array addObject:e2media];
       }
    }
+   eulock(e_lock);
    
    return (array);
 }
 
 - (ExtFSMedia*)mediaWithBSDName:(NSString*)device
 {
-   return ([_media objectForKey:device]);
+   ExtFSMedia *m;
+   erlock(e_lock);
+   m = [_media objectForKey:device];
+   eulock(e_lock);
+   return ([[m retain] autorelease]);
 }
 
 - (int)mount:(ExtFSMedia*)media on:(NSString*)dir
 {
-   NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
-   NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+   NSMutableArray *pMounts;
+   NSMutableArray *pUMounts;
    kern_return_t ke;
    
+   ewlock(e_lock);
+   pMounts = [_pending objectAtIndex:kPendingMounts];
+   pUMounts = [_pending objectAtIndex:kPendingUMounts];
    if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
+        eulock(e_lock);
     #ifdef DIAGNOSTIC
         NSLog(@"ExtFS: Can't mount '%@'. Operation is already in progress.",
             [media bsdName]);
@@ -366,15 +426,23 @@ enum {
         return (EINPROGRESS);
    }
    
+   [pMounts addObject:media];// Add it while we are under the lock.
+   eulock(e_lock);
+   
    ke = DiskArbRequestMount_auto(BSDNAMESTR(media));
    if (0 == ke) {
         /* XXX -- This is a hack to detect a failed mount. It
            seems DA does notify clients of failed mounts. (Why???)
          */
-        [pMounts addObject:media];
         (void)[NSTimer scheduledTimerWithTimeInterval:EXT_MOUNT_ERROR_DELAY
             target:self selector:@selector(mountError:) userInfo:media
             repeats:NO];
+   } else {
+      // Re-acquire lock and remove it from pending
+      ewlock(e_lock);
+      if ([pMounts containsObject:media])
+         [pMounts removeObject:media];
+      eulock(e_lock);
    }
    return (ke);
 }
@@ -382,17 +450,23 @@ enum {
 - (int)unmount:(ExtFSMedia*)media force:(BOOL)force eject:(BOOL)eject
 {
    int flags = kDiskArbUnmountOneFlag;
-   NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
-   NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+   NSMutableArray *pMounts;
+   NSMutableArray *pUMounts;
    kern_return_t ke;
    
+   erlock(e_lock);
+   pMounts = [_pending objectAtIndex:kPendingMounts];
+   pUMounts = [_pending objectAtIndex:kPendingUMounts];
    if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
+        eulock(e_lock);
     #ifdef DIAGNOSTIC
         NSLog(@"ExtFS: Can't unmount '%@'. Operation is already in progress.",
             [media bsdName]);
     #endif
         return (EINPROGRESS);
    }
+   eulock(e_lock);
+   
    if (force)
       flags |= kDiskArbForceUnmountFlag;
    
@@ -401,14 +475,16 @@ enum {
       flags &= ~kDiskArbUnmountOneFlag;
    }
    
-   if ([media isMounted] || nil != [media children])
+   ke = EINVAL;
+   if ([media isMounted] || (nil != [media children]))
       ke = DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags);
    else if (flags & kDiskArbUnmountAndEjectFlag)
       ke = DiskArbEjectRequest_async_auto(BSDNAMESTR(media), 0);
-   else
-      return (EINVAL);
    if (0 == ke) {
+      ewlock(e_lock);
+      if (NO == [pMounts containsObject:media])
         [pUMounts addObject:media];
+      eulock(e_lock);
    }
    return (ke);
 }
@@ -422,14 +498,28 @@ enum {
    id obj;
    int i;
    
+   pthread_mutex_lock(&e_initMutex);
+   
    if (_instance) {
-      [super dealloc];
+      pthread_mutex_unlock(&e_initMutex);
+      [super release];
       return (_instance);
    }
    
-   if (!(self = [super init]))
+   if (!(self = [super init])) {
+      pthread_mutex_unlock(&e_initMutex);
       return (nil);
+   }
       
+   if (0 != eilock(&e_lock)) {
+      pthread_mutex_unlock(&e_initMutex);
+#ifdef DIAGNOSTIC
+      NSLog(@"ExtFS: Failed to allocate lock for media controller!\n");
+#endif
+      [super release];
+      return (nil);
+   }
+   
    _instance = self;
    
    _pending = [[NSMutableArray alloc] initWithCapacity:kPendingCount];
@@ -477,30 +567,39 @@ enum {
       (void *)&DiskArbCallback_CallFailedNotification, 0);
    DiskArbUpdateClientFlags();
    
+   e_instanceLock = e_lock;
+   pthread_mutex_unlock(&e_initMutex);
    return (self);
 
 exit:
    _instance = nil;
+   if (e_lock) edlock(e_lock);
    [_media release];
    [_pending release];
    if (notify_add_iter) IOObjectRelease(notify_add_iter);
    if (notify_rem_iter) IOObjectRelease(notify_rem_iter);
    if (notify_port_ref) IONotificationPortDestroy(notify_port_ref);
-   [super dealloc];
+   pthread_mutex_unlock(&e_initMutex);
+   [super release];
    return (nil);
 }
 
 /* This singleton lives forever. */
-#if 0
 - (void)dealloc
 {
+   NSLog(@"ExtFS: Oops! Somebody released the global media controller!\n");
+#if 0
    DiskArbRemoveCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY,
       (void *)&DiskArbCallback_UnmountPostNotification);
    [_media release];
    [_pending release];
+   pthread_mutex_lock(&e_initMutex);
+   e_instanceLock = nil;
+   pthread_mutex_unlock(&e_initMutex);
+   edlock(e_lock);
    [super dealloc];
-}
 #endif
+}
 
 @end
 
@@ -510,6 +609,8 @@ exit:
 - (void)updateAttributesFromIOService:(io_service_t)service
 {
    ExtFSMediaController *mc;
+   NSString *regName = nil;
+   ExtFSMedia *parent = nil;
    CFTypeRef iconDesc;
    io_name_t ioname;
    io_service_t ioparent, ioparentold;
@@ -518,12 +619,17 @@ exit:
 #endif
    int iterations;
    kern_return_t kr;
+   BOOL dvd, cd, wholeDisk;
    
    mc = [ExtFSMediaController mediaController];
    
+   erlock(e_lock);
+   wholeDisk = (_attributeFlags & kfsWholeDisk);
+   eulock(e_lock);
+   
    /* Get IOKit name */
    if (0 == IORegistryEntryGetNameInPlane(service, kIOServicePlane, ioname))
-      _ioregName = [NSSTR(ioname) retain];
+      regName = NSSTR(ioname);
    
    /* Get Parent */
 #ifdef notyet
@@ -531,7 +637,7 @@ exit:
    if (0 == IORegistryEntryGetParentIterator(service, kIOServicePlane, &piter)) {
       while ((ioparent = IOIteratorNext(piter))) {
 #endif
-   if (!(_attributeFlags & kfsWholeDisk)) {
+   if (NO == wholeDisk) {
       ioparent = nil;
       iterations = 0;
       kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &ioparent);
@@ -555,7 +661,6 @@ exit:
          kr = IORegistryEntryCreateCFProperties(ioparent, &props,
             kCFAllocatorDefault, 0);
          if (!kr) {
-            ExtFSMedia *parent;
             NSString *pdevice;
             
             /* See if the parent object exists */
@@ -566,8 +671,6 @@ exit:
                parent = [mc createMediaWithIOService:ioparent
                   properties:(NSDictionary*)props];
             }
-            _parent = [parent retain];
-            
             CFRelease(props);
          }
          
@@ -576,33 +679,44 @@ exit:
    }
    
    /* Find the icon description */
-   if (!_parent || !(iconDesc = [_parent iconDescription]))
+   if (!parent || !(iconDesc = [parent iconDescription]))
       iconDesc = IORegistryEntrySearchCFProperty(service, kIOServicePlane,
          CFSTR(kIOMediaIconKey), kCFAllocatorDefault,
          kIORegistryIterateParents | kIORegistryIterateRecursively);
    
-   [_iconDesc release];
-   _iconDesc = [(NSDictionary*)iconDesc retain];
+   dvd = IOObjectConformsTo(service, kIODVDMediaClass);
+   cd = IOObjectConformsTo(service, kIOCDMediaClass);
    
-   if (IOObjectConformsTo(service, kIODVDMediaClass))
+   ewlock(e_lock);
+   if (regName && nil == _ioregName)
+      _ioregName = [regName retain];
+   if (parent && nil == _parent)
+      _parent = [parent retain];
+   if (iconDesc) {
+      [_iconDesc release];
+      _iconDesc = [(NSDictionary*)iconDesc retain];
+   }
+   if (dvd)
       _attributeFlags |= kfsDVDROM;
-   
-   if (IOObjectConformsTo(service, kIOCDMediaClass))
+   if (cd)
       _attributeFlags |= kfsCDROM;
+   eulock(e_lock);
 }
 
 - (void)setIsMounted:(struct statfs*)stat
 {
    NSDictionary *fsTypes;
    NSNumber *fstype;
+   BOOL hasJournal, isJournaled;
    
    if (!stat) {
+      ewlock(e_lock);
       _attributeFlags &= ~(kfsMounted|kfsPermsEnabled);
       _fsBlockSize = 0;
       _blockCount = 0;
       _blockAvail = 0;
       _lastFSUpdate = 0;
-      _fsType = fsTypeUnknown;
+      //_fsType = fsTypeUnknown;
       [_where release]; _where = nil;
       [_volName release]; _volName = nil;
       
@@ -610,10 +724,9 @@ exit:
          but the mounted filesystem was not */
       if ([[_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
          _attributeFlags |= kfsWritable;
+      eulock(e_lock);
       
-      [[NSNotificationCenter defaultCenter]
-         postNotificationName:ExtFSMediaNotificationUnmounted object:self
-         userInfo:nil];
+      EFSMCPostNotification(ExtFSMediaNotificationUnmounted, self, nil);
       return;
    }
    
@@ -631,6 +744,7 @@ exit:
       nil];
    
    fstype = [fsTypes objectForKey:NSSTR(stat->f_fstypename)];
+   ewlock(e_lock);
    if (fstype)
       _fsType = [fstype intValue];
    else
@@ -650,32 +764,37 @@ exit:
    _blockAvail = stat->f_bavail;
    [_where release];
    _where = [[NSString alloc] initWithCString:stat->f_mntonname];
-   (void)[self fsInfo];
+   eulock(e_lock);
    
-   if (fsTypeExt2 == _fsType && ([self hasJournal]))
+   (void)[self fsInfo];
+   hasJournal = [self hasJournal];
+   isJournaled = [self isJournaled];
+   
+   ewlock(e_lock);
+   if (fsTypeExt2 == _fsType && hasJournal)
       _fsType = fsTypeExt3;
    
    if (fsTypeHFSPlus == _fsType) {
-      if ([self isJournaled]) {
+      if (isJournaled) {
          _fsType = fsTypeHFSJ;
       }
    }
+   eulock(e_lock);
    
-   [[NSNotificationCenter defaultCenter]
-         postNotificationName:ExtFSMediaNotificationMounted object:self
-         userInfo:nil];
+   EFSMCPostNotification(ExtFSMediaNotificationMounted, self, nil);
 }
 
 - (NSDictionary*)iconDescription
 {
-   return (_iconDesc);
+   return ([[_iconDesc retain] autorelease]);
 }
 
 @end
 
 /* Helpers */
 
-char* FSNameFromType(int type)
+// _fsNames is read-only, so there is no need for a lock
+const char* FSNameFromType(int type)
 {
    if (type > fsTypeUnknown)
       type = fsTypeUnknown;
@@ -690,14 +809,25 @@ NSString* NSFSNameFromType(int type)
 }
 
 static NSDictionary *_fsPrettyNames = nil;
+static pthread_mutex_t e_fsPrettyMutex = PTHREAD_MUTEX_INITIALIZER;
 
 NSString* NSFSPrettyNameFromType(int type)
 {
     if (nil == _fsPrettyNames) {
-        NSBundle *me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
-        if (nil == me)
+        NSBundle *me;
+        pthread_mutex_lock(&e_fsPrettyMutex);
+        // Make sure the global is still nil once we hold the lock
+        if (nil != _fsPrettyNames) {
+            pthread_mutex_unlock(&e_fsPrettyMutex);
+            goto fspretty_lookup;
+        }
+        
+        me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
+        if (nil == me) {
+            pthread_mutex_unlock(&e_fsPrettyMutex);
             NSLog(@"ExtFS: Could not find bundle!\n");
             return (nil);
+        }
 
         /* The correct way to get these names is to enum the FS bundles and
           get the FSName value for each personality. This turns out to be more
@@ -723,8 +853,11 @@ NSString* NSFSPrettyNameFromType(int type)
             [me localizedStringForKey:@"Unknown" value:nil table:nil],
                 [NSNumber numberWithInt:fsTypeUnknown],
           nil];
+        pthread_mutex_unlock(&e_fsPrettyMutex);
     }
-    
+
+fspretty_lookup:
+    // Once allocated, the name table is considered read-only
     if (type > fsTypeUnknown)
       type = fsTypeUnknown;
     return ([_fsPrettyNames objectForKey:[NSNumber numberWithInt:type]]);
@@ -790,13 +923,13 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    NSString *bsd = NSSTR(device), *err, *op, *msg;
    ExtFSMedia *emedia;
    NSBundle *me;
-   ExtFSMediaController *ctl = [ExtFSMediaController mediaController];
+   ExtFSMediaController *mc = [ExtFSMediaController mediaController];
    
-   if ((emedia = [ctl mediaWithBSDName:bsd])) {
+   if ((emedia = [mc mediaWithBSDName:bsd])) {
       short idx = (status & 0xFF);
       NSDictionary *dict;
       
-      [ctl removePending:emedia];
+      [mc removePending:emedia];
       
       if (idx > DA_ERR_TABLE_LAST) {
          if (EBUSY == idx) // This can be returned instead of kDAReturnBusy
@@ -804,6 +937,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
          else
             idx = 1;
       }
+      // Table is read-only, no need to protect it.
       err = _DiskArbErrorTable[idx];
       
       msg = nil;
@@ -829,6 +963,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
       }
       
       // Get a ref to ourself so we can load our localized strings.
+      erlock(e_instanceLock);
       me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
       if (me) {
         NSString *errl, *opl, *msgl;
@@ -845,6 +980,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
         if (msgl)
             msg = msgl;
       }
+      eulock(e_instanceLock);
       
       dict = [NSDictionary dictionaryWithObjectsAndKeys:
          op, ExtMediaKeyOpFailureType,
@@ -853,9 +989,8 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
          err, ExtMediaKeyOpFailureErrorString,
          msg, (msg ? ExtMediaKeyOpFailureMsgString : nil),
          nil];
-      [[NSNotificationCenter defaultCenter]
-         postNotificationName:ExtFSMediaNotificationOpFailure
-         object:emedia userInfo:dict];
+
+      EFSMCPostNotification(ExtFSMediaNotificationOpFailure, emedia, dict);
       
       NSLog(@"ExtFS: DiskArb failure for device '%s', with type %d and status 0x%X\n",
          device, type, status);

@@ -24,9 +24,10 @@
 */
 
 #import <stdio.h>
+#import <time.h>
+#import <sys/sysctl.h>
 
-#import "ExtFSMedia.h"
-#import "ExtFSMediaController.h"
+#import <ExtFSDiskManager/ExtFSDiskManager.h>
 
 @interface ListDisks : NSObject
 {
@@ -38,6 +39,14 @@
 - (void)volMount:(NSNotification*)notification;
 - (void)volUnmount:(NSNotification*)notification;
 @end
+
+int threadID = 0;
+
+#ifndef POUND
+#define pinfo(f,args...) printf((f), args)
+#else
+#define pinfo(f,args...) {}
+#endif
 
 @implementation ListDisks
 
@@ -56,38 +65,39 @@
    en = [disks objectEnumerator];
    while ((obj = [en nextObject])) {
       mounted = [obj isMounted];
-      printf ("Device: %s\n", [[obj bsdName] cString]);
+      pinfo ("Device: %s\n", [[obj bsdName] cString]);
       tmp = [obj ioRegistryName];
       if (tmp)
-         printf ("\tIOKit Name: %s\n", [tmp cString]);
+         pinfo ("\tIOKit Name: %s\n", [tmp cString]);
       parent = [obj parent];
       if (parent)
-         printf ("\tParent Device: %s\n", [[parent bsdName] cString]);
-      printf ("\tEjectable: %s\n", ([obj isEjectable] ? "Yes" : "No"));
-      printf ("\tDVD/CD ROM: %s\n", (([obj isDVDROM] || [obj isCDROM]) ? "Yes" : "No"));
-      printf ("\tFS Type: %s\n", FSNameFromType([obj fsType]));
-      printf ("\tMounted: %s\n", (mounted ? [[obj mountPoint] cString] : "Not mounted"));
+         pinfo ("\tParent Device: %s\n", [[parent bsdName] cString]);
+      pinfo ("\tEjectable: %s\n", ([obj isEjectable] ? "Yes" : "No"));
+      pinfo ("\tDVD/CD ROM: %s\n", (([obj isDVDROM] || [obj isCDROM]) ? "Yes" : "No"));
+      pinfo ("\tFS Type: %s\n", FSNameFromType([obj fsType]));
+      pinfo ("\tMounted: %s\n", (mounted ? [[obj mountPoint] cString] : "Not mounted"));
       if (mounted) {
          tmp = [obj volName];
          if (tmp)
-            printf ("\tVolume Name: %s\n", [tmp cString]);
+            pinfo ("\tVolume Name: %s\n", [tmp cString]);
          tmp = [obj uuidString];
          if (tmp)
-            printf ("\tVolume UUID: %s\n", [tmp cString]);
-         printf ("\tSupports Journaling: %s\n", ([obj hasJournal] ? "Yes" : "No"));
-         printf ("\tJournaled: %s\n", ([obj isJournaled] ? "Yes" : "No"));
-         printf ("\tIndexed Directories: %s\n", ([obj hasIndexedDirs] ? "Yes" : "No"));
-         printf ("\tLarge Files: %s\n", ([obj hasLargeFiles] ? "Yes" : "No"));
-         printf ("\tBlock size: %lu\n", [obj blockSize]);
-         printf ("\tBlock count: %qu\n", [obj blockCount]);
-         printf ("\tTotal bytes: %qu\n", [obj size]);
-         printf ("\tAvailable bytes: %qu\n", [obj availableSize]);
-         printf ("\tNumber of files: %qu\n", [obj fileCount]);
-         printf ("\tNumber of directories: %qu\n", [obj dirCount]);
+            pinfo ("\tVolume UUID: %s\n", [tmp cString]);
+         pinfo ("\tSupports Journaling: %s\n", ([obj hasJournal] ? "Yes" : "No"));
+         pinfo ("\tJournaled: %s\n", ([obj isJournaled] ? "Yes" : "No"));
+         pinfo ("\tIndexed Directories: %s\n", ([obj hasIndexedDirs] ? "Yes" : "No"));
+         pinfo ("\tLarge Files: %s\n", ([obj hasLargeFiles] ? "Yes" : "No"));
+         pinfo ("\tBlock size: %lu\n", [obj blockSize]);
+         pinfo ("\tBlock count: %qu\n", [obj blockCount]);
+         pinfo ("\tTotal bytes: %qu\n", [obj size]);
+         pinfo ("\tAvailable bytes: %qu\n", [obj availableSize]);
+         pinfo ("\tNumber of files: %qu\n", [obj fileCount]);
+         pinfo ("\tNumber of directories: %qu\n", [obj dirCount]);
       }
-   #ifdef EXT_MGR_GUI
+      #if 0
       NSImage *icon = [obj icon];
-   #endif
+      pinfo ("\tIcon name: %s\n", [[icon name] UTF8String]);
+      #endif
    }
 }
 
@@ -104,13 +114,33 @@
 - (void)volMount:(NSNotification*)notification
 {
    printf ("**** Media '%s' mounted ***\n", BSDNAMESTR([notification object]));
-   [self list:nil];
 }
 
 - (void)volUnmount:(NSNotification*)notification
 {
    printf ("**** Media '%s' unmounted ***\n", BSDNAMESTR([notification object]));
-   [self list:nil];
+}
+
+#define MINDOZE 130 // About 1 cycle on a Quicksilver G4
+//#define MAXDOZE 500000000 // 1/2 second
+#define MAXDOZE  1000000 // 1/100 second
+- (void)threadCtl:(id)mc
+{
+	int doze, tid = threadID++;
+	struct timespec rqt = {0,0}, rmt = rqt;
+	do {
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+		
+		[self list:mc];
+		
+		[pool release];
+		doze = MINDOZE + (random() % MAXDOZE);
+	#ifndef POUND
+		rqt.tv_nsec = rmt.tv_nsec = doze;
+		printf ("thread %d sleeping for %d ns\n", tid, doze);
+		nanosleep(&rqt, &rmt);
+	#endif
+	} while(1);
 }
 
 @end
@@ -120,11 +150,23 @@ int main(int argc, const char *argv[])
    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
    ExtFSMediaController *mc;
    ListDisks *ld;
+   int threads, mib[2];
+   size_t len;
+   struct timeval now;
    
    mc = [ExtFSMediaController mediaController];
    ld = [[ListDisks alloc] init];
    
-#ifdef EXT_MGR_GUI
+   gettimeofday(&now, nil);
+   srandom(now.tv_sec);
+   
+   threads = 2;
+   mib[0] = CTL_HW;
+   mib[1] = HW_NCPU;
+   len = sizeof(threads);
+   if (0 == sysctl(mib, 2, &threads, &len, nil, 0))
+      ++threads;
+   
    [[NSNotificationCenter defaultCenter] addObserver:ld
             selector:@selector(mediaAdd:)
             name:ExtFSMediaNotificationAppeared
@@ -142,11 +184,13 @@ int main(int argc, const char *argv[])
             name:ExtFSMediaNotificationUnmounted
             object:nil];
    [ld performSelector:@selector(list:) withObject:mc afterDelay:2.0];
-   NSApplicationMain(argc, argv);
-#else
-   [ld list:mc];
-#endif
-
+   
+   printf ("Creating %d threads...\n", threads);
+   for (; threads > 0; --threads)
+      [NSThread  detachNewThreadSelector:@selector(threadCtl:) toTarget:ld withObject:mc];
+   
+   [[NSRunLoop currentRunLoop] run];
+   
    [ld release];
    [pool release];
    return (0);

@@ -78,6 +78,7 @@ a filesystem or device for its properties.
 @interface ExtFSMedia : NSObject
 {
 @private
+   void *e_lock; // lock storage
    ExtFSMedia *_parent;
    id _children;
    
@@ -89,6 +90,7 @@ a filesystem or device for its properties.
       _volCaps, _lastFSUpdate, _fileCount, _dirCount;
    ExtFSType _fsType;
    NSImage *_icon;
+   unsigned char e_reserved[32];
 }
 
 /*!
@@ -110,9 +112,10 @@ has not been set.
 - (id)representedObject;
 /*!
 @method setRepresentedObject
-@abstract Associate some object with the target ExtFSMedia object
-@discussion This is merely a context association for the object client.
-It is neither retained, nor released by the ExtFSMedia object.
+@abstract Associate some object with the target ExtFSMedia object.
+@discussion The represented object is retained for the lifetime
+of the media object (or until replaced). Call with object == nil
+to release the represented object manually.
 */
 - (void)setRepresentedObject:(id)object;
 
@@ -130,6 +133,8 @@ no parent.
 @method children
 @abstract Access the children of the target object.
 @discussion Children are determined from the IO Registry hierarchy.
+This is a snapshot in time, the number of children
+could possibly change the moment after return.
 @result An array of ExtFSMedia objects that are directly descended
 from the target object -- nil is returned if the target has
 no descendants.
@@ -138,6 +143,8 @@ no descendants.
 /*!
 @method childCount
 @abstract Convenience method to obtain the child count of the target.
+@discussion This is a snapshot in time, the number of children
+could possibly change the moment after return.
 @result Integer containing the number of children.
 */
 - (unsigned)childCount;
@@ -331,7 +338,7 @@ Always NO if the media is not mounted.
 @method isCasePreserving
 @abstract Determine if the filesystem preserves file name case.
 @discussion HFS is case-preserving, but not case-sensitive, 
-Ext2/UFS is both and FAT is neither.
+Ext2 and UFS are both and FAT12/16 are neither.
 @result YES or NO. Always NO if the media is not mounted.
 */
 - (BOOL)isCasePreserving;
@@ -378,6 +385,13 @@ Always NO if the media is not mounted or the filesystem is not Ext2/3.
 Always NO if the media is not mounted or the filesystem is not Ext2/3.
 */
 - (BOOL)hasLargeFiles;
+/*!
+@method maxFileSize
+@abstract Determine the max file size supported by the filesystem.
+@discussion Currently, this method always returns 0.
+@result Max file size or 0 if the filesystem is not mounted.
+*/
+- (u_int64_t)maxFileSize;
 
 /*!
 @method compare:
@@ -394,12 +408,14 @@ Always NO if the media is not mounted or the filesystem is not Ext2/3.
 @abstract This notification is sent to the default Notification center
 when the filesystem information has been updated (available space, file count, etc).
 The changed media object is attached.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationUpdatedInfo;
 /*!
 @const ExtFSMediaNotificationChildChange
 @abstract This notification is sent to the default Notification center
 when a child is added or removed. The parent object is attached.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationChildChange;
 

@@ -38,13 +38,17 @@ There should only be one instance of this class.
 @interface ExtFSMediaController : NSObject
 {
 @private
+   void *e_lock;
    id _media;
    id _pending;
+   unsigned char e_reserved[32];
 }
 
 /*!
 @method mediaController
 @abstract Class method to access the global controller instance.
+@discussion This method should be called once before any threads are created because
+it needs access to the main run-loop.
 @result Global instance.
 */
 + (ExtFSMediaController*)mediaController;
@@ -53,19 +57,24 @@ There should only be one instance of this class.
 @method mediaCount
 @abstract Determine the number of media objects.
 @discussion One media object is created for each
-disk and each partition on a disk.
+disk and each partition on a disk. This is a snapshot in time,
+media could be added or removed the moment after return.
 @result Count of media objects.
 */
 - (unsigned)mediaCount;
 /*!
 @method media
 @abstract Access all media objects.
+@discussion This is a snapshot in time, media could be added
+or removed the moment after return.
 @result An array of media objects.
 */
 - (NSArray*)media;
 /*!
 @method rootMedia
 @abstract Access all media that is not a child of some other media.
+@discussion This is a snapshot in time, media could be added
+or removed the moment after return.
 @result An array of media objects.
 */
 - (NSArray*)rootMedia;
@@ -73,6 +82,8 @@ disk and each partition on a disk.
 @method mediaWithFSType
 @abstract Access all media with a specific filesystem type.
 @discussion Only media that is mounted will be included.
+This is a snapshot in time, media could be added
+or removed the moment after return.
 @param fstype Filesystem type to match.
 @result An array of media objects, or nil if no matches were found.
 */
@@ -116,6 +127,7 @@ ExtFSMediaNotificationOpFailure notification will be sent.
 @const ExtFSMediaNotificationAppeared
 @abstract This notification is sent to the default Notification center
 when new media appears. The new media object is attached.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationAppeared;
 /*!
@@ -123,6 +135,7 @@ extern NSString * const ExtFSMediaNotificationAppeared;
 @abstract This notification is sent to the default Notification center
 when new media disappears (ie it's ejected). The vanishing 
 media object is attached.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationDisappeared;
 /*!
@@ -131,6 +144,7 @@ extern NSString * const ExtFSMediaNotificationDisappeared;
 when a device has been mounted (either by explicit request of
 the application or by some other means). The mounted media object
 is attached.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationMounted;
 /*!
@@ -139,6 +153,7 @@ extern NSString * const ExtFSMediaNotificationMounted;
 when a device has been unmounted (either by explicit request of
 the application or by some other means). The unmounted media object
 is attached.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationUnmounted;
 /*!
@@ -146,6 +161,7 @@ extern NSString * const ExtFSMediaNotificationUnmounted;
 @abstract This notification is sent to the default Notification center
 when an asynchronous operation fails. The media object that failed is
 attached and the user info dictionary contains the error information.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationOpFailure;
 /*!
@@ -153,6 +169,7 @@ extern NSString * const ExtFSMediaNotificationOpFailure;
 @abstract This notification is sent to the default Notification center
 when ExtFSMediaController fails to create a media object for a device.
 A string containing the device name is attached.
+@discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationCreationFailed;
 
@@ -190,7 +207,7 @@ containing the filesystem name.
 @param type A valid ExtFSType id.
 @result Filesystem name or nil, if the type is invalid.
 */
-char* FSNameFromType(int type);
+const char* FSNameFromType(int type);
 /*!
 @function NSFSNameFromType
 @abstract Converts a filesystem type id to a NSString
