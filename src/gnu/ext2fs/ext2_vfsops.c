@@ -1520,7 +1520,7 @@ vn_isdisk(vp, errp)
 
 	if (errp != NULL)
 		*errp = 0;
-	ext2_trace_return(1);
+	return(1);
 }
 
 /*
