@@ -81,6 +81,7 @@
 				D34AE6840417173400A80164,
 				D3FCC55A041C72E000A80164,
 				D31F7D360569E3E700A80164,
+				D3D4AF220579135600A80164,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -90,12 +91,12 @@
 				D3B4645704099F8700A80164,
 				D3C06DAB040A137600A80164,
 				D3D485770405AC0900A80164,
-				D3D485870405C3B900A80164,
 				D33C06890418779900A80164,
 				D376F3C6040DF69900A80164,
 				D376F3CC040E085900A80164,
 				D30B790D04059A6B00A80164,
 				D31F7D390569E42A00A80164,
+				D367265B057D3E9600A80164,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
 			);
@@ -122,7 +123,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.1d3;
+				MODULE_VERSION = 1.1d4;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -158,11 +159,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1d3</string>
+	<string>1.1d4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1d3</string>
+	<string>1.1d4</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -290,6 +291,7 @@
 				D3D485860405AEF400A80164,
 				D3FCC55B041C72E000A80164,
 				D31F7D370569E3E700A80164,
+				D3D4AF230579135600A80164,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -345,6 +347,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D33D91680405A28700A80164,
+				D3A9B807058283EC00B93FC7,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -361,6 +364,7 @@
 		D30B7908040599D500A80164 = {
 			buildActionMask = 2147483647;
 			files = (
+				D3A9B8140582E25500B93FC7,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -380,6 +384,7 @@
 				D30B7909040599D500A80164,
 			);
 			buildSettings = {
+				HEADER_SEARCH_PATHS = src;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-DAPPLE";
 				OTHER_LDFLAGS = "-ldisk";
@@ -405,6 +410,8 @@
 			children = (
 				D30B790F04059A6B00A80164,
 				D30B791004059A6B00A80164,
+				D3A9B8150582E26500B93FC7,
+				D3A9B8130582E25500B93FC7,
 			);
 			isa = PBXGroup;
 			name = mount_ext2fs;
@@ -652,6 +659,101 @@
 			settingsToPassInEnvironment = 287;
 			settingsToPassOnCommandLine = 280;
 		};
+		D36725B2057A698B00A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ExtFSMedia.h;
+			refType = 4;
+		};
+		D36725B3057A698B00A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ExtFSMedia.m;
+			refType = 4;
+		};
+		D36725B4057A698B00A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ExtFSMediaController.h;
+			refType = 4;
+		};
+		D36725B5057A698B00A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ExtFSMediaController.m;
+			refType = 4;
+		};
+		D36725B6057A698B00A80164 = {
+			fileRef = D36725B2057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D36725B7057A698B00A80164 = {
+			fileRef = D36725B3057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D36725B8057A698B00A80164 = {
+			fileRef = D36725B4057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D36725B9057A698B00A80164 = {
+			fileRef = D36725B5057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D36725BA057A6F0700A80164 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		D36725BB057A6F0700A80164 = {
+			fileRef = D36725BA057A6F0700A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D36725FE057BB78100A80164 = {
+			isa = PBXFrameworkReference;
+			name = DiskArbitration.framework;
+			path = /System/Library/PrivateFrameworks/DiskArbitration.framework;
+			refType = 0;
+		};
+		D36725FF057BB78100A80164 = {
+			fileRef = D36725FE057BB78100A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D367265B057D3E9600A80164 = {
+			children = (
+				D3A9B805058283EC00B93FC7,
+				D367265C057D3ECB00A80164,
+				D3D4AF1B0579126E00A80164,
+				D3A9B8080582DE1400B93FC7,
+			);
+			isa = PBXGroup;
+			name = extfsmgr;
+			path = src/extfsmgr;
+			refType = 4;
+		};
+		D367265C057D3ECB00A80164 = {
+			children = (
+				D36725B2057A698B00A80164,
+				D36725B3057A698B00A80164,
+				D36725B4057A698B00A80164,
+				D36725B5057A698B00A80164,
+			);
+			isa = PBXGroup;
+			path = coremgr;
+			refType = 4;
+		};
 		D376F3C6040DF69900A80164 = {
 			children = (
 				D376F3C7040DF6C200A80164,
@@ -694,6 +796,7 @@
 		};
 		D376F3CC040E085900A80164 = {
 			children = (
+				D3D485870405C3B900A80164,
 				D376F3CD040E088100A80164,
 			);
 			isa = PBXGroup;
@@ -733,9 +836,10 @@
 				D39ED63104060E8300A80164,
 				D39ED63204060E8300A80164,
 				D3FCC55E041C731600A80164,
+				D3D4AF240579136500A80164,
 				D39ED63304060E8300A80164,
-				D3F50EC40417372400A80164,
 				D39ED63404060E8300A80164,
+				D3D4AF250579136800A80164,
 			);
 			isa = PBXAggregateTarget;
 			name = BuildAll;
@@ -756,6 +860,65 @@
 		D39ED63404060E8300A80164 = {
 			isa = PBXTargetDependency;
 			target = D3D485850405AEF400A80164;
+		};
+		D3A9B7CC057FE5DC00B93FC7 = {
+			isa = PBXFileReference;
+			path = Options.tiff;
+			refType = 4;
+		};
+		D3A9B7CD057FE5DC00B93FC7 = {
+			fileRef = D3A9B7CC057FE5DC00B93FC7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3A9B805058283EC00B93FC7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = extfsmgr.h;
+			refType = 4;
+		};
+		D3A9B806058283EC00B93FC7 = {
+			fileRef = D3A9B805058283EC00B93FC7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3A9B807058283EC00B93FC7 = {
+			fileRef = D3A9B805058283EC00B93FC7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3A9B8080582DE1400B93FC7 = {
+			children = (
+				D3D4AF27057913CB00A80164,
+				D36725FE057BB78100A80164,
+				D36725BA057A6F0700A80164,
+				D3D4AF28057913CB00A80164,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			path = "";
+			refType = 2;
+		};
+		D3A9B8130582E25500B93FC7 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		D3A9B8140582E25500B93FC7 = {
+			fileRef = D3A9B8130582E25500B93FC7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3A9B8150582E26500B93FC7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = mount_extmgr.c;
+			refType = 4;
 		};
 		D3B4645604099F8700A80164 = {
 			fileEncoding = 30;
@@ -1017,11 +1180,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Apple_UNIX_SVR2</key>
@@ -1150,7 +1313,7 @@
 			<key>FSFormatMinimumSize</key>
 			<integer>524288</integer>
 			<key>FSMountArguments</key>
-			<string></string>
+			<string>-x</string>
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount_ext2</string>
 			<key>FSName</key>
@@ -1209,9 +1372,283 @@
 			settings = {
 			};
 		};
-		D3F50EC40417372400A80164 = {
+		D3D4AF1B0579126E00A80164 = {
+			children = (
+				D3D4AF3D0579166400A80164,
+				D3D4AF3E0579166400A80164,
+				D3D4AF36057915D900A80164,
+			);
+			isa = PBXGroup;
+			path = prefpane;
+			refType = 4;
+		};
+		D3D4AF1D0579135600A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3D4AF3F0579166400A80164,
+				D36725B6057A698B00A80164,
+				D36725B8057A698B00A80164,
+				D3A9B806058283EC00B93FC7,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4AF1E0579135600A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3D4AF3C057915F800A80164,
+				D3F22243057FB5010085CE79,
+				D3F22244057FB5010085CE79,
+				D3F2225C057FBCE10085CE79,
+				D3F2225D057FBCE10085CE79,
+				D3F2225E057FBCE30085CE79,
+				D3A9B7CD057FE5DC00B93FC7,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4AF1F0579135600A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3D4AF400579166400A80164,
+				D36725B7057A698B00A80164,
+				D36725B9057A698B00A80164,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4AF200579135600A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3D4AF29057913CB00A80164,
+				D3D4AF2A057913CB00A80164,
+				D36725BB057A6F0700A80164,
+				D36725FF057BB78100A80164,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4AF210579135600A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4AF220579135600A80164 = {
+			buildPhases = (
+				D3D4AF1D0579135600A80164,
+				D3D4AF1E0579135600A80164,
+				D3D4AF1F0579135600A80164,
+				D3D4AF200579135600A80164,
+				D3D4AF210579135600A80164,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = src;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DEXT_MGR_GUI";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ExtFSManager;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = prefPane;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = extprefpane;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = e2prefpane;
+			productReference = D3D4AF230579135600A80164;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>ExtFSManager</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Copyright © 2003 Brian Bergstrand</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>net.sourceforge.ext2fsx.ExtFSManager</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ExtFSManager</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>NSMainNibFile</key>
+	<string>ExtFSManager</string>
+	<key>NSPrefPaneIconFile</key>
+	<string>tux.icns</string>
+	<key>NSPrincipalClass</key>
+	<string>ExtFSManager</string>
+</dict>
+</plist>
+";
+		};
+		D3D4AF230579135600A80164 = {
+			isa = PBXBundleReference;
+			path = ExtFSManager.prefPane;
+			refType = 3;
+		};
+		D3D4AF240579136500A80164 = {
 			isa = PBXTargetDependency;
-			target = D34AE6840417173400A80164;
+			target = D31F7D360569E3E700A80164;
+		};
+		D3D4AF250579136800A80164 = {
+			isa = PBXTargetDependency;
+			target = D3D4AF220579135600A80164;
+		};
+		D3D4AF27057913CB00A80164 = {
+			isa = PBXFrameworkReference;
+			name = Cocoa.framework;
+			path = /System/Library/Frameworks/Cocoa.framework;
+			refType = 0;
+		};
+		D3D4AF28057913CB00A80164 = {
+			isa = PBXFrameworkReference;
+			name = PreferencePanes.framework;
+			path = /System/Library/Frameworks/PreferencePanes.framework;
+			refType = 0;
+		};
+		D3D4AF29057913CB00A80164 = {
+			fileRef = D3D4AF27057913CB00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D4AF2A057913CB00A80164 = {
+			fileRef = D3D4AF28057913CB00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D4AF36057915D900A80164 = {
+			children = (
+				D3F2223C057FB4720085CE79,
+				D3D4AF3A057915F800A80164,
+				D3A9B7CC057FE5DC00B93FC7,
+				D3F2223E057FB5010085CE79,
+				D3F22252057FB7390085CE79,
+				D3F2223F057FB5010085CE79,
+				D3F22240057FB5010085CE79,
+			);
+			isa = PBXGroup;
+			path = Resources;
+			refType = 4;
+		};
+		D3D4AF3A057915F800A80164 = {
+			children = (
+				D3D4AF3B057915F800A80164,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+		};
+		D3D4AF3B057915F800A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		D3D4AF3C057915F800A80164 = {
+			fileRef = D3D4AF3A057915F800A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D4AF3D0579166400A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ExtFSManager.h;
+			refType = 4;
+		};
+		D3D4AF3E0579166400A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ExtFSManager.m;
+			refType = 4;
+		};
+		D3D4AF3F0579166400A80164 = {
+			fileRef = D3D4AF3D0579166400A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D4AF400579166400A80164 = {
+			fileRef = D3D4AF3E0579166400A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3F2223C057FB4720085CE79 = {
+			isa = PBXFileReference;
+			path = ExtFSManager.nib;
+			refType = 4;
+		};
+		D3F2223E057FB5010085CE79 = {
+			isa = PBXFileReference;
+			path = Eject.tiff;
+			refType = 4;
+		};
+		D3F2223F057FB5010085CE79 = {
+			isa = PBXFileReference;
+			path = Info.tiff;
+			refType = 4;
+		};
+		D3F22240057FB5010085CE79 = {
+			isa = PBXFileReference;
+			path = Mount.tiff;
+			refType = 4;
+		};
+		D3F22243057FB5010085CE79 = {
+			fileRef = D3F2223F057FB5010085CE79;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3F22244057FB5010085CE79 = {
+			fileRef = D3F22240057FB5010085CE79;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3F22252057FB7390085CE79 = {
+			isa = PBXFileReference;
+			path = tux.icns;
+			refType = 4;
+		};
+		D3F2225C057FBCE10085CE79 = {
+			fileRef = D3F22252057FB7390085CE79;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3F2225D057FBCE10085CE79 = {
+			fileRef = D3F2223E057FB5010085CE79;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3F2225E057FBCE30085CE79 = {
+			fileRef = D3F2223C057FB4720085CE79;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		D3F6BB0D0574F48B00A80164 = {
 			fileEncoding = 30;
