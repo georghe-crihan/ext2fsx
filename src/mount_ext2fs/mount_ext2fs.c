@@ -152,7 +152,7 @@ main(argc, argv)
 		args.export.ex_flags = 0;
    
    /* Force NODEV for now. */
-   mntflags |= MNT_NODEV;
+   /* mntflags |= MNT_NODEV; */
    
    if (checkLoadable()) {		/* Is it already loaded? */
       if (load_kmod())		/* Load it in */
