@@ -32,6 +32,13 @@
 #define EXT2_VOL_LABEL_LENGTH 16
 #define EXT2_VOL_LABEL_INVAL_CHARS "\"*/:;<=>?[\\]|"
 
+static __inline__
+int ext2_vol_label_len(char *label) {
+   int i;
+   for (i = 0; i < EXT2_VOL_LABEL_LENGTH && 0 != label[i]; i++) ;
+   return (i);
+}
+
 #include <sys/mount.h>
 struct ext2_args {
 	char	*fspec;			/* block special device to mount */
