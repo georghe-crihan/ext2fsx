@@ -571,6 +571,9 @@ static int compute_sb_data(devvp, es, fs)
       fs->s_maxfilesize = 0x7FFFFFFFFFFFFFFFLL;
    else
       fs->s_maxfilesize = 0x7FFFFFFFLL;
+	for (i = 0; i < 4; ++i)
+		fs->s_hash_seed[i] = le32_to_cpu(es->s_hash_seed[i]);
+	fs->s_def_hash_version = es->s_def_hash_version;
 
     fs->s_group_desc = bsd_malloc(db_count * sizeof (struct buf *),
 		M_EXT2MNT, M_WAITOK);

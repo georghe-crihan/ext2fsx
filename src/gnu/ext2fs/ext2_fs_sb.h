@@ -63,6 +63,8 @@ struct ext2_sb_info {
 	unsigned short s_resuid;
 	unsigned short s_resgid;
 	unsigned short s_mount_state;
+   u_int32_t s_hash_seed[4]; /* HTREE hash seed (byte swapped if necessary) */
+	u_int8_t s_def_hash_version; /* Default hash version to use */
 	/* 
 	   stuff that FFS keeps in its super block or that linux
 	   has in its non-ext2 specific super block and which is
@@ -80,7 +82,7 @@ struct ext2_sb_info {
    
    quad_t s_dircount; /* In core count of all directories */
    int32_t s_d_blocksize; /* block size of underlying device */
-   mutex_t *s_lock; /* lock to protect access to in-mem sb */
+   mutex_t *s_lock; /* lock to protect access to in core sb */
 
 	char    fs_fsmnt[MAXMNTLEN];            /* name mounted on */
 };
