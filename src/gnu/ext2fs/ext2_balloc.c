@@ -54,7 +54,16 @@
 #include "ext2_apple.h"
 #else
 #define B_NOBUFF 0
-#endif
+
+/* Darwin (APPLE) flags for operation type in getblk() */
+#define	BLK_READ	0	/* buffer for read */
+#define	BLK_WRITE	0	/* buffer for write */
+#define	BLK_PAGEIN	0	/* buffer for pagein */
+#define	BLK_PAGEOUT	0	/* buffer for pageout */
+#define	BLK_META	0	/* buffer for metadata */
+
+#define meta_bread bread
+#endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_fs.h>
@@ -168,24 +177,20 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			if (error)
 				return (error);
          if (alloc_buf) {
-			bp = getblk(vp, bn, nsize, 0, 0
-         #ifdef APPLE
-         ,BLK_WRITE
-         #endif
-         );
+			bp = getblk(vp, bn, nsize, 0, 0, BLK_WRITE);
 			bp->b_blkno = fsbtodb(fs, newb);
 			if (flags & B_CLRBUF)
 				vfs_bio_clrbuf(bp);
          } /* alloc_buf */
 		}
-		ip->i_db[bn] = dbtofsb(fs, newb);
+		ip->i_db[bn] = newb;
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
       if (blk_alloc)
          *blk_alloc = nsize;
       if (alloc_buf)
          *bpp = bp;
 		return (0);
-	}
+	} /* (bn < NDADDR) */
 	/*
 	 * Determine the number of levels of indirection.
 	 */
@@ -223,11 +228,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		    cred, &newb)) != 0)
 			return (error);
 		nb = newb;
-		bp = getblk(vp, indirs[1].in_lbn, fs->s_blocksize, 0, 0
-      #ifdef APPLE
-      ,BLK_META
-      #endif
-      );
+		bp = getblk(vp, indirs[1].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
 		bp->b_blkno = fsbtodb(fs, newb);
 		vfs_bio_clrbuf(bp);
 		/*
@@ -279,11 +280,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			return (error);
 		}
 		nb = newb;
-		nbp = getblk(vp, indirs[i].in_lbn, fs->s_blocksize, 0, 0
-      #ifdef APPLE
-      , BLK_META
-      #endif
-      );
+		nbp = getblk(vp, indirs[i].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
 		nbp->b_blkno = fsbtodb(fs, nb);
 		vfs_bio_clrbuf(nbp);
 		/*
@@ -319,11 +316,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		}
 		nb = newb;
       if (alloc_buf) {
-		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0
-      #ifdef APPLE
-      ,BLK_WRITE
-      #endif
-      );
+		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
 		nbp->b_blkno = fsbtodb(fs, nb);
 		if (flags & B_CLRBUF)
 			vfs_bio_clrbuf(nbp);
@@ -354,11 +347,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			return (error);
 		}
 	} else {
-		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0
-      #ifdef APPLE
-      ,BLK_WRITE
-      #endif
-      );
+		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
 		nbp->b_blkno = fsbtodb(fs, nb);
 	}
 	*bpp = nbp;
