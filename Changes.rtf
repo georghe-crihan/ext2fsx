@@ -4,7 +4,13 @@
 \margl1440\margr1440\vieww9000\viewh9000\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.1d3\
+\f0\fs24 \cf0 1.1d4\
+\
+Now includes a Preference Pane for managing Ext2/3 volumes. You can control whether a volume mounts read-only, doesn't automount, etc..\
+\
+Fixed a bug in the kernel driver that caused a query for the volume name (via getattrlist) to return a NULL length name. This fixes volumes mounting as "?" in Panther (bug # 850144).\
+\
+1.1d3\
 Added support for Ext3 indexed directories (from Linux 2.6.0-test10).\
 \
 Added e2undel utility. See /usr/local/share/doc/E2UNDEL_README.\
