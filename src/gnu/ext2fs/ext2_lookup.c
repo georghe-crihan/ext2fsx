@@ -134,8 +134,8 @@ static int	ext2_dirbadentry(struct vnode *dp, struct ext2_dir_entry_2 *de,
 
 /* Bring in dir index support. */
 #include "kern/linux_namei_compat.c"
-#include "ext3_linux_dx_namei.c"
-#include "ext3_linux_dx_dir.c"
+#include "linux/fs/ext3/namei.c"
+#include "linux/fs/ext3/dir.c"
 
 /*
  * Vnode op for reading directories.

@@ -664,7 +664,7 @@ struct ext2_dir_entry_2 {
  * Hash Tree Directory indexing
  * (c) Daniel Phillips, 2001
  */
-#include <gnu/ext2fs/rbtree.h>
+#include <linux/rbtree.h>
 
 #define is_dx(dir) \
 (EXT3_HAS_COMPAT_FEATURE(dir->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) && \
