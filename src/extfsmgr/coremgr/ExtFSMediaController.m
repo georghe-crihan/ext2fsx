@@ -52,7 +52,7 @@ NSString *ExtFSMediaNotificationDisappeared = @"ExtFSMediaNotificationDisappeare
 NSString *ExtFSMediaNotificationMounted = @"ExtFSMediaNotificationMounted";
 NSString *ExtFSMediaNotificationUnmounted = @"ExtFSMediaNotificationUnmounted";
 NSString *ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotificationCreationFailed";
-
+NSString *ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
 
 static IONotificationPortRef notify_port_ref=0;
 static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
@@ -483,6 +483,7 @@ exit:
       _blockAvail = 0;
       _lastFSUpdate = 0;
       [_where release]; _where = nil;
+      [_volName release]; _volName = nil;
       
       /* Reset the write flag in case the device is writable,
          but the mounted filesystem was not */
@@ -567,11 +568,68 @@ static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device
    (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
 }
 
+NSString *ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
+NSString *ExtMediaKeyOpFailureDevice = @"ExtMediaKeyOpFailureBSDName";
+NSString *ExtMediaKeyOpFailureError = @"ExtMediaKeyOpFailureError";
+NSString *ExtMediaKeyOpFailureErrorString = @"ExtMediaKeyOpFailureErrorString";
+
+// Error codes are defined in DiskArbitration/DADissenter.h
+static NSString *_DiskArbErrorTable[] = {
+   @"", // Empty
+   @"Unknown Error", // kDAReturnError
+   @"Device is busy", // kDAReturnBusy
+   @"Bad argument", // kDAReturnBadArgument
+   @"Device is locked", // kDAReturnExclusiveAccess
+   @"Resource shortage", // kDAReturnNoResources
+   @"Device not found", // kDAReturnNotFound
+   @"Device not mounted", // kDAReturnNotMounted
+   @"Operation not permitted", // kDAReturnNotPermitted
+   @"Not authorized", // kDAReturnNotPrivileged
+   @"Device not ready", // kDAReturnNotReady
+   @"Device is read only", // kDAReturnNotWritable
+   @"Unsupported request", // kDAReturnUnsupported
+   nil
+};
+#define DA_ERR_TABLE_LAST 0x0C
+
 static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    int type, int status)
 {
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: DiskArb failure for device '%s', with type %d and status %X\n",
-      device, type, status);
-#endif
+   NSString *bsd = NSSTR(device), *err, *op;
+   ExtFSMedia *emedia;
+   
+   if ((emedia = [[ExtFSMediaController mediaController] mediaWithBSDName:bsd])) {
+      short idx = (status & 0xFF);
+      NSDictionary *dict;
+      
+      if (idx > DA_ERR_TABLE_LAST)
+         idx = 1;
+      err = _DiskArbErrorTable[idx];
+      
+      op = @"Unknown";
+      /* XXX - No mount errors???
+      if ( == type)
+         op = @"Mount"; */
+      if (kDiskArbUnmountAndEjectRequestFailed == type || kDiskArbUnmountRequestFailed == type)
+         op = @"Unmount";
+      else
+      if (kDiskArbEjectRequestFailed == type)
+         op = @"Eject";
+      else
+      if (kDiskArbDiskChangeRequestFailed == type)
+         op = @"Change Request";
+      
+      dict = [NSDictionary dictionaryWithObjectsAndKeys:
+         op, ExtMediaKeyOpFailureType,
+         bsd, ExtMediaKeyOpFailureDevice,
+         [NSNumber numberWithInt:status], ExtMediaKeyOpFailureError,
+         err, ExtMediaKeyOpFailureErrorString,
+         nil];
+      [[NSNotificationCenter defaultCenter]
+         postNotificationName:ExtFSMediaNotificationOpFailure
+         object:emedia userInfo:dict];
+      
+      NSLog(@"ExtFS: DiskArb failure for device '%s', with type %d and status 0x%X\n",
+         device, type, status);
+   }
 }
