@@ -400,7 +400,7 @@ enum {
       flags &= ~kDiskArbUnmountOneFlag;
    }
    
-   if ([media isMounted])
+   if ([media isMounted] || nil != [media children])
       ke = DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags);
    else if (flags & kDiskArbUnmountAndEjectFlag)
       ke = DiskArbEjectRequest_async_auto(BSDNAMESTR(media), 0);
