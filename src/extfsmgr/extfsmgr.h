@@ -50,6 +50,11 @@ in the global preferences. Only the global copy affects mount_ext2fs.
 @abstract Dictionary key to get the preferences for the manager application.
 */
 #define EXT_PREF_KEY_MGR @"ExtFS Manager"
+/*!
+@defined EXT_PREF_KEY_SMARTD
+@abstract Dictionary key to get the preferences for the efssmartd application.
+*/
+#define EXT_PREF_KEY_SMARTD @"SMART Daemon"
 
 /*!
 @defined EXT_PREF_KEY_RDONLY
@@ -74,6 +79,20 @@ permissions.
 indexed directories option. This is only valid for Ext2/Ext3 filesystems.
 */
 #define EXT_PREF_KEY_DIRINDEX @"Index Directories"
+
+
+/*!
+@defined EXT_PREF_KEY_MGR_SMARTD_ADDED
+@abstract Dictionary key to determine if efssmartd has been added
+to the user's login list.
+*/
+#define EXT_PREF_KEY_MGR_SMARTD_ADDED @"SMARTD Added"
+
+/*
+@define EXT_PREF_KEY_SMARTD_MON_INTERVAL
+@abstract Dictionary key to determine the S.M.A.R.T. poll interval.
+*/
+#define EXT_PREF_KEY_SMARTD_MON_INTERVAL @"Poll Interval"
 #else
 #define EXT_PREF_ID CFSTR("net.sourceforge.ext2fsx.ExtFSManager")
 #define EXT_PREF_KEY_GLOBAL CFSTR("Global")
@@ -84,6 +103,9 @@ indexed directories option. This is only valid for Ext2/Ext3 filesystems.
 #define EXT_PREF_KEY_NOAUTO CFSTR("Ignore Automount")
 #define EXT_PREF_KEY_NOPERMS CFSTR("Ignore Permissions")
 #define EXT_PREF_KEY_DIRINDEX CFSTR("Index Directories")
+#define EXT_PREF_KEY_MGR_SMARTD_ADDED CFSTR("SMARTD Added")
+#define EXT_PREF_KEY_SMARTD CFSTR("SMART Daemon")
+#define EXT_PREF_KEY_SMARTD_MON_INTERVAL CFSTR("Poll Interval")
 #endif
 
 #endif /* EXTFSMGR_H */
