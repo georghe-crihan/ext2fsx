@@ -866,7 +866,7 @@ ext2_packattrblk(struct attrlist *alist,
 }
 
 static int
-ext2_check_label(const char *label, int length)
+ext2_check_label(const char *label)
 {
    int c, i;
 
@@ -891,7 +891,7 @@ ext2_unpackvolattr(
     void		*attrbufptr)
 {
 	int		 error;
-   struct ext2_super_block *sbp = (VTOI(vp))->i_e2fs->s_es;
+   struct ext2_sb_info *fsp = (VTOI(vp))->i_e2fs;
 	attrreference_t *attrref;
 
 	error = 0;
@@ -909,10 +909,13 @@ ext2_unpackvolattr(
          name_length = EXT2_VOL_LABEL_LENGTH;
       }
       
-		error = ext2_check_label(name, name_length);
+		error = ext2_check_label(name);
       if (name_length && !error) {
-         bzero(sbp->s_volume_name, EXT2_VOL_LABEL_LENGTH);
-         bcopy(sbp->s_volume_name, name, name_length);
+         lock_super(fsp);
+         bzero(fsp->s_es->s_volume_name, EXT2_VOL_LABEL_LENGTH);
+         bcopy (name, fsp->s_es->s_volume_name, name_length);
+         fsp->s_dirt = 1;
+         unlock_super(fsp);
       }
       else
          error = EINVAL;
