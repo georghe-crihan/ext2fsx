@@ -6,7 +6,7 @@
 	<string>ext2</string>
 	<key>FSPersonalities</key>
 	<dict>
-		<key>EXT2</key>
+		<key>Ext2</key>
 		<dict>
 			<key>FSName</key>
 			<string>Ext2 Dateisystem</string>
