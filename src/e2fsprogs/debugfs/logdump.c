@@ -36,6 +36,8 @@ extern char *optarg;
 
 enum journal_location {JOURNAL_IS_INTERNAL, JOURNAL_IS_EXTERNAL};
 
+#define ANY_BLOCK ((unsigned int) -1)
+
 int		dump_all, dump_contents, dump_descriptors;
 unsigned int	block_to_dump, group_to_dump, bitmap_to_dump;
 unsigned int	inode_block_to_dump, inode_offset_to_dump, bitmap_to_dump;
@@ -79,6 +81,7 @@ void do_logdump(int argc, char **argv)
 	char		*inode_spec = NULL;
 	char		*journal_fn = NULL;
 	int		journal_fd = 0;
+	int		use_sb = 0;
 	ext2_ino_t	journal_inum;
 	struct ext2_inode journal_inode;
 	ext2_file_t 	journal_file;
@@ -95,13 +98,13 @@ void do_logdump(int argc, char **argv)
 	dump_all = 0;
 	dump_contents = 0;
 	dump_descriptors = 1;
-	block_to_dump = -1;
+	block_to_dump = ANY_BLOCK;
 	bitmap_to_dump = -1;
-	inode_block_to_dump = -1;
+	inode_block_to_dump = ANY_BLOCK;
 	inode_to_dump = -1;
 	
 	reset_getopt();
-	while ((c = getopt (argc, argv, "ab:ci:f:")) != EOF) {
+	while ((c = getopt (argc, argv, "ab:ci:f:s")) != EOF) {
 		switch (c) {
 		case 'a':
 			dump_all++;
@@ -124,6 +127,9 @@ void do_logdump(int argc, char **argv)
 		case 'i':
 			inode_spec = optarg;
 			dump_descriptors = 0;
+			break;
+		case 's':
+			use_sb++;
 			break;
 		default:
 			com_err(argv[0], 0, logdump_usage);
@@ -177,7 +183,7 @@ void do_logdump(int argc, char **argv)
 		}
 	}
 
-	if (block_to_dump != -1 && current_fs != NULL) {
+	if (block_to_dump != ANY_BLOCK && current_fs != NULL) {
 		group_to_dump = ((block_to_dump - 
 				  es->s_first_data_block)
 				 / es->s_blocks_per_group);
@@ -199,11 +205,26 @@ void do_logdump(int argc, char **argv)
 		journal_source.where = JOURNAL_IS_EXTERNAL;
 		journal_source.fd = journal_fd;
 	} else if ((journal_inum = es->s_journal_inum)) {
-		if (debugfs_read_inode(journal_inum, &journal_inode, argv[0]))
-			return;
-
-		retval = ext2fs_file_open(current_fs, journal_inum,
-					  0, &journal_file);
+		if (use_sb) {
+			if (es->s_jnl_backup_type != EXT3_JNL_BACKUP_BLOCKS) {
+				com_err(argv[0], 0,
+					"no journal backup in super block\n");
+				return;
+			}
+			memset(&journal_inode, 0, sizeof(struct ext2_inode));
+			memcpy(&journal_inode.i_block[0], es->s_jnl_blocks, 
+			       EXT2_N_BLOCKS*4);
+			journal_inode.i_size = es->s_jnl_blocks[16];
+			journal_inode.i_links_count = 1;
+			journal_inode.i_mode = LINUX_S_IFREG | 0600;
+		} else {
+			if (debugfs_read_inode(journal_inum, &journal_inode, 
+					       argv[0]))
+				return;
+		}
+		
+		retval = ext2fs_file_open2(current_fs, journal_inum,
+					   &journal_inode, 0, &journal_file);
 		if (retval) {
 			com_err(argv[0], retval, "while opening ext2 file");
 			return;
@@ -280,7 +301,7 @@ static int read_journal_block(const char *cmd, struct journal_source *source,
 	
 	if (retval)
 		com_err(cmd, retval, "while while reading journal");
-	else if (*got != size) {
+	else if (*got != (unsigned int) size) {
 		com_err(cmd, 0, "short read (read %d, expected %d) while while reading journal", *got, size);
 		retval = -1;
 	}
@@ -313,7 +334,7 @@ static void dump_journal(char *cmdname, FILE *out_file,
 	char			jsb_buffer[1024];
 	char			buf[8192];
 	journal_superblock_t	*jsb;
-	int			blocksize = 1024;
+	unsigned int		blocksize = 1024;
 	unsigned int		got;
 	int			retval;
 	__u32			magic, sequence, blocktype;
@@ -494,9 +515,10 @@ static void dump_descriptor_block(FILE *out_file,
 
 
 static void dump_revoke_block(FILE *out_file, char *buf,
-				  journal_superblock_t *jsb, 
-				  unsigned int blocknr, int blocksize,
-				  tid_t transaction)
+			      journal_superblock_t *jsb EXT2FS_ATTR((unused)), 
+			      unsigned int blocknr, 
+			      int blocksize EXT2FS_ATTR((unused)),
+			      tid_t transaction)
 {
 	int			offset, max;
 	journal_revoke_header_t *header;
@@ -542,7 +564,7 @@ static void show_indirect(FILE *out_file, const char *name, __u32 where)
 
 
 static void dump_metadata_block(FILE *out_file, struct journal_source *source,
-				journal_superblock_t *jsb,
+				journal_superblock_t *jsb EXT2FS_ATTR((unused)),
 				unsigned int log_blocknr, 
 				unsigned int fs_blocknr, 
 				int blocksize,

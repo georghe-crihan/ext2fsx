@@ -172,6 +172,9 @@ struct problem_context {
 /* Run journal anyway by default */
 #define PR_0_JOURNAL_RUN_DEFAULT		0x00002C
 
+/* Backup journal inode blocks */
+#define PR_0_BACKUP_JNL				0x00002D
+
 /*
  * Pass 1 errors
  */
@@ -403,6 +406,9 @@ struct problem_context {
 
 /* HTREE too deep */	
 #define PR_1_HTREE_DEPTH		0x01004C
+
+/* Bad block has indirect block that conflicts with filesystem block */
+#define PR_1_BB_FS_BLOCK		0x01004D
 
 /*
  * Pass 1b errors

@@ -1,3 +1,46 @@
+2004-02-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.35
+
+2003-12-11  Theodore Ts'o  <tytso@thunk.org>
+
+	* com_err.3: Fix C syntax error pointed out by ESR.
+
+2003-11-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* et_c.awk: Add declaration of the Heimdal initialization routine
+		to avoid gcc -Wall complaints
+
+2003-11-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* com_err.h, com_err.c: Use GCC attributes to mark com_err and
+		default_com_err_proc as taking printf-style format
+		strings.
+
+2003-11-22  Theodore Ts'o  <tytso@mit.edu>
+
+	* com_err.h: Retore the type of n_msgs in the error_table
+		structure to "int" from "unsigned int" fix a core dumping 
+		bug in the com_right() function.  (Addresses Debian bug 
+		#213450)
+
+2003-08-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Delete com_err.info on a make clean
+
+	* testcases: Update to reflect fixed prototype for
+		initialize_xxx_err_table_r.
+
+2003-08-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* et_h.awk: Fix wrong prototype for initialize_xxx_err_table_r.
+		(Thanks to Gombas Gabor for pointing this out, addresses
+		Debian bug #204332)
+
+2003-08-01  Philipp Thomas <pthomas@suse.de>
+
+	* et_c.awk, et_h.awk: Add Heimdal compile_et extensions
+
 2003-07-25  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.34

@@ -110,7 +110,8 @@ static void swap_inode_blocks(e2fsck_t ctx, ext2_ino_t ino, char *block_buf,
 static void swap_inodes(e2fsck_t ctx)
 {
 	ext2_filsys fs = ctx->fs;
-	int			i, group;
+	dgrp_t			group;
+	unsigned int		i;
 	ext2_ino_t		ino = 1;
 	char 			*buf, *block_buf;
 	errcode_t		retval;
@@ -119,7 +120,7 @@ static void swap_inodes(e2fsck_t ctx)
 	e2fsck_use_inode_shortcuts(ctx, 1);
 	
 	retval = ext2fs_get_mem(fs->blocksize * fs->inode_blocks_per_group,
-				(void **) &buf);
+				&buf);
 	if (retval) {
 		com_err("swap_inodes", retval,
 			_("while allocating inode buffer"));
@@ -178,8 +179,8 @@ static void swap_inodes(e2fsck_t ctx)
 			return;
 		}
 	}
-	ext2fs_free_mem((void **) &buf);
-	ext2fs_free_mem((void **) &block_buf);
+	ext2fs_free_mem(&buf);
+	ext2fs_free_mem(&block_buf);
 	e2fsck_use_inode_shortcuts(ctx, 0);
 }
 

@@ -85,6 +85,12 @@ static errcode_t unix_write_byte(io_channel channel, unsigned long offset,
 static void reuse_cache(io_channel channel, struct unix_private_data *data,
 		 struct unix_cache *cache, unsigned long block);
 
+#if defined(__CYGWIN__) || defined(__FreeBSD__)
+#define NEED_BOUNCE_BUFFER
+#else
+#undef NEED_BOUNCE_BUFFER
+#endif
+
 static struct struct_io_manager struct_unix_manager = {
 	EXT2_ET_MAGIC_IO_MANAGER,
 	"Unix I/O Manager",
@@ -94,7 +100,7 @@ static struct struct_io_manager struct_unix_manager = {
 	unix_read_blk,
 	unix_write_blk,
 	unix_flush,
-#ifdef __CYGWIN__
+#ifdef NEED_BOUNCE_BUFFER
 	0
 #else
 	unix_write_byte
@@ -106,14 +112,14 @@ io_manager unix_io_manager = &struct_unix_manager;
 /*
  * Here are the raw I/O functions
  */
-#ifndef __CYGWIN__
+#ifndef NEED_BOUNCE_BUFFER
 static errcode_t raw_read_blk(io_channel channel,
 			      struct unix_private_data *data,
 			      unsigned long block,
 			      int count, void *buf)
 {
 	errcode_t	retval;
-	size_t		size;
+	ssize_t		size;
 	ext2_loff_t	location;
 	int		actual = 0;
 
@@ -139,9 +145,9 @@ error_out:
 					       size, actual, retval);
 	return retval;
 }
-#else /* __CYGWIN__ */
+#else /* NEED_BOUNCE_BUFFER */
 /*
- * Windows block devices only allow sector alignment IO in offset and size
+ * Windows and FreeBSD block devices only allow sector alignment IO in offset and size
  */
 static errcode_t raw_read_blk(io_channel channel,
 			      struct unix_private_data *data,
@@ -199,7 +205,7 @@ static errcode_t raw_write_blk(io_channel channel,
 			       unsigned long block,
 			       int count, const void *buf)
 {
-	size_t		size;
+	ssize_t		size;
 	ext2_loff_t	location;
 	int		actual = 0;
 	errcode_t	retval;
@@ -253,15 +259,14 @@ static errcode_t alloc_cache(io_channel channel,
 		cache->dirty = 0;
 		cache->in_use = 0;
 		if ((retval = ext2fs_get_mem(channel->block_size,
-					     (void **) &cache->buf)))
+					     &cache->buf)))
 			return retval;
 	}
 	return 0;
 }
 
 /* Free the cache buffers */
-static void free_cache(io_channel channel, 
-		       struct unix_private_data *data)
+static void free_cache(struct unix_private_data *data)
 {
 	struct unix_cache	*cache;
 	int			i;
@@ -273,7 +278,7 @@ static void free_cache(io_channel channel,
 		cache->dirty = 0;
 		cache->in_use = 0;
 		if (cache->buf)
-			ext2fs_free_mem((void **) &cache->buf);
+			ext2fs_free_mem(&cache->buf);
 		cache->buf = 0;
 	}
 }
@@ -284,8 +289,7 @@ static void free_cache(io_channel channel,
  * eldest is a non-zero pointer, then fill in eldest with the cache
  * entry to that should be reused.
  */
-static struct unix_cache *find_cached_block(io_channel channel,
-					    struct unix_private_data *data,
+static struct unix_cache *find_cached_block(struct unix_private_data *data,
 					    unsigned long block,
 					    struct unix_cache **eldest)
 {
@@ -374,19 +378,17 @@ static errcode_t unix_open(const char *name, int flags, io_channel *channel)
 
 	if (name == 0)
 		return EXT2_ET_BAD_DEVICE_NAME;
-	retval = ext2fs_get_mem(sizeof(struct struct_io_channel),
-				(void **) &io);
+	retval = ext2fs_get_mem(sizeof(struct struct_io_channel), &io);
 	if (retval)
 		return retval;
 	memset(io, 0, sizeof(struct struct_io_channel));
 	io->magic = EXT2_ET_MAGIC_IO_CHANNEL;
-	retval = ext2fs_get_mem(sizeof(struct unix_private_data),
-				(void **) &data);
+	retval = ext2fs_get_mem(sizeof(struct unix_private_data), &data);
 	if (retval)
 		goto cleanup;
 
 	io->manager = unix_io_manager;
-	retval = ext2fs_get_mem(strlen(name)+1, (void **) &io->name);
+	retval = ext2fs_get_mem(strlen(name)+1, &io->name);
 	if (retval)
 		goto cleanup;
 
@@ -453,11 +455,11 @@ static errcode_t unix_open(const char *name, int flags, io_channel *channel)
 
 cleanup:
 	if (data) {
-		free_cache(io, data);
-		ext2fs_free_mem((void **) &data);
+		free_cache(data);
+		ext2fs_free_mem(&data);
 	}
 	if (io)
-		ext2fs_free_mem((void **) &io);
+		ext2fs_free_mem(&io);
 	return retval;
 }
 
@@ -479,12 +481,12 @@ static errcode_t unix_close(io_channel channel)
 
 	if (close(data->dev) < 0)
 		retval = errno;
-	free_cache(channel, data);
+	free_cache(data);
 
-	ext2fs_free_mem((void **) &channel->private_data);
+	ext2fs_free_mem(&channel->private_data);
 	if (channel->name)
-		ext2fs_free_mem((void **) &channel->name);
-	ext2fs_free_mem((void **) &channel);
+		ext2fs_free_mem(&channel->name);
+	ext2fs_free_mem(&channel);
 	return retval;
 }
 
@@ -504,7 +506,7 @@ static errcode_t unix_set_blksize(io_channel channel, int blksize)
 #endif
 		
 		channel->block_size = blksize;
-		free_cache(channel, data);
+		free_cache(data);
 		if ((retval = alloc_cache(channel, data)))
 			return retval;
 	}
@@ -541,8 +543,7 @@ static errcode_t unix_read_blk(io_channel channel, unsigned long block,
 	cp = buf;
 	while (count > 0) {
 		/* If it's in the cache, use it! */
-		if ((cache = find_cached_block(channel, data, block,
-					       &reuse[0]))) {
+		if ((cache = find_cached_block(data, block, &reuse[0]))) {
 #ifdef DEBUG
 			printf("Using cached block %d\n", block);
 #endif
@@ -557,8 +558,7 @@ static errcode_t unix_read_blk(io_channel channel, unsigned long block,
 		 * single read request
 		 */
 		for (i=1; i < count; i++)
-			if (find_cached_block(channel, data, block+i,
-					      &reuse[i]))
+			if (find_cached_block(data, block+i, &reuse[i]))
 				break;
 #ifdef DEBUG
 		printf("Reading %d blocks starting at %d\n", i, block);
@@ -616,7 +616,7 @@ static errcode_t unix_write_blk(io_channel channel, unsigned long block,
 	
 	cp = buf;
 	while (count > 0) {
-		cache = find_cached_block(channel, data, block, &reuse);
+		cache = find_cached_block(data, block, &reuse);
 		if (!cache) {
 			cache = reuse;
 			reuse_cache(channel, data, cache, block);
@@ -636,7 +636,7 @@ static errcode_t unix_write_byte(io_channel channel, unsigned long offset,
 {
 	struct unix_private_data *data;
 	errcode_t	retval = 0;
-	size_t		actual;
+	ssize_t		actual;
 
 	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
 	data = (struct unix_private_data *) channel->private_data;

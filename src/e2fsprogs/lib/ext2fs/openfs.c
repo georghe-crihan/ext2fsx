@@ -71,19 +71,20 @@ blk_t ext2fs_descriptor_block_loc(ext2_filsys fs, blk_t group_block, dgrp_t i)
  *	EXT2_FLAG_JOURNAL_DEV_OK - Open an ext3 journal device
  */
 errcode_t ext2fs_open(const char *name, int flags, int superblock,
-		      int block_size, io_manager manager, ext2_filsys *ret_fs)
+		      unsigned int block_size, io_manager manager, 
+		      ext2_filsys *ret_fs)
 {
 	ext2_filsys	fs;
 	errcode_t	retval;
-	int		i, j, groups_per_block, blocks_per_group;
+	unsigned long	i;
+	int		j, groups_per_block, blocks_per_group;
 	blk_t		group_block, blk;
 	char		*dest;
 	struct ext2_group_desc *gdp;
 	
 	EXT2_CHECK_MAGIC(manager, EXT2_ET_MAGIC_IO_MANAGER);
 
-	retval = ext2fs_get_mem(sizeof(struct struct_ext2_filsys),
-				(void **) &fs);
+	retval = ext2fs_get_mem(sizeof(struct struct_ext2_filsys), &fs);
 	if (retval)
 		return retval;
 	
@@ -96,16 +97,16 @@ errcode_t ext2fs_open(const char *name, int flags, int superblock,
 	if (retval)
 		goto cleanup;
 	fs->io->app_data = fs;
-	retval = ext2fs_get_mem(strlen(name)+1, (void **) &fs->device_name);
+	retval = ext2fs_get_mem(strlen(name)+1, &fs->device_name);
 	if (retval)
 		goto cleanup;
 	strcpy(fs->device_name, name);
-	retval = ext2fs_get_mem(SUPERBLOCK_SIZE, (void **) &fs->super);
+	retval = ext2fs_get_mem(SUPERBLOCK_SIZE, &fs->super);
 	if (retval)
 		goto cleanup;
 	if (flags & EXT2_FLAG_IMAGE_FILE) {
 		retval = ext2fs_get_mem(sizeof(struct ext2_image_hdr),
-					(void **) &fs->image_header);
+					&fs->image_header);
 		if (retval)
 			goto cleanup;
 		retval = io_channel_read_blk(fs->io, 0,
@@ -140,8 +141,7 @@ errcode_t ext2fs_open(const char *name, int flags, int superblock,
 		io_channel_set_blksize(fs->io, SUPERBLOCK_OFFSET);
 		superblock = 1;
 		group_block = 0;
-		retval = ext2fs_get_mem(SUPERBLOCK_SIZE,
-					(void **) &fs->orig_super);
+		retval = ext2fs_get_mem(SUPERBLOCK_SIZE, &fs->orig_super);
 		if (retval)
 			goto cleanup;
 	}
@@ -242,7 +242,7 @@ errcode_t ext2fs_open(const char *name, int flags, int superblock,
 			   EXT2_DESC_PER_BLOCK(fs->super) - 1)
 		/ EXT2_DESC_PER_BLOCK(fs->super);
 	retval = ext2fs_get_mem(fs->desc_blocks * fs->blocksize,
-				(void **) &fs->group_desc);
+				&fs->group_desc);
 	if (retval)
 		goto cleanup;
 	if (!group_block)

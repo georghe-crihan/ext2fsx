@@ -35,7 +35,9 @@ void initialize_ovk_error_table(void) {
     }
 }
 
-/* For Heimdall compatibility */
+/* For Heimdal compatibility */
+void initialize_ovk_error_table_r(struct et_list **list);
+
 void initialize_ovk_error_table_r(struct et_list **list)
 {
     struct et_list *et, **end;

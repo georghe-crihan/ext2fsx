@@ -46,14 +46,15 @@ extern int optind;
 #include "../version.h"
 
 /* Command line options */
-static int swapfs = 0;
-static int normalize_swapfs = 0;
-static int cflag = 0;		/* check disk */
-static int show_version_only = 0;
-static int verbose = 0;
+static int swapfs;
+static int normalize_swapfs;
+static int cflag;		/* check disk */
+static int show_version_only;
+static int verbose;
 
-static int replace_bad_blocks = 0;
-static char *bad_blocks_file = 0;
+static int replace_bad_blocks;
+static int keep_bad_blocks;
+static char *bad_blocks_file;
 
 e2fsck_t e2fsck_global_ctx;	/* Try your very best not to use this! */
 
@@ -186,7 +187,7 @@ static void check_mount(e2fsck_t ctx)
 	}
 
 	printf(_("%s is mounted.  "), ctx->filesystem_name);
-	if (!isatty(0) || !isatty(1))
+	if (!ctx->interactive)
 		fatal_error(ctx, _("Cannot continue, aborting.\n\n"));
 	printf(_("\n\n\007\007\007\007WARNING!!!  "
 	       "Running e2fsck on a mounted filesystem may cause\n"
@@ -199,6 +200,30 @@ static void check_mount(e2fsck_t ctx)
 	return;
 }
 
+static int is_on_batt(void)
+{
+	FILE	*f;
+	char	tmp[80], tmp2[80];
+	unsigned int	acflag;
+
+	f = fopen("/proc/apm", "r");
+	if (f) {
+		if (fscanf(f, "%s %s %s %x", tmp, tmp, tmp, &acflag) != 4) 
+			acflag = 1;
+		fclose(f);
+		return (acflag != 1);
+	}
+	f = fopen("/proc/acpi/ac_adapter/AC/state", "r");
+	if (f) {
+		if (fscanf(f, "%s %s", tmp2, tmp) != 2)
+			tmp[0] = 0;
+		fclose(f);
+		if (strncmp(tmp, "off-line", 8) == 0)
+			return 1;
+	}
+	return 0;
+}
+
 /*
  * This routine checks to see if a filesystem can be skipped; if so,
  * it will exit with E2FSCK_OK.  Under some conditions it will print a
@@ -209,6 +234,9 @@ static void check_if_skip(e2fsck_t ctx)
 	ext2_filsys fs = ctx->fs;
 	const char *reason = NULL;
 	unsigned int reason_arg = 0;
+	long next_check;
+	int batt = is_on_batt();
+	time_t now = time(0);
 	
 	if ((ctx->options & E2F_OPT_FORCE) || bad_blocks_file ||
 	    cflag || swapfs)
@@ -223,11 +251,17 @@ static void check_if_skip(e2fsck_t ctx)
 		  (unsigned) fs->super->s_max_mnt_count)) {
 		reason = _(" has been mounted %u times without being checked");
 		reason_arg = fs->super->s_mnt_count;
+		if (batt && (fs->super->s_mnt_count < 
+			     (unsigned) fs->super->s_max_mnt_count*2))
+			reason = 0;
 	} else if (fs->super->s_checkinterval &&
-		 time(0) >= (fs->super->s_lastcheck +
-			     fs->super->s_checkinterval)) {
+		   ((now - fs->super->s_lastcheck) >= 
+		    fs->super->s_checkinterval)) {
 		reason = _(" has gone %u days without being checked");
-		reason_arg = (time(0) - fs->super->s_lastcheck)/(3600*24);
+		reason_arg = (now - fs->super->s_lastcheck)/(3600*24);
+		if (batt && ((now - fs->super->s_lastcheck) < 
+			     fs->super->s_checkinterval*2))
+			reason = 0;
 	}
 	if (reason) {
 		fputs(ctx->device_name, stdout);
@@ -235,11 +269,26 @@ static void check_if_skip(e2fsck_t ctx)
 		fputs(_(", check forced.\n"), stdout);
 		return;
 	}
-	printf(_("%s: clean, %d/%d files, %d/%d blocks\n"), ctx->device_name,
+	printf(_("%s: clean, %d/%d files, %d/%d blocks"), ctx->device_name,
 	       fs->super->s_inodes_count - fs->super->s_free_inodes_count,
 	       fs->super->s_inodes_count,
 	       fs->super->s_blocks_count - fs->super->s_free_blocks_count,
 	       fs->super->s_blocks_count);
+	next_check = 100000;
+	if (fs->super->s_max_mnt_count > 0) {
+		next_check = fs->super->s_max_mnt_count - fs->super->s_mnt_count;
+		if (next_check <= 0) 
+			next_check = 1;
+	}
+	if ((now - fs->super->s_lastcheck) >= fs->super->s_checkinterval)
+		next_check = 1;
+	if (next_check <= 5) {
+		if (next_check == 1)
+			fputs(_(" (check after next mount)"), stdout);
+		else
+			printf(_(" (check in %ld mounts)"), next_check);
+	}
+	fputc('\n', stdout);
 	ext2fs_close(fs);
 	ctx->fs = NULL;
 	e2fsck_free_context(ctx);
@@ -256,12 +305,7 @@ struct percent_tbl {
 struct percent_tbl e2fsck_tbl = {
 	5, { 0, 70, 90, 92,  95, 100 }
 };
-static char bar[] =
-	"==============================================================="
-	"===============================================================";
-static char spaces[] =
-	"                                                               "
-	"                                                               ";
+static char bar[128], spaces[128];
 
 static float calc_percent(struct percent_tbl *tbl, int pass, int curr,
 			  int max)
@@ -282,7 +326,8 @@ extern void e2fsck_clear_progbar(e2fsck_t ctx)
 	if (!(ctx->flags & E2F_FLAG_PROG_BAR))
 		return;
 	
-	printf("\001%s\r\002", spaces + (sizeof(spaces) - 80));
+	printf("%s%s\r%s", ctx->start_meta, spaces + (sizeof(spaces) - 80),
+	       ctx->stop_meta);
 	fflush(stdout);
 	ctx->flags &= ~E2F_FLAG_PROG_BAR;
 }
@@ -292,7 +337,7 @@ int e2fsck_simple_progress(e2fsck_t ctx, const char *label, float percent,
 {
 	static const char spinner[] = "\\|/-";
 	int	i;
-	int	tick;
+	unsigned int	tick;
 	struct timeval	tv;
 	int dpywidth;
 
@@ -333,16 +378,17 @@ int e2fsck_simple_progress(e2fsck_t ctx, const char *label, float percent,
 		dpywidth -= 8;
 
 	i = ((percent * dpywidth) + 50) / 100;
-	printf("\001%s: |%s%s", label, bar + (sizeof(bar) - (i+1)),
+	printf("%s%s: |%s%s", ctx->start_meta, label,
+	       bar + (sizeof(bar) - (i+1)),
 	       spaces + (sizeof(spaces) - (dpywidth - i + 1)));
 	if (percent == 100.0)
 		fputc('|', stdout);
 	else
 		fputc(spinner[ctx->progress_pos & 3], stdout);
 	if (dpynum)
-		printf(" %4.1f%%  %u\r\002", percent, dpynum);
+		printf(" %4.1f%%  %u\r%s", percent, dpynum, ctx->stop_meta);
 	else
-		printf(" %4.1f%%   \r\002", percent);
+		printf(" %4.1f%%   \r%s", percent, ctx->stop_meta);
 	
 	if (percent == 100.0)
 		e2fsck_clear_progbar(ctx);
@@ -392,7 +438,7 @@ static void reserve_stdio_fds(void)
 }
 
 #ifdef HAVE_SIGNAL_H
-static void signal_progress_on(int sig)
+static void signal_progress_on(int sig EXT2FS_ATTR((unused)))
 {
 	e2fsck_t ctx = e2fsck_global_ctx;
 
@@ -403,7 +449,7 @@ static void signal_progress_on(int sig)
 	ctx->progress_fd = 0;
 }
 
-static void signal_progress_off(int sig)
+static void signal_progress_off(int sig EXT2FS_ATTR((unused)))
 {
 	e2fsck_t ctx = e2fsck_global_ctx;
 
@@ -414,7 +460,7 @@ static void signal_progress_off(int sig)
 	ctx->progress = 0;
 }
 
-static void signal_cancel(int sig)
+static void signal_cancel(int sig EXT2FS_ATTR((unused)))
 {
 	e2fsck_t ctx = e2fsck_global_ctx;
 
@@ -494,6 +540,14 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	setvbuf(stderr, NULL, _IONBF, BUFSIZ);
+	if (isatty(0) && isatty(1)) {
+		ctx->interactive = 1;
+	} else {
+		ctx->start_meta[0] = '\001';
+		ctx->stop_meta[0] = '\002';
+	}
+	memset(bar, '=', sizeof(bar)-1);
+	memset(spaces, ' ', sizeof(spaces)-1);
 	initialize_ext2_error_table();
 	blkid_get_cache(&ctx->blkid, NULL);
 	
@@ -501,7 +555,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 		ctx->program_name = *argv;
 	else
 		ctx->program_name = "e2fsck";
-	while ((c = getopt (argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsD")) != EOF)
+	while ((c = getopt (argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDk")) != EOF)
 		switch (c) {
 		case 'C':
 			ctx->progress = e2fsck_update_progress;
@@ -622,6 +676,9 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 					  "of e2fsck\n"));
 			exit(1);
 #endif
+		case 'k':
+			keep_bad_blocks++;
+			break;
 		default:
 			usage(ctx);
 		}
@@ -633,6 +690,11 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	    !cflag && !swapfs && !(ctx->options & E2F_OPT_COMPRESS_DIRS))
 		ctx->options |= E2F_OPT_READONLY;
 	ctx->filesystem_name = blkid_get_devname(ctx->blkid, argv[optind], 0);
+	if (!ctx->filesystem_name) {
+		com_err(ctx->program_name, 0, _("Unable to resolve '%s'"), 
+			argv[optind]);
+		fatal_error(ctx, 0);
+	}
 	if (extended_opts)
 		parse_extended_opts(ctx, extended_opts);
 	
@@ -772,7 +834,7 @@ int main (int argc, char *argv[])
 	if (!(ctx->options & E2F_OPT_PREEN) &&
 	    !(ctx->options & E2F_OPT_NO) &&
 	    !(ctx->options & E2F_OPT_YES)) {
-		if (!isatty (0) || !isatty (1))
+		if (!ctx->interactive)
 			fatal_error(ctx,
 				    _("need terminal for interactive repairs"));
 	}
@@ -976,7 +1038,7 @@ restart:
 	if (bad_blocks_file)
 		read_bad_blocks_file(ctx, bad_blocks_file, replace_bad_blocks);
 	else if (cflag)
-		test_disk(ctx);
+		read_bad_blocks_file(ctx, 0, !keep_bad_blocks); /* Test disk */
 	if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 		fatal_error(ctx, 0);
 #ifdef ENABLE_SWAPFS

@@ -54,24 +54,41 @@ void reset_getopt(void)
 #ifdef HAVE_OPTRESET
 	optreset = 1;		/* Makes BSD getopt happy */
 #endif
-}	
+}
+
+static const char *pager_search_list[] = { "pager", "more", "less", 0 };
+static const char *pager_dir_list[] = { "/usr/bin", "/bin", 0 };
+
+static const char *find_pager(char *buf)
+{
+	const char **i, **j;
+
+	for (i = pager_search_list; *i; i++) {
+		for (j = pager_dir_list; *j; j++) {
+			sprintf(buf, "%s/%s", *j, *i);
+			if (access(buf, X_OK) == 0)
+				return(buf);
+		}
+	}
+	return 0;
+}
 
 FILE *open_pager(void)
 {
-	FILE *outfile;
+	FILE *outfile = 0;
 	const char *pager = getenv("PAGER");
+	char buf[80];
 
 	signal(SIGPIPE, SIG_IGN);
-	if (pager) {
-		if (strcmp(pager, "__none__") == 0) {
-			return stdout;
-		}
-	} else
-		pager = "more";
-
-	outfile = popen(pager, "w");
-
-	return (outfile ? outfile : stdout);
+	if (!pager)
+		pager = getenv("DEBUGFS_PAGER");
+	if (!pager)
+		pager = find_pager(buf);
+	if (!pager || 
+	    (strcmp(pager, "__none__") == 0) ||
+	    ((outfile = popen(pager, "w")) == 0))
+		return stdout;
+	return outfile;
 }
 
 void close_pager(FILE *stream)

@@ -34,6 +34,7 @@
  */
 
 #include "resize2fs.h"
+#include <time.h>
 
 #ifdef __linux__			/* Kludge for debugging */
 #define RESIZE2FS_DEBUG
@@ -81,8 +82,7 @@ errcode_t resize_fs(ext2_filsys fs, blk_t *new_size, int flags,
 	/*
 	 * Create the data structure
 	 */
-	retval = ext2fs_get_mem(sizeof(struct ext2_resize_struct),
-				(void **) &rfs);
+	retval = ext2fs_get_mem(sizeof(struct ext2_resize_struct), &rfs);
 	if (retval)
 		return retval;
 	memset(rfs, 0, sizeof(struct ext2_resize_struct));
@@ -141,8 +141,8 @@ errcode_t resize_fs(ext2_filsys fs, blk_t *new_size, int flags,
 	
 	ext2fs_free(rfs->old_fs);
 	if (rfs->itable_buf)
-		ext2fs_free_mem((void **) &rfs->itable_buf);
-	ext2fs_free_mem((void **) &rfs);
+		ext2fs_free_mem(&rfs->itable_buf);
+	ext2fs_free_mem(&rfs);
 	
 	return 0;
 
@@ -150,8 +150,8 @@ errout:
 	if (rfs->new_fs)
 		ext2fs_free(rfs->new_fs);
 	if (rfs->itable_buf)
-		ext2fs_free_mem((void **) &rfs->itable_buf);
-	ext2fs_free_mem((void **) &rfs);
+		ext2fs_free_mem(&rfs->itable_buf);
+	ext2fs_free_mem(&rfs);
 	return retval;
 }
 
@@ -177,9 +177,10 @@ static errcode_t adjust_superblock(ext2_resize_t rfs, blk_t new_size)
 	errcode_t	retval;
 	ext2_ino_t	real_end;
 	blk_t		blk, group_block;
-	unsigned long	i, j;
+	unsigned long	i, j, old_desc_blocks;
 	int		old_numblocks, numblocks, adjblocks;
-	int		has_super, meta_bg, meta_bg_size, old_desc_blocks;
+	unsigned int	meta_bg, meta_bg_size;
+	int		has_super;
 	unsigned long	max_group;
 	
 	fs = rfs->new_fs;
@@ -271,7 +272,7 @@ retry:
 		retval = ext2fs_resize_mem(rfs->old_fs->desc_blocks *
 					   fs->blocksize,
 					   fs->desc_blocks * fs->blocksize,
-					   (void **) &fs->group_desc);
+					   &fs->group_desc);
 		if (retval)
 			goto errout;
 	}
@@ -326,7 +327,7 @@ retry:
 	 * Initialize the new block group descriptors
 	 */
 	retval = ext2fs_get_mem(fs->blocksize * fs->inode_blocks_per_group,
-				(void **) &rfs->itable_buf);
+				&rfs->itable_buf);
 	if (retval)
 		goto errout;
 
@@ -447,8 +448,11 @@ static errcode_t mark_table_blocks(ext2_filsys fs,
 				   ext2fs_block_bitmap *ret_bmap)
 {
 	blk_t			block, b;
-	int			i,j, has_super, meta_bg, meta_bg_size;
-	int			old_desc_blocks;
+	unsigned int		j;
+	dgrp_t			i;
+	unsigned long		meta_bg, meta_bg_size;
+	int			has_super;
+	unsigned int		old_desc_blocks;
 	ext2fs_block_bitmap	bmap;
 	errcode_t		retval;
 
@@ -498,7 +502,7 @@ static errcode_t mark_table_blocks(ext2_filsys fs,
 		 * Mark the blocks used for the inode table
 		 */
 		for (j = 0, b = fs->group_desc[i].bg_inode_table;
-		     j < fs->inode_blocks_per_group;
+		     j < (unsigned int) fs->inode_blocks_per_group;
 		     j++, b++)
 			ext2fs_mark_block_bitmap(bmap, b);
 			    
@@ -561,9 +565,11 @@ static void mark_fs_metablock(ext2_resize_t rfs,
  */
 static errcode_t blocks_to_move(ext2_resize_t rfs)
 {
-	int	i, j, max_groups, has_super, meta_bg, meta_bg_size;
-	blk_t	blk, group_blk;
-	unsigned long old_blocks, new_blocks;
+	int		j, has_super;
+	dgrp_t		i, max_groups;
+	blk_t		blk, group_blk;
+	unsigned long	old_blocks, new_blocks;
+	unsigned int	meta_bg, meta_bg_size;
 	errcode_t	retval;
 	ext2_filsys 	fs, old_fs;
 	ext2fs_block_bitmap	meta_bmap;
@@ -848,7 +854,7 @@ static errcode_t block_mover(ext2_resize_t rfs)
 	if (!rfs->itable_buf) {
 		retval = ext2fs_get_mem(fs->blocksize *
 					fs->inode_blocks_per_group,
-					(void **) &rfs->itable_buf);
+					&rfs->itable_buf);
 		if (retval)
 			return retval;
 	}
@@ -970,8 +976,9 @@ struct process_block_struct {
 };
 
 static int process_block(ext2_filsys fs, blk_t	*block_nr,
-			 e2_blkcnt_t blockcnt, blk_t ref_block,
-			 int ref_offset, void *priv_data)
+			 e2_blkcnt_t blockcnt, 
+			 blk_t ref_block EXT2FS_ATTR((unused)),
+			 int ref_offset EXT2FS_ATTR((unused)), void *priv_data)
 {
 	struct process_block_struct *pb;
 	errcode_t	retval;
@@ -1008,7 +1015,8 @@ static int process_block(ext2_filsys fs, blk_t	*block_nr,
 /*
  * Progress callback
  */
-static errcode_t progress_callback(ext2_filsys fs, ext2_inode_scan scan,
+static errcode_t progress_callback(ext2_filsys fs, 
+				   ext2_inode_scan scan EXT2FS_ATTR((unused)),
 				   dgrp_t group, void * priv_data)
 {
 	ext2_resize_t rfs = (ext2_resize_t) priv_data;
@@ -1065,8 +1073,7 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 
 	retval = ext2fs_init_dblist(rfs->old_fs, 0);
 	if (retval) goto errout;
-	retval = ext2fs_get_mem(rfs->old_fs->blocksize * 3,
-				(void **) &block_buf);
+	retval = ext2fs_get_mem(rfs->old_fs->blocksize * 3, &block_buf);
 	if (retval) goto errout;
 
 	start_to_move = (rfs->new_fs->group_desc_count *
@@ -1176,7 +1183,7 @@ errout:
 	if (scan)
 		ext2fs_close_inode_scan(scan);
 	if (block_buf)
-		ext2fs_free_mem((void **) &block_buf);
+		ext2fs_free_mem(&block_buf);
 	return retval;
 }
 
@@ -1194,9 +1201,12 @@ struct istruct {
 	int		num;
 };
 
-static int check_and_change_inodes(ext2_ino_t dir, int entry,
+static int check_and_change_inodes(ext2_ino_t dir, 
+				   int entry EXT2FS_ATTR((unused)),
 				   struct ext2_dir_entry *dirent, int offset,
-				   int	blocksize, char *buf, void *priv_data)
+				   int	blocksize EXT2FS_ATTR((unused)),
+				   char *buf EXT2FS_ATTR((unused)), 
+				   void *priv_data)
 {
 	struct istruct *is = (struct istruct *) priv_data;
 	struct ext2_inode 	inode;
@@ -1301,7 +1311,8 @@ errout:
  */
 static errcode_t move_itables(ext2_resize_t rfs)
 {
-	int		i, n, num, max_groups, size, diff;
+	int		n, num, size, diff;
+	dgrp_t		i, max_groups;
 	ext2_filsys	fs = rfs->new_fs;
 	char		*cp;
 	blk_t		old_blk, new_blk;
@@ -1314,7 +1325,7 @@ static errcode_t move_itables(ext2_resize_t rfs)
 
 	size = fs->blocksize * fs->inode_blocks_per_group;
 	if (!rfs->itable_buf) {
-		retval = ext2fs_get_mem(size, (void **) &rfs->itable_buf);
+		retval = ext2fs_get_mem(size, &rfs->itable_buf);
 		if (retval)
 			return retval;
 	}
@@ -1423,8 +1434,8 @@ static errcode_t ext2fs_calculate_summary_stats(ext2_filsys fs)
 {
 	blk_t		blk;
 	ext2_ino_t	ino;
-	int		group = 0;
-	int		count = 0;
+	unsigned int	group = 0;
+	unsigned int	count = 0;
 	int		total_free = 0;
 	int		group_free = 0;
 

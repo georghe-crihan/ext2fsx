@@ -162,7 +162,7 @@ struct resource_track {
 #define E2F_FLAG_JOURNAL_INODE	0x0080 /* Create a new ext3 journal inode */
 #define E2F_FLAG_SB_SPECIFIED	0x0100 /* The superblock was explicitly 
 					* specified by the user */
-#define E2F_FLAG_RESTARTED	0x0100 /* E2fsck has been restarted */
+#define E2F_FLAG_RESTARTED	0x0200 /* E2fsck has been restarted */
 
 /*
  * Defines for indicating the e2fsck pass number
@@ -297,7 +297,9 @@ struct e2fsck_struct {
 	int progress_pos;
 	int progress_last_percent;
 	unsigned int progress_last_time;
-
+	int interactive;	/* Are we connected directly to a tty? */
+	char start_meta[2], stop_meta[2];
+	
 	/* File counts */
 	int fs_directory_count;
 	int fs_regular_count;
@@ -357,7 +359,6 @@ extern int e2fsck_run(e2fsck_t ctx);
 /* badblock.c */
 extern void read_bad_blocks_file(e2fsck_t ctx, const char *bad_blocks_file,
 				 int replace_bad_blocks);
-extern void test_disk(e2fsck_t ctx);
 
 /* dirinfo.c */
 extern void e2fsck_add_dir_info(e2fsck_t ctx, ext2_ino_t ino, ext2_ino_t parent);

@@ -37,6 +37,7 @@
  * found.
  */
 
+#define _GNU_SOURCE 1 /* get strnlen() */
 #include <string.h>
 #include <time.h>
 #ifdef HAVE_ERRNO_H
@@ -78,7 +79,7 @@ static void adjust_extattr_refcount(e2fsck_t ctx, ext2_refcount_t refcount,
 struct process_block_struct {
 	ext2_ino_t	ino;
 	int		is_dir:1, is_reg:1, clear:1, suppress:1,
-				fragmented:1, compressed:1;
+				fragmented:1, compressed:1, bbcheck:1;
 	blk_t		num_blocks;
 	blk_t		max_blocks;
 	e2_blkcnt_t	last_block;
@@ -86,6 +87,7 @@ struct process_block_struct {
 	blk_t		previous_block;
 	struct ext2_inode *inode;
 	struct problem_context *pctx;
+	ext2fs_block_bitmap fs_meta_blocks;
 	e2fsck_t	ctx;
 };
 
@@ -112,9 +114,9 @@ static __u64 ext2_max_sizes[EXT2_MAX_BLOCK_LOG_SIZE -
  * Free all memory allocated by pass1 in preparation for restarting
  * things.
  */
-static void unwind_pass1(ext2_filsys fs)
+static void unwind_pass1(ext2_filsys fs EXT2FS_ATTR((unused)))
 {
-	ext2fs_free_mem((void **) &inodes_to_process);
+	ext2fs_free_mem(&inodes_to_process);
 	inodes_to_process = 0;
 }
 
@@ -164,7 +166,7 @@ int e2fsck_pass1_check_device_inode(ext2_filsys fs, struct ext2_inode *inode)
 int e2fsck_pass1_check_symlink(ext2_filsys fs, struct ext2_inode *inode,
 			       char *buf)
 {
-	int len;
+	unsigned int len;
 	int i;
 	blk_t	blocks;
 
@@ -417,18 +419,32 @@ void e2fsck_pass1(e2fsck_t ctx)
 		if (ino == EXT2_BAD_INO) {
 			struct process_block_struct pb;
 			
+			pctx.errcode = ext2fs_copy_bitmap(ctx->block_found_map,
+							  &pb.fs_meta_blocks);
+			if (pctx.errcode) {
+				pctx.num = 4;
+				fix_problem(ctx, PR_1_ALLOCATE_BBITMAP_ERROR, &pctx);
+				ctx->flags |= E2F_FLAG_ABORT;
+				return;
+			}
 			pb.ino = EXT2_BAD_INO;
 			pb.num_blocks = pb.last_block = 0;
 			pb.num_illegal_blocks = 0;
 			pb.suppress = 0; pb.clear = 0; pb.is_dir = 0;
-			pb.is_reg = 0; pb.fragmented = 0;
+			pb.is_reg = 0; pb.fragmented = 0; pb.bbcheck = 0;
 			pb.inode = &inode;
 			pb.pctx = &pctx;
 			pb.ctx = ctx;
 			pctx.errcode = ext2fs_block_iterate2(fs, ino, 0, 
 				     block_buf, process_bad_block, &pb);
+			ext2fs_free_block_bitmap(pb.fs_meta_blocks);
 			if (pctx.errcode) {
 				fix_problem(ctx, PR_1_BLOCK_ITERATE, &pctx);
+				ctx->flags |= E2F_FLAG_ABORT;
+				return;
+			}
+			if (pb.bbcheck)
+				if (!fix_problem(ctx, PR_1_BBINODE_BAD_METABLOCK_PROMPT, &pctx)) {
 				ctx->flags |= E2F_FLAG_ABORT;
 				return;
 			}
@@ -724,11 +740,11 @@ void e2fsck_pass1(e2fsck_t ctx)
 		}
 		e2fsck_pass1_dupblocks(ctx, block_buf);
 	}
-	ext2fs_free_mem((void **) &inodes_to_process);
+	ext2fs_free_mem(&inodes_to_process);
 endit:
 	e2fsck_use_inode_shortcuts(ctx, 0);
 	
-	ext2fs_free_mem((void **) &block_buf);
+	ext2fs_free_mem(&block_buf);
 
 #ifdef RESOURCE_TRACK
 	if (ctx->options & E2F_OPT_TIME2) {
@@ -742,7 +758,8 @@ endit:
  * When the inode_scan routines call this callback at the end of the
  * glock group, call process_inodes.
  */
-static errcode_t scan_callback(ext2_filsys fs, ext2_inode_scan scan,
+static errcode_t scan_callback(ext2_filsys fs, 
+			       ext2_inode_scan scan EXT2FS_ATTR((unused)),
 			       dgrp_t group, void * priv_data)
 {
 	struct scan_callback_struct *scan_struct;
@@ -1129,7 +1146,8 @@ clear_extattr:
 
 /* Returns 1 if bad htree, 0 if OK */
 static int handle_htree(e2fsck_t ctx, struct problem_context *pctx,
-			ext2_ino_t ino, struct ext2_inode *inode,
+			ext2_ino_t ino EXT2FS_ATTR((unused)),
+			struct ext2_inode *inode,
 			char *block_buf)
 {
 	struct ext2_dx_root_info	*root;
@@ -1305,7 +1323,7 @@ static void check_blocks(e2fsck_t ctx, struct problem_context *pctx,
 	} else {
 		size = EXT2_I_SIZE(inode);
 		if ((pb.last_block >= 0) &&
-		    (size < pb.last_block * fs->blocksize))
+		    (size < (__u64) pb.last_block * fs->blocksize))
 			bad_size = 3;
 		else if (size > ext2_max_sizes[fs->super->s_log_block_size])
 			bad_size = 4;
@@ -1395,8 +1413,8 @@ static char *describe_illegal_block(ext2_filsys fs, blk_t block)
 static int process_block(ext2_filsys fs,
 		  blk_t	*block_nr,
 		  e2_blkcnt_t blockcnt,
-		  blk_t ref_block,
-		  int ref_offset, 
+		  blk_t ref_block EXT2FS_ATTR((unused)),
+		  int ref_offset EXT2FS_ATTR((unused)),
 		  void *priv_data)
 {
 	struct process_block_struct *p;
@@ -1527,29 +1545,17 @@ mark_dir:
 	return ret_code;
 }
 
-static void bad_block_indirect(e2fsck_t ctx, blk_t blk)
-{
-	struct problem_context pctx;
-
-	clear_problem_context(&pctx);
-	/*
-	 * Prompt to see if we should continue or not.
-	 */
-	if (!fix_problem(ctx, PR_1_BBINODE_BAD_METABLOCK, &pctx))
-		ctx->flags |= E2F_FLAG_ABORT;
-}
-
 static int process_bad_block(ext2_filsys fs,
 		      blk_t *block_nr,
 		      e2_blkcnt_t blockcnt,
-		      blk_t ref_block,
-		      int ref_offset,
+		      blk_t ref_block EXT2FS_ATTR((unused)),
+		      int ref_offset EXT2FS_ATTR((unused)),
 		      void *priv_data)
 {
 	struct process_block_struct *p;
 	blk_t		blk = *block_nr;
-	int		first_block;
-	int		i;
+	blk_t		first_block;
+	dgrp_t		i;
 	struct problem_context *pctx;
 	e2fsck_t	ctx;
 
@@ -1579,8 +1585,20 @@ static int process_bad_block(ext2_filsys fs,
 	}
 
 	if (blockcnt < 0) {
-		if (ext2fs_test_block_bitmap(ctx->block_found_map, blk)) {
-			bad_block_indirect(ctx, blk);
+		if (ext2fs_test_block_bitmap(p->fs_meta_blocks, blk)) {
+			p->bbcheck = 1;
+			if (fix_problem(ctx, PR_1_BB_FS_BLOCK, pctx)) {
+				*block_nr = 0;
+				return BLOCK_CHANGED;
+			}
+		} else if (ext2fs_test_block_bitmap(ctx->block_found_map, 
+						    blk)) {
+			p->bbcheck = 1;
+			if (fix_problem(ctx, PR_1_BBINODE_BAD_METABLOCK, 
+					pctx)) {
+				*block_nr = 0;
+				return BLOCK_CHANGED;
+			}
 			if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 				return BLOCK_ABORT;
 		} else
@@ -1671,8 +1689,13 @@ static int process_bad_block(ext2_filsys fs,
 	 * is using a bad block.
 	 */
 	if ((blk == p->inode->i_block[EXT2_IND_BLOCK]) ||
-	    p->inode->i_block[EXT2_DIND_BLOCK]) {
-		bad_block_indirect(ctx, blk);
+	    (blk == p->inode->i_block[EXT2_DIND_BLOCK]) ||
+	    (blk == p->inode->i_block[EXT2_TIND_BLOCK])) {
+		p->bbcheck = 1;
+		if (fix_problem(ctx, PR_1_BBINODE_BAD_METABLOCK, pctx)) {
+			*block_nr = 0;
+			return BLOCK_CHANGED;
+		}
 		if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 			return BLOCK_ABORT;
 		return 0;
@@ -1710,7 +1733,7 @@ static void new_table_block(e2fsck_t ctx, blk_t first_block, int group,
 		ext2fs_unmark_valid(fs);
 		return;
 	}
-	pctx.errcode = ext2fs_get_mem(fs->blocksize, (void **) &buf);
+	pctx.errcode = ext2fs_get_mem(fs->blocksize, &buf);
 	if (pctx.errcode) {
 		fix_problem(ctx, PR_1_RELOC_MEMORY_ALLOCATE, &pctx);
 		ext2fs_unmark_valid(fs);
@@ -1739,7 +1762,7 @@ static void new_table_block(e2fsck_t ctx, blk_t first_block, int group,
 		if (pctx.errcode)
 			fix_problem(ctx, PR_1_RELOC_WRITE_ERR, &pctx);
 	}
-	ext2fs_free_mem((void **) &buf);
+	ext2fs_free_mem(&buf);
 }
 
 /*
@@ -1752,7 +1775,7 @@ static void new_table_block(e2fsck_t ctx, blk_t first_block, int group,
 static void handle_fs_bad_blocks(e2fsck_t ctx)
 {
 	ext2_filsys fs = ctx->fs;
-	int		i;
+	dgrp_t		i;
 	int		first_block = fs->super->s_first_data_block;
 
 	for (i = 0; i < fs->group_desc_count; i++) {
@@ -1783,52 +1806,18 @@ static void mark_table_blocks(e2fsck_t ctx)
 {
 	ext2_filsys fs = ctx->fs;
 	blk_t	block, b;
-	int	i, j, has_super, meta_bg, meta_bg_size, old_desc_blocks;
+	dgrp_t	i;
+	int	j;
 	struct problem_context pctx;
 	
 	clear_problem_context(&pctx);
 	
 	block = fs->super->s_first_data_block;
-	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
-		old_desc_blocks = fs->super->s_first_meta_bg;
-	else
-		old_desc_blocks = fs->desc_blocks;
 	for (i = 0; i < fs->group_desc_count; i++) {
 		pctx.group = i;
 
-		has_super = ext2fs_bg_has_super(fs, i);
-		if (has_super)
-			/*
-			 * Mark this group's copy of the superblock
-			 */
-			ext2fs_mark_block_bitmap(ctx->block_found_map, block);
-		
-		meta_bg_size = (fs->blocksize /
-				sizeof (struct ext2_group_desc));
-		meta_bg = i / meta_bg_size;
-		if (!(fs->super->s_feature_incompat &
-		      EXT2_FEATURE_INCOMPAT_META_BG) ||
-		    (meta_bg < fs->super->s_first_meta_bg)) {
-			if (has_super) {
-				/*
-				 * Mark this group's copy of the descriptors
-				 */
-				for (j = 0; j < old_desc_blocks; j++) {
-					ext2fs_mark_block_bitmap(ctx->block_found_map,
-							 block + j + 1);
-				}
-			}
-		} else {
-			if (has_super)
-				has_super = 1;
-			if (((i % meta_bg_size) == 0) ||
-			    ((i % meta_bg_size) == 1) ||
-			    ((i % meta_bg_size) == (meta_bg_size-1)))
-				ext2fs_mark_block_bitmap(ctx->block_found_map,
-						 block + has_super);
-		}
-		
-		
+		ext2fs_reserve_super_and_bgd(fs, i, ctx->block_found_map);
+
 		/*
 		 * Mark the blocks used for the inode table
 		 */

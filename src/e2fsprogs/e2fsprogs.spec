@@ -3,7 +3,7 @@
 
 Summary: Utilities for managing the second extended (ext2) filesystem.
 Name: e2fsprogs
-Version: 1.34
+Version: 1.35
 Release: 0
 Copyright: GPL
 Group: System Environment/Base
@@ -106,6 +106,7 @@ fi
 %{_root_sbindir}/resize2fs
 %{_root_sbindir}/tune2fs
 %{_sbindir}/mklost+found
+%{_sbindir}/filefrag
 
 %{_root_libdir}/libcom_err.so.*
 %{_root_libdir}/libe2p.so.*
@@ -139,6 +140,7 @@ fi
 %{_mandir}/man8/mklost+found.8*
 %{_mandir}/man8/resize2fs.8*
 %{_mandir}/man8/tune2fs.8*
+%{_mandir}/man8/filefrag.8*
 
 %files devel
 %defattr(-,root,root)

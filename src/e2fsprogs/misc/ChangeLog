@@ -1,3 +1,130 @@
+2004-02-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.35
+
+2004-02-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (main): Change the default number of blocks tested
+		at once from 16 to 64.  (Addresses Debian bug #232240)
+
+2004-02-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* filefrag.c: Fix gcc -Wall nits.
+
+	* badblocks.c (pattern_fill): Fix bug accidentally added when
+		fixing up gcc -Wall nits.  badblocks -t random was not
+		getting handled properly because ~0 needed to be cast to
+		an unsigned long instead of an unsigned char.  (Addresses
+		Debian bug #234828)
+
+2004-02-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c (execute): Use '&&' instead of '&'.  (It didn't cause a
+		problem because we got lucky, but let's do things right.
+		Fix from Thomas Woerner at Red Hat.)
+
+2004-02-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* filefrag.c: Use #ifdef __linux__ instead of __LINUX__ so that it
+		actually compiles on Linux.  (Addresses Debian bug
+		#230992)
+
+2004-01-31  Theodore Ts'o  <tytso@mit.edu>
+
+	* chattr.1.in: Clarify man page.
+
+	* chattr.1.in, dumpe2fs.8.in, lsattr.1.in, mklost+found.8.in,
+		tune2fs.8.in: List Theodore Ts'o <tytso@alum.mit.edu> as
+		the current maintainer.
+
+2004-01-20  root  <tytso@mit.edu>
+
+	* chattr.c (main): Add support for '--' to stop options
+		processing.  (Addresses Debian bug #225188).
+
+2003-12-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* chattr.1.in: Update text indicating the 'c', 's', and 'u'
+		attributes are not currently supported to remove any
+		mention of a specific kernel version.  (Addresses Debian
+		bug #214920)
+
+	* fsck.8.in: Update text describing "standard" options supported
+		by filesystem-specific checkers.  (Addresses Debian bug
+		#222606)
+
+2003-12-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Add filefrag program to the list of programs
+		installed in /usr/sbin.
+
+2003-12-11  Theodore Ts'o  <tytso@thunk.org>
+
+	* tune2fs.8.in: Fix some whitespace errors in the command synopsis.
+
+2003-12-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS): Fix mke2fs -V so that it prints the version banner.
+
+	* badblocks.c, blkid.c, chattr.c, dumpe2fs.c, e2image.c, fsck.c,
+		fsck.h, lsattr.c, mke2fs.c, nls-enable.h, tune2fs.c,
+		util.c: Fix gcc -Wall nitpicks.
+
+2003-09-13  Theodore Ts'o  <tytso@mit.edu>
+ 
+        * tune2fs.c (parse_e2label_options, parse_tune2fs_options,
+        do_findfs): Check the returned name from blkid_get_devname and
+                print an error if the requested LABEL/UUID does not exist.
+ 
+2003-09-03  Theodore Ts'o  <tytso@mit.edu>
+ 
+        * dumpe2fs.c (list_desc): Use ext2fs_super_and_bgd_loc to
+                determine the locations of the superblock and block group
+                descriptors.
+ 
+2003-11-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* util.c (check_plausibility): Support 2.6 kernel header files,
+		instead of having the build to crash.  (Addresses Debian
+		bug #221778)
+
+2003-09-01  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (progress_init, progress_update): If the environment
+		variable MKE2FS_SKIP_PROGRESS is set, then don't print out
+		a progress bar; for regression test support.
+		(PRS): If the environment variable MKE2FS_DEVICE_SECTSIZE
+		is set, then override the device sector size.  Again for
+		regression test support.
+		(main): If the environment variable MKE2FS_SKIP_CHECK_MSG
+		is set, then skip printing an information messages about
+		when the filesystem will be checked, since this number is
+		random and screws up the regression test expect script.
+
+2003-08-31  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (set_fs_defaults): Fix bug which caused -T largefile or
+		-T largefile4 to core dump due to a division by zero
+		error.  (Addressed Debian bug #207082)
+
+2003-08-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* dumpe2fs.8.in, e2image.8.in, e2label.8.in, mke2fs.8.in,
+		tune2fs.8.in: Adjust description line so that apropos
+		"ext2" or "ext3" will find the man page.  (Addresses
+		Debian Bug #206845)
+
+2003-08-01  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (set_o_direct): Add check to make sure the file
+		offset of the device is page aligned.  (Addresses Debian
+		Bug #203713)
+
+	* badblocks.c (test_ro, test_rw): Add code to recover after an
+		error so that we continue reading on page-aligned
+		boundaries.  (Thanks to Philippe Troin <phil@fifi.org> for
+		the patch.)
+
 2003-07-25  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.34

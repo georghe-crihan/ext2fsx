@@ -214,7 +214,7 @@ static void check_root(e2fsck_t ctx)
 		ctx->flags |= E2F_FLAG_ABORT;
 		return;
 	}
-	ext2fs_free_mem((void **) &block);
+	ext2fs_free_mem(&block);
 
 	/*
 	 * Set up the inode structure
@@ -302,9 +302,10 @@ static int check_directory(e2fsck_t ctx, struct dir_info *dir,
 					      p->parent)))) {
 			pctx->ino = p->ino;
 			if (fix_problem(ctx, PR_3_UNCONNECTED_DIR, pctx)) {
-				if (e2fsck_reconnect_file(ctx, p->ino))
+				if (e2fsck_reconnect_file(ctx, pctx->ino))
 					ext2fs_unmark_valid(fs);
 				else {
+					p = e2fsck_get_dir_info(ctx, pctx->ino);
 					p->parent = ctx->lost_and_found;
 					fix_dotdot(ctx, p, ctx->lost_and_found);
 				}
@@ -456,7 +457,7 @@ ext2_ino_t e2fsck_get_lost_and_found(e2fsck_t ctx, int fix)
 	}
 
 	retval = ext2fs_write_dir_block(fs, blk, block);
-	ext2fs_free_mem((void **) &block);
+	ext2fs_free_mem(&block);
 	if (retval) {
 		pctx.errcode = retval;
 		fix_problem(ctx, PR_3_ERR_LPF_WRITE_BLOCK, &pctx);
@@ -611,9 +612,9 @@ struct fix_dotdot_struct {
 };
 
 static int fix_dotdot_proc(struct ext2_dir_entry *dirent,
-			   int	offset,
-			   int	blocksize,
-			   char	*buf,
+			   int	offset EXT2FS_ATTR((unused)),
+			   int	blocksize EXT2FS_ATTR((unused)),
+			   char	*buf EXT2FS_ATTR((unused)),
 			   void	*priv_data)
 {
 	struct fix_dotdot_struct *fp = (struct fix_dotdot_struct *) priv_data;
@@ -691,8 +692,8 @@ struct expand_dir_struct {
 static int expand_dir_proc(ext2_filsys fs,
 			   blk_t	*blocknr,
 			   e2_blkcnt_t	blockcnt,
-			   blk_t ref_block,
-			   int ref_offset, 
+			   blk_t ref_block EXT2FS_ATTR((unused)),
+			   int ref_offset EXT2FS_ATTR((unused)),
 			   void	*priv_data)
 {
 	struct expand_dir_struct *es = (struct expand_dir_struct *) priv_data;
@@ -728,7 +729,7 @@ static int expand_dir_proc(ext2_filsys fs,
 		es->num--;
 		retval = ext2fs_write_dir_block(fs, new_blk, block);
 	} else {
-		retval = ext2fs_get_mem(fs->blocksize, (void **) &block);
+		retval = ext2fs_get_mem(fs->blocksize, &block);
 		if (retval) {
 			es->err = retval;
 			return BLOCK_ABORT;
@@ -740,7 +741,7 @@ static int expand_dir_proc(ext2_filsys fs,
 		es->err = retval;
 		return BLOCK_ABORT;
 	}
-	ext2fs_free_mem((void **) &block);
+	ext2fs_free_mem(&block);
 	*blocknr = new_blk;
 	ext2fs_mark_block_bitmap(ctx->block_found_map, new_blk);
 	ext2fs_block_alloc_stats(fs, new_blk, +1);

@@ -4,7 +4,7 @@
 .\" 
 .TH DEBUGFS 8 "@E2FSPROGS_MONTH@ @E2FSPROGS_YEAR@" "E2fsprogs version @E2FSPROGS_VERSION@"
 .SH NAME
-debugfs \- ext2 file system debugger
+debugfs \- ext2/ext3 file system debugger
 .SH SYNOPSIS
 .B debugfs
 [
@@ -237,7 +237,7 @@ Print the location of the inode data structure (in the inode table)
 of the inode
 .IR filespec .
 .TP
-.I initialize device blocksize
+.I init_filesys device blocksize
 Create an ext2 file system on
 .I device
 with device size
@@ -270,8 +270,36 @@ which is a link to
 .IR filespec .
 Note this does not adjust the inode reference counts.
 .TP
-.I logdump [-ac] [-b<block>] [-i<inode>] [-f<journal_file>] [output_file]
-Dump the contents of the ext3 journal.
+.I logdump [-acs] [-b<block>] [-i<filespec>] [-f<journal_file>] [output_file]
+Dump the contents of the ext3 journal.  By default, the journal inode as
+specified in the superblock.  However, this can be overridden with the 
+.I \-i
+option, which uses an inode specifier to specify the journal to be
+used.  A file containing journal data can be specified using the
+.I \-f
+option.   Finally, the 
+.I \-s
+option utilizes the backup information in the superblock to locate the
+journal.
+.IP
+The 
+.I \-a
+option causes the 
+.I logdump
+program to print the contents of all of the descriptor blocks.
+The 
+.I \-b
+option causes 
+.I logdump
+to print all journal records that are refer to the specified block. 
+The 
+.I \-c
+option will print out the contents of all of the data blocks selected by
+the 
+.I \-a
+and 
+.I \-b
+options.
 .TP
 .I ls [-l] [-d] filespec
 Print a listing of the files in the directory
@@ -406,6 +434,36 @@ Create a file in the filesystem named
 and copy the contents of
 .I source_file
 into the destination file.
+.SH ENVIRONMENT VARIABLES
+.TP
+.B DEBUGFS_PAGER, PAGER
+The
+.BR debugfs (8)
+program always pipes the output of the some commands through a
+pager program.  These commands include: 
+.IR show_super_stats ,
+.IR list_directory ,
+.IR show_inode_info ,
+.IR list_deleted_inodes ,
+and
+.IR htree_dump .
+The specific pager can explicitly specified by the
+.B DEBUGFS_PAGER
+environment variable, and if it is not set, by the
+.B PAGER
+environment variable.  
+.IP
+Note that since a pager is always used, the 
+.BR less (1)
+pager is not particularly appropriate, since it clears the screen before
+displaying the output of the command and clears the output the screen
+when the pager is exited.  Many users prefer to use the 
+.BR less (1)
+pager for most purposes, which is why the 
+.B DEBUGFS_PAGER 
+environment variable is available to override the more general
+.B PAGER
+environment variable.
 .SH AUTHOR
 .B debugfs
 was written by Theodore Ts'o <tytso@mit.edu>.

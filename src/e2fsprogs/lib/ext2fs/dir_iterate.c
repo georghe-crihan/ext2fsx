@@ -71,7 +71,7 @@ errcode_t ext2fs_dir_iterate2(ext2_filsys fs,
 	if (block_buf)
 		ctx.buf = block_buf;
 	else {
-		retval = ext2fs_get_mem(fs->blocksize, (void **) &ctx.buf);
+		retval = ext2fs_get_mem(fs->blocksize, &ctx.buf);
 		if (retval)
 			return retval;
 	}
@@ -81,7 +81,7 @@ errcode_t ext2fs_dir_iterate2(ext2_filsys fs,
 	retval = ext2fs_block_iterate2(fs, dir, 0, 0,
 				       ext2fs_process_dir_block, &ctx);
 	if (!block_buf)
-		ext2fs_free_mem((void **) &ctx.buf);
+		ext2fs_free_mem(&ctx.buf);
 	if (retval)
 		return retval;
 	return ctx.errcode;
@@ -96,7 +96,8 @@ struct xlate {
 	void *real_private;
 };
 
-static int xlate_func(ext2_ino_t dir, int entry,
+static int xlate_func(ext2_ino_t dir EXT2FS_ATTR((unused)),
+		      int entry EXT2FS_ATTR((unused)),
 		      struct ext2_dir_entry *dirent, int offset,
 		      int blocksize, char *buf, void *priv_data)
 {
@@ -130,16 +131,16 @@ extern errcode_t ext2fs_dir_iterate(ext2_filsys fs,
  * Helper function which is private to this module.  Used by
  * ext2fs_dir_iterate() and ext2fs_dblist_dir_iterate()
  */
-int ext2fs_process_dir_block(ext2_filsys  	fs,
-			     blk_t		*blocknr,
-			     e2_blkcnt_t		blockcnt,
-			     blk_t		ref_block,
-			     int			ref_offset,
-			     void		*priv_data)
+int ext2fs_process_dir_block(ext2_filsys fs,
+			     blk_t	*blocknr,
+			     e2_blkcnt_t blockcnt,
+			     blk_t	ref_block EXT2FS_ATTR((unused)),
+			     int	ref_offset EXT2FS_ATTR((unused)),
+			     void	*priv_data)
 {
 	struct dir_context *ctx = (struct dir_context *) priv_data;
-	int		offset = 0;
-	int		next_real_entry = 0;
+	unsigned int	offset = 0;
+	unsigned int	next_real_entry = 0;
 	int		ret = 0;
 	int		changed = 0;
 	int		do_abort = 0;
@@ -191,8 +192,9 @@ next:
 			size = ((dirent->name_len & 0xFF) + 11) & ~3;
 
 			if (dirent->rec_len != size)  {
-				int final_offset = offset + dirent->rec_len;
- 			
+				unsigned int final_offset;
+
+				final_offset = offset + dirent->rec_len;
 				offset += size;
 				while (offset < final_offset &&
 				       !ext2fs_validate_entry(ctx->buf,
