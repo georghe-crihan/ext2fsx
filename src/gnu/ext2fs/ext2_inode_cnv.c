@@ -90,8 +90,12 @@ ext2_ei2i(ei, ip)
 	ip->i_flags |= (le32_to_cpu(ei->i_flags) & EXT2_IMMUTABLE_FL) ? IMMUTABLE : 0;
 	ip->i_blocks = le32_to_cpu(ei->i_blocks);
 	ip->i_gen = le32_to_cpu(ei->i_generation);
-	ip->i_uid = le32_to_cpu(ei->i_uid);
-	ip->i_gid = le32_to_cpu(ei->i_gid);
+	ip->i_uid = (u_int32_t)le16_to_cpu(ei->i_uid);
+	ip->i_gid = (u_int32_t)le16_to_cpu(ei->i_gid);
+   /* if(!(test_opt (ip->i_sb, NO_UID32))) { Always use 32 bit uid's */
+		ip->i_uid |= le16_to_cpu(ei->i_uid_high) << 16;
+		ip->i_gid |= le16_to_cpu(ei->i_gid_high) << 16;
+	/*}*/
 	/* XXX use memcpy */
    
    /* Linux leaves the block #'s in LE order*/
@@ -100,6 +104,9 @@ ext2_ei2i(ei, ip)
 	for(i = 0; i < NIADDR; i++)
 		ip->i_ib[i] = le32_to_cpu(ei->i_block[EXT2_NDIR_BLOCKS + i]);
 }
+
+#define low_16_bits(x)	((x) & 0xFFFF)
+#define high_16_bits(x)	(((x) & 0xFFFF0000) >> 16)
 
 /*
  *	inode to raw ext2 inode
@@ -130,6 +137,27 @@ ext2_i2ei(ip, ei)
 	ei->i_generation = cpu_to_le32(ip->i_gen);
 	ei->i_uid = cpu_to_le32(ip->i_uid);
 	ei->i_gid = cpu_to_le32(ip->i_gid);
+   /*if(!(test_opt(inode->i_sb, NO_UID32))) { Always use 32 bit uid's */
+		ei->i_uid_low = cpu_to_le16(low_16_bits(ip->i_uid));
+		ei->i_gid_low = cpu_to_le16(low_16_bits(ip->i_gid));
+/*
+ * Fix up interoperability with old kernels. Otherwise, old inodes get
+ * re-used with the upper 16 bits of the uid/gid intact
+ */
+		if(!ei->i_dtime) {
+			ei->i_uid_high = cpu_to_le16(high_16_bits(ip->i_uid));
+			ei->i_gid_high = cpu_to_le16(high_16_bits(ip->i_gid));
+		} else {
+			ei->i_uid_high = 0;
+			ei->i_gid_high = 0;
+		}
+	/*} else {
+		raw_inode->i_uid_low = cpu_to_le16(fs_high2lowuid(inode->i_uid));
+		raw_inode->i_gid_low = cpu_to_le16(fs_high2lowgid(inode->i_gid));
+		raw_inode->i_uid_high = 0;
+		raw_inode->i_gid_high = 0;
+	}*/
+   
 	/* XXX use memcpy */
 	for(i = 0; i < NDADDR; i++)
 		ei->i_block[i] = cpu_to_le32(ip->i_db[i]);
