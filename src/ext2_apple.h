@@ -77,6 +77,17 @@ __private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
 #define PROC_LOCK(p)
 #define PROC_UNLOCK(p)
 
+/*
+ * Test the active securelevel against a given level.  securelevel_gt()
+ * implements (securelevel > level).  securelevel_ge() implements
+ * (securelevel >= level).  Note that the logic is inverted -- these
+ * functions return EPERM on "success" and 0 on "failure".
+ *
+ * Must call while holding kernel funnel for MP safeness.
+ */
+#define securelevel_gt(cr,level) ( securelevel > (level) ? EPERM : 0 )
+#define securelevel_ge(cr,level) ( securelevel >= (level) ? EPERM : 0 )
+
 #define devtoname(d) "unknown"
 
 #define mnt_iosize_max mnt_maxreadcnt
@@ -110,9 +121,9 @@ __private_extern__ int vrefcnt(struct vnode *);
 /* Vnode flags */
 #define VV_ROOT VROOT
 
+/* XXX Equivalent fn in Darwin ? */
 #define vn_write_suspend_wait(vp,mp,flag) (0)
 
-/* XXX Equivalent fn in Darwin ? */
 #define vfs_bio_clrbuf clrbuf
 
 #define b_ioflags b_flags
