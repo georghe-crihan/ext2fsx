@@ -109,6 +109,8 @@ ext2_pagein(ap)
 	register struct inode *ip;
 	int devBlockSize=0;
 	int error;
+   
+   ext2_trace_enter();
 
 	ip = VTOI(vp);
 
@@ -171,6 +173,8 @@ ext2_pageout(ap)
 	vm_offset_t lupl_offset;
 	int nocommit = flags & UPL_NOCOMMIT;
 	/*struct buf *bp;*/
+   
+   ext2_trace_enter();
 
 	ip = VTOI(vp);
 
@@ -229,7 +233,7 @@ ext2_pageout(ap)
 	for (error = 0; resid > 0;) {
 		lbn = lblkno(fs, local_offset);
 		blkoffset = blkoff(fs, local_offset);
-		xsize = EXT2_BLOCK_SIZE(fs) - blkoffset;
+		xsize = fs->s_frag_size - blkoffset;
 		if (resid < xsize)
 			xsize = resid;
 		/* Allocate block without reading into a buf */
@@ -263,8 +267,8 @@ ext2_pageout(ap)
 }
 
 /*
- * Cmap converts a the file offset of a file to its physical block
- * number on the disk And returns  contiguous size for transfer.
+ * Cmap converts the file offset of a file to its physical block
+ * number on the disk And returns a contiguous size for transfer.
  */
 int
 ext2_cmap(ap)
@@ -293,6 +297,7 @@ ext2_cmap(ap)
 	ip = VTOI(vp);
 	fs = ip->i_e2fs;
 	
+   ext2_trace_enter();
 
 	if (blkoff(fs, ap->a_foffset)) {
 		panic("ext2_cmap; allocation requested inside a block");
@@ -305,7 +310,7 @@ ext2_cmap(ap)
 		panic("ext2_cmap: size is not multiple of device block size\n");
 	}
 
-	if (error =  VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks)) {
+	if (error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks)) {
 			return(error);
 	}
 
@@ -386,6 +391,8 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	int devBlockSize=0;
 
 	fs = ip->i_e2fs;
+   
+   ext2_trace_enter();
 
 	if(size > EXT2_BLOCK_SIZE(fs))
 		panic("ext2_blkalloc: too large for allocation\n");
@@ -606,6 +613,8 @@ ext2_blktooff (ap)
 	struct ext2_sb_info *fs;
    daddr_t bn = ap->a_lblkno; 
    
+   ext2_trace_enter();
+   
    if ((long)bn < 0) {
 		panic("-ve blkno in ext2_blktooff");
 		bn = -(long)bn;
@@ -614,6 +623,8 @@ ext2_blktooff (ap)
 	ip = VTOI(ap->a_vp);
 	fs = ip->i_e2fs;
 	*ap->a_offset = lblktosize(fs, bn);
+   
+   ext2_trace_leave();
    
    return (0);
 }
@@ -625,6 +636,8 @@ ext2_offtoblk (ap)
    
    struct inode *ip;
 	struct ext2_sb_info *fs;
+   
+   ext2_trace_enter();
    
    if (ap->a_vp == NULL)
 		return (EINVAL);
@@ -654,6 +667,7 @@ ext2_cache_lookup(ap)
 	struct ucred *cred = cnp->cn_cred;
 	int flags = cnp->cn_flags;
 	struct proc *p = cnp->cn_proc;
+   int vpid; /* capability number of vnode */
    
    *vpp = NULL;
 	dvp = ap->a_dvp;
@@ -688,6 +702,7 @@ ext2_cache_lookup(ap)
 	
 	/* We have a name that matched */
 	vp = *vpp;
+   vpid = vp->v_id;
    
    if (dvp == vp) {	/* lookup on "." */
 		VREF(vp);
@@ -709,14 +724,19 @@ ext2_cache_lookup(ap)
 			VOP_UNLOCK(dvp, 0, p);
 	}
    
-   if (!error)
-      return (0);
-   
-   /* Error condition */
-   
-   vput(vp);
-   if (lockparent && (dvp != vp) && (flags & ISLASTCN))
-      VOP_UNLOCK(dvp, 0, p);
+   /*
+    * Check that the capability number did not change
+    * while we were waiting for the lock.
+    */
+   if (!error) {
+      if (vpid == vp->v_id)
+         return (0);
+         
+      /* Error condition */
+      vput(vp);
+      if (lockparent && (dvp != vp) && (flags & ISLASTCN))
+         VOP_UNLOCK(dvp, 0, p);
+   }
    
    if ((error = vn_lock(dvp, LK_EXCLUSIVE, p)))
 		return (error);
