@@ -10,17 +10,21 @@ Feature #703253: It is now possible to mount Ext2/3 volumes with permissions ign
 \
 Updated ExtFS Manager (EFSM) to handle the new support for ignoring permissions.\
 \
-Bug #920261: Added progress indicators and better error detection for mount/unmount to EFSM.\
-\
 Added more French translations to EFSM.\
 \
-EFSM now detects DOS partition labels and refuses to try and mount them.\
+EFSM now formats and localizes file system statistic numbers.\
+\
+EFSM now detects DOS partition labels and refuses to mount them.\
 \
 Updated to e2fsprogs 1.35.\
 \
-Everything is now compiled with GCC 3.3.\
+Everything is now compiled with the latest Apple Developer Tools.\
 \
-Fixed some bugs in EFSM (including a possible crasher and memory leak every time a device was removed).\
+The EFSM core is now bundled as a Framework (/Library/Frameworks) for use by other projects.\
+\
+Bug #920261: Added progress indicators and better error detection for mount/unmount to EFSM.\
+\
+Fixed some other bugs in EFSM (including a possible crasher and a memory leak every time a device was removed).\
 \
 Added ENOSPC bug fix from Linux 2.6.4 (by Chris Mason @ Suse).\
 =============================================================\

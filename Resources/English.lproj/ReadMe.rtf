@@ -6,8 +6,8 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.2b2\
-2004/04/03\
+\f1\b0 1.2\
+2004/05/17\
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
@@ -33,13 +33,15 @@ Mac OS X 10.2.0 or later.\
 \
 ExtFS Manager is an OS X Preference Pane for managing Ext2/3 disks. From this pane you can set mount options for any Ext volume. The current options are:\
 \
-Don't Automount -- The volume will not be mounted automatically (use 'mount_ext2 -x' to override).\
+Don't Automount -- The volume will not be mounted automatically.\
 \
-Mount Read Only -- When auto-mounted, mount R/O (use 'mount_ext2 -x' to override).\
+Mount Read Only -- When auto-mounted, mount R/O.\
 \
 Enable Indexed Directories -- See 'Supported Features' below.\
 \
 Ignore Permissions -- When checked, the filesystem will be mounted with only root permissions in effect. All other files will be accessible by any user.\
+\
+All options (except "Ignore Permissions") can be temporarily overridden using '/sbin/mount_ext2 -x'.\
 \
 
 \f0\b Note:
@@ -118,7 +120,10 @@ If the problem is a kernel panic, please include a copy of the panic. Mac OS X 1
 \f0\b Credits
 \f1\b0 \
 \
-Thanks to Bandar Raffa <http://www.sadeem.net/tux.html> for the use of the Tux'n'Tosh icons.\
+Engineering: Brian Bergstrand, and Dan Kalowsky\
 \
 German Localization: S\'9aren Kuklau\
+\
+Thanks to Bandar Raffa <http://www.sadeem.net/tux.html> for the use of the Tux'n'Tosh icons.\
+\
 }
