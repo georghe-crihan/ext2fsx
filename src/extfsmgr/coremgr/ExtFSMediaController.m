@@ -166,7 +166,12 @@ enum {
       [e2media setIsMounted:nil];
       return (YES);
    }
-   
+#ifdef DIAGNOSTIC
+   else if (!e2media)
+      NSLog(@"ExtFS: Oops! Received unmount for an unknown device: '%@'.\n", device);
+   else if (NO == [e2media isMounted])
+      NSLog(@"ExtFS: Oops! Received unmount for a device that is already unmounted: '%@'.\n", device);
+#endif
    return (NO);
 }
 
@@ -203,21 +208,24 @@ enum {
    ExtFSMedia *parent;
    
    if ([e2media isMounted])
-      NSLog(@"ExtFS: Oops! Device %@ disappeared while still marked as mounted\n", device);
+      NSLog(@"ExtFS: Oops! Media '%@' removed while still mounted!\n", device);
    
    [e2media retain];
    [_media removeObjectForKey:device];
-   [[NSNotificationCenter defaultCenter]
-      postNotificationName:ExtFSMediaNotificationDisappeared
-      object:e2media userInfo:nil];
    
    if ((parent = [e2media parent]))
       [parent remChild:e2media];
+
+   [self removePending:e2media];
+
+   [[NSNotificationCenter defaultCenter]
+      postNotificationName:ExtFSMediaNotificationDisappeared
+      object:e2media userInfo:nil];
+
 #ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: Media %@ disappeared. Retain count = %u.\n",
+   NSLog(@"ExtFS: Media '%@' removed. Retain count = %u.\n",
       device, [e2media retainCount]);
 #endif
-   [self removePending:e2media];
    [e2media release];
 }
 
@@ -244,6 +252,7 @@ enum {
                NSLog(@"ExtFS: Existing media %@ appeared again.\n", device);
             }
          #endif
+            CFRelease(properties);
             continue;
          }
          
@@ -358,7 +367,7 @@ enum {
    
    ke = DiskArbRequestMount_auto(BSDNAMESTR(media));
    if (0 == ke) {
-        /* Note: This is a hack to detect a failed mount, since it
+        /* XXX -- This is a hack to detect a failed mount. It
            seems DA does notify clients of failed mounts. (Why???)
          */
         [pMounts addObject:media];
@@ -391,7 +400,12 @@ enum {
       flags &= ~kDiskArbUnmountOneFlag;
    }
    
-   ke = DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags);
+   if ([media isMounted])
+      ke = DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags);
+   else if (flags & kDiskArbUnmountAndEjectFlag)
+      ke = DiskArbEjectRequest_async_auto(BSDNAMESTR(media), 0);
+   else
+      return (EINVAL);
    if (0 == ke) {
         [pUMounts addObject:media];
    }
@@ -489,6 +503,7 @@ exit:
 
 @end
 
+#define MAX_PARENT_ITERS 10
 @implementation ExtFSMedia (ExtFSMediaController)
 
 - (void)updateAttributesFromIOService:(io_service_t)service
@@ -501,7 +516,6 @@ exit:
    io_iterator_t piter;
 #endif
    int iterations;
-   #define MAX_PARENT_ITERS 10
    kern_return_t kr;
    
    mc = [ExtFSMediaController mediaController];
@@ -582,7 +596,7 @@ exit:
    NSNumber *fstype;
    
    if (!stat) {
-      _attributeFlags &= ~kfsMounted;
+      _attributeFlags &= ~(kfsMounted|kfsPermsEnabled);
       _fsBlockSize = 0;
       _blockCount = 0;
       _blockAvail = 0;
@@ -626,6 +640,9 @@ exit:
    _attributeFlags |= kfsMounted;
    if (stat->f_flags & MNT_RDONLY)
       _attributeFlags &= ~kfsWritable;
+   
+   if (0 == (stat->f_flags & MNT_UNKNOWNPERMISSIONS))
+      _attributeFlags |= kfsPermsEnabled;
    
    _fsBlockSize = stat->f_bsize;
    _blockCount = stat->f_blocks;
@@ -694,7 +711,12 @@ static void DiskArbCallback_DiskAppearedWithMountpoint(char *device,
 static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device,
    int errorCode, pid_t dissenter)
 {
-   (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
+    if (0 == errorCode)
+        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
+#ifdef DIAGNOSTIC
+    else
+         NSLog(@"ExtFS: Device '%s' failed unmount with error: %d.\n", device, errorCode);
+#endif
 }
 
 NSString *ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
@@ -735,8 +757,12 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
       
       [ctl removePending:emedia];
       
-      if (idx > DA_ERR_TABLE_LAST)
-         idx = 1;
+      if (idx > DA_ERR_TABLE_LAST) {
+         if (EBUSY == idx) // This can be returned instead of kDAReturnBusy
+            idx = 2;
+         else
+            idx = 1;
+      }
       err = _DiskArbErrorTable[idx];
       
       msg = nil;
