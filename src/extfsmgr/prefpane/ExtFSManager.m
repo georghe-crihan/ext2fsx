@@ -218,6 +218,8 @@ _curSelection = nil; \
    ExtFSMedia *media;
    NSEnumerator *en;
    
+   [_vollist setEnabled:NO];
+   
    [_tabs selectTabViewItemWithIdentifier:@"Startup"];
    title = ExtLocalizedString(@"Please wait, gathering disk information…",
       "Startup Message");
@@ -270,6 +272,8 @@ _curSelection = nil; \
    title = ExtLocalizedString(@"Please select a disk or volume",
       "Startup Message");
    [_startupText setStringValue:title];
+   
+   [_vollist setEnabled:NO];
 }
 
 #define ExtInfoInsert() \
