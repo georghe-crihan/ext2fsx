@@ -126,6 +126,7 @@ enum {
 // but as of Panther the largest DA Error is (1<<3).
 #define EXT_DISK_ARB_MOUNT_FAILURE (1<<31)
 #define EXT_MOUNT_ERROR_DELAY 4.0
+#define EXTFS_DM_BNDL_ID @"net.sourceforge.ext2fsx.ExtFSDiskManager"
 
 @implementation ExtFSMediaController : NSObject
 
@@ -688,6 +689,47 @@ NSString* NSFSNameFromType(int type)
    return ([NSString stringWithCString:_fsNames[(type)]]);
 }
 
+static NSDictionary *_fsPrettyNames = nil;
+
+NSString* NSFSPrettyNameFromType(int type)
+{
+    if (nil == _fsPrettyNames) {
+        NSBundle *me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
+        if (nil == me)
+            NSLog("ExtFS: Could not find bundle!\n");
+            return (nil);
+
+        /* The correct way to get these names is to enum the FS bundles and
+          get the FSName value for each personality. This turns out to be more
+          work than it's worth though. */
+        _fsPrettyNames = [[NSDictionary alloc] initWithObjectsAndKeys:
+            @"Linux Ext2", [NSNumber numberWithInt:fsTypeExt2],
+            [me localizedStringForKey:@"Linux Ext3 (Journaled)" value:nil table:nil],
+                [NSNumber numberWithInt:fsTypeExt3],
+            @"Mac OS Standard", [NSNumber numberWithInt:fsTypeHFS],
+            [me localizedStringForKey:@"Mac OS Extended" value:nil table:nil],
+                [NSNumber numberWithInt:fsTypeHFSPlus],
+            [me localizedStringForKey:@"Mac OS Extended (Journaled)" value:nil table:nil],
+                [NSNumber numberWithInt:fsTypeHFSJ],
+            [me localizedStringForKey:@"Mac OS Extended (Journaled/Case Sensitive)" value:nil table:nil],
+                [NSNumber numberWithInt:fsTypeHFSX],
+            @"UNIX", [NSNumber numberWithInt:fsTypeUFS],
+            @"ISO 9660", [NSNumber numberWithInt:fsTypeCD9660],
+            [me localizedStringForKey:@"CD Audio" value:nil table:nil],
+                [NSNumber numberWithInt:fsTypeCDAudio],
+            @"Universal Disk Format (UDF)", [NSNumber numberWithInt:fsTypeUDF],
+            @"MSDOS (FAT)", [NSNumber numberWithInt:fsTypeMSDOS],
+            @"Windows NTFS", [NSNumber numberWithInt:fsTypeNTFS],
+            [me localizedStringForKey:@"Unknown" value:nil table:nil],
+                [NSNumber numberWithInt:fsTypeUnknown],
+          nil];
+    }
+    
+    if (type > fsTypeUnknown)
+      type = fsTypeUnknown;
+    return ([_fsPrettyNames objectForKey:[NSNumber numberWithInt:type]]);
+}
+
 /* Callbacks */
 
 static void iomatch_add_callback(void *refcon, io_iterator_t iter)
@@ -787,7 +829,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
       }
       
       // Get a ref to ourself so we can load our localized strings.
-      me = [NSBundle bundleWithIdentifier:@"net.sourceforge.ext2fsx.ExtFSDiskManager"];
+      me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
       if (me) {
         NSString *errl, *opl, *msgl;
         

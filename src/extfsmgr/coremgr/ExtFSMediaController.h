@@ -148,7 +148,6 @@ when an asynchronous operation fails. The media object that failed is
 attached and the user info dictionary contains the error information.
 */
 extern NSString * const ExtFSMediaNotificationOpFailure;
-
 /*!
 @const ExtFSMediaNotificationCreationFailed
 @abstract This notification is sent to the default Notification center
@@ -200,3 +199,13 @@ containing the filesystem name.
 @result Filesystem name or nil, if the type is invalid.
 */
 NSString* NSFSNameFromType(int type);
+
+/*!
+@function NSFSPrettyNameFromType
+@abstract Converts a filesystem type id to a NSString
+containing the filesystem name in a suitable format for display
+to a user.
+@param type A valid ExtFSType id.
+@result Filesystem name or nil, if the type is invalid.
+*/
+NSString* NSFSPrettyNameFromType(int type);
