@@ -150,4 +150,7 @@ static __inline__ int ext2_balloc(struct inode *ip,
    return (ext2_balloc2(ip, bn, size, cred, bpp, flags, NULL));
 }
 
+/* Sysctl OID numbers. */
+#define EXT2_SYSCTL_INT_DIRCHECK 1
+
 #endif /* !_SYS_GNU_EXT2FS_EXT2_EXTERN_H_ */
