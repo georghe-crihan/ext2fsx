@@ -103,6 +103,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 - (ExtFSMedia*)createMediaWithIOService:(io_service_t)service properties:(NSDictionary*)props;
 - (int)updateMedia:(io_iterator_t)iter remove:(BOOL)remove;
 - (BOOL)volumeDidUnmount:(NSString*)name;
+- (void)removePending:(ExtFSMedia*)media;
 @end
 
 @interface ExtFSMedia (ExtFSMediaControllerPrivate)
@@ -115,6 +116,17 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 - (int)fsInfo;
 @end
 
+enum {
+    kPendingMounts = 0,
+    kPendingUMounts = 1,
+    kPendingCount
+};
+
+// This may end up conflicting with Disk Arb at some point,
+// but as of Panther the largest DA Error is (1<<3).
+#define EXT_DISK_ARB_MOUNT_FAILURE (1<<31)
+#define EXT_MOUNT_ERROR_DELAY 4.0
+
 @implementation ExtFSMediaController : NSObject
 
 /* Private */
@@ -125,6 +137,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    struct statfs *stats;
    NSString *device;
    ExtFSMedia *e2media;
+   NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
    
    count = getmntinfo(&stats, MNT_WAIT);
    if (!count)
@@ -136,6 +149,8 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
       if (!e2media || [e2media isMounted])
          continue;
       
+      [pMounts removeObject:e2media];
+      
       [e2media setIsMounted:&stats[i]];
    }
 }
@@ -146,6 +161,8 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    
    e2media = [_media objectForKey:device];
    if (e2media && [e2media isMounted]) {
+      NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+      [pUMounts removeObject:e2media];
       [e2media setIsMounted:nil];
       return (YES);
    }
@@ -200,6 +217,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    NSLog(@"ExtFS: Media %@ disappeared. Retain count = %u.\n",
       device, [e2media retainCount]);
 #endif
+   [self removePending:e2media];
    [e2media release];
 }
 
@@ -239,6 +257,29 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    [self updateMountStatus];
    
    return (0);
+}
+
+- (void)mountError:(NSTimer*)timer
+{
+    NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
+    ExtFSMedia *media = [timer userInfo];
+    
+    if ([pMounts containsObject:media]) {
+        // Send an error
+        DiskArbCallback_CallFailedNotification(BSDNAMESTR(media),
+            /* XXX - 0x1FFFFFFF will cause an 'Unknown error' since
+                the value overflows the error table. */
+            EXT_DISK_ARB_MOUNT_FAILURE, 0x1FFFFFFF);
+    }
+}
+
+- (void)removePending:(ExtFSMedia*)media
+{
+    NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
+    NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+   
+    [pMounts removeObject:media];
+    [pUMounts removeObject:media];
 }
 
 /* Public */
@@ -303,13 +344,45 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 
 - (int)mount:(ExtFSMedia*)media on:(NSString*)dir
 {
-   return (DiskArbRequestMount_auto(BSDNAMESTR(media)));
+   NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
+   NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+   kern_return_t ke;
+   
+   if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
+    #ifdef DIAGNOSTIC
+        NSLog(@"ExtFS: Can't mount '%@'. Operation is already in progress.",
+            [media bsdName]);
+    #endif
+        return (EINPROGRESS);
+   }
+   
+   ke = DiskArbRequestMount_auto(BSDNAMESTR(media));
+   if (0 == ke) {
+        /* Note: This is a hack to detect a failed mount, since it
+           seems DA does notify clients of failed mounts. (Why???)
+         */
+        [pMounts addObject:media];
+        (void)[NSTimer scheduledTimerWithTimeInterval:EXT_MOUNT_ERROR_DELAY
+            target:self selector:@selector(mountError:) userInfo:media
+            repeats:NO];
+   }
+   return (ke);
 }
 
 - (int)unmount:(ExtFSMedia*)media force:(BOOL)force eject:(BOOL)eject
 {
    int flags = kDiskArbUnmountOneFlag;
+   NSMutableArray *pMounts = [_pending objectAtIndex:kPendingMounts];
+   NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+   kern_return_t ke;
    
+   if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
+    #ifdef DIAGNOSTIC
+        NSLog(@"ExtFS: Can't unmount '%@'. Operation is already in progress.",
+            [media bsdName]);
+    #endif
+        return (EINPROGRESS);
+   }
    if (force)
       flags |= kDiskArbForceUnmountFlag;
    
@@ -318,7 +391,11 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
       flags &= ~kDiskArbUnmountOneFlag;
    }
    
-   return (DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags));
+   ke = DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags);
+   if (0 == ke) {
+        [pUMounts addObject:media];
+   }
+   return (ke);
 }
 
 /* Super */
@@ -327,14 +404,25 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 {
    kern_return_t kr = 0;
    CFRunLoopSourceRef rlSource;
+   id obj;
+   int i;
    
-   if (_instance)
+   if (_instance) {
+      [super dealloc];
       return (_instance);
+   }
    
    if (!(self = [super init]))
       return (nil);
       
    _instance = self;
+   
+   _pending = [[NSMutableArray alloc] initWithCapacity:kPendingCount];
+   for (i=0; i < kPendingCount; ++i) {
+        obj = [[NSMutableArray alloc] init];
+        [_pending addObject:obj];
+        [obj release];
+   }
    
    notify_port_ref = IONotificationPortCreate(kIOMasterPortDefault);
 	if (0 == notify_port_ref) {
@@ -393,6 +481,7 @@ exit:
    DiskArbRemoveCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY,
       (void *)&DiskArbCallback_UnmountPostNotification);
    [_media release];
+   [_pending release];
    [super dealloc];
 }
 #endif
@@ -611,6 +700,7 @@ NSString *ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
 NSString *ExtMediaKeyOpFailureDevice = @"ExtMediaKeyOpFailureBSDName";
 NSString *ExtMediaKeyOpFailureError = @"ExtMediaKeyOpFailureError";
 NSString *ExtMediaKeyOpFailureErrorString = @"ExtMediaKeyOpFailureErrorString";
+NSString *ExtMediaKeyOpFailureMsgString = @"ExtMediaKeyOpFailureMsgString";
 
 // Error codes are defined in DiskArbitration/DADissenter.h
 static NSString *_DiskArbErrorTable[] = {
@@ -634,35 +724,48 @@ static NSString *_DiskArbErrorTable[] = {
 static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    int type, int status)
 {
-   NSString *bsd = NSSTR(device), *err, *op;
+   NSString *bsd = NSSTR(device), *err, *op, *msg;
    ExtFSMedia *emedia;
+   ExtFSMediaController *ctl = [ExtFSMediaController mediaController];
    
-   if ((emedia = [[ExtFSMediaController mediaController] mediaWithBSDName:bsd])) {
+   if ((emedia = [ctl mediaWithBSDName:bsd])) {
       short idx = (status & 0xFF);
       NSDictionary *dict;
+      
+      [ctl removePending:emedia];
       
       if (idx > DA_ERR_TABLE_LAST)
          idx = 1;
       err = _DiskArbErrorTable[idx];
       
-      op = @"Unknown";
-      /* XXX - No mount errors???
-      if ( == type)
-         op = @"Mount"; */
-      if (kDiskArbUnmountAndEjectRequestFailed == type || kDiskArbUnmountRequestFailed == type)
-         op = @"Unmount";
-      else
-      if (kDiskArbEjectRequestFailed == type)
-         op = @"Eject";
-      else
-      if (kDiskArbDiskChangeRequestFailed == type)
-         op = @"Change Request";
+      msg = nil;
+      switch (type) {
+        /* XXX - No mount errors from Disk Arb??? */
+        case EXT_DISK_ARB_MOUNT_FAILURE:
+            op = @"Mount";
+            msg = @"The filesystem may need repair. Please use Disk Utility to check the filesystem.";
+            break;
+        case kDiskArbUnmountAndEjectRequestFailed:
+        case kDiskArbUnmountRequestFailed:
+            op = @"Unmount";;
+            break;
+        case kDiskArbEjectRequestFailed:
+            op = @"Eject";
+            break;
+        case kDiskArbDiskChangeRequestFailed:
+            op = @"Change Request";
+            break;
+        default:
+            op = @"Unknown";
+            break;
+      }
       
       dict = [NSDictionary dictionaryWithObjectsAndKeys:
          op, ExtMediaKeyOpFailureType,
          bsd, ExtMediaKeyOpFailureDevice,
          [NSNumber numberWithInt:status], ExtMediaKeyOpFailureError,
          err, ExtMediaKeyOpFailureErrorString,
+         msg, (msg ? ExtMediaKeyOpFailureMsgString : nil),
          nil];
       [[NSNotificationCenter defaultCenter]
          postNotificationName:ExtFSMediaNotificationOpFailure
