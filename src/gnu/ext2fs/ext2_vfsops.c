@@ -979,6 +979,11 @@ ext2_mountfs(devvp, mp, td)
    if (!(int16_t)le16_to_cpu(fs->s_es->s_max_mnt_count))
 		fs->s_es->s_max_mnt_count = (int16_t)cpu_to_le16(EXT2_DFL_MAX_MNT_COUNT);
 	fs->s_es->s_mnt_count = cpu_to_le16(le16_to_cpu(fs->s_es->s_mnt_count) + 1);
+   /* last mount point */
+   bzero(&fs->s_es->s_last_mounted[0], sizeof(fs->s_es->s_last_mounted));
+   bcopy((caddr_t)mp->mnt_stat.f_mntonname,
+			(caddr_t)&fs->s_es->s_last_mounted[0],
+         min(sizeof(fs->s_es->s_last_mounted), MNAMELEN));
 	if (ronly == 0) 
 		ext2_sbupdate(ump, MNT_WAIT);
 	return (0);
