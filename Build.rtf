@@ -26,15 +26,14 @@ netkey/key_var.h\
 \
 Once you have checked these headers out, you will need to copy them to "/System/Library/Frameworks/Kernel.framework/Versions/Current/Headers".\
 \
-You will also need to create a symbolic link to your ext2fs source directory in /usr/local/src if you want to build the Install package. The sym. link must be named "ext2fs".\
+
+\f0\b Setup
+\f1\b0 \
 \
-Finally, the following scripts need to have execute permissions.\
+Certain links must be created and permissions changed on some scripts. The "setup.sh" script performs the necessary actions.\
 \
-MakeInstall.sh\
-Resources/postinstall\
-Resources/postupgrade\
-Resources/preupgrade\
-e2fsprogsbuild.sh\
+chmod u+x ./setup.sh\
+./setup.sh\
 \
 
 \f0\b e2fsprogs Notes
@@ -59,11 +58,6 @@ cd ../..\
 \f1\b0 \
 \
 e2fsprogs must be installed. Easiest way to do this correctly, is to install the Ext2FS package.\
-\
-To build e2undel, you will need the following symlinks:\
-\
-cd src\
-ln -s gnu/ext2fs linux\
 \
 Now, you can build the e2undel target in the project.\
 \
