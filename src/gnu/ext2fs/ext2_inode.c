@@ -133,16 +133,20 @@ ext2_truncate(vp, length, flags, cred, td)
 	int aflags, error, i, allerror;
 	int devBlockSize, vflags;
 	off_t osize;
-/*
-printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
-*/	/* 
+
+#if 0
+	ext2_trace(" inode %d to %qu\n", VTOI(ovp)->i_number, length);
+#endif	
+	
+	oip = VTOI(ovp);
+	fs = oip->i_e2fs;
+	
+	/* 
 	 * negative file sizes will totally break the code below and
 	 * are not meaningful anyways.
 	 */
-	if (length < 0)
+	if (length < 0 || length > fs->s_maxfilesize)
 	    return EFBIG;
-
-	oip = VTOI(ovp);
    
 	/* Note, it is possible to get here with an inode that is not completely
 	   initialized. This can happen when ext2_vget() fails and calls vput() on
@@ -164,18 +168,15 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 		oip->i_flag |= IN_CHANGE | IN_UPDATE;
 		return (ext2_update(ovp, 0));
 	}
-	fs = oip->i_e2fs;
 	devBlockSize = fs->s_d_blocksize;
 	osize = oip->i_size;
 	ext2_discard_prealloc(oip);
 	/*
 	 * Lengthen the size of the file. We must ensure that the
 	 * last byte of the file is allocated. Since the smallest
-	 * value of oszie is 0, length will be at least 1.
+	 * value of osize is 0, length will be at least 1.
 	 */
 	if (osize < length) {
-		if (length > fs->s_maxfilesize)
-			return (EFBIG);
 		offset = blkoff(fs, length - 1);
 		lbn = lblkno(fs, length - 1);
 		aflags = B_CLRBUF;
@@ -249,7 +250,7 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 	lastiblock[SINGLE] = lastblock - NDADDR;
 	lastiblock[DOUBLE] = lastiblock[SINGLE] - NINDIR(fs);
 	lastiblock[TRIPLE] = lastiblock[DOUBLE] - NINDIR(fs) * NINDIR(fs);
-   nblocks = btodb(fs->s_blocksize, devBlockSize);
+    nblocks = btodb(fs->s_blocksize, devBlockSize);
    
 	/*
 	 * Update file and block pointers on disk before we start freeing
@@ -277,8 +278,8 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 	bcopy((caddr_t)&oip->i_db[0], (caddr_t)newblks, sizeof newblks);
 	bcopy((caddr_t)oldblks, (caddr_t)&oip->i_db[0], sizeof oldblks);
 	oip->i_size = osize;
-   vflags = ((length > 0) ? V_SAVE : 0) | V_SAVEMETA;
-   allerror = vinvalbuf(ovp, vflags, cred, td, 0, 0);
+    vflags = ((length > 0) ? V_SAVE : 0) | V_SAVEMETA;
+    allerror = vinvalbuf(ovp, vflags, cred, td, 0, 0);
 
 	/*
 	 * Indirect blocks first.
