@@ -37,9 +37,6 @@
 static const char whatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
-static const char whatid[] __attribute__ ((unused)) =
-"@(#) $Id$";
-
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
