@@ -42,6 +42,7 @@
    IBOutlet id _indexedDirsBox;
    IBOutlet id _optionNoteText;
    
+   IBOutlet id _copyrightText;
    IBOutlet id _infoText;
    
    IBOutlet id _startupProgress;
