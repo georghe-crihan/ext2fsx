@@ -67,7 +67,7 @@ static const char whatid[] __attribute__ ((unused)) =
 /* Ext2 supported attributes */
 #define EXT2_ATTR_CMN_NATIVE ( \
    ATTR_CMN_DEVID | ATTR_CMN_FSID | ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | \
-   ATTR_CMN_OBJID | ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | \
+   ATTR_CMN_OBJID | ATTR_CMN_OBJPERMANENTID | ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | \
    ATTR_CMN_ACCTIME | ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK | \
    ATTR_CMN_USERACCESS )
 #define EXT2_ATTR_CMN_SUPPORTED EXT2_ATTR_CMN_NATIVE
@@ -428,8 +428,8 @@ ext2_packvolattr (struct attrlist *alist,
 			++((fsobj_id_t *)attrbufptr);
 		};
       if (a & ATTR_CMN_OBJPERMANENTID) {
-         ((fsobj_id_t *)attrbufptr)->fid_objno = 0;
-         ((fsobj_id_t *)attrbufptr)->fid_generation = 0;
+         ((fsobj_id_t *)attrbufptr)->fid_objno = EXT2_ROOT_INO;
+         ((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
          ++((fsobj_id_t *)attrbufptr);
       };
 		if (a & ATTR_CMN_PAROBJID) {
@@ -611,7 +611,7 @@ ext2_packcommonattr (struct attrlist *alist,
 	void *varbufptr;
 	attrgroup_t a;
 	u_long attrlength;
-   struct timespec ts;
+    struct timespec ts;
 	
 	attrbufptr = *attrbufptrptr;
 	varbufptr = *varbufptrptr;
@@ -651,8 +651,8 @@ ext2_packcommonattr (struct attrlist *alist,
 			if (ITOV(ip)->v_flag & VROOT)
 				((fsobj_id_t *)attrbufptr)->fid_objno = EXT2_ROOT_INO;	/* force root */
 			else
-            	((fsobj_id_t *)attrbufptr)->fid_objno = 0;
-            ((fsobj_id_t *)attrbufptr)->fid_generation = 0;
+            	((fsobj_id_t *)attrbufptr)->fid_objno = ip->i_number;
+            ((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
             ++((fsobj_id_t *)attrbufptr);
         };
 		if (a & ATTR_CMN_PAROBJID) {
@@ -672,11 +672,11 @@ ext2_packcommonattr (struct attrlist *alist,
          ts.tv_sec = ip->i_ctime; ts.tv_nsec = ip->i_ctimensec;
       }
 		if (a & ATTR_CMN_CRTIME) *((struct timespec *)attrbufptr)++ = ts;
-      ts.tv_sec = ip->i_mtime; ts.tv_nsec = ip->i_mtimensec;
+            ts.tv_sec = ip->i_mtime; ts.tv_nsec = ip->i_mtimensec;
 		if (a & ATTR_CMN_MODTIME) *((struct timespec *)attrbufptr)++ = ts;
-      ts.tv_sec = ip->i_ctime; ts.tv_nsec = ip->i_ctimensec;
+            ts.tv_sec = ip->i_ctime; ts.tv_nsec = ip->i_ctimensec;
 		if (a & ATTR_CMN_CHGTIME) *((struct timespec *)attrbufptr)++ = ts;
-      ts.tv_sec = ip->i_atime; ts.tv_nsec = ip->i_atimensec;
+            ts.tv_sec = ip->i_atime; ts.tv_nsec = ip->i_atimensec;
 		if (a & ATTR_CMN_ACCTIME) *((struct timespec *)attrbufptr)++ = ts;
 		if (a & ATTR_CMN_BKUPTIME) {
 			((struct timespec *)attrbufptr)->tv_sec = 0;
@@ -767,6 +767,7 @@ ext2_packfileattr(struct attrlist *alist,
     void *attrbufptr = *attrbufptrptr;
     void *varbufptr = *varbufptrptr;
     attrgroup_t a = alist->fileattr;
+    struct ext2_sb_info *fs = ip->i_e2fs;
 	
 	if ((ITOV(ip)->v_type == VREG) && (a != 0)) {
 		if (a & ATTR_FILE_LINKCOUNT)
@@ -774,9 +775,9 @@ ext2_packfileattr(struct attrlist *alist,
 		if (a & ATTR_FILE_TOTALSIZE)
 			*((off_t *)attrbufptr)++ = (off_t)ip->i_size;
 		if (a & ATTR_FILE_ALLOCSIZE)
-			*((off_t *)attrbufptr)++ = (off_t)ip->i_size;
+			*((off_t *)attrbufptr)++ = (off_t)EXT2_BLOCK_SIZE(fs) * (off_t)ip->i_blocks;
 		if (a & ATTR_FILE_IOBLOCKSIZE)
-			*((u_long *)attrbufptr)++ = ip->i_e2fs->s_blocksize;
+			*((u_long *)attrbufptr)++ = EXT2_BLOCK_SIZE(fs);
 		if (a & ATTR_FILE_CLUMPSIZE)
 			*((u_long *)attrbufptr)++ = ip->i_e2fs->s_frag_size;
 		if (a & ATTR_FILE_DEVTYPE)
@@ -784,7 +785,7 @@ ext2_packfileattr(struct attrlist *alist,
 		if (a & ATTR_FILE_DATALENGTH)
 			*((off_t *)attrbufptr)++ = (off_t)ip->i_size;
 		if (a & ATTR_FILE_DATAALLOCSIZE)
-			*((off_t *)attrbufptr)++ = (off_t)ip->i_size;
+			*((off_t *)attrbufptr)++ = (off_t)EXT2_BLOCK_SIZE(fs) * (off_t)ip->i_blocks;
 		if (a & ATTR_FILE_RSRCLENGTH)
 			*((off_t *)attrbufptr)++ = (off_t)0;
 		if (a & ATTR_FILE_RSRCALLOCSIZE)
