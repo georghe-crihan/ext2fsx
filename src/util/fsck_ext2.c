@@ -51,6 +51,7 @@ static char *progname;
 
 #define EXT_SPAWN_SUPRESS_FAILURES
 #include <util/spawn.c>
+#define EXT_SUPER_ISCLEAN
 #include <util/super.c>
 
 #define E2FSCK_CMD "/usr/local/sbin/e2fsck"
