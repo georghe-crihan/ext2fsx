@@ -1,0 +1,7 @@
+/* Localized versions of Info.plist keys */
+
+CFBundleName = "Gestionnaire de L'ExtFS";
+CFBundleShortVersionString = "Gestionnaire de L'ExtFS 1.0.3";
+CFBundleGetInfoString = "Gestionnaire de L'ExtFS 1.0.3, © Copyright 2003-2004, Brian Bergstrand.";
+NSHumanReadableCopyright = "© Copyright 2003-2004, Brian Bergstrand.";
+NSPrefPaneIconLabel = "Gestionnaire\nde L'ExtFS";
