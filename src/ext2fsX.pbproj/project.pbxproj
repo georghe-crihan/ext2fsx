@@ -79,6 +79,7 @@
 			children = (
 				247142CAFF3F8F9811CA285C,
 				F5E7E349035BD34B01A80165,
+				F53BA31103CBEF8D01A80164,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
 			);
@@ -181,6 +182,7 @@
 				F53B8661035FE78601A80165,
 				F53B86C003610B5901A80165,
 				F53B86C20361275401A80165,
+				F53BA31203CBEF8D01A80164,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -342,6 +344,17 @@
 		};
 		F53B86C20361275401A80165 = {
 			fileRef = F53B86C10361275401A80165;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F53BA31103CBEF8D01A80164 = {
+			isa = PBXFileReference;
+			path = ext2_apple.c;
+			refType = 4;
+		};
+		F53BA31203CBEF8D01A80164 = {
+			fileRef = F53BA31103CBEF8D01A80164;
 			isa = PBXBuildFile;
 			settings = {
 			};
