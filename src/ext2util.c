@@ -237,14 +237,14 @@ int main(int argc, char **argv)
     if ((opt == FSUC_MOUNT || opt == FSUC_UNMOUNT || opt == FSUC_LABEL) && argc < 3)
         usage(); /* mountpoint arg missing! */
 
-    sprintf(rawdevpath, "%s%s", RAWDEV_PREFIX, argv[1]);
+    snprintf(rawdevpath, MAXPATHLEN, "%s%s", RAWDEV_PREFIX, argv[1]);
     if (stat(rawdevpath, &sb) != 0) {
         fprintf(stderr, "%s: stat %s failed, %s\n", progname, rawdevpath,
                 strerror(errno));
         exit(FSUR_INVAL);
     }
 
-    sprintf(blockdevpath, "%s%s", BLOCKDEV_PREFIX, argv[1]);
+    snprintf(blockdevpath, MAXPATHLEN, "%s%s", BLOCKDEV_PREFIX, argv[1]);
     if (stat(blockdevpath, &sb) != 0) {
         fprintf(stderr, "%s: stat %s failed, %s\n", progname, blockdevpath,
                 strerror(errno));
@@ -386,7 +386,7 @@ oklabel(const char *src)
 {
     int c, i;
 
-    for (i = 0, c = 0; i <= 11; i++) {
+    for (i = 0, c = 0; i <= LABEL_LENGTH; i++) {
         c = (u_char)*src++;
         if (c < ' ' + !i || strchr("\"*+,./:;<=>?[\\]|", c))
             break;
@@ -403,7 +403,7 @@ mklabel(u_int8_t *dest, const char *src)
 {
     int c, i;
 
-    for (i = 0; i < 11; i++) {
+    for (i = 0; i < LABEL_LENGTH; i++) {
 	c = *src ? toupper(*src++) : ' ';
 	*dest++ = !i && c == '\xe5' ? 5 : c;
     }
@@ -440,12 +440,12 @@ safe_execv(char *args[])
 	int		pid;
 	union wait	status;
 
-	pid = fork();
+	pid = vfork();
 	if (pid == 0) {
 		(void)execv(args[0], args);
 		fprintf(stderr, "%s: execv %s failed, %s\n", progname, args[0],
 			strerror(errno));
-		exit(FSUR_IO_FAIL);
+		_exit(FSUR_IO_FAIL);
 	}
 	if (pid == -1) {
 		fprintf(stderr, "%s: fork failed, %s\n", progname,
@@ -560,11 +560,11 @@ static void fs_set_label_file(char *labelPtr)
     off_t			offset;
     CFStringRef 	cfstr;
 
-    sprintf(filename, "%s/%s%s/%s.label", FS_DIR_LOCATION,
+    snprintf(filename, MAXPATHLEN, "%s/%s%s/%s.label", FS_DIR_LOCATION,
             FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
     unlink(filename);
 
-    sprintf(filename, "%s/%s%s/%s.name", FS_DIR_LOCATION,
+    snprintf(filename, MAXPATHLEN, "%s/%s%s/%s.name", FS_DIR_LOCATION,
             FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
     unlink(filename);
 
@@ -616,7 +616,7 @@ static void fs_set_label_file(char *labelPtr)
 
     /* backwards compatibility */
     /* write the .label file */
-    sprintf(filename, "%s/%s%s/%s.label", FS_DIR_LOCATION,
+    snprintf(filename, MAXPATHLEN, "%s/%s%s/%s.label", FS_DIR_LOCATION,
             FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
     fd = open(filename, O_WRONLY|O_CREAT|O_EXCL, 0755);
     if (fd >= 0) {
@@ -624,7 +624,7 @@ static void fs_set_label_file(char *labelPtr)
 	close(fd);
     }
     /* write the .name file */
-    sprintf(filename, "%s/%s%s/%s.name", FS_DIR_LOCATION,
+    snprintf(filename, MAXPATHLEN, "%s/%s%s/%s.name", FS_DIR_LOCATION,
             FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
     fd = open(filename, O_WRONLY|O_CREAT|O_EXCL, 0755);
     if (fd >= 0) {
