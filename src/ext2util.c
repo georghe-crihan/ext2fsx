@@ -385,7 +385,7 @@ oklabel(const char *src)
 {
     int c, i;
 
-    for (i = 0, c = 0; i <= EXT2_VOL_LABEL_LENGTH; i++) {
+    for (i = 0, c = 0; i < EXT2_VOL_LABEL_LENGTH; i++) {
         c = (u_char)*src++;
         if (c < ' ' + !i || strchr(EXT2_VOL_LABEL_INVAL_CHARS, c))
             break;
