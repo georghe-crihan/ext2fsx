@@ -30,19 +30,20 @@ If you want to use the Ext2 command line utilities from Terminal, you may wish t
 \
 
 \f0\b Known Limitations\
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f1\b0 \cf0 \
-Disk Copy disables the "Volume Name" field when Ext2 is selected.\
+\f1\b0 \
+Disk Copy disables the "Volume Name" field when Ext2 is selected. To change the name of a disk image volume, you must use the Terminal program 'e2label'. Example:\
+\
+/usr/local/sbin/e2label Desktop/MyExt2Image.dmg "My Image"\
+\
 Files/Folders containing non-ASCII characters may appear garbled.\
 NFS export is not supported.\
 Boot/Root is not supported.\
 EXT3 is not supported.\
 Quotas are not supported.\
 \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b \cf0 Reporting a Bug
+\f0\b Reporting a Bug
 \f1\b0 \
 \
 Bug reports should be entered into the bug tracking system at\
