@@ -104,9 +104,34 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/ext2_extern.h>
 #include <gnu/ext2fs/ext2_fs.h>
 
-#ifdef APPLE
 #include <kern/ext2_lockf.h>
-#endif
+
+#if defined(EXT_KNOTE) && !defined(VOP_KQFILT_ADD)
+
+/* From vnode_if.h */
+struct vop_kqfilt_add_args {
+	struct vnodeop_desc *a_desc;
+	struct vnode *a_vp;
+	struct knote *a_kn;
+	struct proc *a_p;
+};
+extern struct vnodeop_desc vop_kqfilt_add_desc;
+#define VOP_KQFILT_ADD(vp, kn, p) _VOP_KQFILT_ADD(vp, kn, p)
+static __inline int _VOP_KQFILT_ADD(struct vnode *vp, struct knote *kn, struct proc *p)
+{
+	struct vop_kqfilt_add_args a;
+	a.a_desc = VDESC(vop_kqfilt_add);
+	a.a_vp = vp;
+	a.a_kn = kn;
+	a.a_p = p;
+	return (VCALL(vp, VOFFSET(vop_kqfilt_add), &a));
+}
+
+#endif /* EXT_KNOTE && VOP_KQFILT_ADD */
+
+#define vop_kqfilter_args vop_kqfilt_add_args
+#define vop_kqfilter_desc vop_kqfilt_add_desc
+#define vop_kqfilter vop_kqfilt_add
 
 static int ext2_makeinode(int mode, struct vnode *, struct vnode **, struct componentname *);
 
@@ -119,7 +144,7 @@ static int ext2_close(struct vop_close_args *);
 static int ext2_create(struct vop_create_args *);
 static int ext2_fsync(struct vop_fsync_args *);
 static int ext2_getattr(struct vop_getattr_args *);
-#if 0
+#ifdef EXT_KNOTE
 static int ext2_kqfilter(struct vop_kqfilter_args *ap);
 #endif
 static int ext2_link(struct vop_link_args *);
@@ -138,7 +163,7 @@ static int ext2_strategy(struct vop_strategy_args *);
 static int ext2_symlink(struct vop_symlink_args *);
 static int ext2_write(struct vop_write_args *);
 static int ext2fifo_close(struct vop_close_args *);
-#if 0
+#if EXT_KNOTE
 static int ext2fifo_kqfilter(struct vop_kqfilter_args *);
 #endif
 static int ext2fifo_read(struct vop_read_args *);
@@ -146,14 +171,13 @@ static int ext2fifo_write(struct vop_write_args *);
 static int ext2spec_close(struct vop_close_args *);
 static int ext2spec_read(struct vop_read_args *);
 static int ext2spec_write(struct vop_write_args *);
-#if 0
+#ifdef EXT_KNOTE
 static int filt_ext2read(struct knote *kn, long hint);
 static int filt_ext2write(struct knote *kn, long hint);
 static int filt_ext2vnode(struct knote *kn, long hint);
 static void filt_ext2detach(struct knote *kn);
-#endif /* APPLE */
+#endif
 
-#ifdef APPLE
 static int ext2fs_truncate (struct vop_truncate_args *);
 
 #define vop_defaultop vn_default_error
@@ -163,7 +187,6 @@ static int ext2fs_truncate (struct vop_truncate_args *);
 #define vfs_cache_lookup cache_lookup
 
 extern int (**fifo_vnodeop_p)(void *); /* From kernel */
-#endif /* APPLE */
 
 /* Global vfs data structures for ext2. */
 vop_t **ext2_vnodeop_p;
@@ -183,8 +206,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_mknod_desc,		(vop_t *) ext2_mknod },
 	{ &vop_open_desc,		(vop_t *) ext2_open },
 	{ &vop_pathconf_desc,		(vop_t *) ext2_pathconf },
-   #if 0
-	{ &vop_poll_desc,		(vop_t *) vop_stdpoll },
+   #if EXT_KNOTE
 	{ &vop_kqfilter_desc,		(vop_t *) ext2_kqfilter },
    #endif
 	{ &vop_print_desc,		(vop_t *) ext2_print },
@@ -284,7 +306,7 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 	{ &vop_fsync_desc,		(vop_t *) ext2_fsync },
 	{ &vop_getattr_desc,		(vop_t *) ext2_getattr },
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
-   #if 0
+   #if EXT_KNOTE
 	{ &vop_kqfilter_desc,		(vop_t *) ext2fifo_kqfilter },
    #endif
 	{ &vop_print_desc,		(vop_t *) ext2_print },
@@ -421,6 +443,7 @@ ext2_create(ap)
 	    ap->a_dvp, ap->a_vpp, ap->a_cnp);
 	if (error)
 		ext2_trace_return(error);
+   VN_KNOTE(ap->a_dvp, NOTE_WRITE);
 	return (0);
 }
 
@@ -720,9 +743,7 @@ ext2_setattr(ap)
 			ext2_trace_return(EROFS);
 		error = ext2_chmod(vp, (int)vap->va_mode, cred, td);
 	}
-   #if 0
 	VN_KNOTE(vp, NOTE_ATTRIB);
-   #endif
 	ext2_trace_return(error);
 }
 
@@ -854,6 +875,7 @@ ext2_mknod(ap)
 	    ap->a_dvp, vpp, ap->a_cnp);
 	if (error)
 		ext2_trace_return(error);
+   VN_KNOTE(ap->a_dvp, NOTE_WRITE);
 	ip = VTOI(*vpp);
 	ip->i_flag |= IN_ACCESS | IN_CHANGE | IN_UPDATE;
 	if (vap->va_rdev != VNOVAL) {
@@ -920,6 +942,8 @@ ext2_remove(ap)
 	if (error == 0) {
 		ip->i_nlink--;
 		ip->i_flag |= IN_CHANGE;
+      VN_KNOTE(vp, NOTE_DELETE);
+      VN_KNOTE(dvp, NOTE_WRITE);
 	}
    
    if (dvp != vp)
@@ -998,6 +1022,8 @@ ext2_link(ap)
 		ip->i_flag |= IN_CHANGE;
 	}
    FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
+   VN_KNOTE(vp, NOTE_LINK);
+   VN_KNOTE(tdvp, NOTE_WRITE);
    
 out1:
    if (tdvp != vp)
@@ -1109,6 +1135,7 @@ abortit:
 		oldparent = dp->i_number;
 		doingdirectory++;
 	}
+   VN_KNOTE(fdvp, NOTE_WRITE); /* XXX right place? */
 	vrele(fdvp);
 
 	/*
@@ -1202,6 +1229,7 @@ abortit:
 			}
 			goto bad;
 		}
+      VN_KNOTE(tdvp, NOTE_WRITE);
 		vput(tdvp);
 	} else {
 		if (xp->i_dev != dp->i_dev || xp->i_dev != ip->i_dev)
@@ -1256,6 +1284,7 @@ abortit:
 			dp->i_nlink--;
 			dp->i_flag |= IN_CHANGE;
 		}
+      VN_KNOTE(tdvp, NOTE_WRITE);
 		vput(tdvp);
 		/*
 		 * Adjust the link count of the target to
@@ -1275,6 +1304,7 @@ abortit:
 			    tcnp->cn_cred, tcnp->cn_thread);
 		}
 		xp->i_flag |= IN_CHANGE;
+      VN_KNOTE(tvp, NOTE_DELETE);
 		vput(tvp);
 		xp = NULL;
 	}
@@ -1355,6 +1385,7 @@ abortit:
 		}
 		xp->i_flag &= ~IN_RENAME;
 	}
+   VN_KNOTE(fvp, NOTE_RENAME);
 	if (dp)
 		vput(fdvp);
 	if (xp)
@@ -1511,8 +1542,10 @@ bad:
 		ip->i_nlink = 0;
 		ip->i_flag |= IN_CHANGE;
 		vput(tvp);
-	} else
+	} else {
+      VN_KNOTE(dvp, NOTE_WRITE | NOTE_LINK);
 		*ap->a_vpp = tvp;
+   }
 out:
    FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
 	vput(dvp);
@@ -1579,6 +1612,7 @@ ext2_rmdir(ap)
 	error = ext2_dirremove(dvp, cnp);
 	if (error)
 		goto out;
+   VN_KNOTE(dvp, NOTE_WRITE | NOTE_LINK);
 	dp->i_nlink--;
 	dp->i_flag |= IN_CHANGE;
 	cache_purge(dvp);
@@ -1602,6 +1636,7 @@ ext2_rmdir(ap)
 out:
    if (dvp)
 		vput(dvp);
+   VN_KNOTE(vp, NOTE_DELETE);
 	vput(vp);
 	ext2_trace_return(error);
 }
@@ -1629,6 +1664,7 @@ ext2_symlink(ap)
 	    vpp, ap->a_cnp);
 	if (error)
 		ext2_trace_return(error);
+   VN_KNOTE(ap->a_dvp, NOTE_WRITE);
 	vp = *vpp;
 	len = strlen(ap->a_target);
 	if (len < vp->v_mount->mnt_maxsymlinklen) {
@@ -1926,7 +1962,7 @@ ext2fifo_close(ap)
 	ext2_trace_return(VOCALL(fifo_vnodeop_p, VOFFSET(vop_close), ap));
 }
 
-#if 0
+#if EXT_KNOTE
 
 /*
  * Kqfilter wrapper for fifos.
@@ -2251,7 +2287,8 @@ bad:
 	ext2_trace_return(error);
 }
 
-#if 0
+#ifdef EXT_KNOTE
+
 static struct filterops ext2read_filtops = 
 	{ 1, NULL, filt_ext2detach, filt_ext2read };
 static struct filterops ext2write_filtops = 
@@ -2285,11 +2322,7 @@ ext2_kqfilter(ap)
 
 	kn->kn_hook = (caddr_t)vp;
 
-	if (vp->v_pollinfo == NULL)
-		v_addpollinfo(vp);
-	mtx_lock(&vp->v_pollinfo->vpi_lock);
-	SLIST_INSERT_HEAD(&vp->v_pollinfo->vpi_selinfo.si_note, kn, kn_selnext);
-	mtx_unlock(&vp->v_pollinfo->vpi_lock);
+	KNOTE_ATTACH(&VTOI(vp)->i_knotes, kn);
 
 	return (0);
 }
@@ -2297,13 +2330,20 @@ ext2_kqfilter(ap)
 static void
 filt_ext2detach(struct knote *kn)
 {
-	struct vnode *vp = (struct vnode *)kn->kn_hook;
-
-	KASSERT(vp->v_pollinfo != NULL, ("Mising v_pollinfo"));
-	mtx_lock(&vp->v_pollinfo->vpi_lock);
-	SLIST_REMOVE(&vp->v_pollinfo->vpi_selinfo.si_note,
-	    kn, knote, kn_selnext);
-	mtx_unlock(&vp->v_pollinfo->vpi_lock);
+   struct vnode *vp = (struct vnode *)kn->kn_hook;
+   struct proc *p = current_proc();
+   int err;
+   
+   if (1) {	/* ! KNDETACH_VNLOCKED */
+      err = vn_lock(vp, LK_EXCLUSIVE | LK_RETRY, p);
+      if (err) return;
+   };
+   
+   err = KNOTE_DETACH(&VTOI(vp)->i_knotes, kn);
+   
+   if (1) {	/* ! KNDETACH_VNLOCKED */
+      VOP_UNLOCK(vp, 0, p);
+   };
 }
 
 /*ARGSUSED*/
@@ -2354,7 +2394,8 @@ filt_ext2vnode(struct knote *kn, long hint)
 	}
 	return (kn->kn_fflags != 0);
 }
-#endif
+
+#endif /* EXT_KNOTE */
 
 int
 ext2fs_truncate(ap)

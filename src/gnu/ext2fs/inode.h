@@ -42,13 +42,12 @@
 #ifndef _SYS_GNU_EXT2FS_INODE_H_
 #define	_SYS_GNU_EXT2FS_INODE_H_
 
-#ifndef APPLE
-#include <sys/lock.h>
-#define ext2lockf lockf
-#else
-#include <kern/ext2_lockf.h>
-#endif
 #include <sys/queue.h>
+#ifdef EXT_KNOTE
+#include <sys/event.h>
+#endif
+
+#include <kern/ext2_lockf.h>
 
 #define	ROOTINO	((ino_t)2)
 
@@ -74,18 +73,22 @@ typedef int (*inode_prv_relse_t)(struct vnode*, struct inode*);
  * active, and is put back when the file is no longer being used.
  */
 struct inode {
-   #ifdef APPLE
    struct lock__bsd__ i_lock;
-   #endif
 	LIST_ENTRY(inode) i_hash;/* Hash chain. */
 	struct	vnode  *i_vnode;/* Vnode associated with this inode. */
 	struct	vnode  *i_devvp;/* Vnode for block I/O. */
 	u_int32_t i_flag;	/* flags, see below */
 	dev_t	  i_dev;	/* Device associated with the inode. */
 	ino_t	  i_number;	/* The identity of the inode. */
-   
+
+   /*
+    * Various accounting
+    */
+#ifdef EXT_KNOTE
+   struct klist i_knotes; /* Attached knotes. */
+#endif   
    void		*private_data; /* Private storge, used by dir index (others?). */
-   inode_prv_relse_t private_data_relse; /* Function to relase private_data storage. */
+   inode_prv_relse_t private_data_relse; /* Function to release private_data storage. */
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
 	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
@@ -124,9 +127,8 @@ struct inode {
 	int32_t		i_gen;		/* Generation number. */
 	u_int32_t	i_uid;		/* File owner. */
 	u_int32_t	i_gid;		/* File group. */
-   #ifdef APPLE
+
    u_int32_t   i_e2flags; /* copy of on disk ext2 inode flags */
-   #endif
 };
 
 /*
@@ -184,6 +186,11 @@ struct indir {
 /* Convert between inode pointers and vnode pointers. */
 #define VTOI(vp)	((struct inode *)(vp)->v_data)
 #define ITOV(ip)	((ip)->i_vnode)
+#ifdef EXT_KNOTE
+#define VN_KNOTE(vp,hint) KNOTE(&VTOI(vp)->i_knotes, (hint))
+#else
+#define VN_KNOTE(vp,hint) {}
+#endif
 
 /* This overlays the fid structure (see mount.h). */
 struct ufid {

@@ -391,6 +391,8 @@ ext2_ioctl(ap)
             ip->i_flags &= ~(super ? IMMUTABLE : UF_IMMUTABLE);
          
          err = ext2_update(ap->a_vp, 0);
+         if (!err)
+            VN_KNOTE(ap->a_vp, NOTE_ATTRIB);
       break;
       
       case IOCBASECMD(EXT2_IOC_GETVERSION):

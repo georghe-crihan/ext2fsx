@@ -211,6 +211,7 @@ WRITE(ap)
 	int seqcount;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
    int rsd, blkalloc=0, save_error=0, save_size=0;
+   int file_extended = 0;
    
    ext2_trace_enter();
 
@@ -277,7 +278,6 @@ WRITE(ap)
       int fboff;
       int fblk;
       int loopcount;
-      int file_extended = 0;
    
       endofwrite = uio->uio_offset + uio->uio_resid;
    
@@ -443,6 +443,8 @@ WRITE(ap)
 	 */
 	if (resid > uio->uio_resid && ap->a_cred && ap->a_cred->cr_uid != 0)
 		ip->i_mode &= ~(ISUID | ISGID);
+   if (resid > uio->uio_resid)
+      VN_KNOTE(vp, NOTE_WRITE | (file_extended ? NOTE_EXTEND : 0));
 	if (error) {
 		if (ioflag & IO_UNIT) {
 			(void)ext2_truncate(vp, osize,
