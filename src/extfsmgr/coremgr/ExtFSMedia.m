@@ -63,7 +63,7 @@ union volinfo {
    struct attr_volinfo vinfo;
    struct statfs vstat;
 };
-#define VOL_INFO_CACHE_TIME 60
+#define VOL_INFO_CACHE_TIME 15
 
 static NSMutableDictionary *_mediaIconCache = nil;
 
@@ -158,10 +158,13 @@ do { \
    _attributeFlags &= ~kfsGetAttrlist;
 
 exit:
-   if (!err)
+   if (!err) {
       [[NSNotificationCenter defaultCenter]
          postNotificationName:ExtFSMediaNotificationUpdatedInfo object:self
          userInfo:nil];
+   } else {
+      _lastFSUpdate = 0;
+   }
    return (err);
 }
 
@@ -400,7 +403,7 @@ exit:
    return (0 != (_attributeFlags & kfsDiskArb));
 }
 
-#if notyet
+#ifdef notyet
 - (void)setUsesDiskArb:(BOOL)diskarb
 {
    if (diskarb)
@@ -491,7 +494,7 @@ exit:
    return (0 != (_volCaps & VOL_CAP_FMT_SPARSE_FILES));
 }
 
-#if notyet
+#ifdef notyet
 - (BOOL)hasSuper
 {
    return (nil != _sb);
@@ -567,7 +570,7 @@ exit:
 - (BOOL)isEqual:(id)obj
 {
    if ([obj respondsToSelector:@selector(bsdName)])
-      return ([[self bsdName] isEqualTo:[obj bsdName]]);
+      return ([[self bsdName] isEqualToString:[obj bsdName]]);
    
    return (NO);
 }
