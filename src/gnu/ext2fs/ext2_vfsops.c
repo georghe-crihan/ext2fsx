@@ -589,15 +589,17 @@ ext2_check_sb_compat(es, dev, ronly)
 	if (le32_to_cpu(es->s_rev_level) > EXT2_GOOD_OLD_REV) {
 		if (le32_to_cpu(es->s_feature_incompat) & ~EXT2_FEATURE_INCOMPAT_SUPP) {
 			printf(
-"WARNING: mount of %s denied due to unsupported optional features\n",
-			    devtoname(dev));
+"EXT2 WARNING: mount of %s denied due to unsupported optional features (%08X)\n",
+			    devtoname(dev),
+             (le32_to_cpu(es->s_feature_incompat) & ~EXT2_FEATURE_INCOMPAT_SUPP));
 			ext2_trace_return(1);
 		}
 		if (!ronly &&
 		    (le32_to_cpu(es->s_feature_ro_compat) & ~EXT2_FEATURE_RO_COMPAT_SUPP)) {
 			printf(
-"WARNING: R/W mount of %s denied due to unsupported optional features\n",
-			    devtoname(dev));
+"EXT2 WARNING: R/W mount of %s denied due to unsupported optional features (%08X)\n",
+			    devtoname(dev),
+             (le32_to_cpu(es->s_feature_ro_compat) & ~EXT2_FEATURE_RO_COMPAT_SUPP));
 			ext2_trace_return(1);
 		}
 	}
