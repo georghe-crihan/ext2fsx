@@ -61,6 +61,9 @@
 #include <ufs/ufs/dir.h>
 
 #ifdef APPLE
+/* From kernel */
+extern struct nchstats nchstats;
+
 #include "ext2_apple.h"
 #endif
 
@@ -335,6 +338,8 @@ ext2_lookup(ap)
 	struct thread *td = cnp->cn_thread;
 
 	int	DIRBLKSIZ = VTOI(ap->a_dvp)->i_e2fs->s_blocksize;
+   
+   ext2_trace_enter();
 
 	bp = NULL;
 	slotoffset = -1;
@@ -389,10 +394,7 @@ ext2_lookup(ap)
 		    &bp)))
 			return (error);
 		numdirpasses = 2;
-      #ifndef APPLE
 		nchstats.ncs_2passes++;
-      #endif
-      /* XXX Some FBSD global? */
 	}
 	prevoff = dp->i_offset;
 	endsearch = roundup(dp->i_size, DIRBLKSIZ);
@@ -449,7 +451,7 @@ searchloop:
 		if (slotstatus != FOUND) {
 			int size = le16_to_cpu(ep->rec_len);
 
-			if (le32_to_cpu(ep->inode) != 0)
+			if (ep->inode != 0)
 				size -= EXT2_DIR_REC_LEN(ep->name_len);
 			if (size > 0) {
 				if (size >= slotneeded) {
@@ -472,7 +474,7 @@ searchloop:
 		/*
 		 * Check for a name match.
 		 */
-		if (le32_to_cpu(ep->inode)) {
+		if (ep->inode) {
 			namlen = ep->name_len;
 			if (namlen == cnp->cn_namelen &&
 			    !bcmp(cnp->cn_nameptr, ep->name,
@@ -490,7 +492,7 @@ searchloop:
 		prevoff = dp->i_offset;
 		dp->i_offset += le16_to_cpu(ep->rec_len);
 		entryoffsetinblock += le16_to_cpu(ep->rec_len);
-		if (le32_to_cpu(ep->inode))
+		if (ep->inode)
 			enduseful = dp->i_offset;
 	}
 /* notfound: */
@@ -566,11 +568,8 @@ searchloop:
 	return (ENOENT);
 
 found:
-   #ifndef APPLE
 	if (numdirpasses == 2)
 		nchstats.ncs_pass2++;
-   #endif
-   /* XXX Some FBSD global? */
 	/*
 	 * Check that directory length properly reflects presence
 	 * of this entry.
