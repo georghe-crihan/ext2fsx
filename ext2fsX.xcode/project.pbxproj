@@ -1475,6 +1475,7 @@
 			buildRules = (
 			);
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
@@ -1707,6 +1708,7 @@
 			buildRules = (
 			);
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = build/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
