@@ -111,7 +111,8 @@ cd ../../../
 #perms
 
 echo -n "Setting permissions... "
-chmod u+x ./MakeInstall.sh ./Resources/post* ./Resources/pre* ./e2fsprogsbuild.sh
+chmod u+x ./MakeInstall.sh ./Resources/post* ./Resources/pre* ./e2fsprogsbuild.sh \
+./test/mkksym.sh
 echo "done"
 
 #links
