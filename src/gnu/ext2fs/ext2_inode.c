@@ -178,6 +178,8 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 	 * value of oszie is 0, length will be at least 1.
 	 */
 	if (osize < length) {
+		if (length > fs->s_maxfilesize)
+			return (EFBIG);
 		offset = blkoff(fs, length - 1);
 		lbn = lblkno(fs, length - 1);
 		aflags = B_CLRBUF;

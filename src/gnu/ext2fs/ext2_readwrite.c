@@ -116,10 +116,9 @@ READ(ap)
 	fs = ip->I_FS;
    if (uio->uio_offset < 0)
 		ext2_trace_return (EINVAL);
-#if 0
+
 	if ((u_quad_t)uio->uio_offset > fs->s_maxfilesize)
 		ext2_trace_return (EFBIG);
-#endif
 
 	orig_resid = uio->uio_resid;
    if (UBCISVALID(vp)) {
@@ -208,7 +207,6 @@ WRITE(ap)
 	struct thread *td;
 	daddr_t lbn;
 	off_t osize;
-	int seqcount;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
    int rsd, blkalloc=0, save_error=0, save_size=0;
    int file_extended = 0;
@@ -216,7 +214,6 @@ WRITE(ap)
    ext2_trace_enter();
 
 	ioflag = ap->a_ioflag;
-	seqcount = ap->a_ioflag >> 16;
 	uio = ap->a_uio;
 	vp = ap->a_vp;
 	ip = VTOI(vp);
@@ -244,11 +241,10 @@ WRITE(ap)
 	}
 
 	fs = ip->I_FS;
-#if 0
+
 	if (uio->uio_offset < 0 ||
 	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
-#endif
    if (uio->uio_resid == 0)
       return (0);
    
