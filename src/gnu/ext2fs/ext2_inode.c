@@ -585,6 +585,8 @@ ext2_reclaim(ap)
       ip->i_devvp = 0;
 		vrele(tvp);
 	}
+	if (ip->private_data_relse)
+		ip->private_data_relse(NULL, ip);
 	tdata = vp->v_data;
    vp->v_data = 0;
 	FREE(tdata, M_EXT2NODE);

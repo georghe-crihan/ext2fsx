@@ -32,6 +32,16 @@
 #define EXT2_VOL_LABEL_LENGTH 16
 #define EXT2_VOL_LABEL_INVAL_CHARS "\"*/:;<=>?[\\]|"
 
+#include <sys/mount.h>
+struct ext2_args {
+	char	*fspec;			/* block special device to mount */
+   unsigned long e2_mnt_flags; /* Ext2 specific mount flags */
+	struct	export_args export;	/* network export information */
+};
+
+#define EXT2_MNT_INDEX 0x00000001
+#define EXT2_MOPT_INDEX { "index", 0, EXT2_MNT_INDEX, 0 }
+
 #ifdef KERNEL
 
 #ifdef DIAGNOSTIC
@@ -50,6 +60,7 @@ extern uid_t console_user;
 extern int prtactive; /* 1 => print out reclaim of active vnodes */
 /**/
 
+#define M_EXT3DIRPRV M_MISCFSNODE
 #define M_EXT2NODE M_MISCFSNODE
 #define M_EXT2MNT M_MISCFSMNT
 #define VT_EXT2 VT_OTHER
@@ -146,6 +157,8 @@ do { \
    if (UBCISVALID((vp))) {ubc_setsize((vp), (sz));} \
 } while(0)
 
+#define vfs_timestamp nanotime
+
 __private_extern__ int vrefcnt(struct vnode *);
 __private_extern__ int vop_stdfsync(struct vop_fsync_args *);
 
@@ -225,6 +238,17 @@ static __inline void * memscan(void * addr, int c, size_t size)
  */
 #define	GENERIC_DIRSIZ(dp) \
     ((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((dp)->d_namlen+1 + 3) &~ 3))
+    
+/* Linux compat */
+
+#define printk printf
+#define memcmp bcmp
+
+#define ERR_PTR(err) (void*)(err)
+
+#define EXT3_I(inode) (inode)
+
+#define KERN_CRIT "CRITICAL"
 
 #endif /*KERNEL*/
 

@@ -43,7 +43,17 @@
 #ifndef _SYS_GNU_EXT2FS_EXT2_EXTERN_H_
 #define	_SYS_GNU_EXT2FS_EXT2_EXTERN_H_
 
+#include <sys/types.h>
+
+#ifndef __u32
+#define __u32 u_int32_t
+#endif
+
+struct dx_hash_info;
+struct dir_private_info;
 struct ext2_inode;
+struct ext2_sb_info;
+struct ext2_dir_entry_2;
 struct indir;
 struct inode;
 struct mount;
@@ -102,6 +112,26 @@ void	ext2_free_blocks(struct mount *mp, unsigned long block,
 	    unsigned long count);
 void	ext2_free_inode(struct inode * inode);
 void	mark_buffer_dirty(struct buf *bh);
+
+/* ext3_super.c */
+extern void __ext3_std_error (struct ext2_sb_info *, const char *, int);
+#define ext3_std_error(sb, errno) \
+do { \
+	if ((errno)) \
+		__ext3_std_error((sb), __FUNCTION__, (errno)); \
+} while (0)
+extern void ext3_warning (struct ext2_sb_info *, const char *, const char *, ...);
+extern void ext3_update_dynamic_rev(struct ext2_sb_info *);
+
+/* ext3_dx.c */
+extern int ext3_htree_store_dirent(struct vnode *dir_file, __u32 hash,
+				    __u32 minor_hash,
+				    struct ext2_dir_entry_2 *dirent);
+extern void ext3_htree_free_dir_info(struct dir_private_info *p);
+
+/* hash.c */
+extern int ext3fs_dirhash(const char *name, int len, struct
+			  dx_hash_info *hinfo);
 
 /* Flags to low-level allocation routines. */
 #define B_CLRBUF	0x01	/* Request allocated buffer be cleared. */

@@ -99,8 +99,6 @@ static int vn_isdisk(struct vnode *, int *);
 #undef KERNEL
 #include <ufs/ufs/ufsmount.h>
 #define KERNEL
-
-typedef struct ufs_args ext2_args;
 #endif /* APPLE */
 
 #include <gnu/ext2fs/ext2_mount.h>
@@ -256,13 +254,13 @@ ext2_mount(mp, path, data, ndp, td)
 	struct vnode *devvp;
 	struct ext2mount *ump = 0;
 	struct ext2_sb_info *fs;
-   ext2_args args;
+   struct ext2_args args;
    char *fspec;
 	size_t size;
 	int error, flags;
 	mode_t accessmode;
    
-   if ((error = copyin(data, (caddr_t)&args, sizeof (ext2_args))) != 0)
+   if ((error = copyin(data, (caddr_t)&args, sizeof (struct ext2_args))) != 0)
 		ext2_trace_return(error);
    
    export = &args.export;
@@ -414,6 +412,7 @@ ext2_mount(mp, path, data, ndp, td)
    bcopy((caddr_t)mp->mnt_stat.f_mntonname, (caddr_t)fs->fs_fsmnt,
 	    sizeof(fs->fs_fsmnt) - 1);
    fs->fs_fsmnt[sizeof(fs->fs_fsmnt) - 1] = '\0';
+	fs->s_mount_opt = args.e2_mnt_flags;
    
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
 	return (0);

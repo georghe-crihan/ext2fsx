@@ -338,7 +338,7 @@ ext2_ioctl(ap)
          bcopy(ap->a_data, &flags, sizeof(u_int32_t));
          
          if (!S_ISDIR(ip->i_mode))
-            flags &= ~EXT2_DIRSYNC_FL;
+            flags &= ~EXT3_DIRSYNC_FL;
             
          oldflags = ip->i_e2flags;
          
@@ -427,6 +427,8 @@ ext2_checkdirsize(dvp)
    int  size, error;
    
    dp = VTOI(dvp);
+   if (is_dx(dp))
+      return;
    if ((error = ext2_blkatoff(dvp, (off_t)0, &dirbuf,
 	    &bp)) != 0)
 		return;

@@ -60,6 +60,10 @@
  */
 #define	doff_t		int32_t
 
+/* Function proto to release inode private data */
+struct inode;
+typedef int (*inode_prv_relse_t)(struct vnode*, struct inode*);
+
 /*
  * The inode is used to describe each active (or recently active) file in the
  * EXT2FS filesystem. It is composed of two types of information. The first
@@ -79,7 +83,9 @@ struct inode {
 	u_int32_t i_flag;	/* flags, see below */
 	dev_t	  i_dev;	/* Device associated with the inode. */
 	ino_t	  i_number;	/* The identity of the inode. */
-
+   
+   void		*private_data; /* Private storge, used by dir index (others?). */
+   inode_prv_relse_t private_data_relse; /* Function to relase private_data storage. */
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
 	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
@@ -92,6 +98,8 @@ struct inode {
 	doff_t	  i_offset;	/* Offset of free space in directory. */
 	ino_t	  i_ino;	/* Inode number of found directory. */
 	u_int32_t i_reclen;	/* Size of found directory entry. */
+   u_int32_t i_dir_start_lookup; /* Index dir lookup */
+   #define f_pos i_diroff /* Index dir lookups */
 
 	u_int32_t i_block_group;
 	u_int32_t i_next_alloc_block;
@@ -160,6 +168,7 @@ struct inode {
 #define	IN_HASHED	0x0020		/* Inode is on hash list */
 #define	IN_LAZYMOD	0x0040		/* Modified, but don't write yet. */
 #define	IN_SPACECOUNTED	0x0080		/* Blocks to be freed in free count. */
+#define	IN_DX_UPDATE	0x0100	/* In-core dir index needs to be sync'd with disk */
 
 #ifdef _KERNEL
 /*

@@ -70,12 +70,6 @@ static const char whatid[] __attribute__ ((unused)) =
 int checkLoadable();
 int load_kmod();
 
-/* Equiv. to ufs_args */
-struct ext2_args {
-	char	*fspec;			/* block special device to mount */
-	struct	export_args export;	/* network export information */
-};
-
 #define __dead2 __dead
 #endif
 
@@ -85,6 +79,11 @@ struct mntopt mopts[] = {
 	MOPT_SYNC,
 	MOPT_UPDATE,
 	{ NULL }
+};
+
+struct mntopt e2_mopts[] = {
+   EXT2_MOPT_INDEX,
+   { NULL }
 };
 
 static void	usage(void) __dead2;
@@ -99,14 +98,15 @@ main(argc, argv)
    #else
    struct ext2_args args;
    #endif
-	int ch, mntflags;
+	int ch, mntflags, e2_mntflags;
 	char *fs_name, *fspec, mntpath[MAXPATHLEN];
    
-	mntflags = 0;
+	mntflags = e2_mntflags = 0;
 	while ((ch = getopt(argc, argv, "o:")) != -1)
 		switch (ch) {
 		case 'o':
 			getmntopts(optarg, mopts, &mntflags, 0);
+         getmntopts(optarg, e2_mopts, &e2_mntflags, 0);
 			break;
 		case '?':
 		default:
@@ -145,6 +145,7 @@ main(argc, argv)
 		err(EX_OSERR, "%s", fspec);
 #else
    args.fspec = fspec;
+   args.e2_mnt_flags = e2_mntflags;
    args.export.ex_root = 0;
    if (mntflags & MNT_RDONLY)
 		args.export.ex_flags = MNT_EXRDONLY;

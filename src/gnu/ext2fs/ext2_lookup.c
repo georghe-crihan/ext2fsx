@@ -75,6 +75,7 @@ extern struct nchstats nchstats;
 #include <gnu/ext2fs/ext2_extern.h>
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
+#include <gnu/ext2fs/fs.h>
 #include <ext2_byteorder.h>
 
 #ifdef DIAGNOSTIC
@@ -131,6 +132,11 @@ static u_char dt_to_ext2_ft[] = {
 static int	ext2_dirbadentry(struct vnode *dp, struct ext2_dir_entry_2 *de,
 		    int entryoffsetinblock);
 
+/* Bring in dir index support. */
+#include "kern/linux_namei_compat.c"
+#include "ext3_linux_dx_namei.c"
+#include "ext3_linux_dx_dir.c"
+
 /*
  * Vnode op for reading directories.
  *
@@ -151,24 +157,28 @@ static int	ext2_dirbadentry(struct vnode *dp, struct ext2_dir_entry_2 *de,
  */
 int
 ext2_readdir(ap)
-        struct vop_readdir_args /* {
-                struct vnode *a_vp;
-                struct uio *a_uio;
-                struct ucred *a_cred;
-        } */ *ap;
+   struct vop_readdir_args /* {
+            struct vnode *a_vp;
+            struct uio *a_uio;
+            struct ucred *a_cred;
+   } */ *ap;
 {
-        struct uio *uio = ap->a_uio;
-        int count, error;
-
+   struct uio *uio = ap->a_uio;
+   int count, error;
 	struct ext2_dir_entry_2 *edp, *dp;
+   struct inode *ip;
 	int ncookies;
 	struct dirent dstdp;
 	struct uio auio;
 	struct iovec aiov;
 	caddr_t dirbuf;
-	int DIRBLKSIZ = VTOI(ap->a_vp)->i_e2fs->s_blocksize;
-	int readcnt;
+	int DIRBLKSIZ;
+	int readcnt, free_dirbuf = 1;
 	off_t startoffset = uio->uio_offset;
+   int *eof = ap->a_eofflag;
+   
+   ip = VTOI(ap->a_vp);
+   DIRBLKSIZ = ip->i_e2fs->s_blocksize;
 
 	count = uio->uio_resid;
 	/*
@@ -187,6 +197,77 @@ ext2_readdir(ap)
 	printf("ext2_readdir: uio_offset = %lld, uio_resid = %d, count = %d\n", 
 	    uio->uio_offset, uio->uio_resid, count);
 #endif
+   
+   if (eof)
+      *eof = 0;
+   
+   /* Check for an indexed dir */
+   if (EXT3_HAS_COMPAT_FEATURE(ip->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) &&
+      ((ip->i_e2flags & EXT3_INDEX_FL) /*||
+      ((ip->i_size >> ip->i_e2fs->s_blocksize_bits) == 1)*/)) {
+      /* -- BDB --
+         The last condition allows ext3_dx_readdir() to build an
+         in memory index of a non-indexed, single-block directory.
+         This is disabled for now, because I'm not sure how to detect
+         that this optimization has occured (EXT3_INDEX_FL is not set),
+         or that it would even work. */
+      
+      struct filldir_args fda = {0, 0, 0};
+      struct iovec iovs[UIO_SMALLIOV];
+      
+      /* Make sure the caller is not trying to read more than
+         they are allowed. */
+      if (uio->uio_offset && EXT3_HTREE_EOF == ip->f_pos)
+         return (EIO);
+      
+      /*ip->i_dir_start_lookup = lblkno(ip->i_e2fs, uio->uio_offset);*/
+      if (UIO_SYSSPACE == uio->uio_segflg) {
+         /* Setup dirbuf so the cookie calc works */
+         dirbuf = uio->uio_iov->iov_base;
+      } else
+         dirbuf = 0;
+      free_dirbuf = 0;
+      
+      /* Copy uio so we don't ruin the original if something fails 
+         and we need to fallback. */
+      auio = *uio;
+      auio.uio_resid = 0;
+      for (readcnt=0; readcnt < UIO_SMALLIOV
+         && readcnt < uio->uio_iovcnt; readcnt++) {
+         iovs[readcnt] = uio->uio_iov[readcnt];
+         auio.uio_resid += iovs[readcnt].iov_len;
+      }
+      auio.uio_iov = iovs;
+      auio.uio_iovcnt = readcnt;
+      fda.uio = &auio;
+      
+      error = ext3_dx_readdir(ap->a_vp, &fda, bsd_filldir);
+      if (error != ERR_BAD_DX_DIR) {
+         if (EXT2_FILLDIR_ENOSPC == error)
+            error = 0;
+         error = -error; /* Linux uses -ve codes */
+         /* Copy back the modified uio */
+         uio->uio_resid = auio.uio_resid;
+         for (readcnt=0; readcnt < UIO_SMALLIOV
+            && readcnt < uio->uio_iovcnt; readcnt++) {
+            uio->uio_iov[readcnt] = auio.uio_iov[readcnt];
+         }
+         /* we need to correct uio_offset */
+         uio->uio_offset = startoffset + fda.count;
+         ncookies = fda.cookies;
+         
+         /* Set EOF if needed */
+         if (eof && EXT3_HTREE_EOF == ip->f_pos)
+            *eof = 1;
+         goto io_done;
+      }
+      /*
+      * We don't set the inode dirty flag since it's not
+      * critical that it get flushed back to the disk.
+      */
+      ip->i_e2flags &= ~EXT3_INDEX_FL;
+      /* Fall back to normal dir entries. */
+   }
 
 	auio = *uio;
 	auio.uio_iov = &aiov;
@@ -196,6 +277,7 @@ ext2_readdir(ap)
 	aiov.iov_len = count;
 	MALLOC(dirbuf, caddr_t, count, M_TEMP, M_WAITOK);
 	aiov.iov_base = dirbuf;
+   
 	error = VOP_READ(ap->a_vp, &auio, 0, ap->a_cred);
 	if (error == 0) {
 		readcnt = count - auio.uio_resid;
@@ -248,6 +330,7 @@ ext2_readdir(ap)
 		/* we need to correct uio_offset */
 		uio->uio_offset = startoffset + (caddr_t)dp - dirbuf;
 
+io_done:
 		if (!error && ap->a_ncookies != NULL) {
 			u_long *cookiep, *cookies, *ecookies;
 			off_t off;
@@ -268,10 +351,11 @@ ext2_readdir(ap)
 			*ap->a_cookies = cookies;
 		}
 	}
-	FREE(dirbuf, M_TEMP);
-	if (ap->a_eofflag)
-		*ap->a_eofflag = VTOI(ap->a_vp)->i_size <= uio->uio_offset;
-        ext2_trace_return(error);
+   if (free_dirbuf)
+      FREE(dirbuf, M_TEMP);
+	if (eof && 0 == *eof)
+		*eof = ip->i_size <= uio->uio_offset;
+   ext2_trace_return(error);
 }
 
 /*
@@ -338,6 +422,7 @@ ext2_lookup(ap)
 	int flags = cnp->cn_flags;
 	int nameiop = cnp->cn_nameiop;
 	struct thread *td = cnp->cn_thread;
+   int dx = 0;
 
 	int	DIRBLKSIZ = VTOI(ap->a_dvp)->i_e2fs->s_blocksize;
    
@@ -371,6 +456,34 @@ ext2_lookup(ap)
 		slotneeded = (sizeof(struct direct) - MAXNAMLEN +
 			cnp->cn_namelen + 3) &~ 3; */
 	}
+
+   /* Check for indexed dir */
+   if (is_dx(dp)) {
+      struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
+      dentry.d_parent = &dparent;
+      dentry.d_name.name = cnp->cn_nameptr;
+      dentry.d_name.len = cnp->cn_namelen;
+      dentry.d_inode = NULL;
+      bp = ext3_dx_find_entry(&dentry, &ep, &error);
+      /*
+       * On success, or if the error was file not found,
+       * return.  Otherwise, fall back to doing a search the
+       * old fashioned way.
+       */
+      dx = 1;
+      if (bp) {
+         dp->i_ino = le32_to_cpu(ep->inode);
+         dp->i_reclen = le16_to_cpu(ep->rec_len);
+         error = 0;
+         goto found;
+      }
+      if (error != ERR_BAD_DX_DIR) {
+         error = -error; /* Linux uses -ve errors */
+         goto notfound;
+      }
+      dxtrace(printf("ext2_lookup: dx failed, falling back\n"));
+      dx = 0;
+   }
 
 	/*
 	 * If there is cached information on a previous search of
@@ -497,7 +610,7 @@ searchloop:
 		if (ep->inode)
 			enduseful = dp->i_offset;
 	}
-/* notfound: */
+notfound:
 	/*
 	 * If we started in the middle of the directory and failed
 	 * to find our target, we must check the beginning as well.
@@ -588,8 +701,9 @@ found:
 	 * Found component in pathname.
 	 * If the final component of path name, save information
 	 * in the cache as to where the entry was found.
+    * -- BDB -- Don't alter diroff for dx dirs.
 	 */
-	if ((flags & ISLASTCN) && nameiop == LOOKUP)
+	if ((flags & ISLASTCN) && nameiop == LOOKUP && !dx)
 		dp->i_diroff = dp->i_offset &~ (DIRBLKSIZ - 1);
 
 	/*
@@ -750,30 +864,30 @@ ext2_dirbadentry(dp, de, entryoffsetinblock)
 	struct ext2_dir_entry_2 *de;
 	int entryoffsetinblock;
 {
-	int	DIRBLKSIZ = VTOI(dp)->i_e2fs->s_blocksize;
+	const int DIRBLKSIZ = VTOI(dp)->i_e2fs->s_blocksize;
+   const int rlen = le16_to_cpu(de->rec_len);
 
-        char * error_msg = NULL;
+   char * error_msg = NULL;
 
-        if (le16_to_cpu(de->rec_len) < EXT2_DIR_REC_LEN(1))
-                error_msg = "rec_len is smaller than minimal";
-        else if (le16_to_cpu(de->rec_len) % 4 != 0)
-                error_msg = "rec_len % 4 != 0";
-        else if (le16_to_cpu(de->rec_len) < EXT2_DIR_REC_LEN(de->name_len))
-                error_msg = "reclen is too small for name_len";
-        else if (entryoffsetinblock + le16_to_cpu(de->rec_len) > DIRBLKSIZ)
-                error_msg = "directory entry across blocks";
-        /* else LATER
-	     if (le32_to_cpu(de->inode) > le32_to_cpu(dir->i_sb->u.ext2_sb.s_es->s_inodes_count))
-                error_msg = "inode out of bounds";
-	*/
+   if (rlen < EXT2_DIR_REC_LEN(1))
+            error_msg = "rec_len is smaller than minimal";
+   else if (rlen % 4 != 0)
+            error_msg = "rec_len % 4 != 0";
+   else if (rlen < EXT2_DIR_REC_LEN(de->name_len))
+            error_msg = "reclen is too small for name_len";
+   else if (entryoffsetinblock + rlen > DIRBLKSIZ)
+            error_msg = "directory entry across blocks";
+   else if (le32_to_cpu(de->inode) >
+      le32_to_cpu(VTOI(dp)->i_e2fs->s_es->s_inodes_count))
+            error_msg = "inode out of bounds";
 
-        if (error_msg != NULL) {
-                printf("ext2 bad directory entry: %s\n", error_msg);
-                printf("offset=%d, inode=%lu, rec_len=%u, name_len=%u\n",
-			entryoffsetinblock, (unsigned long)le32_to_cpu(de->inode),
-			le16_to_cpu(de->rec_len), de->name_len);
-        }
-        return error_msg == NULL ? 0 : 1;
+   if (error_msg != NULL) {
+            printf("ext2 bad directory entry: %s\n", error_msg);
+            printf("offset=%d, inode=%lu, rec_len=%u, name_len=%u\n",
+   entryoffsetinblock, (unsigned long)le32_to_cpu(de->inode),
+   le16_to_cpu(de->rec_len), de->name_len);
+   }
+   return error_msg == NULL ? 0 : 1;
 }
 
 /*
@@ -800,13 +914,17 @@ ext2_direnter(ip, dvp, cnp)
 	int error, loc, newentrysize, spacefree;
 	char *dirbuf;
 	int     DIRBLKSIZ = ip->i_e2fs->s_blocksize;
-
+   struct ext2_sb_info *fs;
+   int dx_fallback = 0;
+   struct dentry dentry, dparent = {NULL, {NULL, 0}, NULL};
+   handle_t h = {cnp};
 
 #if DIAGNOSTIC
 	if ((cnp->cn_flags & SAVENAME) == 0)
 		panic("ext2_direnter: missing name");
 #endif
 	dp = VTOI(dvp);
+   fs = dp->i_e2fs;
 	newdir.inode = cpu_to_le32(ip->i_number);
 	newdir.name_len = cnp->cn_namelen;
 	if (EXT2_HAS_INCOMPAT_FEATURE(ip->i_e2fs,
@@ -816,6 +934,24 @@ ext2_direnter(ip, dvp, cnp)
 		newdir.file_type = EXT2_FT_UNKNOWN;
 	bcopy(cnp->cn_nameptr, newdir.name, (unsigned)cnp->cn_namelen + 1);
 	newentrysize = EXT2_DIR_REC_LEN(newdir.name_len);
+   
+   /* Check for indexed dir */
+   dparent.d_inode = dp;
+   dentry.d_parent = &dparent;
+   dentry.d_name.name = cnp->cn_nameptr;
+   dentry.d_name.len = cnp->cn_namelen;
+   dentry.d_inode = ip;
+   if (is_dx(dp)) {
+		error = ext3_dx_add_entry(&h, &dentry, ip);
+		if (!error || (error != ERR_BAD_DX_DIR)) {
+         dp->i_flag |= IN_CHANGE | IN_UPDATE;
+			return -(error); /* Linux uses -ve errors */
+      }
+		dp->i_flags &= ~EXT3_INDEX_FL;
+		dx_fallback++;
+		ext3_mark_inode_dirty(&h, dp);
+	}
+   
 	if (dp->i_count == 0) {
 		/*
 		 * If dp->i_count is 0, then namei could find no
@@ -825,6 +961,27 @@ ext2_direnter(ip, dvp, cnp)
 		 */
 		if (dp->i_offset & (DIRBLKSIZ - 1))
 			panic("ext2_direnter: newblk");
+      
+      /* Create an indexed dir if possible */
+      spacefree = dp->i_size >> fs->s_blocksize_bits;
+      if (spacefree == 1 && (fs->s_mount_opt & EXT2_MNT_INDEX) &&
+         !EXT3_HAS_COMPAT_FEATURE(fs, EXT3_FEATURE_COMPAT_DIR_INDEX)) {
+         /* First index dir, add flag to superblock. */
+         lock_super(fs);
+         ext3_update_dynamic_rev(fs);
+         EXT2_SET_COMPAT_FEATURE(fs, EXT3_FEATURE_COMPAT_DIR_INDEX);
+         fs->s_dirt = 1;
+         unlock_super(fs);
+      }
+      if (spacefree == 1 && !dx_fallback &&
+         EXT3_HAS_COMPAT_FEATURE(fs, EXT3_FEATURE_COMPAT_DIR_INDEX)) {
+         if ((error = ext2_blkatoff(dvp, (off_t)0, &dirbuf, &bp)))
+            return (error);
+         dp->f_pos = 0;
+         dp->i_flag |= IN_CHANGE;
+         return (make_indexed_dir(&h, &dentry, ip, bp));
+      }
+      
 		auio.uio_offset = dp->i_offset;
 		newdir.rec_len = cpu_to_le16(DIRBLKSIZ);
 		auio.uio_resid = newentrysize;
@@ -842,7 +999,7 @@ ext2_direnter(ip, dvp, cnp)
 			panic("ext2_direnter: frag size");
 		else if (!error) {
 			dp->i_size = roundup(dp->i_size, DIRBLKSIZ);
-			dp->i_flag |= IN_CHANGE;
+			dp->i_flag |= IN_CHANGE | IN_DX_UPDATE;;
 		}
 		return (error);
 	}
@@ -913,7 +1070,7 @@ ext2_direnter(ip, dvp, cnp)
 	}
 	bcopy((caddr_t)&newdir, (caddr_t)ep, (u_int)newentrysize);
 	error = BUF_WRITE(bp);
-	dp->i_flag |= IN_CHANGE | IN_UPDATE;
+	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;;
 	if (!error && dp->i_endoff && dp->i_endoff < dp->i_size)
 		error = ext2_truncate(dvp, (off_t)dp->i_endoff, IO_SYNC,
 		    cnp->cn_cred, cnp->cn_thread);
@@ -943,6 +1100,29 @@ ext2_dirremove(dvp, cnp)
 	int error;
 	 
 	dp = VTOI(dvp);
+   
+   bp = NULL;
+   /* Check for indexed dir */
+   if (is_dx(dp)) {
+      struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
+      handle_t h = {cnp};
+      
+      dentry.d_parent = &dparent;
+      dentry.d_name.name = cnp->cn_nameptr;
+      dentry.d_name.len = cnp->cn_namelen;
+      dentry.d_inode = NULL;
+      
+      bp = ext3_dx_find_entry(&dentry, &ep, &error);
+      if (!bp)
+         return -(error); /* Linux uses -ve errors */
+      error = ext3_delete_entry(&h, dp, ep, bp);
+      if (0 == error) {
+         dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;;
+      }
+      brelse(bp);
+      return -(error); /* Linux uses -ve errors */
+   }
+   
 	if (dp->i_count == 0) {
 		/*
 		 * First entry in block: set d_ino to zero.
@@ -953,7 +1133,7 @@ ext2_dirremove(dvp, cnp)
 			return (error);
 		ep->inode = 0;
 		error = BUF_WRITE(bp);
-		dp->i_flag |= IN_CHANGE | IN_UPDATE;
+		dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
 		return (error);
 	}
 	/*
@@ -964,7 +1144,7 @@ ext2_dirremove(dvp, cnp)
 		return (error);
 	ep->rec_len = cpu_to_le16(le16_to_cpu(ep->rec_len) + dp->i_reclen);
 	error = BUF_WRITE(bp);
-	dp->i_flag |= IN_CHANGE | IN_UPDATE;
+	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
 	return (error);
 }
 
@@ -983,9 +1163,24 @@ ext2_dirrewrite(dp, ip, cnp)
 	struct vnode *vdp = ITOV(dp);
 	int error;
 
-	if ((error = ext2_blkatoff(vdp, (off_t)dp->i_offset, (char **)&ep,
-	    &bp)) != 0)
-		return (error);
+   /* Check for indexed dir */
+   if (is_dx(dp)) {
+      struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
+      
+      dentry.d_parent = &dparent;
+      dentry.d_name.name = cnp->cn_nameptr;
+      dentry.d_name.len = cnp->cn_namelen;
+      dentry.d_inode = NULL;
+      error = ENOENT;
+      
+      bp = ext3_dx_find_entry(&dentry, &ep, &error);
+      if (!bp)
+         return -(error); /* Linux uses -ve errors */
+   } else {
+      if ((error = ext2_blkatoff(vdp, (off_t)dp->i_offset, (char **)&ep,
+         &bp)) != 0)
+         return (error);
+   }
 	ep->inode = cpu_to_le32(ip->i_number);
 	if (EXT2_HAS_INCOMPAT_FEATURE(ip->i_e2fs,
 	    EXT2_FEATURE_INCOMPAT_FILETYPE))
@@ -993,7 +1188,7 @@ ext2_dirrewrite(dp, ip, cnp)
 	else
 		ep->file_type = EXT2_FT_UNKNOWN;
 	error = BUF_WRITE(bp);
-	dp->i_flag |= IN_CHANGE | IN_UPDATE;
+	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
 	return (error);
 }
 

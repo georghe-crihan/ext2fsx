@@ -111,6 +111,7 @@ do { \
 
 /* First non-reserved inode for old ext2 filesystems */
 #define EXT2_GOOD_OLD_FIRST_INO	11
+#define EXT3_GOOD_OLD_FIRST_INO  EXT2_GOOD_OLD_FIRST_INO
 
 /*
  * The second extended file system magic number
@@ -147,6 +148,7 @@ do { \
 #else
 # define EXT2_BLOCK_SIZE_BITS(s)	(le32_to_cpu((s)->s_log_block_size) + 10)
 #endif
+#define EXT3_BLOCK_SIZE_BITS(s) EXT2_BLOCK_SIZE_BITS((s)->s_es)
 #ifdef notyet
 #ifdef __KERNEL__
 #define	EXT2_ADDR_PER_BLOCK_BITS(s)	((s)->u.ext2_sb.s_addr_per_block_bits)
@@ -263,13 +265,13 @@ struct ext2_group_desc
 #define EXT2_NOCOMP_FL			0x00000400 /* Don't compress */
 #define EXT2_ECOMPR_FL			0x00000800 /* Compression error */
 /* End compression flags --- maybe not all used */	
-#define EXT2_BTREE_FL			0x00001000 /* btree format dir */
-#define EXT2_INDEX_FL			0x00001000 /* hash-indexed directory */
-#define EXT2_IMAGIC_FL			0x00002000
+#define EXT3_BTREE_FL			0x00001000 /* btree format dir */
+#define EXT3_INDEX_FL			0x00001000 /* hash-indexed directory */
+#define EXT3_IMAGIC_FL			0x00002000
 #define EXT3_JOURNAL_DATA_FL		0x00004000 /* file data should be journaled */
-#define EXT2_NOTAIL_FL			0x00008000 /* file tail should not be merged */
-#define EXT2_DIRSYNC_FL 		0x00010000 /* Synchronous directory modifications */
-#define EXT2_TOPDIR_FL			0x00020000 /* Top of directory hierarchies*/
+#define EXT3_NOTAIL_FL			0x00008000 /* file tail should not be merged */
+#define EXT3_DIRSYNC_FL 		0x00010000 /* Synchronous directory modifications */
+#define EXT3_TOPDIR_FL			0x00020000 /* Top of directory hierarchies*/
 #define EXT2_RESERVED_FL		0x80000000 /* reserved for ext2 lib */
 
 #define EXT2_FL_USER_VISIBLE		0x0003DFFF /* User visible flags */
@@ -417,6 +419,7 @@ struct ext2_inode {
 /*
  * Structure of the super block
  */
+#define ext3_super_block ext2_super_block
 struct ext2_super_block {
 	__u32	s_inodes_count;		/* Inodes count */
 	__u32	s_blocks_count;		/* Blocks count */
@@ -512,12 +515,15 @@ struct ext2_super_block {
  * Revision levels
  */
 #define EXT2_GOOD_OLD_REV	0	/* The good old (original) format */
+#define EXT3_GOOD_OLD_REV  EXT2_GOOD_OLD_REV
 #define EXT2_DYNAMIC_REV	1 	/* V2 format w/ dynamic inode sizes */
+#define EXT3_DYNAMIC_REV  EXT2_DYNAMIC_REV
 
 #define EXT2_CURRENT_REV	EXT2_GOOD_OLD_REV
 #define EXT2_MAX_SUPP_REV	EXT2_DYNAMIC_REV
 
 #define EXT2_GOOD_OLD_INODE_SIZE 128
+#define EXT3_GOOD_OLD_INODE_SIZE EXT2_GOOD_OLD_INODE_SIZE
 
 /*
  * Feature set definitions
@@ -542,12 +548,15 @@ struct ext2_super_block {
 #define EXT2_CLEAR_INCOMPAT_FEATURE(sb,mask)			\
 	EXT2_SB(sb)->s_es->s_feature_incompat &= ~cpu_to_le32(mask)
 
+#define EXT3_HAS_COMPAT_FEATURE EXT2_HAS_COMPAT_FEATURE
+#define EXT3_HAS_INCOMPAT_FEATURE EXT2_HAS_INCOMPAT_FEATURE
+
 #define EXT2_FEATURE_COMPAT_DIR_PREALLOC	0x0001
 #define EXT2_FEATURE_COMPAT_IMAGIC_INODES	0x0002
 #define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x0004
 #define EXT2_FEATURE_COMPAT_EXT_ATTR		0x0008
 #define EXT2_FEATURE_COMPAT_RESIZE_INO		0x0010
-#define EXT2_FEATURE_COMPAT_DIR_INDEX		0x0020
+#define EXT3_FEATURE_COMPAT_DIR_INDEX		0x0020
 #define EXT2_FEATURE_COMPAT_ANY			0xffffffff
 
 #define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
@@ -562,7 +571,7 @@ struct ext2_super_block {
 #define EXT2_FEATURE_INCOMPAT_META_BG		0x0010
 #define EXT2_FEATURE_INCOMPAT_ANY		0xffffffff
 
-#define EXT2_FEATURE_COMPAT_SUPP	0
+#define EXT2_FEATURE_COMPAT_SUPP	EXT3_FEATURE_COMPAT_DIR_INDEX
 #define EXT2_FEATURE_INCOMPAT_SUPP	EXT2_FEATURE_INCOMPAT_FILETYPE
 #ifdef notyet
 #define EXT2_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER| \
@@ -604,6 +613,7 @@ struct ext2_dir_entry {
 	__u16	name_len;		/* Name length */
 	char	name[EXT2_NAME_LEN];	/* File name */
 };
+#define ext3_dir_entry ext2_dir_entry
 
 /*
  * The new version of the directory entry.  Since EXT2 structures are
@@ -618,6 +628,7 @@ struct ext2_dir_entry_2 {
 	__u8	file_type;
 	char	name[EXT2_NAME_LEN];	/* File name */
 };
+#define ext3_dir_entry_2 ext2_dir_entry_2
 
 /*
  * Ext2 directory file types.  Only the low 3 bits are used.  The
@@ -643,5 +654,78 @@ struct ext2_dir_entry_2 {
 #define EXT2_DIR_ROUND 			(EXT2_DIR_PAD - 1)
 #define EXT2_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT2_DIR_ROUND) & \
 					 ~EXT2_DIR_ROUND)
+#define EXT3_DIR_REC_LEN EXT2_DIR_REC_LEN
+
+/*
+ * Hash Tree Directory indexing
+ * (c) Daniel Phillips, 2001
+ */
+#include <gnu/ext2fs/rbtree.h>
+
+#define is_dx(dir) \
+(EXT3_HAS_COMPAT_FEATURE(dir->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) && \
+   (dir->i_e2flags & EXT3_INDEX_FL))
+#define EXT3_DIR_LINK_MAX(dir) (!is_dx(dir) && (dir)->i_nlink >= EXT3_LINK_MAX)
+#define EXT3_DIR_LINK_EMPTY(dir) ((dir)->i_nlink == 2 || (dir)->i_nlink == 1)
+
+/* Legal values for the dx_root hash_version field: */
+
+#define DX_HASH_LEGACY		0
+#define DX_HASH_HALF_MD4	1
+#define DX_HASH_TEA		2
+
+/* hash info structure used by the directory hash */
+struct dx_hash_info
+{
+	u32		hash;
+	u32		minor_hash;
+	int		hash_version;
+	u32		*seed;
+};
+
+#define EXT3_HTREE_EOF	0x7fffffff
+
+#ifdef KERNEL
+/*
+ * Control parameters used by ext3_htree_next_block
+ */
+#define HASH_NB_ALWAYS		1
+
+
+/*
+ * Describe an inode's exact location on disk and in memory
+ */
+struct ext3_iloc
+{
+	struct buffer_head *bh;
+	unsigned long offset;
+	unsigned long block_group;
+};
+
+
+#define ext3_raw_inode(iloc) \
+(struct ext2_inode *) ((iloc)->bh->b_data + (iloc)->offset)
+
+/*
+ * This structure is stuffed into the struct file's private_data field
+ * for directories.  It is where we put information so that we can do
+ * readdir operations in hash tree order.
+ */
+struct dir_private_info {
+	struct rb_root	root;
+	struct rb_node	*curr_node;
+	struct fname	*extra_fname;
+	loff_t		last_pos;
+	__u32		curr_hash;
+	__u32		curr_minor_hash;
+	__u32		next_hash;
+};
+
+/*
+ * Special error return code only used by dx_probe() and its callers.
+ */
+#define ERR_BAD_DX_DIR	-75000
+
+#endif /* KERNEL */
 
 #endif	/* _LINUX_EXT2_FS_H */
