@@ -11,40 +11,44 @@ INSTALL = @INSTALL@
 @DEBUGFS_CMT@DEBUGFS_DIR= debugfs
 @LINUX_CMT@EVMS_DIR= lib/evms
 
-LIB_SUBDIRS=lib/et lib/ss lib/e2p lib/ext2fs lib/uuid # lib/finddev
+LIB_SUBDIRS=lib/et lib/ss lib/e2p lib/ext2fs lib/uuid lib/blkid
 PROG_SUBDIRS=e2fsck $(DEBUGFS_DIR) misc $(RESIZE_DIR) tests/progs $(EVMS_DIR)
 SUBDIRS=util $(LIB_SUBDIRS) $(PROG_SUBDIRS) tests
 
-SUBS= lib/ext2fs/ext2_types.h
+SUBS= lib/ext2fs/ext2_types.h lib/blkid/blkid_types.h lib/uuid/uuid_types.h
 
 TAR=tar
 
-all:: $(SUBS) 
+all:: subs
 	$(MAKE) libs
 	$(MAKE) progs
 	$(MAKE) docs
 
-progs: $(SUBS) all-progs-recursive
-libs: $(SUBS) all-libs-recursive
+subs:
+	for i in $(SUBS) ; do if test -d `dirname $$i` ; then make $$i ; fi ; done
+
+progs: subs all-progs-recursive
+libs: subs all-libs-recursive
 
 docs:
-	cd doc && $(MAKE) libext2fs.info
+	-test -d doc && cd doc && $(MAKE) libext2fs.info
 
 install-doc-libs:
-	cd doc && $(MAKE) install-doc-libs
+	-test -d doc && cd doc && $(MAKE) install-doc-libs
 
 uninstall-doc-libs:
-	cd doc && $(MAKE) uninstall-doc-libs
+	-test -d doc && cd doc && $(MAKE) uninstall-doc-libs
 
 clean-doc:
-	cd doc && $(MAKE) clean
+	-test -d doc && cd doc && $(MAKE) clean
 
 distclean-doc:
-	cd doc && $(MAKE) distclean
+	-test -d doc && cd doc && $(MAKE) distclean
 
-install: $(SUBS) all-libs-recursive install-progs-recursive \
+install: subs all-libs-recursive install-progs-recursive \
 	install-shlibs-libs-recursive install-doc-libs
 #	export MANPATH=$(DESTDIR)$(mandir); $(srcdir)/install-utils/compile_manpages
+	if test ! -d e2fsck -a ! -d debugfs -a ! -d misc -a ! -d ext2ed ; then $(MAKE) install-libs ; fi
 
 uninstall: uninstall-progs-recursive uninstall-shlibs-libs-recursive uninstall-doc-libs
 
@@ -95,6 +99,14 @@ lib/ext2fs/ext2_types.h: $(DEP_SUBSTITUTE) $(srcdir)/lib/ext2fs/ext2_types.h.in
 	$(SUBSTITUTE) $(srcdir)/lib/ext2fs/ext2_types.h.in \
 	> lib/ext2fs/ext2_types.h
 
+lib/blkid/blkid_types.h: $(DEP_SUBSTITUTE) $(srcdir)/lib/blkid/blkid_types.h.in
+	$(SUBSTITUTE) $(srcdir)/lib/blkid/blkid_types.h.in \
+	> lib/blkid/blkid_types.h
+
+lib/uuid/uuid_types.h: $(DEP_SUBSTITUTE) $(srcdir)/lib/uuid/uuid_types.h.in
+	$(SUBSTITUTE) $(srcdir)/lib/uuid/uuid_types.h.in \
+	> lib/uuid/uuid_types.h
+
 mostlyclean-local:
 	$(RM) -f \#* *~ *.orig core MAKELOG 
 
@@ -108,41 +120,5 @@ distclean-local: clean-local
 realclean-local: distclean-local
 	$(RM) -f configure
 
-check::	$(SUBS) check-recursive
+check::	subs check-recursive
 
-distribution_tar_file:
-	$(RM) -rf /tmp/dest
-	$(MAKE) DESTDIR=/tmp/dest install
-	cp -r $(srcdir)/README $(srcdir)/install-utils /tmp/dest
-	$(RM) -rf /tmp/dest/install-utils/CVS /tmp/dest/install-utils/ChangeLog
-	cp $(srcdir)/INSTALL.@BINARY_TYPE@ /tmp/dest/INSTALL
-	(cd /tmp/dest && $(TAR) cf - . ) | gzip -9 \
-		> e2fsprogs-@E2FSPROGS_VERSION@-@BINARY_TYPE@.tar.gz
-
-SRCROOT = `echo e2fsprogs-@E2FSPROGS_VERSION@ | sed -e 's/-WIP//' \
-			-e 's/pre-//' -e 's/-PLUS//'`
-
-$(srcdir)/.exclude-file:
-	a=$(SRCROOT); \
-	(cd $(srcdir)/.. && find e2fsprogs \( -name \*~ -o -name \*.orig \
-		-o -name CVS -o -name \*.rej -o -name Makefile.pq \
-		-o -name TAGS -o -name \*.old -o -name \*.gmo -o -name SCCS \
-		-o -name changed-files -o -name .#\* \) \
-		-print) | sed -e "s/e2fsprogs/$$a/" > $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/BitKeeper" >> $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/build" >> $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/rpm.log" >> $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/TODO" >> $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/powerquest" >> $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/.exclude-file" >> $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/po/stamp-cat-id" >> $(srcdir)/.exclude-file
-	echo "$(SRCROOT)/po/cat-id-tbl.c" >> $(srcdir)/.exclude-file
-	echo $(SRCROOT)/e2fsprogs-@E2FSPROGS_VERSION@.tar.gz \
-		>> $(srcdir)/.exclude-file
-
-source_tar_file: $(srcdir)/.exclude-file
-	cd $(srcdir)/.. && a=$(SRCROOT); rm -f $$a ; ln -sf e2fsprogs $$a ; \
-		$(TAR) -c -h -v -f - \
-			-X $$a/.exclude-file $$a | \
-		gzip -9 > e2fsprogs-@E2FSPROGS_VERSION@.tar.gz
-	rm -f $(srcdir)/.exclude-file

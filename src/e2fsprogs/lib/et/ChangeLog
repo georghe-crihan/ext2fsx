@@ -1,3 +1,35 @@
+2003-04-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.33
+
+2003-03-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* et_h.awk (char_shift): Use the com_err.h file in et/com_err.h,
+		since /usr/include/com_err.h may not exist, and if it
+		does, it might be the wrong one.
+
+	* compile_et.sh.in: Add --build-tree option which forces the use
+		of the et_?.awk files in the build tree.
+
+	* error_table.h, error_message.c, com_err.c, internal.h,
+		init_et.c, com_err.h: Remove STDC legacy #define's.
+
+	* com_err.texinfo: Remove references to K&R C support, and to
+		potential problems that are no longer relevant.
+
+2003-03-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* com_err.h, error_table.h: Move definition of the error_table
+		structure from the internal error_table.h to com_err.h,
+		since it now needs to be public.
+
+	* et_c.awk, et_h.awk: Import changes from krb5's et library so
+		that the error_table structure is defined and available
+		publically.
+
+	* error_message.c: Import krb5 and heimdall com_err extensions to
+		the et library.
+
 2002-11-09  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.32

@@ -18,6 +18,7 @@
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#include <stdlib.h>
 
 int iterate_on_dir (const char * dir_name,
 		    int (*func) (const char *, struct dirent *, void *),
@@ -54,11 +55,13 @@ int iterate_on_dir (const char * dir_name,
 		return -1;
 	}
 	while ((dep = readdir (dir))) {
-		len = dep->d_reclen;
-		if (len < (sizeof(struct dirent)))
-			len = sizeof(struct dirent);
+		len = sizeof(struct dirent);
+#ifdef HAVE_RECLEN_DIRENT
+		if (len < dep->d_reclen)
+			len = dep->d_reclen;
 		if (len > max_len)
 			len = max_len;
+#endif
 		memcpy(de, dep, len);
 		(*func) (dir_name, de, private);
 	}

@@ -1,3 +1,18 @@
+2003-04-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.33
+
+2003-04-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use DYLD_LIBRAY_PATH so that "make check" works on
+		Darwin systems when building with shared libraries.
+
+2003-03-06    <tytso@mit.edu>
+
+	* resize2fs.c (blocks_to_move): Bug fix; we were incorrectly
+		moving the block and inode bitmaps for sparse superblock
+		filesystems.  (Address Debian bug #174766)
+
 2002-11-09  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.32

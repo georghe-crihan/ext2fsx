@@ -101,7 +101,7 @@ void do_open_filesys(int argc, char **argv)
 	blk_t	blocksize = 0;
 	int open_flags = 0;
 	
-	optind = 0;
+	optind = 1;
 #ifdef HAVE_OPTRESET
 	optreset = 1;		/* Makes BSD getopt happy */
 #endif
@@ -242,7 +242,7 @@ void do_show_super_stats(int argc, char *argv[])
 	int	numdirs = 0;
 	const char *usage = "Usage: show_super [-h]";
 
-	optind = 0;
+	optind = 1;
 #ifdef HAVE_OPTRESET
 	optreset = 1;		/* Makes BSD getopt happy */
 #endif
@@ -1576,6 +1576,7 @@ int main(int argc, char **argv)
 		ss_perror(sci_idx, retval, "creating invocation");
 		exit(1);
 	}
+	ss_get_readline(sci_idx);
 
 	(void) ss_add_request_table (sci_idx, &ss_std_requests, 1, &retval);
 	if (retval) {

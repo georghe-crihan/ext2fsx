@@ -48,7 +48,7 @@ extern int optind;
 #include "e2p/e2p.h"
 #include "jfs_user.h"
 #include "util.h"
-#include "get_device_by_label.h"
+#include "blkid/blkid.h"
 
 #include "../version.h"
 #include "nls-enable.h"
@@ -114,7 +114,7 @@ static void remove_journal_device(ext2_filsys fs)
 		commit_remove_journal = 1; /* force removal even if error */
 
 	uuid_unparse(fs->super->s_journal_uuid, buf);
-	journal_path = get_spec_by_uuid(buf);
+	journal_path = blkid_get_devname(NULL, "UUID", buf);
 
 	if (!journal_path) {
 		journal_path =
@@ -184,8 +184,7 @@ no_valid_journal:
 		exit(1);
 	}
 	fs->super->s_journal_dev = 0;
-	memset(fs->super->s_journal_uuid, 0,
-	       sizeof(fs->super->s_journal_uuid));
+	uuid_clear(fs->super->s_journal_uuid);
 	ext2fs_mark_super_dirty(fs);
 	printf(_("Journal removed\n"));
 	free(journal_path);
@@ -427,7 +426,7 @@ static void parse_e2label_options(int argc, char ** argv)
 		fprintf(stderr, _("Usage: e2label device [newlabel]\n"));
 		exit(1);
 	}
-	device_name = argv[1];
+	device_name = blkid_get_devname(NULL, argv[1], NULL);
 	if (argc == 3) {
 		open_flag = EXT2_FLAG_RW | EXT2_FLAG_JOURNAL_DEV_OK;
 		L_flag = 1;
@@ -666,7 +665,7 @@ static void parse_tune2fs_options(int argc, char **argv)
 		usage();
 	if (!open_flag && !l_flag)
 		usage();
-	device_name = argv[optind];
+	device_name = blkid_get_devname(NULL, argv[optind], NULL);
 }
 
 void do_findfs(int argc, char **argv)
@@ -678,7 +677,7 @@ void do_findfs(int argc, char **argv)
 		fprintf(stderr, "Usage: findfs LABEL=<label>|UUID=<uuid>\n");
 		exit(2);
 	}
-	dev = interpret_spec(argv[1]);
+	dev = blkid_get_devname(NULL, argv[1], NULL);
 	if (!dev) {
 		fprintf(stderr, "Filesystem matching %s not found\n", 
 			argv[1]);
