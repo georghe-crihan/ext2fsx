@@ -11,6 +11,7 @@
 #include <asm/byteorder.h>
 #include <asm/atomic.h>
 #else
+#include <ext2_byteorder.h>
 #define CONFIG_SMP
 #define PPC405_ERR77(ra,rb)
 #endif
@@ -119,6 +120,8 @@ static __inline__ void __change_bit(int nr, volatile void *addr)
 
 /*
  * test_and_*_bit do imply a memory barrier (?)
+ *
+ * This seems to infinite loop on Darwin.
  */
 static __inline__ int test_and_set_bit(int nr, volatile void *addr)
 {
@@ -240,13 +243,18 @@ static __inline__ int ffz(unsigned long x)
 	return __ilog2(x & -x);
 }
 
-#ifdef __KERNEL__
+#ifdef KERNEL
 
-static inline int __ffs(unsigned long x)
+static __inline__ int __ffs(unsigned long x)
 {
 	return __ilog2(x & -x);
 }
 
+#if 0
+/* For some reason, this produces
+   "warning: static declaration for `ffs' follows non-static".
+   So since this doesn't seem to be used, I've disabled it.
+ */
 /*
  * ffs: find first bit set. This is defined the same way as
  * the libc and compiler builtin ffs routines, therefore
@@ -256,6 +264,7 @@ static __inline__ int ffs(int x)
 {
 	return __ilog2(x & -x) + 1;
 }
+#endif
 
 /*
  * fls: find last (most-significant) bit set.
@@ -280,6 +289,7 @@ static __inline__ int fls(unsigned int x)
 
 #endif /* __KERNEL__ */
 
+#if 0
 /*
  * Find the first bit set in a 140-bit bitmap.
  * The first 100 bits are unlikely to be set.
@@ -296,6 +306,7 @@ static inline int sched_find_first_bit(unsigned long *b)
 		return __ffs(b[3]) + 96;
 	return __ffs(b[4]) + 128;
 }
+#endif
 
 /**
  * find_next_bit - find the next set bit in a memory region
@@ -399,7 +410,7 @@ found_middle:
 }
 
 
-#ifdef __KERNEL__
+#ifdef KERNEL
 
 #define ext2_set_bit(nr, addr)	__test_and_set_bit((nr) ^ 0x18, (unsigned long *)(addr))
 #define ext2_clear_bit(nr, addr) __test_and_clear_bit((nr) ^ 0x18, (unsigned long *)(addr))
