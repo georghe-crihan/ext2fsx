@@ -26,6 +26,7 @@
 #import <Foundation/Foundation.h>
 
 @class ExtFSMedia;
+@protocol ExtFSMCP;
 
 /*!
 @class ExtFSMediaController
@@ -35,12 +36,14 @@ to determine available media.
 It queries the system for all media, and determines their properties and mount status.
 There should only be one instance of this class.
 */
-@interface ExtFSMediaController : NSObject
+@interface ExtFSMediaController : NSObject <ExtFSMCP>
 {
 @private
    void *e_lock;
    id e_media;
    id e_pending;
+   u_int64_t e_smonPollInterval;
+   BOOL e_smonActive;
    unsigned char e_reserved[32];
 }
 
@@ -88,6 +91,15 @@ or removed the moment after return.
 @result An array of media objects, or nil if no matches were found.
 */
 - (NSArray*)mediaWithFSType:(ExtFSType)fstype;
+/*!
+@method mediaWithIOTransportBus
+@abstract Access all media on a specific I/O transport bus type.
+@discussion This is a snapshot in time, media could be added
+or removed the moment after return.
+@param busType I/O bus transport type to match.
+@result An array of media objects, or nil if no matches were found.
+*/
+- (NSArray*)mediaWithIOTransportBus:(ExtFSIOTransportType)busType;
 /*!
 @method mediaWithBSDName
 @abstract Search for a media object by its BSD kernel name.
