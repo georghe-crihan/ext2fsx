@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -425,7 +425,7 @@ ext2_ioctl(ap)
    return (err);
 }
 
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
 __private_extern__
 void print_clusters(struct vnode *vp, char *msg)
@@ -433,7 +433,7 @@ void print_clusters(struct vnode *vp, char *msg)
     struct inode *ip = VTOI(vp);
     if (vp->v_clen) {
         printf("EXT2-fs DEBUG %s: inode=%d, dirty=%d, clusters(%d)={%u,%u},{%u,%u},{%u,%u},{%u,%u}\n",
-            msg, ip->i_number,(0 != (vp->v_flag & VHASDIRTY)), vp->v_clen,
+            msg, ip->i_number, (0 != (vp->v_flag & VHASDIRTY)), vp->v_clen,
             vp->v_clusters[0], vp->v_clusters[1], vp->v_clusters[2], vp->v_clusters[3]);
     } else {
         printf("EXT2-fs DEBUG %s: inode=%d, dirty=%d, no clusters\n",

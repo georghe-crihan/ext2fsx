@@ -265,7 +265,7 @@ static __inline void * memscan(void * addr, int c, size_t size)
 
 /* Debug */
 
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
 __private_extern__
 void print_clusters(struct vnode *, char *);
@@ -275,7 +275,7 @@ void print_clusters(struct vnode *, char *);
 
 #define dprint_clusters(vp)
 
-#endif /* EXT2FS_DEBUG */
+#endif /* EXT2FS_DEBUG && EXT2FS_TRACE */
 
 #endif /*KERNEL*/
 
