@@ -238,8 +238,8 @@ WRITE(ap)
 
 	fs = ip->I_FS;
 
-	ext2_trace(" nm=%s,inode=%d,off=%u,size=%s\n",
-        VNAME(vp), ip->i_number, uio->uio_offset, uio->uio_resid);
+	ext2_trace(" nm=%s,inode=%d,isize=%qu,woff=%qu,wsize=%d\n",
+        VNAME(vp), ip->i_number, ip->i_size, uio->uio_offset, uio->uio_resid);
     
     if (uio->uio_offset < 0 ||
 	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
@@ -264,15 +264,8 @@ WRITE(ap)
 	flags = ioflag & IO_SYNC ? B_SYNC : 0;
    
    if (UBCISVALID(vp)) {
-      off_t filesize;
-      off_t endofwrite;
-      off_t local_offset;
-      off_t head_offset;
-      int local_flags;
-      int first_block;
-      int fboff;
-      int fblk;
-      int loopcount;
+      off_t filesize, endofwrite, local_offset, head_offset;
+      int local_flags, first_block, fboff, fblk, loopcount;
    
       endofwrite = uio->uio_offset + uio->uio_resid;
    
