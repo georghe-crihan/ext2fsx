@@ -1580,7 +1580,6 @@ __private_extern__ struct vnodeopv_desc ext2fs_fifoop_opv_desc;
 
 kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
    struct vfsconf	*vfsConf = NULL;
-   
    int funnelState;
    kern_return_t kret;
    
@@ -1608,11 +1607,11 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
    init_vnodeopv_desc(&ext2fs_fifoop_opv_desc);
    
    kret = vfsconf_add(vfsConf);
+   #ifdef DIAGNOSTIC
    if (kret) {
-      #ifdef NCDBG
-      printf ("ext2fs_start: Failed to register with kernel, error = %d\n", kret); 
-      #endif
+      printf ("ext2fs_start: Failed to register with kernel, error = %d\n", kret);
    }
+   #endif
 
 funnel_release:
 	if (vfsConf)
