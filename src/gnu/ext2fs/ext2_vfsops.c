@@ -89,8 +89,10 @@
 #define	BLK_PAGEOUT	0	/* buffer for pageout */
 #define	BLK_META	0	/* buffer for metadata */
 #else
+#include <string.h>
 #include <machine/spl.h>
 #include <sys/disk.h>
+#include <sys/syslog.h>
 
 #define mntvnode_mtx mntvnode_slock
 /* XXX Redefining mtx_* */
@@ -1763,7 +1765,7 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
    
    MALLOC(vfsConf, void *, sizeof(struct vfsconf), M_TEMP, M_WAITOK);
 	if (NULL == vfsConf) {
-      kret = ENOMEM;
+      kret = KERN_RESOURCE_SHORTAGE;
       goto funnel_release;
    }
       
@@ -1802,11 +1804,31 @@ funnel_release:
 
 kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
    int funnelState;
+   struct vfsconf *vc;
    
-   /* Deregister with the kernel */
    funnelState = thread_funnel_set(kernel_flock, TRUE);
+   
+   /* Don't unload if there are active mounts. Thanks to W. Crooze for pointing this
+      problem out. */
+   
+   /* XXX - Doesn't seem to be a lock for this global - guess the funnel is enough. */
+   vc = vfsconf;
+   while (vc) {
+      if ((NULL != vc->vfc_vfsops) && (0 == strcmp(vc->vfc_name, EXT2FS_NAME)))
+         break;
+      vc = vc->vfc_next;
+   }
+   
+   if (vc->vfc_refcount > 0) {
+      /* There are still mounts active. */
+      log(LOG_INFO, "ext2fs_stop: failed to unload kext, mounts still active\n");
+      thread_funnel_set(kernel_flock, funnelState);
+      return (KERN_FAILURE);
+   }
 
-	vfsconf_del(EXT2FS_NAME);
+	/* Deregister with the kernel */
+   
+   vfsconf_del(EXT2FS_NAME);
 	FREE(*ext2fs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
    FREE(*ext2fs_specop_opv_desc.opv_desc_vector_p, M_TEMP);
    FREE(*ext2fs_fifoop_opv_desc.opv_desc_vector_p, M_TEMP);
