@@ -17,6 +17,7 @@ fi
 
 sudo rm -rf /System/Library/Extensions/ext2fs.kext
 sudo rm -rf /System/Library/Filesystems/ext2.fs
+sudo rm -rf /Library/PreferencePanes/ExtFSManager.prefPane
 sudo rm /sbin/mount_ext2
 sudo rm /usr/share/man/man8/mount_ext2.8
 

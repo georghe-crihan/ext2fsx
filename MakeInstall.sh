@@ -40,6 +40,7 @@ fi
 
 mkdir -p "${INSTALL}/System/Library/Extensions"
 mkdir -p "${INSTALL}/System/Library/Filesystems"
+mkdir -p "${INSTALL}/Library/PreferencePanes/"
 mkdir "${INSTALL}/sbin"
 mkdir -p "${INSTALL}/usr/share/man/man8"
 mkdir -p "${INSTALL}/usr/local/lib"
@@ -78,6 +79,8 @@ ln -sf ./libuuid.1.1.dylib ./libuuid.dylib
 
 cd "${EXT2BUILD}"
 
+cp -pR "${BUILD}/ExtFSManager.prefPane" "${INSTALL}/Library/PreferencePanes/"
+
 cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/System/Library/Extensions"
 cp -pR "${BUILD}/ext2.fs" "${INSTALL}/System/Library/Filesystems"
 
@@ -104,6 +107,8 @@ cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSP
 
 sudo chown -R root:wheel "${INSTALL}"
 sudo chmod -R go-w "${INSTALL}"
+sudo chgrp -R admin "${INSTALL}/Library/"
+sudo chmod 775 "${INSTALL}/Library/" "${INSTALL}/Library/PreferencePanes/"
 sudo chmod -R u-w build/install/sbin/* 
 sudo chmod -R u-w build/install/usr/local/bin/*
 sudo chmod -R u-w build/install/usr/local/sbin/* 
