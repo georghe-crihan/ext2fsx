@@ -60,6 +60,6 @@ extern NSString *ExtMediaKeyOpFailureType; // NSString
 extern NSString *ExtMediaKeyOpFailureError; // NSNumber
 extern NSString *ExtMediaKeyOpFailureErrorString; // NSString suitable for display to user
 
-extern char* fsNameTable[];
-#define FSNameFromType(type) fsNameTable[(type)]
-#define NSFSNameFromType(type) [NSString stringWithCString:fsNameTable[(type)]]
+char* FSNameFromType(int type);
+NSString* NSFSNameFromType(int type);
+
