@@ -243,7 +243,7 @@ _curSelection = nil; \
    NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""),
       @"OK", nil, nil, [NSApp keyWindow], nil, nil, nil, nil,
       [NSString stringWithFormat:
-         ExtLocalizedString(@"What: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),
+         ExtLocalizedString(@"Command: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),
          ExtLocalizedString(op, ""), device, ExtLocalizedString(msg, ""),
          [err intValue]]);
 }
@@ -255,19 +255,6 @@ _curSelection = nil; \
    NSEnumerator *en;
    
    [_vollist setEnabled:NO];
-   
-   [_tabs selectTabViewItemWithIdentifier:@"Startup"];
-   title = ExtLocalizedString(@"Please wait, gathering disk information…",
-      "Startup Message");
-   [_startupText setStringValue:title];
-   
-   [_startupProgress setStyle:NSProgressIndicatorSpinningStyle];
-   [_startupProgress sizeToFit];
-   [_startupProgress setDisplayedWhenStopped:NO];
-   [_startupProgress setIndeterminate:YES];
-   [_startupProgress setUsesThreadedAnimation:YES];
-   [_startupProgress startAnimation:self];
-   [_startupProgress displayIfNeeded];
    
    (void)[self probeDisks];
    
@@ -697,6 +684,19 @@ info_alt_switch:
    int i;
    
    _infoButtonAlt = NO; // Used to deterimine state
+   
+   // Change controls for startup
+   [_startupProgress setStyle:NSProgressIndicatorSpinningStyle];
+   [_startupProgress sizeToFit];
+   [_startupProgress setDisplayedWhenStopped:NO];
+   [_startupProgress setIndeterminate:YES];
+   [_startupProgress setUsesThreadedAnimation:YES];
+   [_startupProgress startAnimation:self]; // Stopped in [startup]
+   [_startupProgress displayIfNeeded];
+   [_tabs selectTabViewItemWithIdentifier:@"Startup"];
+   title = [ExtLocalizedString(@"Please wait, gathering disk information",
+      "Startup Message") stringByAppendingString:@"…"];
+   [_startupText setStringValue:title];
    
    /* Get our prefs */
    plist = [[self bundle] infoDictionary];
