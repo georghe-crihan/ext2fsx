@@ -441,8 +441,10 @@ ext2_mount(mp, path, data, ndp, td)
    bcopy((caddr_t)fs->fs_fsmnt, (caddr_t)mp->mnt_stat.f_mntonname,
 	    MNAMELEN);
    #endif
+   #ifndef APPLE
 	(void)copystr(fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, &size);
 	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
+   #endif
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
 	return (0);
 }
