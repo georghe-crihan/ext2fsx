@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleGetInfoString</key>
-	<string>Ext2Filesystem 1.1.1</string>
+	<string>Ext2Filesystem 1.2</string>
 	<key>CFBundleIdentifier</key>
 	<string>net.sourceforge.ext2fs.ext2</string>
 	<key>CFBundleName</key>
 	<string>Ext2 Filesystem</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.2</string>
 	<key>IFMajorVersion</key>
 	<integer>1</integer>
 	<key>IFMinorVersion</key>
