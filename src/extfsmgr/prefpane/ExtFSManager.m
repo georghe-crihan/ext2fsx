@@ -41,7 +41,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #define EXT_TOOLBAR_ALT_ACTION_MOUNT @"Unmount"
 #define EXT_TOOLBAR_ALT_ACTION_INFO @"Options"
 
-#define EXT_TOOLBAR_ICON_TYPE @"tiff"	
+#define EXT_TOOLBAR_ICON_TYPE @"icns"	
 
 static inline void ExtSwapButtonState(id button, BOOL swapImage)
 {
@@ -79,7 +79,9 @@ static BOOL _prefsChanged = NO;
 /* Localized strings */
 NSString *_yes, *_no, *_bytes;
 NSString *_monikers[] =
-      {nil, @"KB", @"MB", @"GB", @"TB", @"PB", @"EB", @"ZB", nil};
+      {@"bytes", @"KB", @"MB", @"GB", @"TB", @"PB", @"EB", @"ZB", @"YB", nil};
+//     KiloByte, MegaByte, GigaByte, TeraByte, PetaByte, ExaByte, ZetaByte, YottaByte
+//bytes  2^10,     2^20,     2^30,     2^40,     2^50,     2^60,    2^70,     2^80
 
 @implementation ExtFSManager : NSPreferencePane
 
@@ -108,7 +110,7 @@ NSString *_monikers[] =
       [_mountButton setEnabled:YES];
       if ([media isMounted]) {
          if ([tmp isEqualTo:EXT_TOOLBAR_ACTION_MOUNT]) {
-            ExtSwapButtonState(_mountButton, NO);
+            ExtSwapButtonState(_mountButton, YES);
             [(NSButtonCell*)[_mountButton cell]
                setRepresentedObject:EXT_TOOLBAR_ALT_ACTION_MOUNT];
          }
@@ -118,7 +120,7 @@ NSString *_monikers[] =
       [_mountButton setEnabled:NO];
 unmount_state:
       if ([tmp isEqualTo:EXT_TOOLBAR_ALT_ACTION_MOUNT]) {
-         ExtSwapButtonState(_mountButton, NO);
+         ExtSwapButtonState(_mountButton, YES);
          [(NSButtonCell*)[_mountButton cell]
             setRepresentedObject:EXT_TOOLBAR_ACTION_MOUNT];
       }
@@ -228,6 +230,24 @@ _curSelection = nil; \
 
 }
 
+- (void)mediaError:(NSNotification*)notification
+{
+   NSString *op, *device, *msg;
+   NSNumber *err;
+   
+   device = [[notification object] bsdName];
+   err = [[notification userInfo] objectForKey:ExtMediaKeyOpFailureError];
+   op = [[notification userInfo] objectForKey:ExtMediaKeyOpFailureType];
+   msg = [[notification userInfo] objectForKey:ExtMediaKeyOpFailureErrorString];
+   
+   NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""),
+      @"OK", nil, nil, [NSApp keyWindow], nil, nil, nil, nil,
+      [NSString stringWithFormat:
+         ExtLocalizedString(@"What: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),
+         ExtLocalizedString(op, ""), device, ExtLocalizedString(msg, ""),
+         [err intValue]]);
+}
+
 - (void)startup
 {
    NSString *title;
@@ -248,7 +268,6 @@ _curSelection = nil; \
    [_startupProgress setUsesThreadedAnimation:YES];
    [_startupProgress startAnimation:self];
    [_startupProgress displayIfNeeded];
-   
    
    (void)[self probeDisks];
    
@@ -280,6 +299,10 @@ _curSelection = nil; \
             selector:@selector(childChanged:)
             name:ExtFSMediaNotificationChildChange
             object:nil];
+   [[NSNotificationCenter defaultCenter] addObserver:self
+            selector:@selector(mediaError:)
+            name:ExtFSMediaNotificationOpFailure
+            object:nil];
    
    // Exapnd the root items
    en = [_volData objectEnumerator];
@@ -293,7 +316,7 @@ _curSelection = nil; \
       "Startup Message");
    [_startupText setStringValue:title];
    
-   [_vollist setEnabled:NO];
+   [_vollist setEnabled:YES];
 }
 
 // args are NSString*
@@ -624,8 +647,10 @@ data = [data stringByAppendingString:@"\n"]; \
    info = !opts && !startup;
    enabled = [_infoButton isEnabled];
    
-NSLog(@"start=%d, opts=%d, info=%d, enabled=%d, infoAlt=%d\n",
-   startup, opts, info, enabled, _infoButtonAlt);
+#ifdef DIAGNOSTIC
+   NSLog(@"ExtFS: doOptions: start=%d, opts=%d, info=%d, enabled=%d, infoAlt=%d\n",
+      startup, opts, info, enabled, _infoButtonAlt);
+#endif
    
    if (!info || !enabled) {
       if (!info)
@@ -668,7 +693,7 @@ info_alt_switch:
       EXT_TOOLBAR_ACTION_INFO, nil};
    NSString *alt_titles[] = {EXT_TOOLBAR_ALT_ACTION_MOUNT, nil,
       EXT_TOOLBAR_ALT_ACTION_INFO, nil};
-   NSString *alt_images[] = {nil, nil, EXT_TOOLBAR_ALT_ACTION_INFO, nil};
+   NSString *alt_images[] = {EXT_TOOLBAR_ALT_ACTION_MOUNT, nil, EXT_TOOLBAR_ALT_ACTION_INFO, nil};
    int i;
    
    _infoButtonAlt = NO; // Used to deterimine state
