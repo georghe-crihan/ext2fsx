@@ -1313,7 +1313,7 @@
 			<key>FSFormatMinimumSize</key>
 			<integer>524288</integer>
 			<key>FSMountArguments</key>
-			<string>-x</string>
+			<string>amount</string>
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount_ext2</string>
 			<key>FSName</key>
