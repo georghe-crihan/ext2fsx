@@ -592,6 +592,7 @@ exit:
    [_volName release];
    [_where release];
    [_media release];
+   [_children release];
    [_parent release];
    [super dealloc];
 }
