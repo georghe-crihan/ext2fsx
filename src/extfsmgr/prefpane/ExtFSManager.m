@@ -744,6 +744,13 @@ info_alt_switch:
       [button setEnabled:NO];
    }
    
+   [_mountReadOnlyBox setTitle:ExtLocalizedString(
+      @"Mount Read Only", "")];
+   [_dontAutomountBox setTitle:ExtLocalizedString(
+      @"Don't Automount", "")];
+   [_indexedDirsBox setTitle:ExtLocalizedString(
+      @"Enable Indexed Directories", "")];
+   
    [_optionNoteText setStringValue:ExtLocalizedString(
       @"Changes to these options will take effect during the next mount.", "")];
 
