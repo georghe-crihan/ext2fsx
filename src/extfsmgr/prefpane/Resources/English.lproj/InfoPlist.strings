@@ -2,5 +2,5 @@
 
 CFBundleName = "ExtFSManager";
 CFBundleShortVersionString = "ExtFSManager 1.0.3";
-CFBundleGetInfoString = "ExtFSManager 1.0.3, Copyright (c) 2003-2004, Brian Bergstrand.";
-NSHumanReadableCopyright = "Copyright (c) 2003-2004, Brian Bergstrand.";
+CFBundleGetInfoString = "ExtFSManager 1.0.3, © Copyright 2003-2004, Brian Bergstrand.";
+NSHumanReadableCopyright = "© Copyright 2003-2004, Brian Bergstrand.";
