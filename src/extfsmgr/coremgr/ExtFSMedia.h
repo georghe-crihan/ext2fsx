@@ -44,20 +44,20 @@
 @constant fsTypeNULL Placeholder for an empty marker.
 */
 typedef enum {
-   fsTypeExt2,
-   fsTypeExt3,
-   fsTypeHFS,
-   fsTypeHFSPlus,
-   fsTypeHFSJ, /* Journal */
-   fsTypeHFSX,
-   fsTypeUFS,
-   fsTypeCD9660,
-   fsTypeCDAudio,
-   fsTypeUDF,
-   fsTypeMSDOS,
-   fsTypeNTFS,
-   fsTypeUnknown,
-   fsTypeNULL
+   fsTypeExt2 = 0,
+   fsTypeExt3 = 1,
+   fsTypeHFS  = 2,
+   fsTypeHFSPlus = 3,
+   fsTypeHFSJ = 4,
+   fsTypeHFSX = 5,
+   fsTypeUFS  = 6,
+   fsTypeCD9660 = 7,
+   fsTypeCDAudio = 8,
+   fsTypeUDF   = 9,
+   fsTypeMSDOS = 10,
+   fsTypeNTFS  = 11,
+   fsTypeUnknown = 12,
+   fsTypeNULL = 13
 }ExtFSType;
 
 /*!
