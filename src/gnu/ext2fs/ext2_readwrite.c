@@ -94,10 +94,7 @@ READ(ap)
 	off_t bytesinfile;
 	long size, xfersize, blkoffset;
 	int error, orig_resid;
-	int seqcount = ap->a_ioflag >> 16;
-   #ifdef APPLE
    int devBlockSize=0;
-   #endif
 	u_short mode;
    
    ext2_trace_enter();
@@ -109,29 +106,30 @@ READ(ap)
 
 #ifdef DIAGNOSTIC
 	if (uio->uio_rw != UIO_READ)
-		panic("%s: mode", READ_S);
+		panic("%s: invalid uio_rw = %x", READ_S, uio->uio_rw);
 
 	if (vp->v_type == VLNK) {
 		if ((int)ip->i_size < vp->v_mount->mnt_maxsymlinklen)
 			panic("%s: short symlink", READ_S);
 	} else if (vp->v_type != VREG && vp->v_type != VDIR)
-		panic("%s: type %d", READ_S, vp->v_type);
+		panic("%s: invalid v_type %d", READ_S, vp->v_type);
 #endif
 	fs = ip->I_FS;
+   if (uio->uio_offset < 0)
+		ext2_trace_return (EINVAL);
 #if 0
 	if ((u_quad_t)uio->uio_offset > fs->s_maxfilesize)
 		ext2_trace_return (EFBIG);
 #endif
 
-	orig_resid = uio->uio_resid;
-   #ifdef APPLE
    VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+
+	orig_resid = uio->uio_resid;
    if (UBCISVALID(vp)) {
 		bp = NULL; /* So we don't try to free it later. */
       error = cluster_read(vp, uio, (off_t)ip->i_size, 
 			devBlockSize, 0);
 	} else {
-   #endif
 	for (error = 0, bp = NULL; uio->uio_resid > 0; bp = NULL) {
 		if ((bytesinfile = ip->i_size - uio->uio_offset) <= 0)
 			break;
@@ -148,13 +146,7 @@ READ(ap)
 
 		if (lblktosize(fs, nextlbn) >= ip->i_size)
 			error = bread(vp, lbn, size, NOCRED, &bp);
-		#ifndef APPLE
-      else if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERR) == 0)
-			error = cluster_read(vp,
-			    ip->i_size, lbn, size, NOCRED,
-				uio->uio_resid, (ap->a_ioflag >> 16), &bp);
-      #endif
-		else if (seqcount > 1) {
+		else if (lbn - 1 == vp->v_lastr && !(vp->v_flag & VRAOFF)) {
 			int nextsize = BLKSIZE(fs, ip, nextlbn);
 			error = breadn(vp, lbn,
 			    size, &nextlbn, &nextsize, 1, NOCRED, &bp);
@@ -183,18 +175,14 @@ READ(ap)
 		    uiomove((char *)bp->b_data + blkoffset, (int)xfersize, uio);
 		if (error)
 			break;
-         
-      #ifdef APPLE
+      
       if (S_ISREG(mode) && (xfersize + blkoffset == fs->s_frag_size ||
 		    uio->uio_offset == ip->i_size))
 			bp->b_flags |= B_AGE;
-      #endif
 
 		bqrelse(bp);
 	}
-   #ifdef APPLE
-   }
-   #endif
+   } /* if (UBCISVALID(vp)) */
 	if (bp != NULL)
 		bqrelse(bp);
 	if (orig_resid > 0 && (error == 0 || uio->uio_resid != orig_resid) &&
@@ -225,9 +213,7 @@ WRITE(ap)
 	off_t osize;
 	int seqcount;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
-   #ifdef APPLE
    int devBlockSize=0, rsd, blkalloc=0, save_error=0, save_size=0;
-   #endif
    
    ext2_trace_enter();
 
@@ -239,7 +225,7 @@ WRITE(ap)
 
 #ifdef DIAGNOSTIC
 	if (uio->uio_rw != UIO_WRITE)
-		panic("%s: mode", WRITE_S);
+		panic("%s: uio_rw = %x\n", WRITE_S, uio->uio_rw);
 #endif
 
 	switch (vp->v_type) {
@@ -265,29 +251,20 @@ WRITE(ap)
 	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
 #endif
+   if (uio->uio_resid == 0)
+      return (0);
+   
+   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   
 	/*
 	 * Maybe this should be above the vnode op call, but so long as
 	 * file servers have no limits, I don't think it matters.
 	 */
 	td = uio->uio_td;
-	/* For p_rlimit. */
-   #ifndef APPLE
-	mtx_assert(&Giant, MA_OWNED);
-   #endif
 	if (vp->v_type == VREG && td &&
 	    uio->uio_offset + uio->uio_resid >
-       #ifndef APPLE
-	    td->td_proc->p_rlimit[RLIMIT_FSIZE].rlim_cur) {
-       #else
        td->p_rlimit[RLIMIT_FSIZE].rlim_cur) {
-       #endif
-      #ifndef APPLE
-		PROC_LOCK(td->td_proc);
-		psignal(td->td_proc, SIGXFSZ);
-		PROC_UNLOCK(td->td_proc);
-      #else
       psignal(td, SIGXFSZ);
-      #endif
 		ext2_trace_return(EFBIG);
 	}
 
@@ -295,8 +272,6 @@ WRITE(ap)
 	osize = ip->i_size;
 	flags = ioflag & IO_SYNC ? B_SYNC : 0;
    
-   #ifdef APPLE
-   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
    if (UBCISVALID(vp)) {
       off_t filesize;
       off_t endofwrite;
@@ -313,7 +288,7 @@ WRITE(ap)
    
       if (endofwrite > ip->i_size) {
          filesize = endofwrite;
-                  file_extended = 1;
+         file_extended = 1;
       } else 
          filesize = ip->i_size;
    
@@ -339,19 +314,10 @@ WRITE(ap)
             fboff = blkoffset;
          if (rsd < xfersize)
             xfersize = rsd;
-         /*
-          * Avoid a data-consistency race between write() and mmap()
-          * by ensuring that newly allocated blocks are zerod.  The
-          * race can occur even in the case where the write covers
-          * the entire block.
-          */
-         local_flags |= B_CLRBUF;
-         #if 0
          if (fs->s_frag_size > xfersize)
             local_flags |= B_CLRBUF;
          else
             local_flags &= ~B_CLRBUF;
-         #endif
          
          /* Allocate block without reading into a buf (B_NOBUFF) */
          error = ext2_balloc2(ip,
@@ -375,8 +341,8 @@ WRITE(ap)
          save_error = error;
          save_size = rsd;
          uio->uio_resid -= rsd;
-                  if (file_extended)
-                     filesize -= rsd;
+         if (file_extended)
+            filesize -= rsd;
       }
    
       flags = ioflag & IO_SYNC ? IO_SYNC : 0;
@@ -427,8 +393,6 @@ WRITE(ap)
       }
       ip->i_flag |= IN_CHANGE | IN_UPDATE;
    } else {
-   #endif
-
 	for (error = 0; uio->uio_resid > 0;) {
 		lbn = lblkno(fs, uio->uio_offset);
 		blkoffset = blkoff(fs, uio->uio_offset);
@@ -436,24 +400,10 @@ WRITE(ap)
 		if (uio->uio_resid < xfersize)
 			xfersize = uio->uio_resid;
 
-		#ifndef APPLE
-      if (uio->uio_offset + xfersize > ip->i_size)
-			vnode_pager_setsize(vp, uio->uio_offset + xfersize);
-      #endif
-
-		/*
-		 * Avoid a data-consistency race between write() and mmap()
-		 * by ensuring that newly allocated blocks are zerod.  The
-		 * race can occur even in the case where the write covers
-		 * the entire block.
-		 */
-		flags |= B_CLRBUF;
-#if 0
 		if (fs->s_frag_size > xfersize)
 			flags |= B_CLRBUF;
 		else
 			flags &= ~B_CLRBUF;
-#endif
 
 		error = ext2_balloc(ip,
 		    lbn, blkoffset + xfersize, ap->a_cred, &bp, flags);
@@ -462,11 +412,8 @@ WRITE(ap)
 
 		if (uio->uio_offset + xfersize > ip->i_size) {
 			ip->i_size = uio->uio_offset + xfersize;
-         
-         #ifdef APPLE
          if (UBCISVALID(vp))
 				ubc_setsize(vp, (u_long)ip->i_size); /* XXX check errors */
-         #endif
 		}
 
 		size = BLKSIZE(fs, ip, lbn) - bp->b_resid;
@@ -475,40 +422,20 @@ WRITE(ap)
 
 		error =
 		    uiomove((char *)bp->b_data + blkoffset, (int)xfersize, uio);
-      #ifndef APPLE
-		if ((ioflag & IO_VMIO) &&
-		   (LIST_FIRST(&bp->b_dep) == NULL)) /* in ext2fs? */
-			bp->b_flags |= B_RELBUF;
-      #endif
 
 		if (ioflag & IO_SYNC) {
 			(void)bwrite(bp);
 		} else if (xfersize + blkoffset == fs->s_frag_size) {
-         #ifndef APPLE
-			if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERW) == 0) {
-            bp->b_flags |= B_CLUSTEROK;
-            cluster_write(bp, ip->i_size, seqcount);
-			} else {
-         #else
          bp->b_flags |= B_AGE;
-				bawrite(bp);
-         #endif
-         #ifndef APPLE
-			}
-         #endif
+         bawrite(bp);
 		} else {
-			#ifndef APPLE
-         bp->b_flags |= B_CLUSTEROK;
-         #endif
 			bdwrite(bp);
 		}
 		if (error || xfersize == 0)
 			break;
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
-   #ifdef APPLE
-   }
-   #endif
+   } /* if (UBCISVALID(vp)) */
 	/*
 	 * If we successfully wrote any data, and we are not the superuser
 	 * we clear the setuid and setgid bits as a precaution against
