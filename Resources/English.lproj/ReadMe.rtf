@@ -33,10 +33,14 @@ If you want to use the Ext2 command line utilities from Terminal, you may wish t
 If you need to operate on a corrupted disk image with one of the repair utils (fsck, debugs, dumpe2fs, etc), you will need to attach the disk image via the command line util 'hdid' with the "-nomount" option; this will prevent the automounter from trying to mount the disk image. After this, you can use the ext2 programs on the device returned from hdid. See "Known Limitations" for an example.\
 \
 
-\f0\b Known Limitations\
+\f0\b Known Limitations
+\f1\b0 \
+\
+Volumes may fail to auto-mount if they are corrupted. The auto-mounter funs fsck (in verification mode only) before mounting a volume and if fsck fails, the auto-mounter won't even try to mount the volume. If you are having problems with volumes not auto-mounting, try running fsck_ext2 on the device. After any volume errors have been corrected, you can get the auto-mounter to try mounting the device again by running 'disktool -r' from Terminal.
+\f0\b \
 
 \f1\b0 \
-Disk Copy disables the "Volume Name" field when Ext2 is selected. To change the name of a disk image volume, you must use the Terminal program 'e2label'. Example:\
+Disk Copy disables the "Volume Name" field when the Ext2 format is selected. To change the name of a disk image volume, you must use the Terminal program 'e2label'. Example:\
 \
 brian$ hdid -nomount Desktop/MyExt2Image.dmg\
 /dev/disk1              Apple_partition_scheme         \
