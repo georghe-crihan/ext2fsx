@@ -287,7 +287,10 @@ void ext2_free_inode (struct inode * inode)
 	sb->s_dirt = 1;
 	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
-	bdwrite(bh);
+	if (0 == (ITOV(inode)->v_mount->mnt_flag & MNT_SYNCHRONOUS))
+		bdwrite(bh);
+	else
+		bwrite(bh);
 #endif
 }
 
@@ -322,7 +325,10 @@ static void inc_inode_version (struct inode * inode,
 			EXT2_INODES_PER_BLOCK(inode->i_sb));
 	raw_inode->i_version++;
 	inode->u.ext2_i.i_version = raw_inode->i_version;
-	bdwrite (bh);
+	if (0 == (ITOV(inode)->v_mount->mnt_flag & MNT_SYNCHRONOUS))
+		bdwrite(bh);
+	else
+		bwrite(bh);
 }
 
 #endif /* linux */
@@ -498,7 +504,10 @@ repeat:
 	sb->s_dirt = 1;
 	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
-	bdwrite(bh);
+	if (0 == (ITOV(dir)->v_mount->mnt_flag & MNT_SYNCHRONOUS))
+		bdwrite(bh);
+	else
+		bwrite(bh);
 #endif
 	return j;
 }

@@ -284,7 +284,10 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 	sb->s_dirt = 1;
 	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
-	bdwrite(bh);
+	if (0 == (mp->mnt_flag & MNT_SYNCHRONOUS))
+		bdwrite(bh);
+	else
+		bwrite(bh);
 #endif
 	return;
 }
@@ -527,7 +530,10 @@ got_block:
 			    "block_group = %d", j, le32_to_cpu(es->s_blocks_count), i);
 		unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
-	bdwrite(bh);
+	if (0 == (mp->mnt_flag & MNT_SYNCHRONOUS))
+		bdwrite(bh);
+	else
+		bwrite(bh);
 #endif
 		return 0;
 	}
@@ -543,7 +549,10 @@ got_block:
 	sb->s_dirt = 1;
 	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
-	bdwrite(bh);
+	if (0 == (mp->mnt_flag & MNT_SYNCHRONOUS))
+		bdwrite(bh);
+	else
+		bwrite(bh);
 #endif
 	return j;
 }
