@@ -36,6 +36,7 @@
 extern int groupmember(gid_t gid, struct ucred *cred);
 extern int vfs_init_io_attributes (struct vnode *, struct mount *);
 extern uid_t console_user;
+extern int prtactive; /* 1 => print out reclaim of active vnodes */
 /**/
 
 #define M_EXT2NODE M_MISCFSNODE
@@ -77,13 +78,19 @@ __private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
 #define PROC_LOCK(p)
 #define PROC_UNLOCK(p)
 
+static __inline__ int msleep(void *chan, void *lock /*ignored*/, int pri,
+   char *wmesg, int timo)
+{
+   return (tsleep(chan, pri, wmesg, timo));
+}
+
 /*
  * Test the active securelevel against a given level.  securelevel_gt()
  * implements (securelevel > level).  securelevel_ge() implements
  * (securelevel >= level).  Note that the logic is inverted -- these
  * functions return EPERM on "success" and 0 on "failure".
  *
- * Must call while holding kernel funnel for MP safeness.
+ * Must call while holding kernel funnel for SMP safeness.
  */
 #define securelevel_gt(cr,level) ( securelevel > (level) ? EPERM : 0 )
 #define securelevel_ge(cr,level) ( securelevel >= (level) ? EPERM : 0 )
@@ -92,8 +99,27 @@ __private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
 
 #define mnt_iosize_max mnt_maxreadcnt
 
-#define VI_LOCK(vp) simple_lock((vp)->v_interlock)
-#define VI_UNLOCK(vp) simple_unlock((vp)->v_interlock)
+#define VI_MTX(vp) NULL
+/* #define VI_MTX(vp) (&(vp)->v_interlock) */
+
+#ifndef EXT2FS_DEBUG
+#define VI_LOCK(vp) simple_lock(&(vp)->v_interlock)
+#define VI_UNLOCK(vp) simple_unlock(&(vp)->v_interlock)
+#else
+
+#define VI_LOCK(vp) \
+do { \
+ext2_trace("grabbing vp %lu interlock\n", (vp)->v_id); \
+simple_lock(&(vp)->v_interlock); \
+} while(0)
+
+#define VI_UNLOCK(vp) \
+do { \
+simple_unlock(&(vp)->v_interlock); \
+ext2_trace("dropped vp %lu interlock\n", (vp)->v_id); \
+} while(0)
+
+#endif /* EXT2FS_DEBUG */
 
 #define vnode_pager_setsize(vp,sz) \
 do { \
@@ -102,9 +128,13 @@ do { \
 
 __private_extern__ int vrefcnt(struct vnode *);
 
+/* Separate flag fields in FreeBSD, only one in Darwin. */
 #define v_vflag v_flag
+#define v_iflag v_flag
 
-#define prtactive TRUE /* XXX what is this global in FBSD? */
+/* Vnode flags */
+#define VV_ROOT VROOT
+#define VI_BWAIT VBWAIT
 
 /* Flag for vn_rdwr() */
 #define IO_NOMACCHECK 0
@@ -117,9 +147,6 @@ __private_extern__ int vrefcnt(struct vnode *);
 #define SF_SNAPSHOT 0
 #define SF_NOUNLINK 0
 #define NOUNLINK 0
-
-/* Vnode flags */
-#define VV_ROOT VROOT
 
 /* XXX Equivalent fn in Darwin ? */
 #define vn_write_suspend_wait(vp,mp,flag) (0)
