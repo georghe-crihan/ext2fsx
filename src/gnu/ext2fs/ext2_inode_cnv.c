@@ -48,6 +48,9 @@
 *
 */
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 /*
  * routines to convert on disk ext2 inodes into inodes and back
  */
@@ -124,10 +127,10 @@ ext2_ei2i(ei, ip)
 	ip->i_gen = le32_to_cpu(ei->i_generation);
 	ip->i_uid = (u_int32_t)le16_to_cpu(ei->i_uid);
 	ip->i_gid = (u_int32_t)le16_to_cpu(ei->i_gid);
-   /* if(!(test_opt (ip->i_sb, NO_UID32))) { Always use 32 bit uid's */
+   if(!(test_opt (ip->i_e2fs, NO_UID32))) {
 		ip->i_uid |= le16_to_cpu(ei->i_uid_high) << 16;
 		ip->i_gid |= le16_to_cpu(ei->i_gid_high) << 16;
-	/*}*/
+	}
    if (S_ISREG(ip->i_mode))
       ip->i_size |= ((u_int64_t)le32_to_cpu(ei->i_size_high)) << 32;
    /* TBD: Otherwise, setup the dir acl */
@@ -150,6 +153,9 @@ ext2_ei2i(ei, ip)
 	for(i = 0; i < NIADDR; i++)
 		ip->i_ib[i] = le32_to_cpu(ei->i_block[EXT2_NDIR_BLOCKS + i]);
 }
+
+#define fs_high2lowuid(uid) ((uid) > 65535 ? (u_int16_t)65534 : (u_int16_t)(uid))
+#define fs_high2lowgid(gid) ((gid) > 65535 ? (u_int16_t)65534 : (u_int16_t)(gid))
 
 #define low_16_bits(x)	((x) & 0xFFFF)
 #define high_16_bits(x)	(((x) & 0xFFFF0000) >> 16)
@@ -194,7 +200,7 @@ ext2_i2ei(ip, ei)
 	ei->i_generation = cpu_to_le32(ip->i_gen);
 	ei->i_uid = cpu_to_le32(ip->i_uid);
 	ei->i_gid = cpu_to_le32(ip->i_gid);
-   /*if(!(test_opt(inode->i_sb, NO_UID32))) { Always use 32 bit uid's */
+   if(!(test_opt(ip->i_e2fs, NO_UID32))) {
 		ei->i_uid_low = cpu_to_le16(low_16_bits(ip->i_uid));
 		ei->i_gid_low = cpu_to_le16(low_16_bits(ip->i_gid));
 /*
@@ -208,12 +214,13 @@ ext2_i2ei(ip, ei)
 			ei->i_uid_high = 0;
 			ei->i_gid_high = 0;
 		}
-	/*} else {
-		raw_inode->i_uid_low = cpu_to_le16(fs_high2lowuid(inode->i_uid));
-		raw_inode->i_gid_low = cpu_to_le16(fs_high2lowgid(inode->i_gid));
-		raw_inode->i_uid_high = 0;
-		raw_inode->i_gid_high = 0;
-	}*/
+	} else {
+		ei->i_uid_low = cpu_to_le16(fs_high2lowuid(ip->i_uid));
+		ei->i_gid_low = cpu_to_le16(fs_high2lowgid(ip->i_gid));
+		ei->i_uid_high = 0;
+		ei->i_gid_high = 0;
+	}
+   
    if (S_ISREG(ip->i_mode)) {
       ei->i_size_high = cpu_to_le32(ip->i_size >> 32);
       if (ip->i_size > 0x7fffffffULL) {
