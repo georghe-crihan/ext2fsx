@@ -66,10 +66,16 @@ static LIST_HEAD(ihashhead, inode) *ihashtbl;
 static u_long	ihash;		/* size of hash table - 1 */
 #define	INOHASH(device, inum)	(&ihashtbl[(minor(device) + (inum)) & ihash])
 #ifndef APPLE
-static struct mtx ext2_ihash_mtx__;
-static struct mtx *ext2_ihash_mtx;
+static struct mtx ext2_ihash_mtx;
 #else
-static mutex_t *ext2_ihash_mtx;
+/* XXX - Redefining mtx_*  -- We have to use a spinlock on Darwin*/
+#undef mtx_lock
+#undef mtx_unlock
+#undef mtx_destroy
+#define mtx_lock(l) simple_lock(l)
+#define mtx_unlock(l) simple_unlock(l)
+#define mtx_destroy(l)
+static struct slock ext2_ihash_mtx;
 #endif
 
 /*
@@ -82,10 +88,9 @@ ext2_ihashinit()
 	KASSERT(ihashtbl == NULL, ("ext2_ihashinit called twice"));
 	ihashtbl = hashinit(desiredvnodes, M_EXT2IHASH, &ihash);
    #ifndef APPLE
-	mtx_init(&ext2_ihash_mtx__, "ext2 ihash", NULL, MTX_DEF);
-   ext2_ihash_mtx = &ext2_ihash_mtx__;
+	mtx_init(&ext2_ihash_mtx, "ext2 ihash", NULL, MTX_DEF);
    #else
-   ext2_ihash_mtx = mutex_alloc(0);
+   simple_lock_init(&ext2_ihash_mtx);
    #endif
 }
 
@@ -97,7 +102,7 @@ ext2_ihashuninit()
 {
 
 	hashdestroy(ihashtbl, M_EXT2IHASH, ihash);
-	mtx_destroy(ext2_ihash_mtx);
+	mtx_destroy(&ext2_ihash_mtx);
 }
 
 /*
@@ -111,11 +116,11 @@ ext2_ihashlookup(dev, inum)
 {
 	struct inode *ip;
 
-	mtx_lock(ext2_ihash_mtx);
+	mtx_lock(&ext2_ihash_mtx);
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash)
 		if (inum == ip->i_number && dev == ip->i_dev)
 			break;
-	mtx_unlock(ext2_ihash_mtx);
+	mtx_unlock(&ext2_ihash_mtx);
 
 	if (ip)
 		return (ITOV(ip));
@@ -140,7 +145,7 @@ ext2_ihashget(dev, inum, flags, vpp)
 
 	*vpp = NULL;
 loop:
-	mtx_lock(ext2_ihash_mtx);
+	mtx_lock(&ext2_ihash_mtx);
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash) {
 		if (inum == ip->i_number && dev == ip->i_dev) {
 			vp = ITOV(ip);
@@ -149,7 +154,7 @@ loop:
          #else
          simple_lock(&vp->v_interlock);
          #endif
-			mtx_unlock(ext2_ihash_mtx);
+			mtx_unlock(&ext2_ihash_mtx);
 			error = vget(vp, flags | LK_INTERLOCK, td);
 			if (error == ENOENT)
 				goto loop;
@@ -159,7 +164,7 @@ loop:
 			return (0);
 		}
 	}
-	mtx_unlock(ext2_ihash_mtx);
+	mtx_unlock(&ext2_ihash_mtx);
 	return (0);
 }
 
@@ -176,11 +181,11 @@ ext2_ihashins(ip)
 	/* lock the inode, then put it on the appropriate hash list */
 	vn_lock(ITOV(ip), LK_EXCLUSIVE | LK_RETRY, td);
 
-	mtx_lock(ext2_ihash_mtx);
+	mtx_lock(&ext2_ihash_mtx);
 	ipp = INOHASH(ip->i_dev, ip->i_number);
 	LIST_INSERT_HEAD(ipp, ip, i_hash);
 	ip->i_flag |= IN_HASHED;
-	mtx_unlock(ext2_ihash_mtx);
+	mtx_unlock(&ext2_ihash_mtx);
 }
 
 /*
@@ -190,10 +195,10 @@ void
 ext2_ihashrem(ip)
 	struct inode *ip;
 {
-	mtx_lock(ext2_ihash_mtx);
+	mtx_lock(&ext2_ihash_mtx);
 	if (ip->i_flag & IN_HASHED) {
 		ip->i_flag &= ~IN_HASHED;
 		LIST_REMOVE(ip, i_hash);
 	}
-	mtx_unlock(ext2_ihash_mtx);
+	mtx_unlock(&ext2_ihash_mtx);
 }
