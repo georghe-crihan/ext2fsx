@@ -6,8 +6,8 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.0b1\
-2003/07/11
+\f1\b0 1.0d2\
+2003/07/15
 \f0\b \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
@@ -56,8 +56,6 @@ hdiutil: detach: "disk1" detached successfully.\
 \
 Linux does not care what character encoding is used for directory entries (IOW, file names). Linux just treats the name as a byte stream with no interpretation done. If you are using non-ASCII characters in file names,  there is no way to find out what encoding is used for a particular file (or the FS as a whole). The solution to this is to use UTF-8. This is what Mac OS X does. Unfortunatly, if you are not currently using UTF-8 in Linux, then your names will be mis-interpreted on Mac OS X and there is nothing that can be done to fix this.\
 \
-Copying a file bigger than 2GB in Linux will cause the volume to fail mounting in Mac OS X. Currently, Ext2 for Mac OS X does not support large files.\
-\
 There is a known bug when copying certain files from the Finder (or ditto). This bug will show up as an error -2122 when copying files containing a resource fork. This bug is being tracked under id #742939.\
 \
 NFS export is not supported.\
@@ -65,7 +63,7 @@ Boot/Root is not supported.\
 EXT3 is not supported.\
 Quotas are not supported.\
 ACL's are not supported.\
-Files bigger than 2GB are not supported.\
+Volumes cannot be renamed in the Finder.\
 \
 
 \f0\b Reporting a Bug
