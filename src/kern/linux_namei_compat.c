@@ -137,7 +137,29 @@ struct buffer_head *ext3_bread(handle_t *handle, struct inode * inode,
    return (bp);
 }
 
-/* dx_dir.c support */
+#define GFP_KERNEL M_EXT3DIRPRV
+static __inline__
+void* kmalloc(size_t len, int type)
+{
+   void *p;
+   MALLOC(p, void*, len, type, M_WAITOK);
+   return (p);
+}
+
+/* XXX - Assuming GFP_KERNEL MALLOC type */
+static __inline__
+void kfree(void *p)
+{
+   FREE(p, GFP_KERNEL);
+}
+
+/* fs/ext3/dir.c support */
+
+#define update_atime(ip) \
+do { \
+ (ip)->i_flag |= IN_ACCESS; \
+ ext2_itimes(ITOV((ip))); \
+} while(0)
 
 struct filldir_args {
    struct uio *uio;
