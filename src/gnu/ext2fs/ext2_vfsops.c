@@ -705,7 +705,7 @@ ext2_reload(mountp, cred, td)
 	 */
    #ifdef APPLE
    /* Get the current block size */
-   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   VOP_DEVBLOCKSIZE(devvp, &devBlockSize);
    #endif
 	if ((error = meta_bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		return (error);
