@@ -17,11 +17,11 @@ copydir() {
 		#echo ${2}/`basename $i`
 		if [ ! -d $i ]; then
 			if [ ! -e ${2}/`basename $i` ]; then
-				echo sudo cp $i ${2}/
+				sudo cp $i ${2}/
 			fi
 		else
 			if [ ! -d ${2}/`basename $i` ]; then
-				echo sudo cp -R $i ${2}/
+				sudo cp -R $i ${2}/
 			else 
 				copydir "`ls -d $i/* | grep -v CVS`" ${2}/`basename $i`
 			fi
@@ -43,6 +43,9 @@ exit 1
 fi
 
 copydir "`ls -d ${KERNH}/* | grep -v CVS`" ${SYS_KERNF}/Headers 
+#make sure the perms are correct
+find ${SYS_KERNF}/Headers/ -type d | xargs sudo chmod go+rx
+find ${SYS_KERNF}/Headers/ -type f | xargs sudo chmod go+r
 
 #perms
 
