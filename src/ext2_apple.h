@@ -121,6 +121,8 @@ ext2_trace("dropped vp %lu interlock\n", (vp)->v_id); \
 
 #endif /* EXT2FS_DEBUG */
 
+/* FreeBSD kern calls */
+
 #define vnode_pager_setsize(vp,sz) \
 do { \
    if (UBCISVALID((vp))) {ubc_setsize((vp), (sz));} \
@@ -137,16 +139,18 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *);
 #define VV_ROOT VROOT
 #define VI_BWAIT VBWAIT
 
-/* Flag for vn_rdwr() */
+/* FreeBSD flag for vn_rdwr() */
 #define IO_NOMACCHECK 0
 
-/* Mount flags */
+/* FreeBSD Mount flags */
 #define MNT_NOCLUSTERR 0
 #define MNT_NOCLUSTERW 0
 #define MNT_NOATIME 0
 
+/* Soft Updates */
 #define SF_SNAPSHOT 0
 #define SF_NOUNLINK 0
+/* No delete */
 #define NOUNLINK 0
 
 /* XXX Equivalent fn in Darwin ? */
@@ -157,14 +161,13 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *);
 #define b_ioflags b_flags
 #define BIO_ERROR B_ERROR
 
-/* getblk flag */
+/* FreeBSD getblk flag */
 #define GB_LOCK_NOWAIT 0
 
 #define BUF_WRITE bwrite
 #define BUF_STRATEGY VOP_STRATEGY
 
 #define bqrelse brelse
-
 #define bufwait biowait
 #define bufdone biodone
 
