@@ -61,6 +61,10 @@ static const char rcsid[] =
 #ifdef APPLE
 #include "ext2_apple.h"
 
+/* KEXT support */
+int checkLoadable();
+int load_kmod();
+
 /* Equiv. to ufs_args */
 struct ext2_args {
 	char	*fspec;			/* block special device to mount */
@@ -137,6 +141,10 @@ main(argc, argv)
 		err(EX_OSERR, "%s", fspec);
 #else
    args.fspec = fspec;
+   if (checkLoadable()) {		/* Is it already loaded? */
+      if (load_kmod())		/* Load it in */
+         errx(EX_OSERR, EXT2FS_NAME " filesystem is not available");
+   }
    if (mount(EXT2FS_NAME, mntpath, mntflags, NULL) < 0)
 		err(EX_OSERR, "%s on %s", args.fspec, mntpath);
 #endif
