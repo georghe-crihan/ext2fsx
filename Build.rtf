@@ -1,7 +1,7 @@
 {\rtf1\mac\ansicpg10000\cocoartf102
 {\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica;}
 {\colortbl;\red255\green255\blue255;}
-\margl1440\margr1440\vieww9000\viewh9000\viewkind0
+\margl1440\margr1440\vieww14040\viewh10200\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
 \f0\b\fs24 \cf0 Dependencies
@@ -11,7 +11,7 @@ You will need the following external code to build EXT2FS.\
 \
 The disklib Darwin project. This is available from Apple's Darwin CVS repository. You'll want to checkout "diskdev_cmds/disklib". After checking out the project, cd to the dir, then 'make' and 'make install'.\
 \
-The July, August, Oct (and it seems Dec) tools removed vital kernel headers from the Kernel framework  and they have to be added back in manually from Darwin CVS.\
+The July, August, Oct (and it seems Dec) 2002 tools removed vital kernel headers from the Kernel framework  and they have to be added back in manually from Darwin CVS.\
 \
 Here is a list of the missing headers. These can be found in xnu/bsd/ in the Darwin repository.\
 \
@@ -40,17 +40,31 @@ e2fsprogsbuild.sh\
 \f0\b e2fsprogs Notes
 \f1\b0 \
 \
-If you are working from pre-A1 sources, you will have to update your e2fsprogs dir to the latest vender code.\
+If you are working from pre-A1 sources, you will have to update your e2fsprogs dir to the latest vendor code.\
 \
 cd src/\
 rm -rf e2fsprogs\
 cvs up e2fsprogs\
 \
-If you are having problems with e2fsprogs, do a clean build.\
+If you are having problems with e2fsprogs, do a clean build (this is necessary, if non-vendor changes have been made):\
 \
 cd src/e2fsprogs\
 rm ./.e2configdone\
 make clean\
 cd ../..\
 ./e2fsprogsbuild.sh\
+\
+
+\f0\b e2undel Notes
+\f1\b0 \
+\
+e2fsprogs must be installed. Easiest way to do this correctly, is to install the Ext2FS package.\
+\
+To build e2undel, you will need the following symlinks:\
+\
+cd src\
+ln -s gnu/ext2fs linux\
+\
+Now, you can build the e2undel target in the project.\
+\
 }
