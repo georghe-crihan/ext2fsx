@@ -134,7 +134,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.1b1;
+				MODULE_VERSION = 1.1;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -159,6 +159,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>ext2fs</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Copyright © 2003-2004 Brian Bergstrand</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -170,11 +172,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1b1</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1b1</string>
+	<string>1.1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -395,7 +397,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DAPPLE";
+				OTHER_CFLAGS = "-DAPPLE -mdynamic-no-pic";
 				OTHER_LDFLAGS = "-ldisk";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = mount_ext2;
@@ -1035,7 +1037,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-mdynamic-no-pic";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = fsck_ext2;
@@ -1321,7 +1323,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = "src/gnu/ext2fs src/gnu/ext2fs/linux/include";
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-mdynamic-no-pic";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2fs.util;
@@ -1411,7 +1413,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string></string>
+	<string>Copyright © 2003-2004 Brian Bergstrand</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1716,7 +1718,7 @@
 	<key>CFBundleExecutable</key>
 	<string>ExtFSManager</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Copyright © 2003 Brian Bergstrand</string>
+	<string>Copyright © 2003-2004 Brian Bergstrand</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1908,7 +1910,7 @@
 			);
 			buildSettings = {
 				HEADER_SEARCH_PATHS = src;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-mdynamic-no-pic";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = newfs_ext2;
