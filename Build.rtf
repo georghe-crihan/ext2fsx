@@ -7,4 +7,13 @@
 \f0\fs24 \cf0 You will need the following external code to build EXT2FS.\
 \
 The disklib Darwin project. This is available from Apple's Darwin CVS repository. You'll want to checkout src/notlive/diskdev_cmds/disklib. After checking out the project, cd to the dir, then 'make' and 'make install'.\
+\
+You will also need to create a symbolic link to your ext2fs source directory in /usr/local/src if you want to build the Install package.\
+\
+Finally, the following scripts need to have execute permissions.\
+\
+MakeInstall.sh\
+Resources/postinstall\
+Resources/postupgrade\
+Resources/preupgrade\
 }
