@@ -53,14 +53,13 @@ static const char niwhatid[] __attribute__ ((unused)) =
 #define i_sb i_e2fs
 #define s_id fs_fsmnt
 
-#define b_size b_bufsize
-
 /* -- BDB --
    handle_t is an opaque journal transaction type on Linux.
    We don't support journaling (yet), so for now we just use
    it as a context handle to pass info from the BSD routines. */
 struct e2_handle {
    struct componentname *h_cnp;
+   vfs_context_t h_vctx;
 };
 typedef struct e2_handle handle_t;
 
@@ -87,7 +86,7 @@ static __inline__
 int ext3_journal_dirty_metadata(handle_t *handle, buf_t bp)
 {
    // XXX bh->b_flags |= B_NORELSE;
-   return (-buf_bwrite(bh));
+   return (-buf_bwrite(bp));
 }
 
 static __inline__
@@ -100,7 +99,7 @@ int ext3_mark_inode_dirty(handle_t *handle, struct inode *inode)
 static __inline__
 int ext3_check_dir_entry (const char * function, struct inode * dir,
 			  struct ext3_dir_entry_2 * de,
-			  struct buffer_head * bh,
+			  buf_t  bp,
 			  unsigned long offset)
 {
    if (!dirchk && de->rec_len)
@@ -110,14 +109,14 @@ int ext3_check_dir_entry (const char * function, struct inode * dir,
 }
 
 static
-struct buffer_head *ext3_bread(handle_t *handle, struct inode * inode,
+buf_t ext3_bread(handle_t *handle, struct inode * inode,
 				long block, int create, int * errp)
 {
-   buf_t  bp;
+   buf_t bp;
    struct	ucred *cred;
    int blksize = inode->i_e2fs->s_blocksize, err;
    
-   cred = (handle && handle->h_cnp) ? handle->h_cnp->cn_cred : NOCRED;
+   cred = (handle && handle->h_vctx) ? vfs_context_ucred(handle->h_vctx) : NOCRED;
    *errp = -EIO;
    if (create) {
       assert(NOCRED != cred);
@@ -152,6 +151,8 @@ void kfree(void *p)
 {
    FREE(p, GFP_KERNEL);
 }
+
+#define brelse buf_brelse
 
 /* fs/ext3/dir.c support */
 

@@ -321,7 +321,7 @@ finished:
 
 static int ext3_release_dir (vnode_t  vp, struct inode * filp)
 {
-       if (filp->private_data)
+	if (filp->private_data)
 		ext3_htree_free_dir_info(filp->private_data);
 
 	return 0;

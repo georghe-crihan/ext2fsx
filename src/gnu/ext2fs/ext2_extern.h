@@ -100,16 +100,16 @@ typedef struct ext2_vinit_args {
 #define EXT2_VINIT_INO_LCKD 0x00000001
 
 int	ext2_vinit(mount_t, evinit_args_t *, vnode_t *vpp);
-int ext2_lookup(struct vnop_cachedlookup_args *);
+int ext2_lookup(struct vnop_lookup_args *);
 int ext2_readdir(struct vnop_readdir_args *);
 void	ext2_print_inode(struct inode *);
 int	ext2_direnter(struct inode *, 
-		vnode_t , struct componentname *);
+		vnode_t , struct componentname *, vfs_context_t);
 int	ext2_dirremove(vnode_t , struct componentname *);
 int	ext2_dirrewrite(struct inode *,
 		struct inode *, struct componentname *);
 int	ext2_dirempty(struct inode *, ino_t, struct ucred *);
-int	ext2_checkpath(struct inode *, struct inode *, struct ucred *);
+int	ext2_checkpath(struct inode *, struct inode *, evalloc_args_t *);
 struct  ext2_group_desc * get_group_desc(mount_t   , 
 		unsigned int , buf_t  * );
 int	ext2_group_sparse(int group);

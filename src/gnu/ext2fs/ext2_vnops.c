@@ -2119,7 +2119,7 @@ ext2_advlock(ap)
 
 /*
  * Initialize the vnode associated with a new inode, handle aliased
- * vnodes.
+ * vnodes. Returns vnode/inode referenced and locked.
  */
 int
 ext2_vinit(mntp, args, vpp)

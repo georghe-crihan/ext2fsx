@@ -29,7 +29,11 @@
 static const char dxwhatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
-#ifndef linux
+#ifdef linux
+typedef struct buffer_head *buf_t;
+#define buf_dataptr(bh) (bh)->b_data
+#define buf_size(bh) (bh)->b_size
+#else
 /* XXX - Define i_flags to i_e2flags -- this overrides access to
 the real i_flags field in an inode.*/
 #define i_flags i_e2flags
@@ -37,11 +41,11 @@ the real i_flags field in an inode.*/
 #define i_ino i_number
 #endif
 
-static struct buffer_head *ext3_append(handle_t *handle,
+static buf_t ext3_append(handle_t *handle,
 					struct inode *inode,
 					u32 *block, int *err)
 {
-	struct buffer_head *bh;
+	buf_t bh;
 
 	*block = inode->i_size >> inode->i_sb->s_blocksize_bits;
 
@@ -121,7 +125,7 @@ struct dx_node
 
 struct dx_frame
 {
-	struct buffer_head *bh;
+	buf_t bh;
 	struct dx_entry *entries;
 	struct dx_entry *at;
 };
@@ -159,7 +163,7 @@ static int ext3_htree_next_block(struct inode *dir, __u32 hash,
 				 struct dx_frame *frame,
 				 struct dx_frame *frames, 
 				 __u32 *start_hash);
-static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
+static buf_t  ext3_dx_find_entry(struct dentry *dentry,
 		       struct ext3_dir_entry_2 **res_dir, int *err);
 static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 			     struct inode *inode);
@@ -280,7 +284,7 @@ struct stats dx_show_entries(struct dx_hash_info *hinfo, struct inode *dir,
 	unsigned blocksize = dir->i_sb->s_blocksize;
 	unsigned count = dx_get_count (entries), names = 0, space = 0, i;
 	unsigned bcount = 0;
-	struct buffer_head *bh;
+	buf_t bh;
 	int err;
 	printk("%i indexed blocks...\n", count);
 	for (i = 0; i < count; i++, entries++)
@@ -290,9 +294,9 @@ struct stats dx_show_entries(struct dx_hash_info *hinfo, struct inode *dir,
 		struct stats stats;
 		printk("%s%3u:%03u hash %8x/%8x ",levels?"":"   ", i, block, hash, range);
 		if (!(bh = ext3_bread (NULL,dir, block, 0,&err))) continue;
-		stats = levels?
-		   dx_show_entries(hinfo, dir, ((struct dx_node *) bh->b_data)->entries, levels - 1):
-		   dx_show_leaf(hinfo, (struct ext3_dir_entry_2 *) bh->b_data, blocksize, 0);
+        stats = levels?
+		   dx_show_entries(hinfo, dir, ((struct dx_node *) buf_dataptr(bh))->entries, levels - 1):
+		   dx_show_leaf(hinfo, (struct ext3_dir_entry_2 *) buf_dataptr(bh), blocksize, 0);
 		names += stats.names;
 		space += stats.space;
 		bcount += stats.bcount;
@@ -321,7 +325,7 @@ dx_probe(struct dentry *dentry, struct inode *dir,
 	unsigned count, indirect;
 	struct dx_entry *at, *entries, *p, *q, *m;
 	struct dx_root *root;
-	struct buffer_head *bh;
+	buf_t bh;
 	struct dx_frame *frame = frame_in;
 	u32 hash;
 
@@ -330,7 +334,7 @@ dx_probe(struct dentry *dentry, struct inode *dir,
 		dir = dentry->d_parent->d_inode;
 	if (!(bh = ext3_bread (NULL,dir, 0, 0, err)))
 		goto fail;
-	root = (struct dx_root *) bh->b_data;
+	root = (struct dx_root *) buf_dataptr(bh);
 	if (root->info.hash_version != DX_HASH_TEA &&
 	    root->info.hash_version != DX_HASH_HALF_MD4 &&
 	    root->info.hash_version != DX_HASH_LEGACY) {
@@ -410,7 +414,7 @@ dx_probe(struct dentry *dentry, struct inode *dir,
 		if (!indirect--) return frame;
 		if (!(bh = ext3_bread (NULL,dir, dx_get_block(at), 0, err)))
 			goto fail2;
-		at = entries = ((struct dx_node *) bh->b_data)->entries;
+		at = entries = ((struct dx_node *) buf_dataptr(bh))->entries;
 		assert (dx_get_limit(entries) == dx_node_limit (dir));
 		frame++;
 	}
@@ -428,7 +432,7 @@ static void dx_release (struct dx_frame *frames)
 	if (frames[0].bh == NULL)
 		return;
 
-	if (((struct dx_root *) frames[0].bh->b_data)->info.indirect_levels)
+	if (((struct dx_root *) buf_dataptr(frames[0].bh))->info.indirect_levels)
 		brelse(frames[1].bh);
 	brelse(frames[0].bh);
 }
@@ -456,7 +460,7 @@ static int ext3_htree_next_block(struct inode *dir, __u32 hash,
 				 __u32 *start_hash)
 {
 	struct dx_frame *p;
-	struct buffer_head *bh;
+	buf_t bh;
 	int err, num_frames = 0;
 	__u32 bhash;
 
@@ -502,7 +506,7 @@ static int ext3_htree_next_block(struct inode *dir, __u32 hash,
 		p++;
 		brelse (p->bh);
 		p->bh = bh;
-		p->at = p->entries = ((struct dx_node *) bh->b_data)->entries;
+		p->at = p->entries = ((struct dx_node *) buf_dataptr(bh))->entries;
 	}
 	return 1;
 }
@@ -526,7 +530,7 @@ static int htree_dirblock_to_tree(vnode_t dir_file,
 				  struct dx_hash_info *hinfo,
 				  __u32 start_hash, __u32 start_minor_hash)
 {
-	struct buffer_head *bh;
+	buf_t bh;
 	struct ext3_dir_entry_2 *de, *top;
 	int err, count = 0;
 
@@ -534,7 +538,7 @@ static int htree_dirblock_to_tree(vnode_t dir_file,
 	if (!(bh = ext3_bread (NULL, dir, block, 0, &err)))
 		return err;
 
-	de = (struct ext3_dir_entry_2 *) bh->b_data;
+	de = (struct ext3_dir_entry_2 *) buf_dataptr(bh);
 	top = (struct ext3_dir_entry_2 *) ((char *) de +
 					   dir->i_sb->s_blocksize -
 					   EXT3_DIR_REC_LEN(0));
@@ -595,7 +599,7 @@ int ext3_htree_fill_tree(vnode_t dir_file, __u32 start_hash,
 
 	/* Add '.' and '..' from the htree header */
 	if (!start_hash && !start_minor_hash) {
-		de = (struct ext3_dir_entry_2 *) frames[0].bh->b_data;
+		de = (struct ext3_dir_entry_2 *) buf_dataptr(frames[0].bh);
 		if ((err = ext3_htree_store_dirent(dir_file, 0, 0, de)) != 0)
 			goto errout;
 		de = ext3_next_entry(de);
@@ -731,7 +735,7 @@ static inline int ext3_match (int len, const char * const name,
 	return !memcmp(name, de->name, len);
 }
 
-static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
+static buf_t  ext3_dx_find_entry(struct dentry *dentry,
 		       struct ext3_dir_entry_2 **res_dir, int *err)
 {
 	struct super_block * sb;
@@ -739,7 +743,7 @@ static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
 	u32 hash;
 	struct dx_frame frames[2], *frame;
 	struct ext3_dir_entry_2 *de, *top;
-	struct buffer_head *bh;
+	buf_t bh;
 	unsigned long block;
 	int retval;
 	int namelen = dentry->d_name.len;
@@ -754,7 +758,7 @@ static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
 		block = dx_get_block(frame->at);
 		if (!(bh = ext3_bread (NULL,dir, block, 0, err)))
 			goto errout;
-		de = (struct ext3_dir_entry_2 *) bh->b_data;
+		de = (struct ext3_dir_entry_2 *) buf_dataptr(bh);
 		top = (struct ext3_dir_entry_2 *) ((char *) de + sb->s_blocksize -
 				       EXT3_DIR_REC_LEN(0));
 		for (; de < top; de = ext3_next_entry(de))
@@ -768,7 +772,7 @@ static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
                not the dir. */
                0
          #endif
-					  +((char *)de - bh->b_data))) {
+					  +((char *)de - (char*)buf_dataptr(bh)))) {
 				brelse (bh);
 				goto errout;
 			}
@@ -855,16 +859,16 @@ static struct ext3_dir_entry_2* dx_pack_dirents(char *base, int size)
 }
 
 static struct ext3_dir_entry_2 *do_split(handle_t *handle, struct inode *dir,
-			struct buffer_head **bh,struct dx_frame *frame,
+			buf_t *bh,struct dx_frame *frame,
 			struct dx_hash_info *hinfo, int *error)
 {
 	unsigned blocksize = dir->i_sb->s_blocksize;
 	unsigned count, continued;
-	struct buffer_head *bh2;
+	buf_t bh2;
 	u32 newblock;
 	u32 hash2;
 	struct dx_map_entry *map;
-	char *data1 = (*bh)->b_data, *data2;
+	char *data1 = (char*)buf_dataptr(*bh), *data2;
 	unsigned split;
 	struct ext3_dir_entry_2 *de = NULL, *de2;
 	int	err;
@@ -891,7 +895,7 @@ static struct ext3_dir_entry_2 *do_split(handle_t *handle, struct inode *dir,
 	if (err)
 		goto journal_error;
 
-	data2 = bh2->b_data;
+	data2 = (char*)buf_dataptr(bh2);
 
 	/* create map in the end of data2 block */
 	map = (struct dx_map_entry *) (data2 + blocksize);
@@ -945,7 +949,7 @@ errout:
  */
 static int add_dirent_to_buf(handle_t *handle, struct dentry *dentry,
 			     struct inode *inode, struct ext3_dir_entry_2 *de,
-			     struct buffer_head * bh)
+			     buf_t  bh)
 {
 	struct inode	*dir = dentry->d_parent->d_inode;
 	const char	*name = dentry->d_name.name;
@@ -957,8 +961,8 @@ static int add_dirent_to_buf(handle_t *handle, struct dentry *dentry,
 
 	reclen = EXT3_DIR_REC_LEN(namelen);
 	if (!de) {
-		de = (struct ext3_dir_entry_2 *)bh->b_data;
-		top = bh->b_data + dir->i_sb->s_blocksize - reclen;
+		de = (struct ext3_dir_entry_2 *)buf_dataptr(bh);
+		top = (char*)buf_dataptr(bh) + dir->i_sb->s_blocksize - reclen;
 		while ((char *) de <= top) {
 			if (!ext3_check_dir_entry("ext3_add_entry", dir, de,
 						  bh, offset)) {
@@ -1045,12 +1049,12 @@ static int add_dirent_to_buf(handle_t *handle, struct dentry *dentry,
  * directory, and adds the dentry to the indexed directory.
  */
 static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
-			    struct inode *inode, struct buffer_head *bh)
+			    struct inode *inode, buf_t bh)
 {
 	struct inode	*dir = dentry->d_parent->d_inode;
 	const char	*name = dentry->d_name.name;
 	int		namelen = dentry->d_name.len;
-	struct buffer_head *bh2;
+	buf_t bh2;
 	struct dx_root	*root;
 	struct dx_frame	frames[2], *frame;
 	struct dx_entry *entries;
@@ -1071,7 +1075,7 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
 		brelse(bh);
 		return retval;
 	}
-	root = (struct dx_root *) bh->b_data;
+	root = (struct dx_root *) buf_dataptr(bh);
 
 	bh2 = ext3_append (handle, dir, &block, &retval);
 	if (!(bh2)) {
@@ -1079,7 +1083,7 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
 		return retval;
 	}
 	EXT3_I(dir)->i_flags |= EXT3_INDEX_FL;
-	data1 = bh2->b_data;
+	data1 = (char*)buf_dataptr(bh2);
 
 	/* The 0th block becomes the root, move the dirents out */
 	fde = &root->dotdot;
@@ -1128,7 +1132,7 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 	struct dx_frame frames[2], *frame;
 	struct dx_entry *entries, *at;
 	struct dx_hash_info hinfo;
-	struct buffer_head * bh;
+	buf_t  bh;
 	struct inode *dir = dentry->d_parent->d_inode;
 	struct super_block * sb = dir->i_sb;
 	struct ext3_dir_entry_2 *de;
@@ -1164,7 +1168,7 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 		int levels = frame - frames;
 		struct dx_entry *entries2;
 		struct dx_node *node2;
-		struct buffer_head *bh2;
+		buf_t bh2;
 
 		if (levels && (dx_get_count(frames->entries) ==
 			       dx_get_limit(frames->entries))) {
@@ -1176,7 +1180,7 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 		bh2 = ext3_append (handle, dir, &newblock, &err);
 		if (!(bh2))
 			goto cleanup;
-		node2 = (struct dx_node *)(bh2->b_data);
+		node2 = (struct dx_node *)(buf_dataptr(bh2));
 		entries2 = node2->entries;
 		node2->fake.rec_len = cpu_to_le16(sb->s_blocksize);
 		node2->fake.inode = 0;
@@ -1210,7 +1214,7 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 			dx_insert_block (frames + 0, hash2, newblock);
 			dxtrace(dx_show_index ("node", frames[1].entries));
 			dxtrace(dx_show_index ("node",
-			       ((struct dx_node *) bh2->b_data)->entries));
+			       ((struct dx_node *) buf_dataptr(bh2))->entries));
 			err = ext3_journal_dirty_metadata(handle, bh2);
 			if (err)
 				goto journal_error;
@@ -1224,7 +1228,7 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 			/* Set up root */
 			dx_set_count(entries, 1);
 			dx_set_block(entries + 0, newblock);
-			((struct dx_root *) frames[0].bh->b_data)->info.indirect_levels = 1;
+			((struct dx_root *) buf_dataptr(frames[0].bh))->info.indirect_levels = 1;
 
 			/* Add new access path frame */
 			frame = frames + 1;
@@ -1261,15 +1265,17 @@ cleanup:
 static int ext3_delete_entry (handle_t *handle, 
 			      struct inode * dir,
 			      struct ext3_dir_entry_2 * de_del,
-			      struct buffer_head * bh)
+			      buf_t  bh)
 {
 	struct ext3_dir_entry_2 * de, * pde;
+    u32 size;
 	int i;
 
 	i = 0;
 	pde = NULL;
-	de = (struct ext3_dir_entry_2 *) bh->b_data;
-	while (i < bh->b_size) {
+	de = (struct ext3_dir_entry_2 *) buf_dataptr(bh);
+    size = buf_size(bh);
+	while (i < size) {
 		if (!ext3_check_dir_entry("ext3_delete_entry", dir, de, bh, i))
 			return -EIO;
 		if (de == de_del)  {

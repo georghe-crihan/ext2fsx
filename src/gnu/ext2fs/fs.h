@@ -239,3 +239,21 @@ void mark_buffer_dirty (buf_t bp)
 	} else \
 		buf_brelse(bp); \
 } while(0)
+
+/* Copied from ufs/ufs/dir.h */
+/*
+ * Template for manipulating directories.  Should use struct direct's,
+ * but the name field is MAXNAMLEN - 1, and this just won't do.
+ */
+struct dirtemplate {
+	u_int32_t	dot_ino;
+	int16_t		dot_reclen;
+	u_int8_t	dot_type;
+	u_int8_t	dot_namlen;
+	char		dot_name[4];	/* must be multiple of 4 */
+	u_int32_t	dotdot_ino;
+	int16_t		dotdot_reclen;
+	u_int8_t	dotdot_type;
+	u_int8_t	dotdot_namlen;
+	char		dotdot_name[4];	/* ditto */
+};
