@@ -52,6 +52,7 @@
 #include <sys/stat.h>
 
 #ifdef APPLE
+#include <sys/trace.h>
 #include "ext2_apple.h"
 #endif
 
@@ -90,6 +91,8 @@ ext2_bmap(ap)
 		*ap->a_vpp = VTOI(ap->a_vp)->i_devvp;
 	if (ap->a_bnp == NULL)
 		return (0);
+   
+   ext2_trace_enter();
 
 	error = ext2_bmaparray(ap->a_vp, ap->a_bn, &blkno,
    #ifndef APPLE
@@ -204,18 +207,30 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
       , BLK_META
       #endif
       );
+
+#ifdef APPLE
+      if (bp->b_flags & (B_DONE | B_DELWRI)) {
+			trace(TR_BREADHIT, pack(vp, mp->mnt_stat.f_iosize), metalbn);
+		}
+#else
 		if ((bp->b_flags & B_CACHE) == 0) {
+#endif
 #ifdef DIAGNOSTIC
+#ifdef APPLE
+else
+#endif
 			if (!daddr)
 				panic("ext2_bmaparray: indirect block not in cache");
+#endif
+#ifdef APPLE
+      else {
+         trace(TR_BREADMISS, pack(vp, mp->mnt_stat.f_iosize), metalbn);
 #endif
 			bp->b_blkno = blkptrtodb(ump, daddr);
          #ifndef APPLE
 			bp->b_iocmd = BIO_READ;
-         #endif
 			bp->b_flags &= ~B_INVAL;
 			bp->b_ioflags &= ~BIO_ERROR;
-         #ifndef APPLE
 			vfs_busy_pages(bp, 0);
          VOP_STRATEGY(bp->b_vp, bp);
          #else
