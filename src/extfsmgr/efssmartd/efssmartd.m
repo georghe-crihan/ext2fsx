@@ -37,11 +37,20 @@
 
 - (void)volSMARTStatus:(NSNotification*)notification
 {
-    SMARTAlertController *win = 
-    [[SMARTAlertController alloc] initWithMedia:[notification object]
-        status:[notification userInfo]];
-    [win showWindow:nil];
-    [NSApp requestUserAttention:NSCriticalRequest];
+    NSDictionary *info = [notification userInfo];
+    
+    if ([[info objectForKey:ExtFSMediaKeySMARTStatus] intValue] > efsSMARTVerified)  {
+        SMARTAlertController *win = 
+        [[SMARTAlertController alloc] initWithMedia:[notification object]
+           status:info];
+        [win showWindow:nil];
+        [NSApp requestUserAttention:NSCriticalRequest];
+    } else {
+        NSLog(@"efssmartd: %@ for disk %@: '%@'.",
+            [info objectForKey:ExtFSMediaKeySMARTStatusSeverityDescription],
+            [[notification object] ioRegistryName],
+            [info objectForKey:ExtFSMediaKeySMARTStatusDescription]);
+    }
 }
 
 #define EXT_MIN_SMART_POLL 30 * 1000
