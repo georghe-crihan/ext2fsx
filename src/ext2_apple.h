@@ -72,6 +72,21 @@ extern uid_t console_user;
 extern int prtactive; /* 1 => print out reclaim of active vnodes */
 /**/
 
+#ifndef LCK_GRP_NULL
+#define LCK_GRP_NULL (lck_grp_t *)0
+#endif
+#ifndef LCK_GRP_ATTR_NULL
+#define LCK_GRP_ATTR_NULL (lck_grp_attr_t *)0
+#endif
+#ifndef LCK_ATTR_NULL
+#define LCK_ATTR_NULL (lck_attr_t *)0
+#endif
+
+/* Ext2 types */
+
+__private_extern__ lck_grp_t *ext2_lck_grp;
+#define EXT2_LCK_GRP ext2_lck_grp
+
 #define M_EXT3DIRPRV M_MISCFSNODE
 #define M_EXT2NODE M_MISCFSNODE
 #define M_EXT2MNT M_MISCFSMNT
@@ -79,20 +94,22 @@ extern int prtactive; /* 1 => print out reclaim of active vnodes */
 
 typedef int vop_t __P((void *));
 
-__private_extern__ int ext2_cache_lookup __P((struct vop_lookup_args *));
-__private_extern__ int ext2_blktooff __P((struct vop_blktooff_args *));
-__private_extern__ int ext2_offtoblk __P((struct vop_offtoblk_args *));
-__private_extern__ int ext2_getattrlist __P((struct vop_getattrlist_args *));
-__private_extern__ int ext2_pagein __P((struct vop_pagein_args *));
-__private_extern__ int ext2_pageout __P((struct vop_pageout_args *));
-__private_extern__ int ext2_cmap __P((struct vop_cmap_args *));
-__private_extern__ int ext2_mmap __P((struct vop_mmap_args *));
+__private_extern__ int ext2_cache_lookup __P((struct vnop_lookup_args *));
+__private_extern__ int ext2_blktooff __P((struct vnop_blktooff_args *));
+__private_extern__ int ext2_offtoblk __P((struct vnop_offtoblk_args *));
+__private_extern__ int ext2_getattrlist __P((struct vnop_getattrlist_args *));
+__private_extern__ int ext2_pagein __P((struct vnop_pagein_args *));
+__private_extern__ int ext2_pageout __P((struct vnop_pageout_args *));
+__private_extern__ int ext2_cmap __P((struct vnop_cmap_args *));
+__private_extern__ int ext2_mmap __P((struct vnop_mmap_args *));
+#ifdef obsolete
 __private_extern__ int ext2_lock __P((struct vop_lock_args *));
 __private_extern__ int ext2_unlock __P((struct vop_unlock_args *));
 __private_extern__ int ext2_islocked __P((struct vop_islocked_args *));
 __private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
-__private_extern__ int ext2_ioctl __P((struct vop_ioctl_args *));
-__private_extern__ int ext2_setattrlist __P((struct vop_setattrlist_args *));
+#endif
+__private_extern__ int ext2_ioctl __P((struct vnop_ioctl_args *));
+__private_extern__ int ext2_setattrlist __P((struct vnop_setattrlist_args *));
 
 #if 0 //DIAGNOSTIC
 __private_extern__ void ext2_checkdirsize(struct vnode *dvp);
@@ -103,6 +120,32 @@ __private_extern__ void ext2_checkdirsize(struct vnode *dvp);
 /* Set to 1 to enable inode/block bitmap caching -- currently, this will
 cause a panic situation when the filesystem is stressed. */
 #define EXT2_SB_BITMAP_CACHE 0
+
+/* Pre-Tiger emmulation support */
+
+static __inline__
+void clrbuf(buf_t bp)
+{
+    buf_clear(bp);
+    buf_setresid(bp, 0); /* XXX Necessary? */
+}
+
+static __inline__
+buf_t incore(vnode_t vp, daddr64_t bn, int op)
+{
+    return (buf_getblk(vp, bn, 0, 0, 0, (op | BLK_ONLYVALID)));
+    /* XXX Does the returned buffer need to be released? */
+}
+
+/* vnode_t, u_int32_t*, vfs_context_t*/
+#define EVOP_DEVBLOCKSIZE(vp,size,ctx) \
+VNOP_IOCTL((vp), DKIOCGETBLOCKSIZE, (caddr_t)(size), FREAD, (ctx))
+
+/* vnode_t */
+/* XXX Is this really a correct assumption? */
+#define UBCINFOEXISTS(vp) (VREG == vnode_vtype((vp)))
+
+/* FreeBSD emulation support */
 
 /* Process stuff */
 #define curproc (current_proc())
@@ -115,12 +158,6 @@ cause a panic situation when the filesystem is stressed. */
 #define PROC_LOCK(p)
 #define PROC_UNLOCK(p)
 
-static __inline__ int msleep(void *chan, void *lock /*ignored*/, int pri,
-   char *wmesg, int timo)
-{
-   return (tsleep(chan, pri, wmesg, timo));
-}
-
 /*
  * Test the active securelevel against a given level.  securelevel_gt()
  * implements (securelevel > level).  securelevel_ge() implements
@@ -132,52 +169,63 @@ static __inline__ int msleep(void *chan, void *lock /*ignored*/, int pri,
 #define securelevel_gt(cr,level) ( securelevel > (level) ? EPERM : 0 )
 #define securelevel_ge(cr,level) ( securelevel >= (level) ? EPERM : 0 )
 
+/* dev_t */
 #define devtoname(d) "unknown"
 
 #define mnt_iosize_max mnt_maxreadcnt
 
+/* vnode_t */
 #define VI_MTX(vp) NULL
 /* #define VI_MTX(vp) (&(vp)->v_interlock) */
 
-/*  As of 10.3.x simple_lock/unlock (as defined in sys/lock.h)
-    is a no-op.
- */
-#if 0 /* defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE) */
+#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
+/* vnode_t */
 #define VI_LOCK(vp) \
 do { \
-ext2_trace("grabbing vp %lu interlock\n", (vp)->v_id); \
-simple_lock(&(vp)->v_interlock); \
+ext2_trace("grabbing vp %lu lock\n", vnode_vid((vp))); \
+vnode_lock((vp)); \
 } while(0)
 
+/* vnode_t */
 #define VI_UNLOCK(vp) \
 do { \
-simple_unlock(&(vp)->v_interlock); \
-ext2_trace("dropped vp %lu interlock\n", (vp)->v_id); \
+vnode_unlock((vp)); \
+ext2_trace("dropped vp %lu lock\n", vnode_vid((vp))); \
 } while(0)
 
 #else
 
-#define VI_LOCK(vp) simple_lock(&(vp)->v_interlock)
-#define VI_UNLOCK(vp) simple_unlock(&(vp)->v_interlock)
+/* vnode_t */
+#define VI_LOCK(vp) vnode_lock((vp))
+#define VI_UNLOCK(vp) vnode_unlock((vp))
 
 #endif /* defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE) */
 
 /* FreeBSD kern calls */
 
+/* vnode_t, u_int32_t */
 #define vnode_pager_setsize(vp,sz) \
 do { \
    if (UBCISVALID((vp))) {ubc_setsize((vp), (sz));} \
 } while(0)
 
 #define vfs_timestamp nanotime
+/* XXX Is 0 always right for thread use cnt? */
+#define vrefcnt(vp) vnode_isinuse((vp), 0)
 
-__private_extern__ int vrefcnt(struct vnode *);
-__private_extern__ int vop_stdfsync(struct vop_fsync_args *);
+static __inline__
+int vop_stdfsync(struct vnop_fsync_args *ap)
+{
+    buf_flushdirtyblks(ap->a_vp, (MNT_WAIT == ap->a_waitfor),
+        BUF_SKIP_LOCKED, "ext2: vop_stdfsync");
+    return (0);
+}
 
-/* Separate flag fields in FreeBSD, only one in Darwin. */
-#define v_vflag v_flag
-#define v_iflag v_flag
+#ifdef obsolete
+__private_extern__ int vrefcnt(vnode_t);
+__private_extern__ int vop_stdfsync(struct vnop_fsync_args *);
+#endif
 
 /* Vnode flags */
 #define VV_ROOT VROOT
@@ -197,36 +245,41 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *);
 /* No delete */
 #define NOUNLINK 0
 
-/* XXX Equivalent fn in Darwin ? */
-#define vn_write_suspend_wait(vp,mp,flag) (0)
+/* XXX Is this the correct fn to map? */
+#define V_WAIT 1 // XXX
+#define V_NOWAIT 0 // XXX
+static __inline__
+int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
+{
+    return (vnode_waitforwrites(vp, 0, 0, 0, "vn_write_suspend_wait"));
+}
 
 #define vfs_bio_clrbuf clrbuf
 
-#define b_ioflags b_flags
 #define BIO_ERROR B_ERROR
 
 /* FreeBSD getblk flag */
 #define GB_LOCK_NOWAIT 0
 
-#define BUF_WRITE bwrite
-#define BUF_STRATEGY VOP_STRATEGY
+#define BUF_WRITE buf_bwrite
+#define BUF_STRATEGY VNOP_STRATEGY
 /* Buffer, Lock, InterLock */
 #define BUF_LOCK(b,l,il)
 
-#define bqrelse brelse
-#define bufwait biowait
-#define bufdone biodone
+#define bqrelse buf_brelse
+#define bufwait buf_biowait
+#define bufdone buf_biodone
 
 #define hashdestroy(tbl,type,cnt) FREE((tbl), (type))
 
 #ifndef mtx_destroy
-#define mtx_destroy(mp) mutex_free((mp))
+#define mtx_destroy(mp) lck_mtx_destroy((mp))
 #endif
 #ifndef mtx_lock
-#define mtx_lock(mp) mutex_lock((mp))
+#define mtx_lock(mp) lck_mtx_lock((mp))
 #endif
 #ifndef mtx_unlock
-#define mtx_unlock(mp) mutex_unlock((mp))
+#define mtx_unlock(mp) lck_mtx_unlock((mp))
 #endif
 
 static __inline void * memscan(void * addr, int c, size_t size)

@@ -96,6 +96,9 @@ static int vn_isdisk(vnode_t, int *);
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <ext2_byteorder.h>
 
+/* Ext2 lock group */
+__private_extern__ lck_grp_t *ext2_lck_grp = NULL;
+
 /* VOPS */
 static int ext2_fhtovp(mount_t , struct fid *, vnode_t *, vfs_context_t);
 static int ext2_flushfiles(mount_t mp, int flags, vfs_context_t);
@@ -1896,6 +1899,7 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	struct vfs_fsentry fsc;
 	struct vnodeopv_desc* vnops[] =
 		{&ext2fs_vnodeop_opv_desc, &ext2fs_specop_opv_desc, &ext2fs_fifoop_opv_desc};
+	lck_grp_attr_t *lgattr;
 	int kret, i;
 	
 	bzero(&fsc, sizeof(struct vfs_fsentry));
@@ -1932,11 +1936,22 @@ funnel_release:
 		FREE(vfsConf, M_TEMP);
 
 	thread_funnel_set(kernel_flock, funnelState);
-#endif
 
    if (kret)
       return (KERN_FAILURE);
-   
+#endif
+
+#ifndef DIAGNOSTIC
+	lgattr = LCK_GRP_ATTR_NULL;
+#else
+	lgattr = lck_grp_attr_alloc_init();
+	if (lgattr)
+		lck_grp_attr_setstat(lgattr);
+#endif
+	ext2_lck_grp = lck_grp_alloc_init("Ext2 Filesystem", lgattr);
+	if (lgattr)
+		lck_grp_attr_free(lgattr);
+	
    return (KERN_SUCCESS);
 }
 
@@ -1990,5 +2005,7 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
 #endif
 
    ext2_uninit(NULL);
+   lck_grp_free(ext2_lck_grp);
+   
    ext2_trace_return(KERN_SUCCESS);
 }
