@@ -2,13 +2,13 @@
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-tst=`kextstat | grep "net\.sourceforge\.ext2fs\.fs\.ext2" | grep -v grep`
+tst=`kextstat | grep "net\.sourceforge\.ext2fs\.fs\.ext2"`
 if [ "$tst" != "" ]; then
 sudo kextunload /System/Library/Extensions/ext2fs.kext
 # Why the hell does kextunload not return an error if the unload failed?!
 #if [ $? -ne 0 ]; then
 sleep 1
-tst=`kextstat | grep "net\.sourceforge\.ext2fs\.fs\.ext2" | grep -v grep`
+tst=`kextstat | grep "net\.sourceforge\.ext2fs\.fs\.ext2"`
 if [ "$tst" != "" ]; then
 echo "Failed to unload kernel extension. Please unmount all Ext2 volumes."
 exit 1
