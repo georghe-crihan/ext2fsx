@@ -6,17 +6,11 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.0d1\
-2/21/2003\
+\f1\b0 1.0d2\
+2/27/2003
+\f0\b \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
-
-\f0\b Warning!!!!
-\f1\b0 \
-\
-This code has not been tested on an actual EXT2 filesystem. The main developer does not have access to an EXT2 formatted disk. If anyone wants to provide an EXT2 formatted CD-ROM please send an e-mail to <bbergstrand@users.sourceforge.net>.
-\f0\b \
-\
 Pre-Release Software
 \f1\b0 \
 \
@@ -32,23 +26,27 @@ If you are upgrading, you should make sure that all EXT2 disks are unmounted bef
 \f0\b Known Limitations\
 
 \f1\b0 \
+There are problems with reading the contents of some files. This will result in I/O errors when copying a file or a zero-content file.\
 Files/Folders containing non-ASCII characters may appear garbled.\
 Read only support.\
 Formatting and fsck are not supported.\
 NFS export is not supported.\
 Boot/Root is not supported.\
 EXT3 is not supported.\
+Quotas are not supported.\
 \
 
 \f0\b Reporting a Bug
 \f1\b0 \
 \
-Bug reports should be entered into the bug tracking system at <http://sourceforge.net/projects/ext2fsx/>.\
+Bug reports should be entered into the bug tracking system at\
+<http://sourceforge.net/projects/ext2fsx/>.\
 \
 Please include the following.\
 \
 System Version (including build number)\
 Version of Ext2 FS for Mac OS X\
+A copy of your system log in /var/log/system.log.\
 \
 If the problem is a kernel panic, please include a copy of the panic. Mac OS X 10.2 logs panic information to the /Library/Logs/panic.log file after the machine is rebooted.\
 }
