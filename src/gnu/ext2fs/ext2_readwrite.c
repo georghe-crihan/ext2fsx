@@ -96,6 +96,8 @@ READ(ap)
    int devBlockSize=0;
    #endif
 	u_short mode;
+   
+   ext2_trace_enter();
 
 	vp = ap->a_vp;
 	ip = VTOI(vp);
@@ -178,6 +180,12 @@ READ(ap)
 		    uiomove((char *)bp->b_data + blkoffset, (int)xfersize, uio);
 		if (error)
 			break;
+         
+      #ifdef APPLE
+      if (S_ISREG(mode) && (xfersize + blkoffset == fs->s_frag_size ||
+		    uio->uio_offset == ip->i_size))
+			bp->b_flags |= B_AGE;
+      #endif
 
 		bqrelse(bp);
 	}
@@ -217,6 +225,8 @@ WRITE(ap)
    #ifdef APPLE
    int devBlockSize=0, rsd, blkalloc=0, save_error=0, save_size=0;
    #endif
+   
+   ext2_trace_enter();
 
 	ioflag = ap->a_ioflag;
 	seqcount = ap->a_ioflag >> 16;
@@ -321,16 +331,26 @@ WRITE(ap)
          blkalloc = 0;
          lbn = lblkno(fs, local_offset);
          blkoffset = blkoff(fs, local_offset);
-         xfersize = EXT2_BLOCK_SIZE(fs) - blkoffset;
+         xfersize = fs->s_frag_size - blkoffset;
          if (first_block)
             fboff = blkoffset;
          if (rsd < xfersize)
             xfersize = rsd;
-         if (EXT2_BLOCK_SIZE(fs) > xfersize)
+         /*
+          * Avoid a data-consistency race between write() and mmap()
+          * by ensuring that newly allocated blocks are zerod.  The
+          * race can occur even in the case where the write covers
+          * the entire block.
+          */
+         local_flags |= B_CLRBUF;
+         #if 0
+         if (fs->s_frag_size > xfersize)
             local_flags |= B_CLRBUF;
          else
             local_flags &= ~B_CLRBUF;
+         #endif
          
+         /* Allocate block without reading into a buf (B_NOBUFF) */
          error = ext2_balloc2(ip,
             lbn, blkoffset + xfersize, ap->a_cred, 
             &bp, local_flags, &blkalloc);
@@ -360,7 +380,7 @@ WRITE(ap)
       /* flags |= IO_NOZEROVALID; */
    
       if((error == 0) && fblk && fboff) {
-         if( fblk > EXT2_BLOCK_SIZE(fs)) 
+         if( fblk > fs->s_frag_size) 
             panic("ext2_write : ext2_balloc allocated more than bsize(head)");
          /* We need to zero out the head */
          head_offset = uio->uio_offset - (off_t)fboff ;
@@ -370,7 +390,7 @@ WRITE(ap)
    
       if((error == 0) && blkalloc && ((blkalloc - xfersize) > 0)) {
          /* We need to zero out the tail */
-         if( blkalloc > EXT2_BLOCK_SIZE(fs)) 
+         if( blkalloc > fs->s_frag_size) 
             panic("ext2_write : ext2_balloc allocated more than bsize(tail)");
          local_offset += (blkalloc - xfersize);
          if (loopcount == 1) {
@@ -502,5 +522,7 @@ WRITE(ap)
 		}
 	} else if (resid > uio->uio_resid && (ioflag & IO_SYNC))
 		error = ext2_update(vp, 1);
+      
+   ext2_trace_leave();
 	return (error);
 }
