@@ -220,7 +220,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
    /* { &vop_update_desc, (vop_t *) ext2_update }, */
    { &vop_ioctl_desc, (vop_t *)ext2_ioctl },
    { &vop_getattrlist_desc,	(vop_t *) ext2_getattrlist },
-/*   { &vop_setattrlist_desc,	(vop_t *) ext2_setattrlist }, */
+   { &vop_setattrlist_desc,	(vop_t *) ext2_setattrlist },
 	{ NULL, NULL }
 };
 __private_extern__ struct vnodeopv_desc ext2fs_vnodeop_opv_desc =
