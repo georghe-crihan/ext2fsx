@@ -283,6 +283,10 @@ struct ext2_group_desc
 #define	EXT2_IOC_SETFLAGS		_IOW('f', 2, long)
 #define	EXT2_IOC_GETVERSION		_IOR('v', 1, long)
 #define	EXT2_IOC_SETVERSION		_IOW('v', 2, long)
+/* Darwin only */
+#ifdef __APPLE__
+#define	EXT2_IOC_GETSBLOCK	_IOR('s', 1, struct ext2_super_block)
+#endif
 
 /*
  * Structure of an inode on the disk

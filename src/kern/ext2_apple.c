@@ -74,6 +74,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/inode.h>
+#include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
 
 /* Cribbed from FreeBSD kern/vfs_subr.c */
@@ -317,10 +318,12 @@ ext2_ioctl(ap)
    } */ *ap;
 {
    struct inode *ip = VTOI(ap->a_vp);
+   struct ext2_sb_info *fs;
    int err = 0, super;
    u_int32_t flags, oldflags;
    
    super = (0 == suser(ap->a_cred, &ap->a_p->p_acflag));
+   fs = ip->i_e2fs;
    
    switch (ap->a_command) {
       case IOCBASECMD(EXT2_IOC_GETFLAGS):
@@ -399,6 +402,12 @@ ext2_ioctl(ap)
             err = EACCES;
          break;
          err = ENOTSUP;
+      break;
+      
+      case IOCBASECMD(EXT2_IOC_GETSBLOCK):
+         lock_super(fs);
+         bcopy(fs->s_es, ap->a_data, sizeof(struct ext2_super_block));
+         unlock_super(fs);
       break;
       
       default:
