@@ -386,7 +386,7 @@ ext2_mount(mp, path, data, ndp, td)
    /* This is used by ext2_mountfs to set the last mount point in the superblock. */
    size = 0;
    (void) copyinstr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
-   #ifdef DEBUG
+   #ifdef EXT2FS_DEBUG
    if (size < 2)
       log(LOG_WARNING, "ext2fs: mount path looks to be invalid\n");
    #endif
