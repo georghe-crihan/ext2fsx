@@ -32,7 +32,7 @@
  */
 
 #ifndef lint
-static char copyright[] =
+static char copyright[] __attribute__ ((unused)) =
 "@(#) Copyright (c) 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -41,7 +41,7 @@ static char copyright[] =
 /*
 static char sccsid[] = "@(#)mount_lfs.c	8.3 (Berkeley) 3/27/94";
 */
-static const char rcsid[] =
+static const char rcsid[] __attribute__ ((unused)) =
   "$FreeBSD: src/sbin/mount_ext2fs/mount_ext2fs.c,v 1.15 2002/08/13 16:06:14 mux Exp $";
 #endif /* not lint */
 
