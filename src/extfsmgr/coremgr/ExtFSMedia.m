@@ -232,7 +232,7 @@ exit:
          _attributeFlags |= kfsNoMount;
          
       hint = [_media objectForKey:NSSTR(kIOMediaContentKey)];
-      r = [hint rangeOfString:@"Apple_partition"];
+      r = [hint rangeOfString:@"partition"];
       if (hint && NSNotFound != r.location)
          _attributeFlags |= kfsNoMount;
       
