@@ -1,3 +1,54 @@
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.34
+
+2003-07-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Add tests for posix_memalign, memalign, and valloc.
+
+2003-07-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* MCONFIG.in (WFLAGS): Add additional warning checks.  Remove
+		--traditional since newer versions of gcc are overly annoying.
+
+2003-07-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Add workaround for Libintl / Darwin incompatibility.  Apparently
+		Darwin's gcc doesn't like the __asm__ statements used by
+		libintl to redirect the system-provided gettext calls.
+
+2003-06-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Adjust defaults for FreeBSD to no longer build the
+		fsck wrapper, and to not install into /usr/local by
+		default.  (Addresses Debian bug #195274)
+
+2003-05-17  Theodore Tso  <tytso@thunk.org>
+
+	* MCONFIG.in, configure.in: Only put the intl directory in the -I
+		search path if we are using --with-internal-gettext.
+		Otherwise causes compatibility problems with the woody
+		glibc.   (Addresses Debian bug #193372)
+
+2003-05-13  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Fix typo in help message for --enable-evms-11
+
+2003-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in, configure: Add --enable-testio-debug configure option. 
+
+	* configure.in, configure, Makefile.in: Add --with-diet-libc
+		convenience option.  Add --disable-evms option.
+
+2003-05-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Install the message catalog files
+
+	* ABOUT-NLS, MCONFIG.in, Makefile.in, aclocal.m4, configure,
+		configure.in: Update to using version 0.11.5 of the
+		gettext library.  We now enable NLS by default.
+
 2003-04-21  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.33

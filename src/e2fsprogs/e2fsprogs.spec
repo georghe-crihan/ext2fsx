@@ -3,7 +3,7 @@
 
 Summary: Utilities for managing the second extended (ext2) filesystem.
 Name: e2fsprogs
-Version: 1.33
+Version: 1.34
 Release: 0
 Copyright: GPL
 Group: System Environment/Base

@@ -1,3 +1,22 @@
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.34
+
+2003-05-13  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Bump minor version number of libcomerr to indicate
+		the addition of the Himdall compatibility functions.
+
+2003-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* et_c.awk, et_h.awk, com_err.h, com_right.c: Add full Heimdall
+		compatibility. 
+
+	* et_c.awk: Add support for OV-style continuations in compile_et.
+		(Closes Debian bug #191900).
+
+	* Makefile.in: Add regression test suite for compile_et.
+
 2003-04-21  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.33

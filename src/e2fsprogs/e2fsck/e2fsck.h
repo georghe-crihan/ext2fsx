@@ -42,13 +42,17 @@
 #else
 #define N_(a) (a)
 #endif
-/* FIXME */
+#define P_(singular, plural, n) (ngettext (singular, plural, n))
+#ifndef NLS_CAT_NAME
 #define NLS_CAT_NAME "e2fsprogs"
+#endif
+#ifndef LOCALEDIR
 #define LOCALEDIR "/usr/share/locale"
-/* FIXME */
+#endif
 #else
 #define _(a) (a)
 #define N_(a) a
+#define P_(singular, plural, n) ((n) == 1 ? (singular) : (plural))
 #endif
 
 /*

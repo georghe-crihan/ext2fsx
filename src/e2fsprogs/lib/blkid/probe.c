@@ -82,7 +82,7 @@ static int probe_ext2(int fd, blkid_cache cache, blkid_dev dev,
 		      struct blkid_magic *id, unsigned char *buf)
 {
 	struct ext2_super_block *es;
-	const char *sec_type = 0;
+	const char *sec_type = 0, *label = 0;
 
 	es = (struct ext2_super_block *)buf;
 
@@ -97,8 +97,8 @@ static int probe_ext2(int fd, blkid_cache cache, blkid_dev dev,
 		return -BLKID_ERR_PARAM;
 
 	if (strlen(es->s_volume_name))
-		blkid_set_tag(dev, "LABEL", es->s_volume_name,
-			      sizeof(es->s_volume_name));
+		label = es->s_volume_name;
+	blkid_set_tag(dev, "LABEL", label, sizeof(es->s_volume_name));
 
 	set_uuid(dev, es->s_uuid);
 
@@ -128,6 +128,7 @@ static int probe_vfat(int fd, blkid_cache cache, blkid_dev dev,
 {
 	struct vfat_super_block *vs;
 	char serno[10];
+	const char *label = 0;
 
 	vs = (struct vfat_super_block *)buf;
 
@@ -137,8 +138,8 @@ static int probe_vfat(int fd, blkid_cache cache, blkid_dev dev,
 		while (*end == ' ' && end >= vs->vs_label)
 			--end;
 		if (end >= vs->vs_label)
-			blkid_set_tag(dev, "LABEL", vs->vs_label,
-				      end - vs->vs_label + 1);
+			label = vs->vs_label;
+		blkid_set_tag(dev, "LABEL", label, end - vs->vs_label + 1);
 	}
 
 	/* We can't just print them as %04X, because they are unaligned */
@@ -154,6 +155,7 @@ static int probe_msdos(int fd, blkid_cache cache, blkid_dev dev,
 {
 	struct msdos_super_block *ms = (struct msdos_super_block *) buf;
 	char serno[10];
+	const char *label = 0;
 
 	if (strncmp(ms->ms_label, "NO NAME", 7)) {
 		char *end = ms->ms_label + sizeof(ms->ms_label) - 1;
@@ -161,8 +163,8 @@ static int probe_msdos(int fd, blkid_cache cache, blkid_dev dev,
 		while (*end == ' ' && end >= ms->ms_label)
 			--end;
 		if (end >= ms->ms_label)
-			blkid_set_tag(dev, "LABEL", ms->ms_label,
-				      end - ms->ms_label + 1);
+			label = ms->ms_label;
+		blkid_set_tag(dev, "LABEL", label, end - ms->ms_label + 1);
 	}
 
 	/* We can't just print them as %04X, because they are unaligned */
@@ -177,12 +179,13 @@ static int probe_xfs(int fd, blkid_cache cache, blkid_dev dev,
 		     struct blkid_magic *id, unsigned char *buf)
 {
 	struct xfs_super_block *xs;
+	const char *label = 0;
 
 	xs = (struct xfs_super_block *)buf;
 
 	if (strlen(xs->xs_fname))
-		blkid_set_tag(dev, "LABEL", xs->xs_fname,
-			      sizeof(xs->xs_fname));
+		label = xs->xs_fname;
+	blkid_set_tag(dev, "LABEL", label, sizeof(xs->xs_fname));
 	set_uuid(dev, xs->xs_uuid);
 	return 0;
 }
@@ -192,6 +195,7 @@ static int probe_reiserfs(int fd, blkid_cache cache, blkid_dev dev,
 {
 	struct reiserfs_super_block *rs = (struct reiserfs_super_block *) buf;
 	unsigned int blocksize;
+	const char *label = 0;
 
 	blocksize = blkid_le16(rs->rs_blocksize);
 
@@ -202,11 +206,9 @@ static int probe_reiserfs(int fd, blkid_cache cache, blkid_dev dev,
 	/* LABEL/UUID are only valid for later versions of Reiserfs v3.6. */
 	if (!strcmp(id->bim_magic, "ReIsEr2Fs") ||
 	    !strcmp(id->bim_magic, "ReIsEr3Fs")) {
-		if (strlen(rs->rs_label)) {
-			blkid_set_tag(dev, "LABEL", rs->rs_label,
-				      sizeof(rs->rs_label));
-		}
-
+		if (strlen(rs->rs_label))
+			label = rs->rs_label;
+		blkid_set_tag(dev, "LABEL", label, sizeof(rs->rs_label));
 		set_uuid(dev, rs->rs_uuid);
 	}
 
@@ -217,12 +219,13 @@ static int probe_jfs(int fd, blkid_cache cache, blkid_dev dev,
 		     struct blkid_magic *id, unsigned char *buf)
 {
 	struct jfs_super_block *js;
+	const char *label = 0;
 
 	js = (struct jfs_super_block *)buf;
 
-	if (strlen(js->js_label))
-		blkid_set_tag(dev, "LABEL", js->js_label,
-			      sizeof(js->js_label));
+	if (strlen((char *) js->js_label))
+		label = (char *) js->js_label;
+	blkid_set_tag(dev, "LABEL", label, sizeof(js->js_label));
 	set_uuid(dev, js->js_uuid);
 	return 0;
 }
@@ -231,15 +234,58 @@ static int probe_romfs(int fd, blkid_cache cache, blkid_dev dev,
 		       struct blkid_magic *id, unsigned char *buf)
 {
 	struct romfs_super_block *ros;
+	const char *label = 0;
 
 	ros = (struct romfs_super_block *)buf;
 
-	/* can be longer, padded to a 16 bytes boundary */
-	if (strlen(ros->ros_volume)) {
-		blkid_set_tag(dev, "LABEL", ros->ros_volume,
-			      (strlen(ros->ros_volume)|15)+1);
-	}
+	if (strlen((char *) ros->ros_volume))
+		label = (char *) ros->ros_volume;
+	blkid_set_tag(dev, "LABEL", label, strlen(label));
 	return 0;
+}
+
+static char
+*udf_magic[] = { "BEA01", "BOOT2", "CD001", "CDW02", "NSR02",
+		 "NSR03", "TEA01", 0 };
+
+static int probe_udf(int fd, blkid_cache cache, blkid_dev dev,
+		       struct blkid_magic *id, unsigned char *buf)
+{
+	int j, bs;
+	struct iso_volume_descriptor isosb;
+	char **m;
+
+	/* determine the block size by scanning in 2K increments
+	   (block sizes larger than 2K will be null padded) */
+	for (bs = 1; bs < 16; bs++) {
+		lseek(fd, bs*2048+32768, SEEK_SET);
+		if (read(fd, (char *)&isosb, sizeof(isosb)) != sizeof(isosb))
+			return 1;
+		if (isosb.id[0])
+			break;
+	}
+
+	/* Scan up to another 64 blocks looking for additional VSD's */
+	for (j = 1; j < 64; j++) {
+		if (j > 1) {
+			lseek(fd, j*bs*2048+32768, SEEK_SET);
+			if (read(fd, (char *)&isosb, sizeof(isosb))
+			    != sizeof(isosb))
+				return 1;
+		}
+		/* If we find NSR0x then call it udf:
+		   NSR01 for UDF 1.00
+		   NSR02 for UDF 1.50
+		   NSR03 for UDF 2.00 */
+		if (!strncmp(isosb.id, "NSR0", 4))
+			return 0;
+		for (m = udf_magic; *m; m++)
+			if (!strncmp(*m, isosb.id, 5))
+				break;
+		if (*m == 0)
+			return 1;
+	}
+	return 1;
 }
 
 /*
@@ -281,15 +327,15 @@ static struct blkid_magic type_array[] = {
   { "bfs",	 0,	 0,  4, "\316\372\173\033",	0 },
   { "cramfs",	 0,	 0,  4, "E=\315\034",		0 },
   { "qnx4",	 0,	 4,  6, "QNX4FS",		0 },
+  { "udf",	32,	 1,  5, "BEA01",		probe_udf },
+  { "udf",	32,	 1,  5, "BOOT2",		probe_udf },
+  { "udf",	32,	 1,  5, "CD001",		probe_udf },
+  { "udf",	32,	 1,  5, "CDW02",		probe_udf },
+  { "udf",	32,	 1,  5, "NSR02",		probe_udf },
+  { "udf",	32,	 1,  5, "NSR03",		probe_udf },
+  { "udf",	32,	 1,  5, "TEA01",		probe_udf },
   { "iso9660",	32,	 1,  5, "CD001",		0 },
   { "iso9660",	32,	 9,  5, "CDROM",		0 },
-  { "udf",	32,	 1,  5, "BEA01",		0 },
-  { "udf",	32,	 1,  5, "BOOT2",		0 },
-  { "udf",	32,	 1,  5, "CD001",		0 },
-  { "udf",	32,	 1,  5, "CDW02",		0 },
-  { "udf",	32,	 1,  5, "NSR02",		0 },
-  { "udf",	32,	 1,  5, "NSR03",		0 },
-  { "udf",	32,	 1,  5, "TEA01",		0 },
   { "jfs",	32,	 0,  4, "JFS1",			probe_jfs },
   { "hfs",	 1,	 0,  2, "BD",			0 },
   { "ufs",	 8,  0x55c,  4, "T\031\001\000",	0 },
@@ -433,6 +479,17 @@ found_type:
 	close(fd);
 
 	return dev;
+}
+
+int blkid_known_fstype(const char *fstype)
+{
+	struct blkid_magic *id;
+
+	for (id = type_array; id->bim_type; id++) {
+		if (strcmp(fstype, id->bim_type) == 0)
+			return 1;
+	}
+	return 0;
 }
 
 #ifdef TEST_PROGRAM

@@ -93,7 +93,7 @@ static void check_mount(char *device)
 
 	retval = ext2fs_check_if_mounted(device, &mount_flags);
 	if (retval) {
-		com_err(_("ext2fs_check_if_mount"), retval,
+		com_err("ext2fs_check_if_mount", retval,
 			_("while determining whether %s is mounted."),
 			device);
 		return;
@@ -106,6 +106,22 @@ static void check_mount(char *device)
 	exit(1);
 }
 
+static int get_units(const char *s)
+{
+	if (strlen(s) != 1)
+		return -1;
+	switch(s[0]) {
+	case 's':
+		return 512;
+	case 'K':
+		return 1024;
+	case 'M':
+		return 1024*1024;
+	case 'G':
+		return 1024*1024*1024;
+	}
+	return -1;
+}
 
 int main (int argc, char ** argv)
 {
@@ -118,10 +134,20 @@ int main (int argc, char ** argv)
 	int		fd;
 	blk_t		new_size = 0;
 	blk_t		max_size = 0;
+	int		units = 0;
 	io_manager	io_ptr;
 	char		*tmp;
 	struct stat	st_buf;
-	
+	int		sys_page_size = 4096;
+	long		sysval;
+
+#ifdef ENABLE_NLS
+	setlocale(LC_MESSAGES, "");
+	setlocale(LC_CTYPE, "");
+	bindtextdomain(NLS_CAT_NAME, LOCALEDIR);
+	textdomain(NLS_CAT_NAME);
+#endif
+
 	initialize_ext2_error_table();
 
 	fprintf (stderr, _("resize2fs %s (%s)\n"),
@@ -157,9 +183,13 @@ int main (int argc, char ** argv)
 	if (optind < argc) {
 		new_size = strtoul(argv[optind++], &tmp, 0);
 		if (*tmp) {
-			com_err(program_name, 0, _("bad filesystem size - %s"),
-				argv[optind - 1]);
-			exit(1);
+			units = get_units(tmp);
+			if (units < 0) {
+				com_err(program_name, 0, 
+					_("bad filesystem size - %s"),
+					argv[optind - 1]);
+				exit(1);
+			}
 		}
 	}
 	if (optind < argc)
@@ -210,6 +240,18 @@ int main (int argc, char ** argv)
 		exit(1);
 	}
 	
+	/* Determine the system page size if possible */
+#ifdef HAVE_SYSCONF
+#if (!defined(_SC_PAGESIZE) && defined(_SC_PAGE_SIZE))
+#define _SC_PAGESIZE _SC_PAGE_SIZE
+#endif
+#ifdef _SC_PAGESIZE
+	sysval = sysconf(_SC_PAGESIZE);
+	if (sysval > 0)
+		sys_page_size = sysval;
+#endif /* _SC_PAGESIZE */
+#endif /* HAVE_SYSCONF */
+
 	/*
 	 * Get the size of the containing partition, and use this for
 	 * defaults and for making sure the new filesystme doesn't
@@ -222,8 +264,19 @@ int main (int argc, char ** argv)
 			_("while trying to determine filesystem size"));
 		exit(1);
 	}
-	if (!new_size)
+	if (units) {
+		if (units < fs->blocksize)
+			new_size = (new_size * units) / fs->blocksize;
+		else if (units > fs->blocksize)
+			new_size = new_size * (units / fs->blocksize);
+	}
+	if (!new_size) {
 		new_size = max_size;
+		/* Round down to an even multiple of a pagesize */
+		if (sys_page_size > fs->blocksize)
+			new_size &= ~((sys_page_size / fs->blocksize)-1);
+	}
+	
 	/*
 	 * If we are resizing a plain file, and it's not big enough,
 	 * automatically extend it in a sparse fashion by writing the
@@ -241,9 +294,9 @@ int main (int argc, char ** argv)
 	}
 	if (!force && (new_size > max_size)) {
 		fprintf(stderr, _("The containing partition (or device)"
-			" is only %d blocks.\nYou requested a new size"
+			" is only %d (%dk) blocks.\nYou requested a new size"
 			" of %d blocks.\n\n"), max_size,
-			new_size);
+			fs->blocksize / 1024, new_size);
 		exit(1);
 	}
 	if (new_size == fs->super->s_blocks_count) {
@@ -258,6 +311,8 @@ int main (int argc, char ** argv)
 			device_name);
 		exit(1);
 	}
+	printf("Resizing the filesystem on %s to %d (%dk) blocks.\n",
+	       device_name, new_size, fs->blocksize / 1024);
 	retval = resize_fs(fs, &new_size, flags,
 			   ((flags & RESIZE_PERCENT_COMPLETE) ?
 			    resize_progress_func : 0));

@@ -1,3 +1,59 @@
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.34
+
+2003-07-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* kernel-jbd.h, flushb.c: Fix gcc -Wall nitpicks (indented cpp
+		directives)
+
+	* ext2_types.h.in, initialize.c: Fix gcc -Wall nitpicks 
+		(don't use #elsif)
+
+	* ismounted.c: Fix gcc -Wall nitpicks (Don't use exit as a goto label)
+
+	* llseek.c: Fix gcc -Wall nitpicks (don't use #elsif)
+
+	* lookup.c, read_bb.c: Fix gcc -Wall nitpicks (indent
+		non-traditional #pragma)
+
+	* test_io.c: Fix gcc -Wall nitpicks (const/unsigned type issues)
+
+2003-06-24    <tytso@snap.thunk.org>
+
+	* badblocks.c, ext2fs.h (ext2fs_u32_list_find,
+		ext2fs_u32_list_test, ext2fs_u32_list_del,
+		ext2fs_badblocks_list_del): Add functions to delete a
+		block from the badblocks list.
+	* tst_badblocks.c: Add test cases for ext2fs_badblocks_list_del().
+
+2003-05-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsectsize.c (ext2fs_get_device_sectsize): New function which
+		returns the hardware sector size (if it is available).
+
+2003-05-13  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix_io.c: Add #ifdef NO_IO_CACHE which disables all userspace
+		caching by the unix_io layer.  Not enabled, only for
+		debugging. 
+
+2003-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* test_io.c: Pay attention to the environment variables
+		TEST_IO_LOGFILE, TEST_IO_FLAGS, and TEST_IO_BLOCK to
+		determine whether or not we should log io activity, and to
+		where.
+
+2003-05-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* tst_badblocks.c (file_test): Use tmpfile() instead of mktemp().
+
+2003-04-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsize.c (ext2fs_get_device_size): Allow windows code to get
+		the resize for filesystems that are in regular files.
+
 2003-04-21  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.33

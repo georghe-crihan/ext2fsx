@@ -1,3 +1,42 @@
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.34
+
+2003-07-22  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c (probe_udf): Add specific UDF probing code, and probe
+		UDF before checking for ISO9660 filesystems.
+
+2003-07-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c (blkid_known_fstype): New function which returns true if
+		the filesystem type is one which this blkid library supports.
+
+2003-07-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c: When revalidating a filesystem, delete the LABEL tag if
+		the filesystem no longer has a label.
+
+2003-07-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* tag.c (blkid_find_dev_with_tag): If blkid_probe_all() returns an
+		error, then reflect that error upwards; don't try again
+		(forever).  This prevents an infinite loop when /proc and
+		the /etc/blkid.tab file are not present.
+
+2003-07-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid_types.h.in: Fix gcc -Wall nitpicks (don't use #elsif)
+
+	* cache.c: Fix gcc -Wall nitpicks (missing #include <string.h>)
+
+	* probe.h: Fix gcc -Wall nitpicks (missing casts)
+
+2003-05-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (ELF_OTHER_LIBS): The blkid library depends on the
+		uuid library.  (Addresses Debian bug: #194094)
+
 2003-04-21  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.33

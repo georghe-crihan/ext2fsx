@@ -1,3 +1,102 @@
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.34
+
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS): Add warning if using -j and the blocksize is
+		greater than 4096, since some kernels don't support ext3
+		with large block sizes.  (Addresses Debian bug #193773)
+
+	* badblocks.c (set_o_direct): Remove debugging printf.  (Addresses
+		Debian bug #201499)
+
+2003-07-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c (wait_many): Rename wait_all() to wait_many(), and have
+		new semantics: WAIT_ALL vs. WAIT_ATLEAST_ONE.  This fixes
+		a bug where when fsck is waiting for another partition on
+		the same spindle, it spins wasting a lot of CPU.
+
+2003-07-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (do_read, do_write, test_rw): Change the read/write
+		test to honor the -c option (number of blocks at a time).
+		do_read and do_write will try to turn on the O_DIRECT flag
+		if it appears that it is possible to use it.  (Addresses
+		Debian bug #198006)
+
+	* mke2fs.c (set_fs_defaults): If sector_size is 0, don't use it to
+		set the blocksize to zero.  This causes MD devices to fail
+		since they don't support the BLKSSZGET ioctl.  (Addresses
+		Debian bug #196734)
+
+2003-07-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS, main): If CONFIG_TESTIO_DEBUG, then use the
+		testio manager.
+
+	* mke2fs.c (PRS): Round down the default filesystem size so that
+		it is an even multiple of the page size, to work around
+		buffer cache kernel bug.
+
+	* badblocks.c: Fix gcc -Wall nitpicks (signed/unsigned type issues)
+
+	* blkid.c: Fix gcc -Wall nitpicks (missing #include <string.h>)
+
+2003-05-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS, set_fs_defaults): If the sector size of the
+		device is larger than the default block size, then use the
+		sector size of the device as the default block size.
+
+2003-05-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c: Use an unsigned integer to support 4-byte test
+		patterns with the high bit set.  Let the user explicitly
+		specify a random pattern with the argument "random".
+
+2003-05-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (test_rw): Fix minor memory leak with test_rw() is
+		called for multiple passes.
+		(test_nd): Fix bug in chosing randomness for the
+		non-destructive test.  We were only using 1 bit of
+		randomness per byte instead of 8 due to a bit-shift bug.
+		Also, initialize the random number generator from the time
+		in main().  Thanks to Thayne Harbaugh for pointing out
+		these bugs.
+
+	* badblocks.c, badblocks.8.in: Functional enhancements contributed
+		by Thayne Harbaugh.  These patches allow the -t option to
+		control the test pattern(s) used when checking the disk.
+		Test patterns may be specified in all modes (r/w, r/o and
+		non-destructive).
+
+2003-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.c (main, add_journal_device, remove_journal_device): If
+		--enable-testio-debug is set, then use the test_io manager
+		so we can watch what tune2fs is doing.
+
+2003-05-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* uuidgen.c (main): Add setup functions for NLS support.
+
+	* e2image.c (write_header), mke2fs.c (PRS): Add missing space in
+		displayed message.
+
+	* badblocks.c (usage), findsuper.c (main), util.c
+		(parse_journal_opts): Fix typo in usage string.
+
+	* tune2fs.c (parse_time): Add portability code to work around lack
+		of strptime().
+
+	* Makefile.in: Add $(LIBINTL) to the link line so we can support
+		using the internal gettext library.
+
+	* nls-enable.h: Add #ifndef protection around LOCALEDIR definition.
+
 2003-04-21  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.33

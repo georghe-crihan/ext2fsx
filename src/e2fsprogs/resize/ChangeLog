@@ -1,3 +1,44 @@
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.34
+
+2003-07-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* main.c (main): Round the default size of the filesystem to be an
+		even multiple of the pagesize to work around a potential
+		Linux kernel bug.
+
+2003-06-24    <tytso@snap.thunk.org>
+
+	* resize2fs.c (block_mover): Don't move blocks associated with the
+		bad blocks inode.  Instead, just remove them from the
+		badblocks list.  (Note this means that shrinking and then
+		enlarging a filesystem is not a reversible operation;
+		information about bad blocks in the part of the filesystem
+		which is to be chopped off is discarded.)
+
+2003-06-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.8.in: Make explicit that you need to run resize2fs
+		after using fdisk to adjust the partition size when
+		expanding the filesystem.  (Addresses Debian Bug #195616)
+
+2003-05-13  root  <tytso@mit.edu>
+
+	* main.c (main): Add the ability to specify units to the size
+		parameter, and make the error and information messages
+		display explicitly the blocksize used by the filesystem,
+		to avoid confusion.  (Addresses Debian bug: #189814)
+
+2003-05-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* main.c (main): Add calls to setup functions for NLS support.
+
+	* Makefile.in: Add $(LIBINTL) to the link line so we can support
+		using the internal gettext library.
+
+	* resize2fs.h: Add #ifndef protection around LOCALEDIR definition.
+
 2003-04-21  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.33
