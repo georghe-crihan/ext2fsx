@@ -1403,12 +1403,10 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 			ip->i_flag |= IN_MODIFIED;
 	}
    
-   /* Setup UBC info for VREG*/
    #ifdef APPLE
-   if (S_ISREG(ip->i_mode)) {
-      if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
-         ubc_info_init(vp);
-   }
+   /* Setup UBC info. */
+   if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
+      ubc_info_init(vp);
    #endif
    
 	*vpp = vp;
