@@ -27,6 +27,10 @@
 *.tif -k 'b'
 *.tiff -k 'b'
 *.pdf -k 'b'
+*.tex -k 'o'
+
+#sounds
+*.aiff -k 'b'
 
 #Project Builder - text files, but we want to avoid substitution
 *.pbxproj -k 'o'
