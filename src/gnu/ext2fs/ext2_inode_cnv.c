@@ -98,6 +98,18 @@ ext2_ei2i(ei, ip)
 	/*}*/
 	/* XXX use memcpy */
    
+   #if BYTE_ORDER == BIG_ENDIAN
+   /* We don't want to swap the block addr's for a short symlink because
+    * they contain a path name.
+    */
+   if (S_ISLNK(ip->i_mode) && ip->i_size < ITOV(ip)->v_mount->mnt_maxsymlinklen) {
+      /* Take advantage of the fact that i_ib follwows i_db. */
+      bcopy(ei->i_block, ip->i_shortlink, ip->i_size);
+      bzero(((char*)ip->i_shortlink)+ip->i_size, EXT2_MAXSYMLINKLEN - ip->i_size);
+      return;
+   }
+   #endif
+   
    /* Linux leaves the block #'s in LE order*/
 	for(i = 0; i < NDADDR; i++)
 		ip->i_db[i] = le32_to_cpu(ei->i_block[i]);
@@ -158,6 +170,19 @@ ext2_i2ei(ip, ei)
 		raw_inode->i_gid_high = 0;
 	}*/
    
+   #if BYTE_ORDER == BIG_ENDIAN
+   /* We don't want to swap the block addr's for a short symlink because
+    * they contain a path name.
+    */
+   if (S_ISLNK(ip->i_mode) && ip->i_size < ITOV(ip)->v_mount->mnt_maxsymlinklen) {
+      /* Take advantage of the fact that i_ib follwows i_db. */
+      bcopy(ip->i_shortlink, ei->i_block, ip->i_size);
+      bzero(((char*)ei->i_block)+ip->i_size, EXT2_MAXSYMLINKLEN - ip->i_size);
+      return;
+   }
+   #endif
+   
+   /* Linux leaves the block #'s in LE order*/
 	/* XXX use memcpy */
 	for(i = 0; i < NDADDR; i++)
 		ei->i_block[i] = cpu_to_le32(ip->i_db[i]);
