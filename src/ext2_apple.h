@@ -73,6 +73,10 @@ __private_extern__ void ext2_checkdirsize(struct vnode *dvp);
 #define ext2_checkdirsize(dvp)
 #endif
 
+/* Set to 1 to enable inode/block bitmap caching -- currently, this will
+cause a panic situation when the filesystem is stressed. */
+#define EXT2_SB_BITMAP_CACHE 0
+
 #define UNKNOWNUID ((uid_t)99)
 
 /* Process stuff */
