@@ -51,7 +51,7 @@ There should only be one instance of this class.
 
 /*!
 @method mediaCount
-@abstract Determinet the number of media objects.
+@abstract Determine the number of media objects.
 @discussion One media object is created for each
 disk and each partition on a disk.
 @result Count of media objects.
