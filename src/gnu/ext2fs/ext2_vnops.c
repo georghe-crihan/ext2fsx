@@ -463,9 +463,10 @@ ext2_close(ap)
 		struct thread *a_td;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+   struct vnode *vp = ap->a_vp;
+   struct inode *ip = VTOI(vp);
    
-   ext2_trace_enter();
+   ext2_trace("inode=%d, name=%s\n", ip->i_number, VNAME(vp));
    
    simple_lock(&vp->v_interlock);
    if ((!UBCISVALID(vp) && vp->v_usecount > 1)
@@ -477,11 +478,12 @@ ext2_close(ap)
     * VOP_CLOSE can be called with vp locked (from vclean).
     */
    if (VDIR != vp->v_type && !VOP_ISLOCKED(vp)) {
-      struct inode *ip = VTOI(vp);
       enum vtype type = vp->v_type;
       u_long vid = vp->v_id;
       
-		if (vn_lock(vp, LK_EXCLUSIVE | LK_RETRY, ap->a_p))
+      dprint_clusters(vp);
+      
+      if (vn_lock(vp, LK_EXCLUSIVE | LK_RETRY, ap->a_p))
          return (0);
          
       /* vn_lock is a possible preemption point, prevent a 
@@ -493,12 +495,11 @@ ext2_close(ap)
          return (0);
       }
 
-		cluster_push(vp);
+      cluster_push(vp);
 
-		VOP_UNLOCK(vp, 0, ap->a_p);
-	}
-   
-	return (0);
+      VOP_UNLOCK(vp, 0, ap->a_p);
+   }
+   return (0);
 }
 
 static int
@@ -839,9 +840,9 @@ ext2_fsync(ap)
 		struct thread *a_td;
 	} */ *ap;
 {
-   ext2_trace_enter();
+    ext2_trace_enter();
    
-   /*
+    /*
 	 * Write out any clusters.
 	 */
 	cluster_push(ap->a_vp);
@@ -851,7 +852,7 @@ ext2_fsync(ap)
 	 */
 	ext2_discard_prealloc(VTOI(ap->a_vp));
    
-   vop_stdfsync(ap);
+    vop_stdfsync(ap);
 
 	ext2_trace_return(ext2_update(ap->a_vp, ap->a_waitfor == MNT_WAIT));
 }
@@ -875,13 +876,13 @@ ext2_mknod(ap)
 	ino_t ino;
 	int error;
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	error = ext2_makeinode(MAKEIMODE(vap->va_type, vap->va_mode),
 	    ap->a_dvp, vpp, ap->a_cnp);
 	if (error)
 		ext2_trace_return(error);
-   VN_KNOTE(ap->a_dvp, NOTE_WRITE);
+    VN_KNOTE(ap->a_dvp, NOTE_WRITE);
 	ip = VTOI(*vpp);
 	ip->i_flag |= IN_ACCESS | IN_CHANGE | IN_UPDATE;
 	if (vap->va_rdev != VNOVAL) {
@@ -907,8 +908,8 @@ ext2_mknod(ap)
 		ext2_trace_return(error);
 	}
    #else
-   /* lookup will reload the inode for us */
-   *vpp = NULL;
+    /* lookup will reload the inode for us */
+    *vpp = NULL;
    #endif
 	return (0);
 }
@@ -1727,27 +1728,25 @@ ext2_strategy(ap)
 	struct buf *bp = ap->a_bp;
 	struct vnode *vp = bp->b_vp;
 	struct inode *ip;
-	int32_t blkno;
 	int error;
    
     ext2_trace_enter();
 
 	ip = VTOI(vp);
-    if ( !(bp->b_flags & B_VECTORLIST)) {
+    if (0 == (bp->b_flags & B_VECTORLIST)) {
         if (vp->v_type == VBLK || vp->v_type == VCHR)
             panic("ext2_strategy: spec");
        
         if (bp->b_flags & B_PAGELIST) {
           /*
-             * If we have a page list associated with this bp,
-             * then go through cluster_bp since it knows how to 
-             * deal with a page request that might span non-
-             * contiguous physical blocks on the disk...
-             */
+           * If we have a page list associated with this bp,
+           * then go through cluster_bp since it knows how to 
+           * deal with a page request that might span non-
+           * contiguous physical blocks on the disk...
+           */
     #if 1
           if (bp->b_blkno == bp->b_lblkno) {
-             error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
-             bp->b_blkno = blkno;
+             error = ext2_bmaparray(vp, bp->b_lblkno, &bp->b_blkno, NULL, NULL);
              if (error) {
                 bp->b_error = error;
                 bp->b_ioflags |= BIO_ERROR;
@@ -1764,8 +1763,7 @@ ext2_strategy(ap)
         }
        
         if (bp->b_blkno == bp->b_lblkno) {
-            error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
-            bp->b_blkno = blkno;
+            error = ext2_bmaparray(vp, bp->b_lblkno, &bp->b_blkno, NULL, NULL);
             if (error) {
                 bp->b_error = error;
                 bp->b_ioflags |= BIO_ERROR;
@@ -1780,7 +1778,9 @@ ext2_strategy(ap)
             return (0);
         }
     } /* B_VECTORLIST */
-   
+    
+    dprint_clusters(vp);
+    
 	vp = ip->i_devvp;
     bp->b_dev = vp->v_rdev;
     VOCALL (vp->v_op, VOFFSET(vop_strategy), ap);
