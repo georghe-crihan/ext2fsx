@@ -44,6 +44,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 static char *progname;
 
