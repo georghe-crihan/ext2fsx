@@ -73,7 +73,7 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	struct ucred *cred;
 	struct buf **bpp;
 	int flags;
-   int *blk_alloc;
+    int *blk_alloc;
 {
 	struct ext2_sb_info *fs;
 	int32_t nb;
@@ -84,10 +84,8 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	int osize, nsize, num, i, error;
     int alloc_buf = 1;
 
-#ifdef EXT2FS_TRACE
-    ext2_debug("ext2_balloc entered: (%d, %d, %d)\n", 
-        ip->i_number, (int)bn, (int)size);
-#endif
+    ext2_trace("inode=%d, lbn=%d, size=%d\n", 
+        ip->i_number, (int)bn, size);
 
 	*bpp = NULL;
 	if (bn < 0)
@@ -96,7 +94,7 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	lbn = bn;
    
     if (flags & B_NOBUFF) 
-		alloc_buf = 0;
+      alloc_buf = 0;
    
     if (blk_alloc)
       *blk_alloc = 0;
@@ -137,15 +135,18 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			osize = fragroundup(fs, blkoff(fs, ip->i_size));
 			nsize = fragroundup(fs, size);
 			if (nsize <= osize) {
-            if (alloc_buf) {
-				error = bread(vp, bn, osize, NOCRED, &bp);
-				if (error) {
-					brelse(bp);
-					return (error);
-				}
-				bp->b_blkno = fsbtodb(fs, nb);
-            } /* alloc_buf */
-            newb = nb;
+                if (alloc_buf) {
+                    error = bread(vp, bn, osize, NOCRED, &bp);
+                    if (error) {
+                        brelse(bp);
+                        return (error);
+                    }
+                    bp->b_blkno = fsbtodb(fs, nb);
+                } else { /* alloc_buf */
+                    ip->i_flag |= IN_CHANGE | IN_UPDATE;
+                    return (0);
+                }    
+                newb = nb;
 			} else {
 			/* Godmar thinks: this shouldn't happen w/o fragments */
 				printf("nsize %d(%d) > osize %d(%d) nb %d\n", 
@@ -157,7 +158,7 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
  * FFS seems to work.
  */
 			}
-		} else {
+		} else { /* (nb != 0) */
 			if (ip->i_size < (bn + 1) * fs->s_blocksize)
 				nsize = fragroundup(fs, size);
 			else
@@ -167,13 +168,13 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			    nsize, cred, &newb);
 			if (error)
 				return (error);
-         if (alloc_buf) {
-			bp = getblk(vp, bn, nsize, 0, 0, BLK_WRITE);
-			bp->b_blkno = fsbtodb(fs, newb);
-			if (flags & B_CLRBUF)
-				vfs_bio_clrbuf(bp);
-         } /* alloc_buf */
-		}
+            if (alloc_buf) {
+                bp = getblk(vp, bn, nsize, 0, 0, BLK_WRITE);
+                bp->b_blkno = fsbtodb(fs, newb);
+                if (flags & B_CLRBUF)
+                    vfs_bio_clrbuf(bp);
+            } /* alloc_buf */
+		} /* (nb != 0) */
 		ip->i_db[bn] = newb;
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
         if (blk_alloc)
@@ -316,17 +317,17 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		} else {
 			bdwrite(bp);
 		}
-      if (alloc_buf) {
-		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
-		nbp->b_blkno = fsbtodb(fs, nb);
-		if (flags & B_CLRBUF)
-			vfs_bio_clrbuf(nbp);
-      } /* alloc_buf */
-      if (blk_alloc) {
-         *blk_alloc = fs->s_blocksize;
-      }
-      if (alloc_buf)
-         *bpp = nbp;
+        if (alloc_buf) {
+            nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
+            nbp->b_blkno = fsbtodb(fs, nb);
+            if (flags & B_CLRBUF)
+                vfs_bio_clrbuf(nbp);
+        } /* alloc_buf */
+        if (blk_alloc) {
+            *blk_alloc = fs->s_blocksize;
+        }
+        if (alloc_buf)
+            *bpp = nbp;
 		return (0);
 	}
 	brelse(bp);
