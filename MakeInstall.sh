@@ -229,9 +229,11 @@ chmod -R go-w "${INSTALL}"
 chmod 775 "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes" "${INSTALL}/Library/Frameworks"
 chmod -R u-w "${INSTALL}"/sbin/* "${INSTALL}"/usr/local/bin/* "${INSTALL}"/usr/local/sbin/* \
 "${INSTALL}"/usr/local/lib/*
-sudo chown -R root:wheel "${INSTALL}"
-sudo chgrp admin "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes" \
+chgrp admin "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes" \
 "${INSTALL}/Library/Frameworks"
+sudo chown -R root:wheel "${INSTALL}"
+# The probe util needs to be suid
+sudo chmod 4555 "${INSTALL}/Library/Frameworks/ExtFSDiskManager.framework/Resources/efsprobe"
 
 echo "Build done."
 
