@@ -24,7 +24,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-DEXT2FS_DEBUG -DOSX -DDIAGNOSTIC";
+				OTHER_CFLAGS = "\U0001-DDEBUG -DEXT2FS_DEBUG -DOSX -DDIAGNOSTIC -DREADONLY";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -35,7 +35,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				OPTIMIZATION_CFLAGS = "-O2";
-				OTHER_CFLAGS = "\U0001";
+				OTHER_CFLAGS = "\U0001-DREADONLY";
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -75,6 +75,8 @@
 			targets = (
 				089C1673FE841209C02AAC07,
 				D30B790A040599D500A80164,
+				D3D4857D0405AE8E00A80164,
+				D3D485850405AEF400A80164,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -83,6 +85,8 @@
 				F5E7E349035BD34B01A80165,
 				F53BA31103CBEF8D01A80164,
 				D33D91670405A28700A80164,
+				D3D485770405AC0900A80164,
+				D3D485870405C3B900A80164,
 				D30B790D04059A6B00A80164,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
@@ -103,16 +107,16 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = .;
+				HEADER_SEARCH_PATHS = src;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
-				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2fs;
+				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
 				MODULE_VERSION = 1.0.0d1;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-D_KERNEL -DREADONLY";
+				OTHER_CFLAGS = "\U0001-D_KERNEL";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2fs;
@@ -123,7 +127,7 @@
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
-			name = ext2fsX;
+			name = ext2_kext;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = ext2fsX;
 			productReference = 0A5A7D55FFB780D811CA28AA;
@@ -138,9 +142,11 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>net.sourceforge.ext2fs.fs.ext2fs</string>
+	<string>net.sourceforge.ext2fs.fs.ext2</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ext2fs</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
@@ -267,6 +273,8 @@
 			children = (
 				0A5A7D55FFB780D811CA28AA,
 				D30B790B040599D500A80164,
+				D3D4857E0405AE8E00A80164,
+				D3D485860405AEF400A80164,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -325,6 +333,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D30B791104059A6B00A80164,
+				D3D485780405AC0900A80164,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -416,6 +425,255 @@
 		};
 		D33D91680405A28700A80164 = {
 			fileRef = D33D91670405A28700A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D485770405AC0900A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = kext_load.c;
+			path = src/kext_load.c;
+			refType = 4;
+		};
+		D3D485780405AC0900A80164 = {
+			fileRef = D3D485770405AC0900A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D485790405AE8E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4857A0405AE8E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3D485880405C3B900A80164,
+				D3D485890405C3BB00A80164,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4857B0405AE8E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4857C0405AE8E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4857D0405AE8E00A80164 = {
+			buildPhases = (
+				D3D485790405AE8E00A80164,
+				D3D4857A0405AE8E00A80164,
+				D3D4857B0405AE8E00A80164,
+				D3D4857C0405AE8E00A80164,
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = src/gnu/ext2fs;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ext2fs.util;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = ext2_util;
+			productInstallPath = /usr/local/bin;
+			productName = ext2fs_util;
+			productReference = D3D4857E0405AE8E00A80164;
+		};
+		D3D4857E0405AE8E00A80164 = {
+			isa = PBXExecutableFileReference;
+			path = ext2fs.util;
+			refType = 3;
+		};
+		D3D485800405AEF400A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D485810405AEF400A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D485820405AEF400A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D485830405AEF400A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D485840405AEF400A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D485850405AEF400A80164 = {
+			buildPhases = (
+				D3D485800405AEF400A80164,
+				D3D485810405AEF400A80164,
+				D3D4858C0405F52200A80164,
+				D3D485820405AEF400A80164,
+				D3D485830405AEF400A80164,
+				D3D485840405AEF400A80164,
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ext2;
+				PROFILING_CODE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = fs;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = ext2_fs;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = ext2_fs;
+			productReference = D3D485860405AEF400A80164;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>net.sourceforge.ext2fs.filesystems.util.ext2</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ext2</string>
+	<key>CFBundlePackageType</key>
+	<string>fs</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0d1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+	<key>FSMediaTypes</key>
+	<dict>
+		<key>EXT2</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>EXT2</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ext2fs.util</string>
+			<key>FSProbeOrder</key>
+			<string>5000</string>
+		</dict>
+		<key>Partitionless</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ext2fs.util</string>
+			<key>FSProbeOrder</key>
+			<string>5000</string>
+		</dict>
+	</dict>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>EXT2</key>
+		<dict>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>/sbin/mount_ext2</string>
+			<key>FSName</key>
+			<string>EXT2</string>
+		</dict>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		D3D485860405AEF400A80164 = {
+			isa = PBXBundleReference;
+			path = ext2.bundle;
+			refType = 3;
+		};
+		D3D485870405C3B900A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ext2util.c;
+			path = src/ext2util.c;
+			refType = 4;
+		};
+		D3D485880405C3B900A80164 = {
+			fileRef = D3D485870405C3B900A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D485890405C3BB00A80164 = {
+			fileRef = D3D485770405AC0900A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3D4858C0405F52200A80164 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 1;
+			files = (
+				D3D4858F0405F57400A80164,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3D4858F0405F57400A80164 = {
+			fileRef = D3D4857E0405AE8E00A80164;
 			isa = PBXBuildFile;
 			settings = {
 			};
