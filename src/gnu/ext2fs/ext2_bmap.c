@@ -323,7 +323,12 @@ ext2_getlbns(vp, bn, ap, nump)
 		if (metalbn == realbn)
 			break;
 
-		off = (bn / blockcnt) % MNINDIR(ump);
+        /* XXX Moved from FBSD loc. to match UFS.
+           This makes a difference in the offset and metalbn
+           calculations for some lbn's.
+         */
+        blockcnt /= MNINDIR(ump);
+        off = (bn / blockcnt) % MNINDIR(ump);
 
 		++numlevels;
 		ap->in_lbn = metalbn;
@@ -332,7 +337,9 @@ ext2_getlbns(vp, bn, ap, nump)
 		++ap;
 
 		metalbn -= -1 + off * blockcnt;
-		blockcnt /= MNINDIR(ump);
+        /* XXX Original FBSD location.
+        blockcnt /= MNINDIR(ump);
+        */
 	}
 	if (nump)
 		*nump = numlevels;
