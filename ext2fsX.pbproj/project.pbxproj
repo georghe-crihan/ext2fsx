@@ -78,6 +78,7 @@
 				French,
 				German,
 				fr,
+				de,
 			);
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -690,6 +691,7 @@
 		D3556142058517B7008148F9 = {
 			children = (
 				D3556143058517B7008148F9,
+				D3560A840597A33700890EA3,
 			);
 			isa = PBXVariantGroup;
 			name = Localizable.strings;
@@ -708,6 +710,13 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		D3560A840597A33700890EA3 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = de;
+			path = de.lproj/Localizable.strings;
+			refType = 4;
 		};
 		D36725B2057A698B00A80164 = {
 			fileEncoding = 30;
@@ -1719,11 +1728,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>NSMainNibFile</key>
 	<string>ExtFSManager</string>
 	<key>NSPrefPaneIconFile</key>
