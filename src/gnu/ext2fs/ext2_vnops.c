@@ -383,7 +383,7 @@ ext2_itimes(vp)
 		ip->i_flag |= IN_MODIFIED;
 	if ((vp->v_mount->mnt_flag & MNT_RDONLY) == 0) {
 		vfs_timestamp(&ts);
-		if (ip->i_flag & IN_ACCESS) {
+		if ((ip->i_flag & IN_ACCESS) && !(ip->i_e2flags & EXT2_NOATIME_FL)) {
 			ip->i_atime = ts.tv_sec;
 			ip->i_atimensec = ts.tv_nsec;
 		}
