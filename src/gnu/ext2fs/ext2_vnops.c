@@ -129,21 +129,19 @@ static int ext2_setattr(struct vop_setattr_args *);
 static int ext2_strategy(struct vop_strategy_args *);
 static int ext2_symlink(struct vop_symlink_args *);
 static int ext2_write(struct vop_write_args *);
-static int ext2fifo_close(struct vop_close_args *);
 #ifndef APPLE
+static int ext2fifo_close(struct vop_close_args *);
 static int ext2fifo_kqfilter(struct vop_kqfilter_args *);
-#endif
 static int ext2fifo_read(struct vop_read_args *);
 static int ext2fifo_write(struct vop_write_args *);
 static int ext2spec_close(struct vop_close_args *);
 static int ext2spec_read(struct vop_read_args *);
 static int ext2spec_write(struct vop_write_args *);
-#ifndef APPLE
 static int filt_ext2read(struct knote *kn, long hint);
 static int filt_ext2write(struct knote *kn, long hint);
 static int filt_ext2vnode(struct knote *kn, long hint);
 static void filt_ext2detach(struct knote *kn);
-#endif
+#endif /* APPLE */
 
 #ifdef APPLE
 #define vop_defaultop vn_default_error
@@ -201,6 +199,8 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 static struct vnodeopv_desc ext2fs_vnodeop_opv_desc =
 	{ &ext2_vnodeop_p, ext2_vnodeop_entries };
 
+#ifndef APPLE
+
 vop_t **ext2_specop_p;
 static struct vnodeopv_entry_desc ext2_specop_entries[] = {
 	{ &vop_default_desc,		(vop_t *) spec_vnoperate },
@@ -239,6 +239,8 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 };
 static struct vnodeopv_desc ext2fs_fifoop_opv_desc =
 	{ &ext2_fifoop_p, ext2_fifoop_entries };
+
+#endif /* APPLE */
 
 #ifndef APPLE
 	VNODEOP_SET(ext2fs_vnodeop_opv_desc);
@@ -475,7 +477,11 @@ ext2_getattr(ap)
 	/*
 	 * Copy from inode table
 	 */
+   #ifndef APPLE
 	vap->va_fsid = dev2udev(ip->i_dev);
+   #else
+   vap->va_fsid = vp->v_mount->mnt_stat.f_fsid.val[0];
+   #endif
 	vap->va_fileid = ip->i_number;
 	vap->va_mode = ip->i_mode & ~IFMT;
 	vap->va_nlink = ip->i_nlink;
@@ -1285,8 +1291,12 @@ abortit:
 			error = vn_rdwr(UIO_READ, fvp, (caddr_t)&dirbuf,
 				sizeof (struct dirtemplate), (off_t)0,
 				UIO_SYSSPACE, IO_NODELOCKED | IO_NOMACCHECK,
-				tcnp->cn_cred, NOCRED, (int *)0,
-				(struct thread *)0);
+				tcnp->cn_cred,
+            #ifndef APPLE
+            NOCRED, (int *)0, (struct thread *)0);
+            #else
+            (int *)0, (struct proc *)0);
+            #endif
 			if (error == 0) {
 				/* Like ufs little-endian: */
 				namlen = dirbuf.dotdot_type;
@@ -1303,8 +1313,11 @@ abortit:
 					    (off_t)0, UIO_SYSSPACE,
 					    IO_NODELOCKED | IO_SYNC |
 					    IO_NOMACCHECK, tcnp->cn_cred,
-					    NOCRED, (int *)0,
-					    (struct thread *)0);
+					    #ifndef APPLE
+                   NOCRED, (int *)0, (struct thread *)0);
+                   #else
+                   (int *)0, (struct proc *)0);
+                   #endif
 					cache_purge(fdvp);
 				}
 			}
@@ -1439,8 +1452,12 @@ ext2_mkdir(ap)
 	dirtemplate.dotdot_reclen = DIRBLKSIZ - 12;
 	error = vn_rdwr(UIO_WRITE, tvp, (caddr_t)&dirtemplate,
 	    sizeof (dirtemplate), (off_t)0, UIO_SYSSPACE,
-	    IO_NODELOCKED | IO_SYNC | IO_NOMACCHECK, cnp->cn_cred, NOCRED,
-	    (int *)0, (struct thread *)0);
+	    IO_NODELOCKED | IO_SYNC | IO_NOMACCHECK, cnp->cn_cred,
+       #ifndef APPLE
+       NOCRED, (int *)0, (struct thread *)0);
+       #else
+       (int *)0, (struct proc *)0);
+       #endif
 	if (error) {
 		dp->i_nlink--;
 		dp->i_flag |= IN_CHANGE;
@@ -1577,7 +1594,12 @@ ext2_symlink(ap)
 	} else
 		error = vn_rdwr(UIO_WRITE, vp, ap->a_target, len, (off_t)0,
 		    UIO_SYSSPACE, IO_NODELOCKED | IO_NOMACCHECK,
-		    ap->a_cnp->cn_cred, NOCRED, (int *)0, (struct thread *)0);
+		    ap->a_cnp->cn_cred,
+          #ifndef APPLE
+          NOCRED, (int *)0, (struct thread *)0);
+          #else
+          (int *)0, (struct proc *)0);
+          #endif
 	if (error)
 		vput(vp);
 	return (error);
@@ -1657,8 +1679,8 @@ ext2_strategy(ap)
 		return (0);
 	}
 	vp = ip->i_devvp;
-	bp->b_dev = vp->v_rdev;
    #ifndef APPLE
+	bp->b_dev = vp->v_rdev;
 	VOP_STRATEGY(vp, bp);
    #else
    bp->b_vp = vp;
@@ -1688,6 +1710,8 @@ ext2_print(ap)
 	printf("\n");
 	return (0);
 }
+
+#ifndef APPLE
 
 /*
  * Read wrapper for special devices.
@@ -1840,7 +1864,6 @@ ext2fifo_close(ap)
 	return (VOCALL(fifo_vnodeop_p, VOFFSET(vop_close), ap));
 }
 
-#ifndef APPLE
 /*
  * Kqfilter wrapper for fifos.
  *
@@ -1857,7 +1880,8 @@ ext2fifo_kqfilter(ap)
 		error = ext2_kqfilter(ap);
 	return (error);
 }
-#endif
+
+#endif /* APPLE */
 
 /*
  * Return POSIX pathconf information applicable to ext2 filesystems.
@@ -1909,9 +1933,14 @@ ext2_advlock(ap)
 		int  a_flags;
 	} */ *ap;
 {
-	struct inode *ip = VTOI(ap->a_vp);
+	#ifndef APPLE
+   struct inode *ip = VTOI(ap->a_vp);
 
-	return (lf_advlock(ap, &(ip->i_lockf), ip->i_size));
+   return (lf_advlock(ap, &(ip->i_lockf), ip->i_size));
+   #else
+   /* BUGBUG -- Need to figure out correct args for Apple call. */
+   return (ENOTSUP);
+   #endif
 }
 
 /*
@@ -1935,7 +1964,9 @@ ext2_vinit(mntp, specops, fifoops, vpp)
 	case VCHR:
 	case VBLK:
 		vp->v_op = specops;
+      #ifndef APPLE
 		vp = addaliasu(vp, ip->i_rdev);
+      #endif
 		ip->i_vnode = vp;
 		break;
 	case VFIFO:

@@ -108,7 +108,7 @@
 #define EXT2_MIN_BLOCK_SIZE		1024
 #define	EXT2_MAX_BLOCK_SIZE		4096
 #define EXT2_MIN_BLOCK_LOG_SIZE		  10
-#if defined(__KERNEL__) || (defined(__FreeBSD__) && defined(_KERNEL))
+#if defined(__KERNEL__) || ((defined(__FreeBSD__) || defined(APPLE)) && defined(_KERNEL))
 # define EXT2_BLOCK_SIZE(s)		((s)->s_blocksize)
 #else
 # define EXT2_BLOCK_SIZE(s)		(EXT2_MIN_BLOCK_SIZE << (s)->s_log_block_size)
@@ -150,7 +150,7 @@
 # define EXT2_FRAG_SIZE(s)		((s)->u.ext2_sb.s_frag_size)
 # define EXT2_FRAGS_PER_BLOCK(s)	((s)->u.ext2_sb.s_frags_per_block)
 #else
-# if defined(_KERNEL) && defined(__FreeBSD__)
+# if defined(_KERNEL) && (defined(__FreeBSD__) || defined(APPLE))
 # define EXT2_FRAG_SIZE(s)		((s)->s_frag_size)
 # else
 # define EXT2_FRAG_SIZE(s)		(EXT2_MIN_FRAG_SIZE << (s)->s_log_frag_size)
