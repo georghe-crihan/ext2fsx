@@ -38,8 +38,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #define super_block ext2_sb_info
 #define s_id fs_fsmnt
 
-#define EXT3_SB(fs) (fs)
-
 const char *ext3_decode_error(struct super_block * sb, int errno, char nbuf[16])
 {
 	char *errstr = NULL;
