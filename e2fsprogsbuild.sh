@@ -38,7 +38,7 @@ fi
 if [ ! -f ./.e2configdone ]; then
 	./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
 --without-libintl-prefix --disable-fsck --enable-bsd-shlibs \
---with-ccopts="-DAPPLE_DARWIN=1 -pipe -traditional-cpp"
+--with-ccopts="-DAPPLE_DARWIN=1 -DHAVE_EXT2_IOCTLS=1 -DSYS_fsctl=242 -pipe -traditional-cpp"
 	if [ $? -ne 0 ]; then
 		echo "configure failed!"
 		exit $?
