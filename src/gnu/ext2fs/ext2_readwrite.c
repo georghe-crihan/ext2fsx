@@ -94,7 +94,6 @@ READ(ap)
 	off_t bytesinfile;
 	long size, xfersize, blkoffset;
 	int error, orig_resid;
-	int seqcount = ap->a_ioflag >> 16;
 	u_short mode;
    
    ext2_trace_enter();
@@ -121,8 +120,6 @@ READ(ap)
 	if ((u_quad_t)uio->uio_offset > fs->s_maxfilesize)
 		ext2_trace_return (EFBIG);
 #endif
-
-   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
 
 	orig_resid = uio->uio_resid;
    if (UBCISVALID(vp)) {
@@ -253,8 +250,6 @@ WRITE(ap)
 #endif
    if (uio->uio_resid == 0)
       return (0);
-   
-   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
    
 	/*
 	 * Maybe this should be above the vnode op call, but so long as
