@@ -48,10 +48,6 @@ cd ../share/man/man8
 ln -f e2fsck.8 ./fsck_ext2.8
 ln -f mke2fs.8 ./newfs_ext2.8
 
-#mkfs symlink
-cd "${INSTALL}/sbin"
-ln -sf ../usr/local/sbin/mke2fs ./newfs_ext2
-
 #lib sym links
 cd "${INSTALL}/usr/local/lib"
 
@@ -69,6 +65,9 @@ cp -pR "${BUILD}/ext2.fs" "${INSTALL}/System/Library/FileSystems"
 #mount
 cp -p "${BUILD}/mount_ext2" "${INSTALL}/sbin"
 cp -p "${EXT2BUILD}/src/mount_ext2fs/mount_ext2fs.8" "${INSTALL}/usr/share/man/man8/mount_ext2.8"
+
+#newfs
+cp -p "${BUILD}/newfs_ext2" "${INSTALL}/sbin"
 
 #strip binaries for prod build here
 
