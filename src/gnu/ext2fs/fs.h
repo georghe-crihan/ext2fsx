@@ -87,7 +87,7 @@
 #define ino_to_cg(fs, x)	(((x) - 1) / EXT2_INODES_PER_GROUP(fs))
 
 /* get block containing inode from its number x */
-#define	ino_to_fsba(fs, x)	fs_cs(fs, ino_to_cg(fs, x)).bg_inode_table + \
+#define	ino_to_fsba(fs, x)	le32_to_cpu(fs_cs(fs, ino_to_cg(fs, x)).bg_inode_table) + \
 	(((x)-1) % EXT2_INODES_PER_GROUP(fs))/EXT2_INODES_PER_BLOCK(fs)
 
 /* get offset for inode in block */

@@ -38,6 +38,8 @@
 #define umode_t mode_t
 #define loff_t  off_t
 
+#include <ext2_byteorder.h>
+
 /*
  * The second extended filesystem constants/structures
  */
@@ -464,11 +466,11 @@ struct ext2_super_block {
  */
 
 #define EXT2_HAS_COMPAT_FEATURE(sb,mask)			\
-	( EXT2_SB(sb)->s_feature_compat & (mask) )
+	( EXT2_SB(sb)->s_feature_compat & cpu_to_le32(mask) )
 #define EXT2_HAS_RO_COMPAT_FEATURE(sb,mask)			\
-	( EXT2_SB(sb)->s_feature_ro_compat & (mask) )
+	( EXT2_SB(sb)->s_feature_ro_compat & cpu_to_le32(mask) )
 #define EXT2_HAS_INCOMPAT_FEATURE(sb,mask)			\
-	( EXT2_SB(sb)->s_feature_incompat & (mask) )
+	( EXT2_SB(sb)->s_feature_incompat & cpu_to_le32(mask) )
 
 #define EXT2_FEATURE_COMPAT_DIR_PREALLOC	0x0001
 
