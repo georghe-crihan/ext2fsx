@@ -17,11 +17,13 @@ mount_ext2 - This component mounts Ext2 volumes, loading the kernel extension if
 \
 fsck_ext2 - This component is a small wrapper around e2fsck. It implements the '-q' (quick check) option for compatibility with Mac OS X tools that expect this option to be present. The source is located in src/utils/fsck_ext2.c.\
 \
-ext2.fs - This component is the glue that allows Mac OS X to "auto-mount" Ext2 partitions. It's main function is to describe the filesystem attributes so the auto-mount daemon can match a disk filesystem and then mount it. The source for the matching utility is located in src/ext2util.c. \
+ext2.fs - This component is the glue that allows Mac OS X to "auto-mount" Ext2 partitions. Its main function is to describe the filesystem attributes so the auto-mount daemon can match a disk filesystem and then mount it. The source for the matching utility is located in src/ext2util.c. \
 \
-ExtFS Manager - This component is a Mac OS X Preference Pane plug-in. It allows the user to set mount options for Ext2 filesystems through a user-friendly GUI. It also provides detailed descriptions of all disks and filesystems. The source for this component is located in src/extfsmgr.\
+ExtFS Manager - This component is a Mac OS X Preference Pane plug-in. It allows the user to set mount options for Ext2 filesystems through a user-friendly GUI. It also provides detailed descriptions of all disks and filesystems. The source for this component is located in src/extfsmgr/prefpane.\
 \
-All components are written in the C language, except for ExtFS Manager which is written in Objective-C.\
+ExtFS Disk Manager - This component is a Mac OS X framework. It provides disk management functions such as determining the file system type, size, and statistics. It also includes advanced functionality such as S.M.A.R.T. disk status.  The source for this component is located in src/extfsmgr/coremgr.\
+\
+All components are written in the C language, except for ExtFS Manager and ExtFS Disk Manager which are written in Objective-C.\
 
 \f0\b \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
