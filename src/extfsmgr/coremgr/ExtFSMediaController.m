@@ -696,7 +696,7 @@ NSString* NSFSPrettyNameFromType(int type)
     if (nil == _fsPrettyNames) {
         NSBundle *me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
         if (nil == me)
-            NSLog("ExtFS: Could not find bundle!\n");
+            NSLog(@"ExtFS: Could not find bundle!\n");
             return (nil);
 
         /* The correct way to get these names is to enum the FS bundles and
