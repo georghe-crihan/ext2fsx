@@ -56,6 +56,7 @@
 #else
 #include <sys/namei.h> /* cache_purge() */
 #include <sys/ubc.h>
+#include <sys/trace.h>
 #endif
 
 #ifdef APPLE
@@ -107,16 +108,16 @@ ext2_update(vp, waitfor)
 	}
 	ext2_i2ei(ip, (struct ext2_inode *)((char *)bp->b_data +
 	    EXT2_INODE_SIZE * ino_to_fsbo(fs, ip->i_number)));
-/*
+#ifdef APPLE
 	if (waitfor && (vp->v_mount->mnt_flag & MNT_ASYNC) == 0)
 		return (bwrite(bp));
 	else {
-*/
+#endif
 		bdwrite(bp);
 		return (0);
-/*
+#ifdef APPLE
 	}
-*/
+#endif
 }
 
 #define	SINGLE	0	/* index of single indirect block */
@@ -206,7 +207,7 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 			ubc_setsize(ovp, (off_t)length); 
 		} else {
       #endif
-		if (aflags & IO_SYNC)
+		if (aflags & B_SYNC)
 			bwrite(bp);
 		else
 			bawrite(bp);
@@ -254,7 +255,7 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 			bwrite(bp);
 		} else {
       #endif
-		if (aflags & IO_SYNC)
+		if (aflags & B_SYNC)
 			bwrite(bp);
 		else
 			bawrite(bp);
@@ -374,7 +375,7 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 		oip->i_size = length;
 		newspace = blksize(fs, oip, lastblock);
 		if (newspace == 0)
-			panic("itrunc: newspace");
+			panic("ext2_itrunc: newspace");
 		if (oldspace - newspace > 0) {
 			/*
 			 * Block number of space to be free'd is
@@ -395,12 +396,12 @@ done:
 #if DIAGNOSTIC
 	for (level = SINGLE; level <= TRIPLE; level++)
 		if (newblks[NDADDR + level] != oip->i_ib[level])
-			panic("itrunc1");
+			panic("ext2_itrunc1");
 	for (i = 0; i < NDADDR; i++)
 		if (newblks[i] != oip->i_db[i])
-			panic("itrunc2");
-	VI_LOCK(ovp);
+			panic("ext2_itrunc2");
    #ifndef APPLE
+	VI_LOCK(ovp);
 	if (length == 0 && (!TAILQ_EMPTY(&ovp->v_dirtyblkhd) ||
 			    !TAILQ_EMPTY(&ovp->v_cleanblkhd)))
    #else
@@ -408,7 +409,9 @@ done:
 			    !LIST_EMPTY(&ovp->v_cleanblkhd)))
    #endif
 		panic("itrunc3");
+   #ifndef APPLE
 	VI_UNLOCK(ovp);
+   #endif
 #endif /* DIAGNOSTIC */
 	/*
 	 * Put back the real size.
@@ -452,8 +455,17 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	int error = 0, allerror = 0;
    #ifdef APPLE
    int devBlockSize=0;
+   struct buf *tbp;
    
    VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   
+   /* Doing a MALLOC here is asking for trouble. We can still
+	 * deadlock on pagerfile lock, in case we are running
+	 * low on memory and block in MALLOC
+	 */
+
+	tbp = geteblk(fs->s_blocksize);
+	copy = (int32_t *)tbp->b_data;
    #endif
 
 	/*
@@ -488,10 +500,14 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
    #endif
    );
 	if (bp->b_flags & (B_DONE | B_DELWRI)) {
+   #ifdef APPLE
+   trace(TR_BREADHIT, pack(vp, fs->fs_bsize), lbn);
+   #endif
 	} else {
       #ifndef APPLE
 		bp->b_iocmd = BIO_READ;
       #else
+      trace(TR_BREADMISS, pack(vp, fs->fs_bsize), lbn);
       current_proc()->p_stats->p_ru.ru_inblock++;	/* pay for read */
 		bp->b_flags |= B_READ;
       #endif
@@ -509,11 +525,16 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	if (error) {
 		brelse(bp);
 		*countp = 0;
+   #ifdef APPLE
+      brelse(tbp);
+   #endif
 		return (error);
 	}
 
 	bap = (int32_t *)bp->b_data;
+#ifndef APPLE
 	MALLOC(copy, int32_t *, fs->s_blocksize, M_TEMP, M_WAITOK);
+#endif
 	bcopy((caddr_t)bap, (caddr_t)copy, (u_int)fs->s_blocksize);
 	bzero((caddr_t)&bap[last + 1],
 	  (u_int)(NINDIR(fs) - (last + 1)) * sizeof (int32_t));
@@ -555,7 +576,11 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 			blocksreleased += blkcount;
 		}
 	}
+#ifndef APPLE
 	FREE(copy, M_TEMP);
+#else
+   brelse(tbp);
+#endif
 	*countp = blocksreleased;
 	return (allerror);
 }
@@ -582,7 +607,7 @@ ext2_inactive(ap)
 	/*
 	 * Ignore inodes related to stale file handles.
 	 */
-	if (ip->i_mode == 0)
+	if (ip->i_mode == 0 && (vp->v_mount->mnt_flag & MNT_RDONLY) == 0)
 		goto out;
 	if (ip->i_nlink <= 0) {
 		(void) vn_write_suspend_wait(vp, NULL, V_WAIT);
