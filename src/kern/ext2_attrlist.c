@@ -52,6 +52,7 @@
 #include <sys/stat.h>
 #include <sys/vm.h>
 
+#include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/inode.h>
 #include "ext2_apple.h"
 
