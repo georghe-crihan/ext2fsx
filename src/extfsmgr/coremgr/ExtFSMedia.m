@@ -118,7 +118,7 @@ do { \
       else
          err = ENOMEM;
       if (err)
-         NSLog(@"extfs: Failed to load superblock for device %@ mounted on %s (%d).\n",
+         NSLog(@"ExtFS: Failed to load superblock for device '%@' mounted on '%s' (%d).\n",
             [self bsdName], path, err);
    }
    
@@ -254,7 +254,7 @@ exit:
 
    if ([_children containsObject:media]) {
 #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Oops! Parent %@ already contains child %@.\n",
+      NSLog(@"ExtFS: Oops! Parent '%@' already contains child '%@'.\n",
          [self bsdName], [media bsdName]);
 #endif
       return;
@@ -270,7 +270,7 @@ exit:
 {
    if (NO == [_children containsObject:media]) {
 #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Oops! Parent %@ does not contain child %@.\n",
+      NSLog(@"ExtFS: Oops! Parent '%@' does not contain child '%@'.\n",
          [self bsdName], [media bsdName]);
 #endif
       return;
@@ -467,6 +467,11 @@ exit:
    return (_volName);
 }
 
+- (BOOL)hasPermissions
+{
+   return (0 != (_attributeFlags & kfsPermsEnabled));
+}
+
 - (BOOL)hasJournal
 {
    return (0 != (_volCaps & VOL_CAP_FMT_JOURNAL));
@@ -576,7 +581,7 @@ exit:
 - (void)dealloc
 {
 #ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: Object '%@' dealloc\n",
+   NSLog(@"ExtFS: Media '%@' dealloc.\n",
       [_media objectForKey:NSSTR(kIOBSDNameKey)]);
 #endif
    e2super_free;

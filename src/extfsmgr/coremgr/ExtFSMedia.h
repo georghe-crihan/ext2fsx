@@ -293,6 +293,13 @@ cannot be determined (ie the media is not mounted).
 */
 - (NSString*)volName;
 /*!
+@method hasPermissions
+@abstract Determine if filesystem permissions are in effect.
+@result YES if permissions are active, otherwise NO.
+Always NO if the media is not mounted.
+*/
+- (BOOL)hasPermissions;
+/*!
 @method hasJournal
 @abstract Determine if the filesystem has a journal log.
 @result YES if a journal is present, otherwise NO.
@@ -416,6 +423,7 @@ extern NSString *ExtFSMediaNotificationChildChange;
 @constant kfsGetAttrlist Filesystem supports getattrlist() sys call.
 @constant kfsIconNotFound No icon found for the media.
 @constant kfsNoMount Media cannot be mounted (partition map, driver partition, etc).
+@constant kfsPermsEnabled Filesystem permissions are in effect.
 */
 enum {
    kfsDiskArb		= (1<<0), /* Mount/unmount with Disk Arb */
@@ -428,7 +436,8 @@ enum {
    kfsDVDROM		= (1<<7),
    kfsGetAttrlist	= (1<<9),  /* getattrlist supported */
    kfsIconNotFound	= (1<<10),
-   kfsNoMount		= (1<<11) /* Not mountable (partition map, driver partition, etc) */
+   kfsNoMount		= (1<<11),
+   kfsPermsEnabled  = (1<<12)
 };
 
 /*!
