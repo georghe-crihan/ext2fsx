@@ -93,8 +93,6 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #ifdef APPLE
 #include <vfs/vfs_support.h>
 
-#define vfs_timestamp nanotime
-
 #include <xnu/bsd/miscfs/fifofs/fifo.h>
 #include "ext2_apple.h"
 #endif /* APPLE */
