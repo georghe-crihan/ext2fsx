@@ -73,6 +73,7 @@
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
 			targets = (
+				D39ED63004060E7300A80164,
 				089C1673FE841209C02AAC07,
 				D30B790A040599D500A80164,
 				D3D4857D0405AE8E00A80164,
@@ -364,7 +365,7 @@
 				OTHER_CFLAGS = "-DAPPLE";
 				OTHER_LDFLAGS = "-ldisk";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_ext2fs;
+				PRODUCT_NAME = mount_ext2;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -378,7 +379,7 @@
 		};
 		D30B790B040599D500A80164 = {
 			isa = PBXExecutableFileReference;
-			path = mount_ext2fs;
+			path = mount_ext2;
 			refType = 3;
 		};
 		D30B790D04059A6B00A80164 = {
@@ -428,6 +429,44 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		D39ED63004060E7300A80164 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildAll;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				D39ED63104060E8300A80164,
+				D39ED63204060E8300A80164,
+				D39ED63304060E8300A80164,
+				D39ED63404060E8300A80164,
+			);
+			isa = PBXAggregateTarget;
+			name = BuildAll;
+			productName = BuildAll;
+		};
+		D39ED63104060E8300A80164 = {
+			isa = PBXTargetDependency;
+			target = 089C1673FE841209C02AAC07;
+		};
+		D39ED63204060E8300A80164 = {
+			isa = PBXTargetDependency;
+			target = D30B790A040599D500A80164;
+		};
+		D39ED63304060E8300A80164 = {
+			isa = PBXTargetDependency;
+			target = D3D4857D0405AE8E00A80164;
+		};
+		D39ED63404060E8300A80164 = {
+			isa = PBXTargetDependency;
+			target = D3D485850405AEF400A80164;
 		};
 		D3D485770405AC0900A80164 = {
 			fileEncoding = 30;
@@ -640,7 +679,7 @@
 		};
 		D3D485860405AEF400A80164 = {
 			isa = PBXBundleReference;
-			path = ext2.bundle;
+			path = ext2.fs;
 			refType = 3;
 		};
 		D3D485870405C3B900A80164 = {
