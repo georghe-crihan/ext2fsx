@@ -26,6 +26,9 @@
 #ifndef EXT2_APPLE_H
 #define EXT2_APPLE_H
 
+#define EXT2FS_NAME "ext2"
+#define EXT3FS_NAME "ext3"
+
 #ifdef KERNEL
 
 #ifdef DIAGNOSTIC
@@ -46,6 +49,7 @@ extern int prtactive; /* 1 => print out reclaim of active vnodes */
 
 #define M_EXT2NODE M_MISCFSNODE
 #define M_EXT2MNT M_MISCFSMNT
+#define VT_EXT2 VT_OTHER
 
 typedef int vop_t __P((void *));
 
@@ -70,14 +74,6 @@ __private_extern__ void ext2_checkdirsize(struct vnode *dvp);
 #endif
 
 #define UNKNOWNUID ((uid_t)99)
-
-#define VT_EXT2 VT_OTHER
-
-#endif /* KERNEL */
-
-#define EXT2FS_NAME "ext2"
-
-#ifdef KERNEL
 
 /* Process stuff */
 #define curproc (current_proc())
@@ -180,6 +176,8 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *);
 
 #define BUF_WRITE bwrite
 #define BUF_STRATEGY VOP_STRATEGY
+/* Buffer, Lock, InterLock */
+#define BUF_LOCK(b,l,il)
 
 #define bqrelse brelse
 #define bufwait biowait
