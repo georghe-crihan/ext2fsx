@@ -19,6 +19,7 @@
                 "_infoText" = id; 
                 "_mountButton" = id; 
                 "_mountReadOnlyBox" = id; 
+                "_opProgress" = id; 
                 "_optionNoteText" = id; 
                 "_startupProgress" = id; 
                 "_startupText" = id; 
