@@ -47,6 +47,7 @@
 static const char whatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
+#include <string.h>
 #include <sys/types.h>
 #include <sys/errno.h>
 #include <sys/proc.h>
@@ -54,6 +55,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/attr.h>
 #include <sys/stat.h>
 #include <sys/vm.h>
+#include <sys/syslog.h>
 
 #include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_fs.h>
@@ -62,10 +64,89 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/inode.h>
 #include "ext2_apple.h"
 
+/* Extra VOL CAPS in Panther */
+#ifndef VOL_CAP_FMT_JOURNAL
+#define VOL_CAP_FMT_JOURNAL 0x00000008
+#endif
+#ifndef VOL_CAP_FMT_JOURNAL_ACTIVE
+#define VOL_CAP_FMT_JOURNAL_ACTIVE 0x00000010
+#endif
+#ifndef VOL_CAP_FMT_NO_ROOT_TIMES
+#define VOL_CAP_FMT_NO_ROOT_TIMES 0x00000020
+#endif
+#ifndef VOL_CAP_FMT_SPARSE_FILES
+#define VOL_CAP_FMT_SPARSE_FILES 0x00000040
+#endif
+#ifndef VOL_CAP_FMT_ZERO_RUNS
+#define VOL_CAP_FMT_ZERO_RUNS 0x00000080
+#endif
+#ifndef VOL_CAP_FMT_CASE_SENSITIVE
+#define VOL_CAP_FMT_CASE_SENSITIVE 0x00000100
+#endif
+#ifndef VOL_CAP_FMT_CASE_PRESERVING
+#define VOL_CAP_FMT_CASE_PRESERVING 0x00000200
+#endif
+#ifndef VOL_CAP_FMT_FAST_STATFS
+#define VOL_CAP_FMT_FAST_STATFS 0x00000400
+#endif
+
+#ifndef VOL_CAP_INT_EXCHANGEDATA
+#define VOL_CAP_INT_EXCHANGEDATA 0x00000010
+#endif
+#ifndef VOL_CAP_INT_COPYFILE
+#define VOL_CAP_INT_COPYFILE 0x00000020
+#endif
+#ifndef VOL_CAP_INT_ALLOCATE
+#define VOL_CAP_INT_ALLOCATE 0x00000040
+#endif
+#ifndef VOL_CAP_INT_VOL_RENAME
+#define VOL_CAP_INT_VOL_RENAME 0x00000080
+#endif
+#ifndef VOL_CAP_INT_ADVLOCK
+#define VOL_CAP_INT_ADVLOCK 0x00000100
+#endif
+#ifndef VOL_CAP_INT_FLOCK
+#define VOL_CAP_INT_FLOCK 0x00000200
+#endif
+
+/* Ext2 supported attributes */
+#define EXT2_ATTR_CMN_NATIVE ( \
+   ATTR_CMN_DEVID | ATTR_CMN_FSID | ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | \
+   ATTR_CMN_OBJID | ATTR_CMN_CRTIME | ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | \
+   ATTR_CMN_ACCTIME | ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK | \
+   ATTR_CMN_USERACCESS )
+#define EXT2_ATTR_CMN_SUPPORTED EXT2_ATTR_CMN_NATIVE
+#define EXT2_ATTR_VOL_NATIVE ( \
+   ATTR_VOL_FSTYPE | ATTR_VOL_SIGNATURE | ATTR_VOL_SIZE | \
+   ATTR_VOL_SPACEFREE | ATTR_VOL_SPACEAVAIL | ATTR_VOL_IOBLOCKSIZE | \
+   ATTR_VOL_OBJCOUNT |  ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT | \
+   ATTR_VOL_MAXOBJCOUNT | ATTR_VOL_MOUNTPOINT | ATTR_VOL_NAME | \
+   ATTR_VOL_MOUNTFLAGS | ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES | \
+   ATTR_VOL_ATTRIBUTES | ATTR_VOL_INFO )
+/*  ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT aren't really native, but close enough */
+#define EXT2_ATTR_VOL_SUPPORTED EXT2_ATTR_VOL_NATIVE
+#define EXT2_ATTR_DIR_NATIVE ( \
+   ATTR_DIR_LINKCOUNT | ATTR_DIR_ENTRYCOUNT | ATTR_DIR_MOUNTSTATUS )
+#define EXT2_ATTR_DIR_SUPPORTED EXT2_ATTR_DIR_NATIVE
+#define EXT2_ATTR_FILE_NATIVE ( \
+   ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE | ATTR_FILE_ALLOCSIZE | \
+   ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_CLUMPSIZE | ATTR_FILE_DEVTYPE )
+#define EXT2_ATTR_FILE_SUPPORTED EXT2_ATTR_FILE_NATIVE
+#define EXT2_ATTR_FORK_NATIVE 0
+#define EXT2_ATTR_FORK_SUPPORTED 0
+
+#define EXT2_ATTR_CMN_SETTABLE 0
+#define EXT2_ATTR_VOL_SETTABLE ATTR_VOL_NAME
+#define EXT2_ATTR_DIR_SETTABLE 0
+#define EXT2_ATTR_FILE_SETTABLE 0
+#define EXT2_ATTR_FORK_SETTABLE 0
+
 static int ext2_attrcalcsize(struct attrlist *);
 static int ext2_packattrblk(struct attrlist *, struct vnode *, void **, void **);
 static unsigned long DerivePermissionSummary(uid_t, gid_t, mode_t,
    struct mount *, struct ucred *, struct proc *);
+static int ext2_unpackattr(struct vnode*, struct ucred*,
+   struct attrlist*, void*);
 
 int
 ext2_getattrlist(ap)
@@ -152,6 +233,77 @@ exit:
 
    ext2_trace_return(err);
 }
+
+/* Cribbed from ufs_attrlist.c */
+__private_extern__ int
+ext2_setattrlist(struct vop_setattrlist_args *ap)
+{
+	struct vnode	*vp = ap->a_vp;
+	struct attrlist	*alist = ap->a_alist;
+	size_t		 attrblocksize;
+	void		*attrbufptr;
+	int		 error;
+
+	if (vp->v_mount->mnt_flag & MNT_RDONLY)
+		return (EROFS);
+
+	/*
+	 * Check the attrlist for valid inputs (i.e. be sure we understand
+	 * what caller is asking).
+	 */
+	if ((alist->bitmapcount != ATTR_BIT_MAP_COUNT) ||
+	    ((alist->commonattr & ~ATTR_CMN_SETMASK) != 0) ||
+	    ((alist->volattr & ~ATTR_VOL_SETMASK) != 0) ||
+	    ((alist->dirattr & ~ATTR_DIR_SETMASK) != 0) ||
+	    ((alist->fileattr & ~ATTR_FILE_SETMASK) != 0) ||
+	    ((alist->forkattr & ~ATTR_FORK_SETMASK) != 0))
+		return (EINVAL);
+
+	/*
+	 * Setting volume information requires setting the
+	 * ATTR_VOL_INFO bit. Also, volume info requests are
+	 * mutually exclusive with all other info requests.
+	 */
+	if ((alist->volattr != 0) &&
+	    (((alist->volattr & ATTR_VOL_INFO) == 0) ||
+	     (alist->dirattr != 0) || (alist->fileattr != 0) ||
+	     alist->forkattr != 0))
+		return (EINVAL);
+
+	/*
+	 * Make sure caller isn't asking for an attibute we don't support.
+	 * Right now, all we support is setting the volume name.
+	 */
+	if ((alist->commonattr & ~EXT2_ATTR_CMN_SETTABLE) != 0 ||
+	    (alist->volattr & ~(EXT2_ATTR_VOL_SETTABLE | ATTR_VOL_INFO)) != 0 ||
+	    (alist->dirattr & ~EXT2_ATTR_DIR_SETTABLE) != 0 ||
+	    (alist->fileattr & ~EXT2_ATTR_FILE_SETTABLE) != 0 ||
+	    (alist->forkattr & ~EXT2_ATTR_FORK_SETTABLE) != 0)
+		return (EOPNOTSUPP);
+
+	/*
+	 * Setting volume information requires a vnode for the volume root.
+	 */
+	if (alist->volattr && (vp->v_flag & VROOT) == 0)
+		return (EINVAL);
+
+	attrblocksize = ap->a_uio->uio_resid;
+	if (attrblocksize < ext2_attrcalcsize(alist))
+		return (EINVAL);
+
+	MALLOC(attrbufptr, void *, attrblocksize, M_TEMP, M_WAITOK);
+
+	error = uiomove((caddr_t)attrbufptr, attrblocksize, ap->a_uio);
+	if (error)
+		goto ErrorExit;
+
+	error = ext2_unpackattr(vp, ap->a_cred, alist, attrbufptr);
+
+ErrorExit:
+	FREE(attrbufptr, M_TEMP);
+	return (error);
+}
+
 
 static int ext2_attrcalcsize(struct attrlist *attrlist)
 {
@@ -381,7 +533,7 @@ ext2_packvolattr (struct attrlist *alist,
       }
 
 		if (a & ATTR_VOL_FSTYPE) *((u_long *)attrbufptr)++ = (u_long)mp->mnt_vfc->vfc_typenum;
-		if (a & ATTR_VOL_SIGNATURE) *((u_long *)attrbufptr)++ = (u_long)sb.f_type;
+		if (a & ATTR_VOL_SIGNATURE) *((u_long *)attrbufptr)++ = (u_long)EXT2_SUPER_MAGIC;
       if (a & ATTR_VOL_SIZE) *((off_t *)attrbufptr)++ = (off_t)sb.f_blocks * sb.f_bsize;
       if (a & ATTR_VOL_SPACEFREE) *((off_t *)attrbufptr)++ = (off_t)sb.f_bfree * sb.f_bsize;
       if (a & ATTR_VOL_SPACEAVAIL) *((off_t *)attrbufptr)++ = (off_t)sb.f_bavail * sb.f_bsize;
@@ -417,34 +569,64 @@ ext2_packvolattr (struct attrlist *alist,
         };
         if (a & ATTR_VOL_ENCODINGSUSED) *((unsigned long long *)attrbufptr)++ = (unsigned long long)0;
         if (a & ATTR_VOL_CAPABILITIES) {
+         /* Capabilities we support */
         	((vol_capabilities_attr_t *)attrbufptr)->capabilities[VOL_CAPABILITIES_FORMAT] =
-            VOL_CAP_FMT_SYMBOLICLINKS|VOL_CAP_FMT_HARDLINKS;
+            VOL_CAP_FMT_SYMBOLICLINKS|
+            VOL_CAP_FMT_HARDLINKS|
+            VOL_CAP_FMT_SPARSE_FILES|
+            VOL_CAP_FMT_CASE_SENSITIVE|
+            VOL_CAP_FMT_CASE_PRESERVING|
+            VOL_CAP_FMT_FAST_STATFS;
         	((vol_capabilities_attr_t *)attrbufptr)->capabilities[VOL_CAPABILITIES_INTERFACES] =
-            VOL_CAP_INT_ATTRLIST /*| VOL_CAP_INT_NFSEXPORT*/;
+            VOL_CAP_INT_ATTRLIST|
+            /* VOL_CAP_INT_NFSEXPORT| */
+            VOL_CAP_INT_VOL_RENAME|
+            VOL_CAP_INT_ADVLOCK|
+            VOL_CAP_INT_FLOCK;
         	((vol_capabilities_attr_t *)attrbufptr)->capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
         	((vol_capabilities_attr_t *)attrbufptr)->capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
-
-        	((vol_capabilities_attr_t *)attrbufptr)->valid[VOL_CAPABILITIES_FORMAT]
-            = VOL_CAP_FMT_SYMBOLICLINKS|VOL_CAP_FMT_HARDLINKS;
+         
+         /* Capabilities we know about */
+        	((vol_capabilities_attr_t *)attrbufptr)->valid[VOL_CAPABILITIES_FORMAT] =
+            VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+            VOL_CAP_FMT_SYMBOLICLINKS |
+            VOL_CAP_FMT_HARDLINKS |
+            VOL_CAP_FMT_JOURNAL |
+            VOL_CAP_FMT_JOURNAL_ACTIVE |
+            VOL_CAP_FMT_NO_ROOT_TIMES |
+            VOL_CAP_FMT_SPARSE_FILES |
+            VOL_CAP_FMT_ZERO_RUNS |
+            VOL_CAP_FMT_CASE_SENSITIVE |
+            VOL_CAP_FMT_CASE_PRESERVING |
+            VOL_CAP_FMT_FAST_STATFS;
         	((vol_capabilities_attr_t *)attrbufptr)->valid[VOL_CAPABILITIES_INTERFACES] =
-            VOL_CAP_INT_ATTRLIST /*| VOL_CAP_INT_NFSEXPORT*/;
+            VOL_CAP_INT_SEARCHFS |
+            VOL_CAP_INT_ATTRLIST |
+            VOL_CAP_INT_NFSEXPORT |
+            VOL_CAP_INT_READDIRATTR |
+            VOL_CAP_INT_EXCHANGEDATA |
+            VOL_CAP_INT_COPYFILE |
+            VOL_CAP_INT_ALLOCATE |
+            VOL_CAP_INT_VOL_RENAME |
+            VOL_CAP_INT_ADVLOCK |
+            VOL_CAP_INT_FLOCK ;
         	((vol_capabilities_attr_t *)attrbufptr)->valid[VOL_CAPABILITIES_RESERVED1] = 0;
         	((vol_capabilities_attr_t *)attrbufptr)->valid[VOL_CAPABILITIES_RESERVED2] = 0;
 
             ++((vol_capabilities_attr_t *)attrbufptr);
         };
         if (a & ATTR_VOL_ATTRIBUTES) {
-        	((vol_attributes_attr_t *)attrbufptr)->validattr.commonattr = ATTR_CMN_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->validattr.volattr = ATTR_VOL_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->validattr.dirattr = ATTR_DIR_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->validattr.fileattr = ATTR_FILE_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->validattr.forkattr = ATTR_FORK_VALIDMASK;
+        	((vol_attributes_attr_t *)attrbufptr)->validattr.commonattr = EXT2_ATTR_CMN_NATIVE;
+        	((vol_attributes_attr_t *)attrbufptr)->validattr.volattr = EXT2_ATTR_VOL_SUPPORTED;
+        	((vol_attributes_attr_t *)attrbufptr)->validattr.dirattr = EXT2_ATTR_DIR_SUPPORTED;
+        	((vol_attributes_attr_t *)attrbufptr)->validattr.fileattr = EXT2_ATTR_FILE_SUPPORTED;
+        	((vol_attributes_attr_t *)attrbufptr)->validattr.forkattr = EXT2_ATTR_FORK_SUPPORTED;
 
-        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.commonattr = ATTR_CMN_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.volattr = ATTR_VOL_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.dirattr = ATTR_DIR_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.fileattr = ATTR_FILE_VALIDMASK;
-        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.forkattr = ATTR_FORK_VALIDMASK;
+        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.commonattr = EXT2_ATTR_CMN_NATIVE;
+        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.volattr = EXT2_ATTR_VOL_NATIVE;
+        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.dirattr = EXT2_ATTR_DIR_NATIVE;
+        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.fileattr = EXT2_ATTR_FILE_NATIVE;
+        	((vol_attributes_attr_t *)attrbufptr)->nativeattr.forkattr = EXT2_ATTR_FORK_NATIVE;
 
             ++((vol_attributes_attr_t *)attrbufptr);
         }
@@ -524,7 +706,7 @@ ext2_packcommonattr (struct attrlist *alist,
       if ((ITOV(ip)->v_flag & VROOT)) {
           ts.tv_sec = le32_to_cpu(emp->um_e2fs->s_es->s_mkfs_time); ts.tv_nsec = 0;
       } else {
-         ts.tv_sec = ip->i_mtime; ts.tv_nsec = ip->i_mtimensec;
+         ts.tv_sec = ip->i_ctime; ts.tv_nsec = ip->i_ctimensec;
       }
 		if (a & ATTR_CMN_CRTIME) *((struct timespec *)attrbufptr)++ = ts;
       ts.tv_sec = ip->i_mtime; ts.tv_nsec = ip->i_mtimensec;
@@ -681,6 +863,88 @@ ext2_packattrblk(struct attrlist *alist,
    }
    
    return (0);
+}
+
+static int
+ext2_check_label(const char *label, int length)
+{
+   int c, i;
+
+   for (i = 0, c = 0; i <= EXT2_VOL_LABEL_LENGTH; i++) {
+      c = (u_char)*label++;
+      if (c < ' ' + !i || strchr(EXT2_VOL_LABEL_INVAL_CHARS, c))
+         break;
+   }
+   return ((i && !c) ? 0 : EINVAL);
+}
+
+/* Cribbed from ufs_attrlist.c */
+/*
+ * Unpack the volume-related attributes from a setattrlist call into the
+ * appropriate in-memory and on-disk structures.
+ */
+static int
+ext2_unpackvolattr(
+    struct vnode	*vp,
+    struct ucred	*cred,
+    attrgroup_t		 attrs,
+    void		*attrbufptr)
+{
+	int		 error;
+   struct ext2_super_block *sbp = (VTOI(vp))->i_e2fs->s_es;
+	attrreference_t *attrref;
+
+	error = 0;
+
+	if (attrs & ATTR_VOL_NAME) {
+		char	*name;
+		int	 name_length;
+
+		attrref = attrbufptr;
+		name = ((char*)attrbufptr) + attrref->attr_dataoffset;
+		name_length = strlen(name);
+      
+      if (name_length > EXT2_VOL_LABEL_LENGTH) {
+         log(LOG_WARNING, "ext2: Warning volume label too long, truncating.\n");
+         name_length = EXT2_VOL_LABEL_LENGTH;
+      }
+      
+		error = ext2_check_label(name, name_length);
+      if (name_length && !error) {
+         bzero(sbp->s_volume_name, EXT2_VOL_LABEL_LENGTH);
+         bcopy(sbp->s_volume_name, name, name_length);
+      }
+      else
+         error = EINVAL;
+
+		/* Advance buffer pointer past attribute reference */
+		attrbufptr = ++attrref;
+	}
+
+	return (error);
+}
+
+/*
+ * Unpack the attributes from a setattrlist call into the
+ * appropriate in-memory and on-disk structures.  Right now,
+ * we only support the volume name.
+ */
+int ext2_unpackattr(
+    struct vnode	*vp,
+    struct ucred	*cred,
+    struct attrlist	*alist,
+    void		*attrbufptr)
+{
+	int error;
+
+	error = 0;
+
+	if (alist->volattr != 0) {
+		error = ext2_unpackvolattr(vp, cred, alist->volattr,
+		    attrbufptr);
+	}
+
+	return (error);
 }
 
 /* Cribbed from hfs/hfs_attrlist.c */
