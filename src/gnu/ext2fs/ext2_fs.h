@@ -148,7 +148,6 @@ do { \
 #else
 # define EXT2_BLOCK_SIZE_BITS(s)	(le32_to_cpu((s)->s_log_block_size) + 10)
 #endif
-#define EXT3_BLOCK_SIZE_BITS(s) EXT2_BLOCK_SIZE_BITS((s)->s_es)
 #ifdef notyet
 #ifdef __KERNEL__
 #define	EXT2_ADDR_PER_BLOCK_BITS(s)	((s)->u.ext2_sb.s_addr_per_block_bits)
