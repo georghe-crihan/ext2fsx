@@ -44,7 +44,7 @@ extern int groupmember(gid_t gid, struct ucred *cred);
 
 typedef int vop_t __P((void *));
 
-#define EXT2FS_NAME "ext2fs"
+#define EXT2FS_NAME "ext2"
 
 /* Process stuff */
 #define curproc (current_proc())
