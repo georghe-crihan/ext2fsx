@@ -4,7 +4,19 @@
 \margl1440\margr1440\vieww11160\viewh11700\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.2\
+\f0\fs24 \cf0 1.3\
+\
+Greatly enhanced user feedback in ExtFS Manager  (EFSM).\
+\
+New EFSM S.M.A.R.T. hard disk monitor (see the ReadMe file).\
+\
+Fixed EFSM bug #956516. There was a catch 22 in previous versions, where a disk set to not auto-mount could not be mounted again. This was mainly caused by the inability of the disk framework to detect the filesystem on a raw device (one that was not mounted). The framework has been fixed and the pref pane updated.\
+\
+Fixed a badly formed strings file in the disk framework.\
+\
+Minor change to the driver to make sure any recycled block buffers are zero'd before going to disk.\
+\
+1.2\
 \
 Feature #703253: It is now possible to mount Ext2/3 volumes with permissions ignored (for files/dirs not owned by root). Note: Everything may not work as expected. If you find problems with non-root owned files, please open a bug.\
 \
@@ -123,7 +135,7 @@ Fixed a byte swap bug that caused directory corruption when moving a directory t
 1.0\
 Fixed bugs #796132 and #826406. These were caused by a kernel bug and fixed by working around the kernel bug.\
 \
-Worked around a panic bug (from corrupted kernel structures) by disabling inode/block bitmap caching. Unfortunately, this slows down writes a little -- but that's better than causing a panic and corrupting the filesystem.\
+Worked around a panic bug (from corrupted kernel structures) by disabling inode/block bitmap caching.\
 \
 Fixed bug #842468. Cosmetic bug that only affected French users on Panther. Reported by L. Bigonville.\
 \
