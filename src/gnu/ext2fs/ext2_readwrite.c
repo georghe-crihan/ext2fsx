@@ -118,10 +118,9 @@ READ(ap)
 		panic("%s: type %d", READ_S, vp->v_type);
 #endif
 	fs = ip->I_FS;
-#if 0
+
 	if ((u_quad_t)uio->uio_offset > fs->fs_maxfilesize)
 		ext2_trace_return (EFBIG);
-#endif
 
 	orig_resid = uio->uio_resid;
    #ifdef APPLE
@@ -262,7 +261,7 @@ WRITE(ap)
 	fs = ip->I_FS;
 
 	if (uio->uio_offset < 0 ||
-	    uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
+	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
 
 	/*
