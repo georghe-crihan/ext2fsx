@@ -24,7 +24,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-DOSX -DDEBUG -DEXT2FS_DEBUG -DDIAGNOSTIC";
+				OTHER_CFLAGS = "\U0001-DOSX -DDEBUG -DEXT2FS_DEBUG=1 -DDIAGNOSTIC";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -122,7 +122,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.1d2;
+				MODULE_VERSION = 1.1d3;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -158,11 +158,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1d2</string>
+	<string>1.1d3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1d2</string>
+	<string>1.1d3</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
