@@ -1713,7 +1713,6 @@
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
 				INFOPLIST_FILE = "src/extfsmgr/efssmartd/Resources/efssmartd-Info.plist";
 				INSTALL_PATH = "$(USER_APPS_DIR)";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-framework Foundation -framework AppKit";
 				OTHER_REZFLAGS = "";
@@ -1895,6 +1894,34 @@
 		};
 		D38A60EB0671473100E9E666 = {
 			fileRef = D38A5F0806711DDB00E9E666;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A6B89068A0F1E00E9E666 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = ExtFSManagerAdditions.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A6B8A068A0F1E00E9E666 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			path = ExtFSManagerAdditions.m;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A6B8B068A0F1E00E9E666 = {
+			fileRef = D38A6B89068A0F1E00E9E666;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A6B8C068A0F1E00E9E666 = {
+			fileRef = D38A6B8A068A0F1E00E9E666;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -2504,6 +2531,8 @@
 			children = (
 				D3D4AF3D0579166400A80164,
 				D3D4AF3E0579166400A80164,
+				D38A6B89068A0F1E00E9E666,
+				D38A6B8A068A0F1E00E9E666,
 				D3D4AF36057915D900A80164,
 			);
 			isa = PBXGroup;
@@ -2516,6 +2545,7 @@
 			files = (
 				D3D4AF3F0579166400A80164,
 				D3A9B806058283EC00B93FC7,
+				D38A6B8B068A0F1E00E9E666,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2540,6 +2570,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D3D4AF400579166400A80164,
+				D38A6B8C068A0F1E00E9E666,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
