@@ -100,13 +100,13 @@ ext2_discard_prealloc(ip)
 int
 ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 	struct inode *ip;
-	int32_t lbn, bpref;
+	ext2_daddr_t lbn, bpref;
 	int size;
 	struct ucred *cred;
-	int32_t *bnp;
+	ext2_daddr_t *bnp;
 {
 	struct ext2_sb_info *fs;
-	int32_t bno;
+	ext2_daddr_t bno;
 	
 	*bnp = 0;
 	fs = ip->i_e2fs;
@@ -445,13 +445,13 @@ noinodes:
  * of the above. Then, blocknr tells us the number of the block
  * that will hold the pointer
  */
-int32_t
+ext2_daddr_t
 ext2_blkpref(ip, lbn, indx, bap, blocknr)
 	struct inode *ip;
-	int32_t lbn;
+	ext2_daddr_t lbn;
 	int indx;
-	int32_t *bap;
-	int32_t blocknr;
+	ext2_daddr_t *bap;
+	ext2_daddr_t blocknr;
 {
 	int	tmp;
 
@@ -506,7 +506,7 @@ ext2_blkpref(ip, lbn, indx, bap, blocknr)
 void
 ext2_blkfree(ip, bno, size)
 	struct inode *ip;
-	int32_t bno;
+	ext2_daddr_t bno;
 	long size;
 {
 	struct ext2_sb_info *fs;

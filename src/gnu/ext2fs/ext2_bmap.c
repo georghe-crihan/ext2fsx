@@ -73,7 +73,7 @@ ext2_bmap(ap)
 		int *a_runp;
 	} */ *ap;
 {
-	int32_t blkno;
+	ext2_daddr_t blkno;
 	int error;
 
 	/*
@@ -87,8 +87,8 @@ ext2_bmap(ap)
    
     ext2_trace_enter();
 
-	error = ext2_bmaparray(ap->a_vp, ap->a_bn, &blkno, ap->a_runp, NULL);
-	*ap->a_bnp = blkno;
+	error = ext2_bmaparray(ap->a_vp, (ext2_daddr_t)ap->a_bn, &blkno, ap->a_runp, NULL);
+	*ap->a_bnp = (daddr_t)blkno;
     ext2_trace("returning dblock: %d for lblock: %d in inode %u\n", blkno, ap->a_bn,
         VTOI(ap->a_vp)->i_number);
 	return (error);
@@ -111,8 +111,8 @@ ext2_bmap(ap)
 int
 ext2_bmaparray(vp, bn, bnp, runp, runb)
 	struct vnode *vp;
-	int32_t bn;
-	int32_t *bnp;
+	ext2_daddr_t bn;
+	ext2_daddr_t *bnp;
 	int *runp;
 	int *runb;
 {
@@ -122,8 +122,8 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	struct mount *mp;
 	struct vnode *devvp;
 	struct indir a[NIADDR+1], *ap;
-	int32_t daddr;
-	long metalbn;
+	ext2_daddr_t daddr;
+	ext2_daddr_t metalbn;
 	int error, num, maxrun = 0;
 	int *nump;
 
@@ -257,11 +257,11 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 int
 ext2_getlbns(vp, bn, ap, nump)
 	struct vnode *vp;
-	int32_t bn;
+	ext2_daddr_t bn;
 	struct indir *ap;
 	int *nump;
 {
-	long blockcnt, metalbn, realbn;
+	ext2_daddr_t blockcnt, metalbn, realbn;
 	struct ext2mount *ump;
 	int i, numlevels, off;
 	int64_t qblockcnt;

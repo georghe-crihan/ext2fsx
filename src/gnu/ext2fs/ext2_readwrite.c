@@ -86,7 +86,7 @@ READ(ap)
 	struct uio *uio;
 	FS *fs;
 	struct buf *bp;
-	daddr_t lbn, nextlbn;
+	ext2_daddr_t lbn, nextlbn;
 	off_t bytesinfile;
 	long size, xfersize, blkoffset;
 	int error, orig_resid;
@@ -202,7 +202,7 @@ WRITE(ap)
 	FS *fs;
 	struct buf *bp;
 	struct thread *td;
-	daddr_t lbn;
+	ext2_daddr_t lbn;
 	off_t osize;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
     int rsd, blkalloc=0, save_error=0, save_size=0;

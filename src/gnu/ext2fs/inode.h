@@ -55,6 +55,8 @@
  */
 #define	doff_t		int32_t
 
+typedef int32_t   ext2_daddr_t;
+
 /* Function proto to release inode private data */
 struct inode;
 typedef int (*inode_prv_relse_t)(struct vnode*, struct inode*);
@@ -116,10 +118,10 @@ struct inode {
 	int32_t		i_mtimensec;	/* Last modified time. */
 	int32_t		i_ctime;	/* Last inode change time. */
 	int32_t		i_ctimensec;	/* Last inode change time. */
-	int32_t		i_db[NDADDR];	/* Direct disk blocks. */
-	int32_t		i_ib[NIADDR];	/* Indirect disk blocks. */
+	ext2_daddr_t	i_db[NDADDR];	/* Direct disk blocks. */
+	ext2_daddr_t	i_ib[NIADDR];	/* Indirect disk blocks. */
 	u_int32_t	i_flags;	/* Status flags (chflags). */
-	int32_t		i_blocks;	/* Blocks actually held. */
+	ext2_daddr_t	i_blocks;	/* Blocks actually held. */
 	int32_t		i_gen;		/* Generation number. */
 	u_int32_t	i_uid;		/* File owner. */
 	u_int32_t	i_gid;		/* File group. */
@@ -174,7 +176,7 @@ struct inode {
  * ext2_getlbns and used by truncate and bmap code.
  */
 struct indir {
-	int32_t in_lbn;			/* Logical block number. */
+	ext2_daddr_t in_lbn;	/* Logical block number. */
 	int	in_off;			/* Offset in buffer. */
 	int	in_exists;		/* Flag if the block exists. */
 };

@@ -57,17 +57,17 @@ struct vfsconf;
 struct vnode;
 
 int	ext2_alloc(struct inode *,
-	    int32_t, int32_t, int, struct ucred *, int32_t *);
+	    ext2_daddr_t, ext2_daddr_t, int, struct ucred *, ext2_daddr_t *);
 int	ext2_balloc2(struct inode *,
-	    int32_t, int, struct ucred *, struct buf **, int, int *);
+	    ext2_daddr_t, int, struct ucred *, struct buf **, int, int *);
 int	ext2_blkatoff(struct vnode *, off_t, char **, struct buf **);
-void	ext2_blkfree(struct inode *, int32_t, long);
-int32_t	ext2_blkpref(struct inode *, int32_t, int, int32_t *, int32_t);
+void	ext2_blkfree(struct inode *, ext2_daddr_t, long);
+ext2_daddr_t	ext2_blkpref(struct inode *, ext2_daddr_t, int, ext2_daddr_t *, ext2_daddr_t);
 int	ext2_bmap(struct vop_bmap_args *);
-int	ext2_bmaparray(struct vnode *, int32_t, int32_t *, int *, int *);
+int	ext2_bmaparray(struct vnode *, ext2_daddr_t, ext2_daddr_t *, int *, int *);
 void	ext2_dirbad(struct inode *ip, doff_t offset, char *how);
 void	ext2_ei2i(struct ext2_inode *, struct inode *);
-int	ext2_getlbns(struct vnode *, int32_t, struct indir *, int *);
+int	ext2_getlbns(struct vnode *, ext2_daddr_t, struct indir *, int *);
 void	ext2_i2ei(struct inode *, struct ext2_inode *);
 int	ext2_ihashget(dev_t, ino_t, int, struct vnode **);
 void	ext2_ihashinit(void);
@@ -79,7 +79,7 @@ void	ext2_ihashuninit(void);
 void	ext2_itimes(struct vnode *vp);
 int	ext2_reallocblks(struct vop_reallocblks_args *);
 int	ext2_reclaim(struct vop_reclaim_args *);
-void	ext2_setblock(struct ext2_sb_info *, u_char *, int32_t);
+/* void ext2_setblock(struct ext2_sb_info *, u_char *, int32_t); */
 int	ext2_truncate(struct vnode *, off_t, int, struct ucred *, struct thread *);
 int	ext2_update(struct vnode *, int);
 int	ext2_valloc(struct vnode *, int, struct ucred *, struct vnode **);
@@ -141,7 +141,7 @@ extern vop_t **ext2_fifoop_p;
 
 /* Compatibility wrapper for ext2_balloc2 */
 static __inline__ int ext2_balloc(struct inode *ip,
-	    int32_t bn, int size, struct ucred *cred, struct buf **bpp, int flags)
+	    ext2_daddr_t bn, int size, struct ucred *cred, struct buf **bpp, int flags)
 {
    return (ext2_balloc2(ip, bn, size, cred, bpp, flags, NULL));
 }

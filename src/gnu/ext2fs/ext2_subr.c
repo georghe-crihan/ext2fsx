@@ -80,7 +80,7 @@ ext2_blkatoff(vp, offset, res, bpp)
 	struct inode *ip;
 	struct ext2_sb_info *fs;
 	struct buf *bp;
-	int32_t lbn;
+	ext2_daddr_t lbn;
 	int bsize, error;
 
 	ip = VTOI(vp);
@@ -106,7 +106,7 @@ ext2_checkoverlap(bp, ip)
 	struct inode *ip;
 {
 	struct buf *ebp, *ep;
-	int32_t start, last;
+	ext2_daddr_t start, last;
 	struct vnode *vp;
 
 	ebp = &buf[nbuf];

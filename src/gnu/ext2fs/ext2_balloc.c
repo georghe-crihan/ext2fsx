@@ -64,7 +64,7 @@ static const char whatid[] __attribute__ ((unused)) =
 int
 ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	struct inode *ip;
-	int32_t bn;
+	ext2_daddr_t bn;
 	int size;
 	struct ucred *cred;
 	struct buf **bpp;
@@ -72,11 +72,11 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
     int *blk_alloc;
 {
 	struct ext2_sb_info *fs;
-	int32_t nb;
+	ext2_daddr_t nb;
 	struct buf *bp, *nbp;
 	struct vnode *vp = ITOV(ip);
 	struct indir indirs[NIADDR + 2];
-	int32_t newb, lbn, *bap, pref;
+	ext2_daddr_t newb, lbn, *bap, pref;
 	int osize, nsize, num, i, error;
     int alloc_buf = 1;
 
