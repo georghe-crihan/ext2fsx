@@ -33,6 +33,8 @@
 #define buffer_head buf
 #define MAXMNTLEN	512
 
+#include <kern/lock.h>
+
 /*
  * second extended-fs super-block data in memory
  */
@@ -76,9 +78,8 @@ struct ext2_sb_info {
 	char    s_dirt;                         /* fs modified flag */
 	char	s_wasvalid;			/* valid at mount time */
    
-   #ifdef APPLE
    int32_t s_d_blocksize; /* block size of underlying device */
-   #endif
+   mutex_t *s_lock; /* lock to protect access to in-mem sb */
 
 	char    fs_fsmnt[MAXMNTLEN];            /* name mounted on */
 };

@@ -247,11 +247,11 @@ void ext2_free_inode (struct inode * inode)
 	ext2_debug ("ext2: freeing inode %lu\n", (unsigned long)inode->i_number);
 
 	sb = inode->i_e2fs;
-	lock_super (DEVVP(inode));
+	lock_super (sb);
 	if (inode->i_number < EXT2_FIRST_INO ||
 	    inode->i_number > le32_to_cpu(sb->s_es->s_inodes_count)) {
 		printf ("free_inode reserved inode or nonexistent inode");
-		unlock_super (DEVVP(inode));
+		unlock_super (sb);
 		return;
 	}
 	es = sb->s_es;
@@ -285,7 +285,7 @@ void ext2_free_inode (struct inode * inode)
 	}
 ***/
 	sb->s_dirt = 1;
-	unlock_super (DEVVP(inode));
+	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
 	bdwrite(bh);
 #endif
@@ -355,12 +355,12 @@ ino_t ext2_new_inode (const struct inode * dir, int mode)
 		return 0;
 	sb = dir->i_e2fs;
 
-        lock_super (DEVVP(dir));
-        es = sb->s_es;
+	lock_super (sb);
+	es = sb->s_es;
 repeat:
-        gdp = NULL; i=0;
+	gdp = NULL; i=0;
 
-        if (S_ISDIR(mode)) {
+	if (S_ISDIR(mode)) {
 		avefreei = le32_to_cpu(es->s_free_inodes_count) /
 			sb->s_groups_count;
 /* I am not yet convinced that this next bit is necessary.
@@ -435,7 +435,7 @@ repeat:
 	}
 
 	if (!gdp) {
-		unlock_super (DEVVP(dir));
+		unlock_super (sb);
 		return 0;
 	}
 #if EXT2_SB_BITMAP_CACHE
@@ -473,7 +473,7 @@ repeat:
 			printf ( "ext2_new_inode:"
 				    "Free inodes count corrupted in group %d",
 				    i);
-			unlock_super (DEVVP(dir));
+			unlock_super (sb);
 			return 0;
 		}
 		goto repeat;
@@ -483,7 +483,7 @@ repeat:
 		printf ( "ext2_new_inode:"
 			    "reserved inode or inode > inodes count - "
 			    "block_group = %d,inode=%d", i, j);
-		unlock_super (DEVVP(dir));
+		unlock_super (sb);
 	#if !EXT2_SB_BITMAP_CACHE
 		brelse(bh);
 	#endif
@@ -496,7 +496,7 @@ repeat:
 	es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) - 1);
 	/* mark_buffer_dirty(sb->u.ext2_sb.s_sbh, 1); */
 	sb->s_dirt = 1;
-	unlock_super (DEVVP(dir));
+	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
 	bdwrite(bh);
 #endif
@@ -514,7 +514,7 @@ static unsigned long ext2_count_free_inodes (struct mount * mp)
 	struct ext2_group_desc * gdp;
 	int i;
 
-	lock_super (VFSTOEXT2(mp)->um_devvp);
+	lock_super (sb);
 	es = sb->s_es;
 	desc_count = 0;
 	bitmap_count = 0;
@@ -531,7 +531,7 @@ static unsigned long ext2_count_free_inodes (struct mount * mp)
 	}
 	ext2_debug("stored = %lu, computed = %lu, %lu\n",
 		le32_to_cpu(es->s_free_inodes_count), desc_count, bitmap_count);
-	unlock_super (VFSTOEXT2(mp)->um_devvp);
+	unlock_super (sb);
 	return desc_count;
 #else
 	return VFSTOEXT2(mp)->um_e2fsb->s_free_inodes_count;

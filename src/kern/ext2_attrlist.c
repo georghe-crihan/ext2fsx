@@ -370,14 +370,14 @@ ext2_packvolattr (struct attrlist *alist,
          // Get a count of directories
          struct ext2_group_desc *gdp = NULL;
          int block = 0;
-         lock_super (VFSTOEXT2(mp)->um_devvp);
+         lock_super (fs);
          for (i=0; i < fs->s_groups_count; ++i) {
             if ((i % EXT2_DESC_PER_BLOCK(fs)) == 0)
                gdp = (struct ext2_group_desc *)fs->s_group_desc[block++]->b_data;
             numdirs += le32_to_cpu(gdp->bg_used_dirs_count);
             gdp++;
          }
-         unlock_super (VFSTOEXT2(mp)->um_devvp);
+         unlock_super (fs);
       }
 
 		if (a & ATTR_VOL_FSTYPE) *((u_long *)attrbufptr)++ = (u_long)mp->mnt_vfc->vfc_typenum;

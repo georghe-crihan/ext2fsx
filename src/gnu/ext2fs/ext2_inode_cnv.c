@@ -229,7 +229,7 @@ ext2_i2ei(ip, ei)
             EXT2_FEATURE_RO_COMPAT_LARGE_FILE) ||
             EXT2_SB(sb)->s_es->s_rev_level == cpu_to_le32(EXT2_GOOD_OLD_REV)) {
             /* First large file, add the flag to the superblock. */
-            lock_super (VFSTOEXT2(ip->i_vnode->v_mount)->um_devvp);
+            lock_super (sb);
             
             if (EXT2_SB(sb)->s_es->s_rev_level == cpu_to_le32(EXT2_GOOD_OLD_REV)) {
                log(LOG_WARNING,
@@ -242,7 +242,7 @@ ext2_i2ei(ip, ei)
             
             EXT2_SET_RO_COMPAT_FEATURE(sb, EXT2_FEATURE_RO_COMPAT_LARGE_FILE);
             sb->s_dirt = 1;
-            unlock_super (VFSTOEXT2(ip->i_vnode->v_mount)->um_devvp);
+            unlock_super (sb);
          }
       }
    }

@@ -145,12 +145,11 @@ extern u_char *fragtbl[];
 
 /* a few remarks about superblock locking/unlocking
  * Linux provides special routines for doing so
- * I haven't figured out yet what BSD does
- * I think I'll try a VOP_LOCK/VOP_UNLOCK on the device vnode
+ * FreeBSD uses VOP_LOCK/VOP_UNLOCK on the device vnode
+ * For Darwin, the in-core sb contains its own lock
  */
-#define  DEVVP(inode)		(VFSTOEXT2(ITOV(inode)->v_mount)->um_devvp)
-#define  lock_super(devvp)   	vn_lock(devvp, LK_EXCLUSIVE | LK_RETRY, curthread)
-#define  unlock_super(devvp) 	VOP_UNLOCK(devvp, 0, curthread)
+#define lock_super(sbp) mutex_lock((sbp)->s_lock)
+#define unlock_super(sbp) mutex_unlock((sbp)->s_lock)
 
 /*
  * To lock a buffer, set the B_LOCKED flag and then brelse() it. To unlock,
@@ -206,25 +205,19 @@ static __inline__ void e2_chk_buf_lck(struct buf *bp, struct buf *obp)
 #endif /* E2_BUF_CHECK */
 
 #define LCK_BUF(bp) { \
-	int s; \
    e2_decl_buf_cp \
-	s = splbio(); \
    e2_buf_cp(bp) \
 	(bp)->b_flags |= B_LOCKED; \
-	splx(s); \
 	brelse(bp); \
    e2_chk_buf_lck(bp, &obuf); \
 }
 
 #define ULCK_BUF(bp) { \
 	long flags; \
-	int s; \
-	s = splbio(); \
-   BUF_LOCK(bp, LK_EXCLUSIVE, NULL); \
 	flags = (bp)->b_flags; \
 	(bp)->b_flags &= ~(B_DIRTY | B_LOCKED); \
 	bremfree(bp); \
-	splx(s); \
+   (bp)->b_flags |= B_BUSY; /* Mark busy since it is still on the hash list */ \
 	if (flags & B_DIRTY) \
 		bwrite(bp); \
 	else \

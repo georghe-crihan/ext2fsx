@@ -804,10 +804,10 @@ ext2_mountfs(devvp, mp, td)
 	    (le16_to_cpu(es->s_state) & EXT2_ERROR_FS)) {
 		if (ronly || (mp->mnt_flag & MNT_FORCE)) {
 			printf(
-"WARNING: Filesystem was not properly dismounted\n");
+"EXT2-fs WARNING: Filesystem was not properly dismounted\n");
 		} else {
 			printf(
-"WARNING: R/W mount denied.  Filesystem is not clean - run fsck\n");
+"EXT2-fs WARNING: R/W mount denied.  Filesystem is not clean - run fsck\n");
 			error = EPERM;
 			goto out;
 		}
@@ -857,6 +857,10 @@ ext2_mountfs(devvp, mp, td)
 	brelse(bp);
 	bp = NULL;
 	fs = ump->um_e2fs;
+   /* Init the lock */
+   fs->s_lock = mutex_alloc(0);
+   assert(fs->s_lock != NULL);
+   
 	fs->s_rd_only = ronly;	/* ronly is set according to mnt_flags */
 	/* if the fs is not mounted read-only, make sure the super block is 
 	   always written back on a sync()
@@ -959,6 +963,10 @@ ext2_unmount(mp, mntflags, td)
 	error = VOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE,
 		NOCRED, td);
 	vrele(ump->um_devvp);
+   
+   /* Free the lock alloc'd in mountfs */
+   mutex_free(fs->s_lock);
+   
 	bsd_free(fs->s_es, M_EXT2MNT);
 	bsd_free(fs, M_EXT2MNT);
 	bsd_free(ump, M_EXT2MNT);
