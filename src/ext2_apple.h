@@ -102,10 +102,7 @@ static __inline__ int msleep(void *chan, void *lock /*ignored*/, int pri,
 #define VI_MTX(vp) NULL
 /* #define VI_MTX(vp) (&(vp)->v_interlock) */
 
-#ifndef EXT2FS_DEBUG
-#define VI_LOCK(vp) simple_lock(&(vp)->v_interlock)
-#define VI_UNLOCK(vp) simple_unlock(&(vp)->v_interlock)
-#else
+#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
 #define VI_LOCK(vp) \
 do { \
@@ -119,7 +116,12 @@ simple_unlock(&(vp)->v_interlock); \
 ext2_trace("dropped vp %lu interlock\n", (vp)->v_id); \
 } while(0)
 
-#endif /* EXT2FS_DEBUG */
+#else
+
+#define VI_LOCK(vp) simple_lock(&(vp)->v_interlock)
+#define VI_UNLOCK(vp) simple_unlock(&(vp)->v_interlock)
+
+#endif /* defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE) */
 
 /* FreeBSD kern calls */
 
