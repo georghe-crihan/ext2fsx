@@ -76,6 +76,11 @@ static NSMutableDictionary *_prefRoot, *_prefGlobal, *_prefMedia, *_prefMgr = ni
 static NSString *_bundleid = nil;
 static BOOL _prefsChanged = NO;
 
+/* Localized strings */
+NSString *_yes, *_no, *_bytes;
+NSString *_monikers[] =
+      {nil, @"KB", @"MB", @"GB", @"TB", @"PB", @"EB", @"ZB", nil};
+
 @implementation ExtFSManager : NSPreferencePane
 
 /* Private */
@@ -207,6 +212,17 @@ _curSelection = nil; \
    [_vollist reloadItem:media];
 }
 
+- (void)volInfoUpdated:(NSNotification*)notification
+{
+#if 0
+   ExtFSMedia *media;
+   
+   media = [notification object];
+    if (media == _curSelection)
+      [self generateInfo:media];
+#endif
+}
+
 - (void)childChanged:(NSNotification*)notification
 {
 
@@ -257,6 +273,10 @@ _curSelection = nil; \
             name:ExtFSMediaNotificationUnmounted
             object:nil];
    [[NSNotificationCenter defaultCenter] addObserver:self
+            selector:@selector(volInfoUpdated:)
+            name:ExtFSMediaNotificationUpdatedInfo
+            object:nil];
+   [[NSNotificationCenter defaultCenter] addObserver:self
             selector:@selector(childChanged:)
             name:ExtFSMediaNotificationChildChange
             object:nil];
@@ -276,8 +296,11 @@ _curSelection = nil; \
    [_vollist setEnabled:NO];
 }
 
-#define ExtInfoInsert() \
+// args are NSString*
+#define ExtInfoInsert(title, value) \
 do { \
+line = ExtMakeInfoTitle((title)); \
+data = [@" " stringByAppendingString:(value)]; \
 data = [data stringByAppendingString:@"\n"]; \
 [line appendAttributedString: \
    [[[NSAttributedString alloc] initWithString:data] autorelease]]; \
@@ -286,121 +309,90 @@ data = [data stringByAppendingString:@"\n"]; \
 
 - (void)generateInfo:(ExtFSMedia*)media
 {
+   NSString *data;
    NSMutableAttributedString *line;
-   NSString *data, *yes, *no, *bytes;
-   NSString *monikers[] =
-      {nil, @"KB", @"MB", @"GB", @"TB", @"PB", @"EB", @"ZB", nil};
    double size;
    short i;
    BOOL mounted;
    
    mounted = [media isMounted];
    
-   yes = ExtLocalizedString(@"Yes", "");
-   no = ExtLocalizedString(@"No", "");
-   bytes = ExtLocalizedString(@"bytes", "");
-   monikers[0] = bytes; 
-   
    [_infoText setEditable:YES];
    [_infoText setString:@""];
    
-   line = ExtMakeInfoTitle(ExtLocalizedString(@"IOKit Name", ""));
-   data = [@" " stringByAppendingString:[media ioRegistryName]];
-   ExtInfoInsert();
+   ExtInfoInsert(ExtLocalizedString(@"IOKit Name", ""),
+      [media ioRegistryName]);
    
-   line = ExtMakeInfoTitle(ExtLocalizedString(@"Device", ""));
-   data = [@" " stringByAppendingString:[media bsdName]];
-   ExtInfoInsert();
+   ExtInfoInsert(ExtLocalizedString(@"Device", ""),
+      [media bsdName]);
    
-   line = ExtMakeInfoTitle(ExtLocalizedString(@"Ejectable", ""));
-   data = [@" " stringByAppendingString:
-      ([media isEjectable] ? yes : no)];
-   ExtInfoInsert();
+   ExtInfoInsert(ExtLocalizedString(@"Ejectable", ""),
+      ([media isEjectable] ? _yes : _no));
    
-   line = ExtMakeInfoTitle(ExtLocalizedString(@"DVD/CD-ROM", ""));
-   data = [@" " stringByAppendingString:
-      ([media isDVDROM] || [media isCDROM] ? yes : no)];
-   ExtInfoInsert();
-      
-   line = ExtMakeInfoTitle(ExtLocalizedString(@"Mount Point", ""));
+   ExtInfoInsert(ExtLocalizedString(@"DVD/CD-ROM", ""),
+      ([media isDVDROM] || [media isCDROM] ? _yes : _no));
+   
    data = ExtLocalizedString(@"Not Mounted", "");
-   data = [@" " stringByAppendingString:
-      ([media isMounted] ? [media mountPoint] : data)];
-   ExtInfoInsert();
+   ExtInfoInsert(ExtLocalizedString(@"Mount Point", ""),
+      (mounted ? [media mountPoint] : data));
    
-   line = ExtMakeInfoTitle(ExtLocalizedString(@"Writable", ""));
-   data = [@" " stringByAppendingString:
-      ([media isWritable] ? yes : no)];
-   ExtInfoInsert();
+   ExtInfoInsert(ExtLocalizedString(@"Writable", ""),
+      ([media isWritable] ? _yes : _no));
    
    if (mounted) {
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Filesystem", ""));
-      data = [@" " stringByAppendingString:NSFSNameFromType([media fsType])];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Filesystem", ""),
+         ExtLocalizedString(NSFSNameFromType([media fsType]), ""));
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Volume Name", ""));
       data = [media volName];
-      data = [@" " stringByAppendingString:(data ? data : @"")];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Volume Name", ""),
+         (data ? data : @""));
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Volume UUID", ""));
       data = [media uuidString];
-      data = [@" " stringByAppendingString:(data ? data : @"")];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Volume UUID", ""),
+         (data ? data : @""));
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Supports Journaling", ""));
-      data = [@" " stringByAppendingString:([media hasJournal] ? yes : no)];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Supports Journaling", ""),
+         ([media hasJournal] ? _yes : _no));
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Journaled", ""));
-      data = [@" " stringByAppendingString:([media isJournaled] ? yes : no)];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Journaled", ""),
+         ([media isJournaled] ? _yes : _no));
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Supports Sparse Files", ""));
-      data = [@" " stringByAppendingString:([media hasSparseFiles] ? yes : no)];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Supports Sparse Files", ""),
+         ([media hasSparseFiles] ? _yes : _no));
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Case Sensitive Names", ""));
-      data = [@" " stringByAppendingString:([media isCaseSensitive] ? yes : no)];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Case Sensitive Names", ""),
+         ([media isCaseSensitive] ? _yes : _no));
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Case Preserved Names", ""));
-      data = [@" " stringByAppendingString:([media isCasePreserving] ? yes : no)];
-      ExtInfoInsert();
+      ExtInfoInsert(ExtLocalizedString(@"Case Preserved Names", ""),
+         ([media isCasePreserving] ? _yes : _no));
       
       size = [media size];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
-      data = monikers[i];
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Size", ""));
-      data = [@" " stringByAppendingFormat:@"%.2lf %@ (%qu %@)",
-         size, data, [media size], bytes];
-      ExtInfoInsert();
+      data = _monikers[i];
+      data = [NSString stringWithFormat:@"%.2lf %@ (%qu %@)",
+         size, data, [media size], _bytes];
+      ExtInfoInsert(ExtLocalizedString(@"Size", ""), data);
       
       size = [media availableSize];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
-      data = monikers[i];
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Available Space", ""));
-      data = [@" " stringByAppendingFormat:@"%.2lf %@ (%qu %@)",
-         size, data, [media availableSize], bytes];
-      ExtInfoInsert();
+      data = _monikers[i];
+      data = [NSString stringWithFormat:@"%.2lf %@ (%qu %@)",
+         size, data, [media availableSize], _bytes];
+      ExtInfoInsert(ExtLocalizedString(@"Available Space", ""), data);
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Block Size", ""));
-      data = [@" " stringByAppendingFormat:@"%lu %@", [media blockSize], bytes];
-      ExtInfoInsert();
+      data = [NSString stringWithFormat:@"%lu %@", [media blockSize], _bytes];
+      ExtInfoInsert(ExtLocalizedString(@"Block Size", ""), data);
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Number of Blocks", ""));
-      data = [@" " stringByAppendingFormat:@"%qu", [media blockCount]];
-      ExtInfoInsert();
+      data = [NSString stringWithFormat:@"%qu", [media blockCount]];
+      ExtInfoInsert(ExtLocalizedString(@"Number of Blocks", ""), data);
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Number of Files", ""));
-      data = [@" " stringByAppendingFormat:@"%qu", [media fileCount]];
-      ExtInfoInsert();
+      data = [NSString stringWithFormat:@"%qu", [media fileCount]];
+      ExtInfoInsert(ExtLocalizedString(@"Number of Files", ""), data);
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Number of Directories", ""));
-      data = [@" " stringByAppendingFormat:@"%qu", [media dirCount]];
-      ExtInfoInsert();
+      data = [NSString stringWithFormat:@"%qu", [media dirCount]];
+      ExtInfoInsert(ExtLocalizedString(@"Number of Directories", ""), data);
       
       if ([media isExtFS]) {
          [_infoText insertText:@"\n"];
@@ -409,28 +401,24 @@ data = [data stringByAppendingString:@"\n"]; \
          [_infoText insertText:line];
          [_infoText insertText:@"\n\n"];
          
-         line = ExtMakeInfoTitle(ExtLocalizedString(@"Indexed Directories", ""));
-         data = [@" " stringByAppendingString:([media hasIndexedDirs] ? yes : no)];
-         ExtInfoInsert();
+         ExtInfoInsert(ExtLocalizedString(@"Indexed Directories", ""),
+            ([media hasIndexedDirs] ? _yes : _no));
          
-         line = ExtMakeInfoTitle(ExtLocalizedString(@"Large Files", ""));
-         data = [@" " stringByAppendingString:([media hasLargeFiles] ? yes : no)];
-         ExtInfoInsert();
+         ExtInfoInsert(ExtLocalizedString(@"Large Files", ""),
+            ([media hasLargeFiles] ? _yes : _no));
       }
       
    } else {// mounted
       size = [media size];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
-      data = monikers[i];
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Device Size", ""));
-      data = [@" " stringByAppendingFormat:@"%.2lf %@ (%qu %@)",
-         size, data, [media size], bytes];
-      ExtInfoInsert();
+      data = _monikers[i];
+      data = [NSString stringWithFormat:@"%.2lf %@ (%qu %@)",
+         size, data, [media size], _bytes];
+      ExtInfoInsert(ExtLocalizedString(@"Device Size", ""), data);
       
-      line = ExtMakeInfoTitle(ExtLocalizedString(@"Device Block Size", ""));
-      data = [@" " stringByAppendingFormat:@"%lu %@", [media blockSize], bytes];
-      ExtInfoInsert();
+      data = [NSString stringWithFormat:@"%lu %@", [media blockSize], _bytes];
+      ExtInfoInsert(ExtLocalizedString(@"Device Block Size", ""), data);
    }
    
    [_infoText setEditable:NO];
@@ -715,6 +703,12 @@ info_alt_switch:
    NSLog(@"ExtFS: Prefs = %@\n", _prefRoot);
 #endif
    
+   /* Setup localized string globals */
+   _yes = [ExtLocalizedString(@"Yes", "") retain];
+   _no = [ExtLocalizedString(@"No", "") retain];
+   _bytes = [ExtLocalizedString(@"bytes", "") retain];
+   _monikers[0] = _bytes;
+   
    [_tabs setTabViewType:NSNoTabsNoBorder];
    
    button = buttons[0];
@@ -761,15 +755,15 @@ info_alt_switch:
       [button setEnabled:NO];
    }
    
-   [_mountReadOnlyBox setTitle:ExtLocalizedString(
-      @"Mount Read Only", "")];
-   [_dontAutomountBox setTitle:ExtLocalizedString(
-      @"Don't Automount", "")];
-   [_indexedDirsBox setTitle:ExtLocalizedString(
-      @"Enable Indexed Directories", "")];
+   [_mountReadOnlyBox setTitle:
+      ExtLocalizedString(@"Mount Read Only", "")];
+   [_dontAutomountBox setTitle:
+      ExtLocalizedString(@"Don't Automount", "")];
+   [_indexedDirsBox setTitle:
+      ExtLocalizedString(@"Enable Indexed Directories", "")];
    
-   [_optionNoteText setStringValue:ExtLocalizedString(
-      @"Changes to these options will take effect during the next mount.", "")];
+   [_optionNoteText setStringValue:
+      ExtLocalizedString(@"Changes to these options will take effect during the next mount.", "")];
 
    [self performSelector:@selector(startup) withObject:nil afterDelay:0.3];
 }
