@@ -36,7 +36,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)ufs_bmap.c	8.7 (Berkeley) 3/21/95
- * $FreeBSD: src/sys/gnu/ext2fs/ext2_bmap.c,v 1.52 2002/05/18 19:12:38 iedowse Exp $
+ * $FreeBSD: src/sys/gnu/ext2fs/ext2_bmap.c,v 1.53 2003/01/03 06:32:14 phk Exp $
  */
 
 #include <sys/param.h>
@@ -225,7 +225,11 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			vfs_busy_pages(bp, 0);
          #endif
          /* XXX - Do we need a equiv call for Darwin (upl_ something). */
-			BUF_STRATEGY(bp);
+         #ifndef APPLE
+         VOP_STRATEGY(bp->b_vp, bp);
+         #else
+			VOP_STRATEGY(bp);
+         #endif
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
 			error = bufwait(bp);
 			if (error) {

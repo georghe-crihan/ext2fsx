@@ -43,7 +43,7 @@
  *
  *	@(#)ufs_vnops.c	8.7 (Berkeley) 2/3/94
  *	@(#)ufs_vnops.c 8.27 (Berkeley) 5/27/95
- * $FreeBSD: src/sys/gnu/ext2fs/ext2_vnops.c,v 1.73 2002/09/25 02:34:56 jeff Exp $
+ * $FreeBSD: src/sys/gnu/ext2fs/ext2_vnops.c,v 1.75 2003/01/04 08:47:19 phk Exp $
  */
 
 #ifndef APPLE
@@ -173,9 +173,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_getwritemount_desc,	(vop_t *) vop_stdgetwritemount },
    #endif
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
-	{ &vop_islocked_desc,		(vop_t *) vop_stdislocked },
 	{ &vop_link_desc,		(vop_t *) ext2_link },
-	{ &vop_lock_desc,		(vop_t *) vop_stdlock },
 	{ &vop_lookup_desc,		(vop_t *) vfs_cache_lookup },
 	{ &vop_mkdir_desc,		(vop_t *) ext2_mkdir },
 	{ &vop_mknod_desc,		(vop_t *) ext2_mknod },
@@ -197,7 +195,6 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_setattr_desc,		(vop_t *) ext2_setattr },
 	{ &vop_strategy_desc,		(vop_t *) ext2_strategy },
 	{ &vop_symlink_desc,		(vop_t *) ext2_symlink },
-	{ &vop_unlock_desc,		(vop_t *) vop_stdunlock },
 	{ &vop_write_desc,		(vop_t *) ext2_write },
 	{ NULL, NULL }
 };
@@ -212,13 +209,10 @@ static struct vnodeopv_entry_desc ext2_specop_entries[] = {
 	{ &vop_fsync_desc,		(vop_t *) ext2_fsync },
 	{ &vop_getattr_desc,		(vop_t *) ext2_getattr },
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
-	{ &vop_islocked_desc,		(vop_t *) vop_stdislocked },
-	{ &vop_lock_desc,		(vop_t *) vop_stdlock },
 	{ &vop_print_desc,		(vop_t *) ext2_print },
 	{ &vop_read_desc,		(vop_t *) ext2spec_read },
 	{ &vop_reclaim_desc,		(vop_t *) ext2_reclaim },
 	{ &vop_setattr_desc,		(vop_t *) ext2_setattr },
-	{ &vop_unlock_desc,		(vop_t *) vop_stdunlock },
 	{ &vop_write_desc,		(vop_t *) ext2spec_write },
 	{ NULL, NULL }
 };
@@ -233,16 +227,13 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 	{ &vop_fsync_desc,		(vop_t *) ext2_fsync },
 	{ &vop_getattr_desc,		(vop_t *) ext2_getattr },
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
-	{ &vop_islocked_desc,		(vop_t *) vop_stdislocked },
    #ifndef APPLE
 	{ &vop_kqfilter_desc,		(vop_t *) ext2fifo_kqfilter },
    #endif
-	{ &vop_lock_desc,		(vop_t *) vop_stdlock },
 	{ &vop_print_desc,		(vop_t *) ext2_print },
 	{ &vop_read_desc,		(vop_t *) ext2fifo_read },
 	{ &vop_reclaim_desc,		(vop_t *) ext2_reclaim },
 	{ &vop_setattr_desc,		(vop_t *) ext2_setattr },
-	{ &vop_unlock_desc,		(vop_t *) vop_stdunlock },
 	{ &vop_write_desc,		(vop_t *) ext2fifo_write },
 	{ NULL, NULL }
 };
@@ -349,7 +340,7 @@ ext2_create(ap)
  *
  * Nothing to do.
  */
-int
+static int
 ext2_open(ap)
 	struct vop_open_args /* {
 		struct vnode *a_vp;
@@ -515,7 +506,7 @@ ext2_getattr(ap)
 /*
  * Set attribute vnode op. called from several syscalls
  */
-int
+static int
 ext2_setattr(ap)
 	struct vop_setattr_args /* {
 		struct vnode *a_vp;
@@ -1622,7 +1613,7 @@ ext2_readlink(ap)
  * In order to be able to swap to a file, the ext2_bmaparray() operation may not
  * deadlock on memory.  See ext2_bmap() for details.
  */
-int
+static int
 ext2_strategy(ap)
 	struct vop_strategy_args /* {
 		#ifndef APPLE
@@ -1679,7 +1670,7 @@ ext2_strategy(ap)
 /*
  * Print out the contents of an inode.
  */
-int
+static int
 ext2_print(ap)
 	struct vop_print_args /* {
 		struct vnode *a_vp;
@@ -1701,7 +1692,7 @@ ext2_print(ap)
 /*
  * Read wrapper for special devices.
  */
-int
+static int
 ext2spec_read(ap)
 	struct vop_read_args /* {
 		struct vnode *a_vp;
@@ -1730,7 +1721,7 @@ ext2spec_read(ap)
 /*
  * Write wrapper for special devices.
  */
-int
+static int
 ext2spec_write(ap)
 	struct vop_write_args /* {
 		struct vnode *a_vp;
@@ -1757,7 +1748,7 @@ ext2spec_write(ap)
  *
  * Update the times on the inode then do device close.
  */
-int
+static int
 ext2spec_close(ap)
 	struct vop_close_args /* {
 		struct vnode *a_vp;
@@ -1778,7 +1769,7 @@ ext2spec_close(ap)
 /*
  * Read wrapper for fifos.
  */
-int
+static int
 ext2fifo_read(ap)
 	struct vop_read_args /* {
 		struct vnode *a_vp;
@@ -1804,7 +1795,7 @@ ext2fifo_read(ap)
 /*
  * Write wrapper for fifos.
  */
-int
+static int
 ext2fifo_write(ap)
 	struct vop_write_args /* {
 		struct vnode *a_vp;
@@ -1831,7 +1822,7 @@ ext2fifo_write(ap)
  *
  * Update the times on the inode then do device close.
  */
-int
+static int
 ext2fifo_close(ap)
 	struct vop_close_args /* {
 		struct vnode *a_vp;
@@ -1855,7 +1846,7 @@ ext2fifo_close(ap)
  *
  * Fall through to ext2 kqfilter routines if needed 
  */
-int
+static int
 ext2fifo_kqfilter(ap)
 	struct vop_kqfilter_args *ap;
 {
@@ -1871,7 +1862,7 @@ ext2fifo_kqfilter(ap)
 /*
  * Return POSIX pathconf information applicable to ext2 filesystems.
  */
-int
+static int
 ext2_pathconf(ap)
 	struct vop_pathconf_args /* {
 		struct vnode *a_vp;

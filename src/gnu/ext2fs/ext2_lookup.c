@@ -42,7 +42,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)ufs_lookup.c	8.6 (Berkeley) 4/1/94
- * $FreeBSD: src/sys/gnu/ext2fs/ext2_lookup.c,v 1.36 2002/08/15 20:55:01 rwatson Exp $
+ * $FreeBSD: src/sys/gnu/ext2fs/ext2_lookup.c,v 1.37 2002/10/18 21:41:41 bde Exp $
  */
 
 #include <sys/param.h>
@@ -483,7 +483,6 @@ searchloop:
 				 */
 				dp->i_ino = ep->inode;
 				dp->i_reclen = ep->rec_len;
-				brelse(bp);
 				goto found;
 			}
 		}
@@ -581,6 +580,7 @@ found:
 		dp->i_size = entryoffsetinblock+EXT2_DIR_REC_LEN(ep->name_len);
 		dp->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
+   brelse(bp);
 
 	/*
 	 * Found component in pathname.
