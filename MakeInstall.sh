@@ -1,4 +1,5 @@
 #!/bin/sh
+# @(#) $Id$
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
@@ -144,8 +145,6 @@ else
 	EXT2DIR="${EXT2BUILD}"
 fi
 
-echo "${EXT2DIR}", "${EXT2BUILD}"
-
 echo "Building Package..."
 PKGMKR=/Developer/Applications/PackageMaker.app/Contents/MacOS/PackageMaker
 "${PKGMKR}" -build -p "${VOL}/Ext2FS.pkg" -f "${EXT2DIR}/build/install" \
@@ -154,9 +153,9 @@ PKGMKR=/Developer/Applications/PackageMaker.app/Contents/MacOS/PackageMaker
 
 echo "Copying files..."
 
-cp "${EXT2DIR}/Resources/English.lproj/ReadMe.rtf" "${VOL}"
-cp "${EXT2DIR}/Changes.rtf" "${VOL}"
-cp "${EXT2DIR}/Ext2Uninstall.command" "${VOL}"
+cp -p "${EXT2DIR}/Resources/English.lproj/ReadMe.rtf" "${VOL}"
+cp -p "${EXT2DIR}/Changes.rtf" "${VOL}"
+cp -p "${EXT2DIR}/Ext2Uninstall.command" "${VOL}"
 chmod 555 "${VOL}/Ext2Uninstall.command"
 
 echo "Finishing..."
