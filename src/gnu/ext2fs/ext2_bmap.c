@@ -259,8 +259,8 @@ else
 			bn = ap->in_off;
 			if (runb && bn) {
 				for(--bn; bn >= 0 && *runb < maxrun &&
-			    		is_sequential(ump, ((int32_t *)bp->b_data)[bn],
-					    ((int32_t *)bp->b_data)[bn+1]);
+			    		is_sequential(ump, le32_to_cpu(((int32_t *)bp->b_data)[bn]),
+					    le32_to_cpu(((int32_t *)bp->b_data)[bn+1]));
 			    		--bn, ++*runb);
 			}
 		}
@@ -268,6 +268,7 @@ else
 	if (bp)
 		bqrelse(bp);
    
+   /* APPLE: This code is for BSD soft updates. Safe to ignore on Darwin. */
    #ifndef APPLE
 	/*
 	 * Since this is FFS independent code, we are out of scope for the
@@ -281,7 +282,6 @@ else
 		return (0);
 	}
    #endif
-   /* XXX Something to do for Darwin? */
    
 	*bnp = blkptrtodb(ump, daddr);
 	if (*bnp == 0) {
