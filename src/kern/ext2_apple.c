@@ -72,7 +72,9 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #include "ext2_apple.h"
 #include <gnu/ext2fs/ext2_fs.h>
+#include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/inode.h>
+#include <gnu/ext2fs/ext2_extern.h>
 
 /* Cribbed from FreeBSD kern/vfs_subr.c */
 /* This will cause the KEXT to break if/when the kernel proper defines this routine.
@@ -315,8 +317,10 @@ ext2_ioctl(ap)
    } */ *ap;
 {
    struct inode *ip = VTOI(ap->a_vp);
-   int err = 0;
-   u_int32_t flags;
+   int err = 0, super;
+   u_int32_t flags, oldflags;
+   
+   super = suser(ap->a_cred, &ap->a_p->p_acflag);
    
    switch (ap->a_command) {
       case IOCBASECMD(EXT2_IOC_GETFLAGS):
@@ -325,7 +329,55 @@ ext2_ioctl(ap)
       break;
       
       case IOCBASECMD(EXT2_IOC_SETFLAGS):
-         err = ENOTSUP;
+         if (ip->i_e2fs->s_rd_only)
+            return (EROFS);
+         
+         if (ap->a_cred->cr_uid != ip->i_uid || !super)
+            return (EACCES);
+         
+         bcopy(ap->a_data, &flags, sizeof(u_int32_t));
+         
+         if (!S_ISDIR(ip->i_mode))
+            flags &= ~EXT2_DIRSYNC_FL;
+            
+         oldflags = ip->i_e2flags;
+         
+         /* APPEND, IMMUTABLE can only be unset when the kernel is
+            not protected -- and then only by root */
+         if ((flags ^ oldflags) & (EXT2_APPEND_FL | EXT2_IMMUTABLE_FL)) {
+            err = EPERM;
+            if (super)
+               err = securelevel_gt(ap->a_cred, 0);
+            if (err)
+               return(err);
+         }
+         
+         if ((flags ^ oldflags) & (EXT3_JOURNAL_DATA_FL)) {
+            if (!super)
+               return (EACCES);
+         }
+         
+         if (!super) {
+            flags = flags & EXT2_FL_USER_MODIFIABLE;
+            flags |= oldflags & ~EXT2_FL_USER_MODIFIABLE;
+         } else {
+            flags |= oldflags;
+         }
+         ip->i_e2flags = flags;
+         ip->i_flag |= IN_CHANGE|IN_MODIFIED;
+         
+         /* Update the BSD flags */
+         if (ip->i_e2flags & EXT2_APPEND_FL)
+            ip->i_flags |= APPEND;
+         else
+            ip->i_flags &= ~APPEND;
+         
+         if (ip->i_e2flags & EXT2_IMMUTABLE_FL)
+            ip->i_flags |= IMMUTABLE;
+         else
+            ip->i_flags &= ~IMMUTABLE;
+         
+         err = ext2_update(ap->a_vp, 0);
       break;
       
       case IOCBASECMD(EXT2_IOC_GETVERSION):
@@ -333,9 +385,8 @@ ext2_ioctl(ap)
       break;
       
       case IOCBASECMD(EXT2_IOC_SETVERSION):
-         if (ap->a_cred->cr_uid != ip->i_uid ||
-               !suser(ap->a_cred, &ap->a_p->p_acflag))
-            err = EPERM;
+         if (ap->a_cred->cr_uid != ip->i_uid || !super)
+            err = EACCES;
          break;
          err = ENOTSUP;
       break;
