@@ -43,6 +43,7 @@ mkdir -p "${INSTALL}/System/Library/Filesystems"
 mkdir "${INSTALL}/sbin"
 mkdir -p "${INSTALL}/usr/share/man/man8"
 mkdir -p "${INSTALL}/usr/local/lib"
+mkdir -p "${INSTALL}/usr/local/share/doc"
 
 #install e2fsprogs
 cd "${EXT2BUILD}/src/e2fsprogs"
@@ -67,7 +68,9 @@ ln -f mke2fs.8 ./newfs_ext2.8
 cd "${INSTALL}/usr/local/lib"
 
 ln -sf ./libblkid.2.0.dylib ./libblkid.dylib
+# note this can conflict with the system lib /usr/lib/libcom_err.dylib
 ln -sf ./libcom_err.1.1.dylib ./libcom_err.dylib
+ln -sf ./libcom_err.1.1.dylib ./libcom_err_e2.dylib
 ln -sf ./libe2p.2.1.dylib ./libe2p.dylib
 ln -sf ./libext2fs.2.1.dylib ./libext2fs.dylib
 ln -sf ./libss.1.0.dylib ./libss.dylib
@@ -85,6 +88,10 @@ cp -p "${EXT2BUILD}/src/mount_ext2fs/mount_ext2fs.8" "${INSTALL}/usr/share/man/m
 #newfs
 cp -p "${BUILD}/newfs_ext2" "${INSTALL}/sbin"
 
+#e2undel
+cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
+cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
+
 #strip binaries for prod build here
 
 #get rid of unwanted files
@@ -93,7 +100,7 @@ find "${INSTALL}" -name "pbdevelopment.plist" -exec rm {} \;
 find "${INSTALL}" -name "CVS" -type d -exec rm -fr {} \;
 
 #e2fsprogs copyright
-cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/E2FSPROGS_COPYRIGHT"
+cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSPROGS_COPYRIGHT"
 
 sudo chown -R root:wheel "${INSTALL}"
 sudo chmod -R go-w "${INSTALL}"
