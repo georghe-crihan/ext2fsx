@@ -96,7 +96,7 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 	mode_t acc_mode;
 	struct ucred *cred;
 {
-	mode_t dac_granted;
+   mode_t dac_granted;
    struct proc *p = curproc;
    /*
     * root always gets access
@@ -168,7 +168,7 @@ vrefcnt(struct vnode *vp)
 
 	VI_LOCK(vp);
 	usecnt = vp->v_usecount;
-   if (usecnt < 1 && (UBCISVALID(vp) && ubc_isinuse(vp, 1)))
+    if (usecnt < 1 && (UBCISVALID(vp) && ubc_isinuse(vp, 1)))
       usecnt = 1;
 	VI_UNLOCK(vp);
 
@@ -177,7 +177,7 @@ vrefcnt(struct vnode *vp)
 
 __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
 {
-   struct vnode *vp = ap->a_vp;
+    struct vnode *vp = ap->a_vp;
 	struct buf *bp;
 	struct buf *nbp;
 	int s;
@@ -185,7 +185,7 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
    loop:
 	VI_LOCK(vp);
 	s = splbio();
-   for (bp = LIST_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
+    for (bp = LIST_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
 		nbp = LIST_NEXT(bp, b_vnbufs);
 		VI_UNLOCK(vp);
       if ((bp->b_flags & B_BUSY)) {
@@ -223,7 +223,7 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
 	VI_UNLOCK(vp);
 	splx(s);
    
-   return (0);
+    return (0);
 }
 
 /* VNode Ops */
@@ -243,9 +243,11 @@ ext2_lock(ap)
 {
 	struct vnode *vp = ap->a_vp;
 
+#ifdef DIAGNOSTIC
 	if (VTOI(vp) == (struct inode *) NULL)
 		panic ("ext2_lock: null node");
-   
+#endif
+
    ext2_trace("locking inode %lu for pid %ld -- cur pid:%ld, cur ex: %d, cur shr: %d, cur wait:%d\n",
       (unsigned long)VTOI(vp)->i_number, (long)ap->a_p->p_pid, 
       (long)VTOI(vp)->i_lock.lk_lockholder, VTOI(vp)->i_lock.lk_exclusivecount,
@@ -254,7 +256,7 @@ ext2_lock(ap)
 #if EXT_NO_ILOCKS
    return (0);
 #endif
-	return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags, &vp->v_interlock,ap->a_p));
+   return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags, &vp->v_interlock,ap->a_p));
 }
 
 /*
@@ -268,7 +270,7 @@ ext2_unlock(ap)
 		struct proc *a_p;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+   struct vnode *vp = ap->a_vp;
    
    ext2_trace("unlocking inode %lu for pid:%ld\n", (unsigned long)VTOI(vp)->i_number,
       (long)ap->a_p->p_pid);
