@@ -32,35 +32,57 @@
  *
  * $Revision$
  */
- 
+
+#include <sys/types.h>
+
 #ifdef __ppc__
  
-static __inline__ void __arch_swap_16 (__u16 from, __u16 *to)
+static __inline__ void __arch_swap_16 (u_int16_t from, u_int16_t *to)
 {
    __asm__ volatile("sthbrx %1, 0, %2" : "=m" (*to) : "r" (from), "r" (to));
 }
 
-static __inline__ void __arch_swap_32 (__u32 from, __u32 *to)
+static __inline__ void __arch_swap_32 (u_int32_t from, u_int32_t *to)
 {
    __asm__ volatile("stwbrx %1, 0, %2" : "=m" (*to) : "r" (from), "r" (to));
 }
  
 #endif // __ppc__
  
-static __inline__ __u16 le16_to_cpu (__u16 val)
+static __inline__ u_int16_t le16_to_cpu (u_int16_t val)
 {
-   __u16 n;
+   u_int16_t n;
    
    __arch_swap_16(val, &n);
    
    return (n);
 }
 
-static __inline__ __u32 le32_to_cpu (__u32 val)
+static __inline__ u_int32_t le32_to_cpu (u_int32_t val)
 {
-   __u32 n;
+   u_int32_t n;
    
    __arch_swap_32(val, &n);
+   
+   return (n);
+}
+
+static __inline__ u_int16_t le16_to_cpup (u_int16_t *val)
+{
+   u_int16_t n,v;
+   
+   v = *val;
+   __arch_swap_16(v, &n);
+   
+   return (n);
+}
+
+static __inline__ u_int32_t le32_to_cpup (u_int32_t *val)
+{
+   u_int32_t n,v;
+   
+   v = *val;
+   __arch_swap_32(v, &n);
    
    return (n);
 }
@@ -68,3 +90,7 @@ static __inline__ __u32 le32_to_cpu (__u32 val)
 #define cpu_to_le16(x) le16_to_cpu((x))
 
 #define cpu_to_le32(x) le32_to_cpu((x))
+
+#define cpu_to_le16p(x) le16_to_cpup((x))
+
+#define cpu_to_le32p(x) le32_to_cpup((x))
