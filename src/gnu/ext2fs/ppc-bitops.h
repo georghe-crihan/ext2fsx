@@ -224,7 +224,9 @@ static __inline__ int __test_and_change_bit(int nr, volatile void *addr)
 
 static __inline__ int test_bit(int nr, __const__ volatile unsigned long *addr)
 {
-	return ((addr[nr >> 5] >> (nr & 0x1f)) & 1) != 0;
+	__const__ unsigned int *p = (__const__ unsigned int *) addr;
+   
+   return ((p[nr >> 5] >> (nr & 0x1f)) & 1) != 0;
 }
 
 /* Return the bit position of the most significant 1 bit in a word */
