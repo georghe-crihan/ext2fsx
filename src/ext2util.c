@@ -44,10 +44,8 @@
 *
 */
 
-#if defined(APPLE) && !defined(lint)
 static const char whatid[] __attribute__ ((unused)) =
-"@(#)Revision: $Revision$ Built: " __DATE__ __TIME__;
-#endif
+"@(#) $Revision$ Built: " __DATE__ " " __TIME__;
 
 #include <sys/param.h>
 #include <sys/wait.h>
@@ -67,6 +65,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <ctype.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -156,18 +155,6 @@ static int fs_mount(char *devpath, char *mount_point, int removable,
 static int fs_unmount(char *devpath);
 static int fs_label(char *devpath, char *volName);
 static void fs_set_label_file(char *labelPtr);
-static int fs_getuuid(char *devpath, u_char *uuid);
-
-static int safe_open(char *path, int flags, mode_t mode);
-static void safe_read(int fd, char *buf, int nbytes, off_t off);
-static void safe_close(int fd);
-#if 0
-static void safe_write(int fd, char *data, int len, off_t off);
-#endif
-static void safe_execv(char *args[]);
-#if 0
-static void safe_unlink(char *path);
-#endif
 
 #ifdef DEBUG
 static void report_exit_code(int ret);
@@ -175,13 +162,15 @@ static void report_exit_code(int ret);
 
 extern int checkLoadable();
 #if 0
-static int oklabel(const char *src);
 static void mklabel(u_int8_t *dest, const char *src);
 #endif
 
 int ret = 0;
 char	diskLabel[EXT2_VOL_LABEL_LENGTH + 1];
 
+#define EXT_SUPER_UUID
+#include <util/spawn.c>
+#include <util/super.c>
 
 void usage()
 {
@@ -212,7 +201,6 @@ int main(int argc, char **argv)
     char		opt;
     struct stat	sb;
     int			ret = FSUR_INVAL;
-
 
     /* save & strip off program name */
     progname = argv[0];
@@ -298,33 +286,22 @@ int main(int argc, char **argv)
             break;
          case FSUC_GETUUID:
             {
-               CFUUIDBytes uuid;
+               CFStringRef uuid;
                
                if (argc != 2)
                   usage();
                
-               ret = fs_getuuid(blockdevpath, (u_char*)&uuid);
-               if (FSUR_IO_SUCCESS == ret) {
-                  CFUUIDRef cuuid;
-                  CFStringRef suuid;
-                  
-                  cuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, uuid);
-                  if (cuuid) {
-                     suuid = CFUUIDCreateString(kCFAllocatorDefault, cuuid);
-                     CFRelease(cuuid);
-                     if (suuid) {
-                        u_char pruuid[40];
-                        /* Convert to UTF8 */
-                        (void) CFStringGetCString(suuid, pruuid, sizeof(pruuid),
-                           kCFStringEncodingUTF8);
-                        CFRelease(suuid);
-                        /* Write to stdout */
-                        write(1, pruuid, strlen(pruuid));
-                        break;
-                     }
-                  }
-                  /* If we get here, something failed */
-                  ret = FSUR_INVAL;   
+               ret = FSUR_INVAL;
+               uuid = extsuper_uuid(blockdevpath);
+               if (uuid) {
+                  u_char pruuid[40];
+                  ret = FSUR_IO_SUCCESS;
+                  /* Convert to UTF8 */
+                  (void) CFStringGetCString(uuid, pruuid, sizeof(pruuid),
+                     kCFStringEncodingUTF8);
+                  CFRelease(uuid);
+                  /* Write to stdout */
+                  write(1, pruuid, strlen(pruuid));
                }
             }
             break;
@@ -341,7 +318,7 @@ int main(int argc, char **argv)
     }
 
     #ifdef DEBUG
-    //report_exit_code(ret);
+    report_exit_code(ret);
     #endif
     exit(ret);
 
@@ -406,110 +383,6 @@ mklabel(u_int8_t *dest, const char *src)
 	c = *src ? toupper(*src++) : ' ';
 	*dest++ = !i && c == '\xe5' ? 5 : c;
     }
-}
-#endif
-
-static int
-safe_open(char *path, int flags, mode_t mode)
-{
-	int fd = open(path, flags, mode);
-
-	if (fd < 0) {
-		fprintf(stderr, "%s: open %s failed, %s\n", progname, path,
-			strerror(errno));
-		exit(FSUR_IO_FAIL);
-	}
-	return(fd);
-}
-
-
-static void
-safe_close(int fd)
-{
-	if (close(fd)) {
-		fprintf(stderr, "%s: safe_close failed, %s\n", progname,
-			strerror(errno));
-		exit(FSUR_IO_FAIL);
-	}
-}
-
-void
-safe_execv(char *args[])
-{
-	int		pid;
-	union wait	status;
-
-	pid = vfork();
-	if (pid == 0) {
-		(void)execv(args[0], args);
-		fprintf(stderr, "%s: execv %s failed, %s\n", progname, args[0],
-			strerror(errno));
-		_exit(FSUR_IO_FAIL);
-	}
-	if (pid == -1) {
-		fprintf(stderr, "%s: fork failed, %s\n", progname,
-			strerror(errno));
-		exit(FSUR_IO_FAIL);
-	}
-	if (wait4(pid, (int *)&status, 0, NULL) != pid) {
-		fprintf(stderr, "%s: BUG executing %s command\n", progname,
-			args[0]);
-		exit(FSUR_IO_FAIL);
-	} else if (!WIFEXITED(status)) {
-		fprintf(stderr, "%s: %s command aborted by signal %d\n",
-			progname, args[0], WTERMSIG(status));
-		exit(FSUR_IO_FAIL);
-	} else if (WEXITSTATUS(status)) {
-		fprintf(stderr, "%s: %s command failed, exit status %d: %s\n",
-			progname, args[0], WEXITSTATUS(status),
-			strerror(WEXITSTATUS(status)));
-		exit(FSUR_IO_FAIL);
-	}
-}
-
-#if 0
-static void
-safe_unlink(char *path)
-{
-	if (unlink(path) && errno != ENOENT) {
-		fprintf(stderr, "%s: unlink %s failed, %s\n", progname, path,
-			strerror(errno));
-		exit(FSUR_IO_FAIL);
-	}
-}
-#endif
-
-
-static void
-safe_read(int fd, char *buf, int nbytes, off_t off)
-{
-	int b;
-   if (lseek(fd, off, SEEK_SET) == -1) {
-		fprintf(stderr, "%s: device seek error @ %qu, %s\n", progname,
-			off, strerror(errno));
-		exit(FSUR_IO_FAIL);
-	}
-	if ((b=read(fd, buf, nbytes)) != nbytes) {
-		fprintf(stderr, "%s: device safe_read error @ %qu, %s\n", progname,
-			off, strerror(errno));
-		exit(FSUR_IO_FAIL);
-	}
-}
-
-#ifdef 0
-void
-safe_write(int fd, char *buf, int nbytes, off_t off)
-{
-        if (lseek(fd, off, SEEK_SET) == -1) {
-                fprintf(stderr, "%s: device seek error @ %qu, %s\n", progname,
-                        off, strerror(errno));
-                exit(FSUR_IO_FAIL);
-        }
-        if (write(fd, buf, nbytes) != nbytes) {
-                fprintf(stderr, "%s: write failed, %s\n", progname,
-                        strerror(errno));
-                exit(FSUR_IO_FAIL);
-        }
 }
 #endif
 
@@ -639,29 +512,13 @@ static int fs_probe(char *devpath, int removable, int writable)
 {
    char *buf;
    struct ext2_super_block *sbp;
-   int fd;
+   int ret;
    
    bzero(diskLabel, EXT2_VOL_LABEL_LENGTH+1);
-
-   buf = malloc(4096);
-   if (!buf)
+   
+   ret = extsuper_read(devpath, &buf, &sbp);
+   if (ret)
       return (FSUR_UNRECOGNIZED);
-   
-   fd = safe_open(devpath, O_RDONLY, 0);
-   
-   /* Read the first 4K. When reading/writing from a raw device, we must
-   do so in the native block size (or a multiple thereof) of the device.*/
-   safe_read(fd, buf, 4096, 0);
-   
-   /* Superblock starts at offset 1024 (block 2). */
-   sbp = (struct ext2_super_block*)(buf+SBSIZE);
-   
-   safe_close(fd);
-   
-   if (EXT2_SUPER_MAGIC != le16_to_cpu(sbp->s_magic)) {
-      free(buf);
-      return (FSUR_UNRECOGNIZED);
-   }
    
    /* Get the volume name */
    if (0 != sbp->s_volume_name[0])
@@ -671,35 +528,6 @@ static int fs_probe(char *devpath, int removable, int writable)
 
    free(buf);
    return(FSUR_RECOGNIZED);
-}
-
-static int fs_getuuid(char *devpath, u_char *uuid)
-{
-   char *buf;
-   struct ext2_super_block *sbp;
-   int fd;
-   
-   buf = malloc(4096);
-   if (!buf)
-      return (FSUR_UNRECOGNIZED);
-   
-   fd = safe_open(devpath, O_RDONLY, 0);
-   
-   safe_read(fd, buf, 4096, 0);
-   
-   /* Superblock starts at offset 1024 (block 2). */
-   sbp = (struct ext2_super_block*)(buf+SBSIZE);
-   
-   safe_close(fd);
-   
-   if (EXT2_SUPER_MAGIC != le16_to_cpu(sbp->s_magic)) {
-      free(buf);
-      return (FSUR_UNRECOGNIZED);
-   }
-   
-   bcopy(sbp->s_uuid, uuid, sizeof(sbp->s_uuid));
-   
-   return (FSUR_IO_SUCCESS);
 }
 
 static int fs_label(char *devpath, char *volName)

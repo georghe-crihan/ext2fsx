@@ -25,7 +25,7 @@
 
 #if !defined(lint)
 static const char whatid[] __attribute__ ((unused)) =
-"@(#) $Revision$ Built: " __DATE__ __TIME__;
+"@(#) $Revision$ Built: " __DATE__ " " __TIME__;
 #endif
 
 /*
@@ -48,39 +48,8 @@ static const char whatid[] __attribute__ ((unused)) =
 
 static char *progname;
 
-void
-safe_execv(char *args[])
-{
-	int		pid;
-	union wait	status;
-
-	pid = vfork();
-	if (pid == 0) {
-		(void)execv(args[0], args);
-		fprintf(stderr, "%s: execv %s failed, %s\n", progname, args[0],
-			strerror(errno));
-		_exit(1);
-	}
-	if (pid == -1) {
-		fprintf(stderr, "%s: fork failed, %s\n", progname,
-			strerror(errno));
-		exit(1);
-	}
-	if (wait4(pid, (int *)&status, 0, NULL) != pid) {
-		fprintf(stderr, "%s: BUG executing %s command\n", progname,
-			args[0]);
-		exit(1);
-	} else if (!WIFEXITED(status)) {
-		fprintf(stderr, "%s: %s command aborted by signal %d\n",
-			progname, args[0], WTERMSIG(status));
-		exit(1);
-	} else if (WEXITSTATUS(status)) {
-		fprintf(stderr, "%s: %s command failed, exit status %d: %s\n",
-			progname, args[0], WEXITSTATUS(status),
-			strerror(WEXITSTATUS(status)));
-		exit(1);
-	}
-}
+#define EXT_SPAWN_SUPRESS_FAILURES
+#include <util/spawn.c>
 
 #define MKE2FS_CMD "/usr/local/sbin/mke2fs"
 #define MKE2FS_LABEL_ARG "-L"
@@ -90,7 +59,7 @@ int main(int argc, char *argv[])
    char *mke2args[argc+1];
    int i;
    
-   bzero(mke2args, sizeof(mke2args));
+   bzero(mke2args, sizeof(char*) * (argc+1));
    
    progname = argv[0];
    

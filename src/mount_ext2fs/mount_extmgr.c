@@ -23,6 +23,9 @@
 *
 */
 
+static const char me_whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -35,59 +38,8 @@
 
 #include <gnu/ext2fs/ext2_fs.h>
 
-static CFStringRef extmgr_uuid(const char *device)
-{
-   CFStringRef str;
-   CFUUIDRef uuid;
-   CFUUIDBytes *ubytes;
-   char *buf;
-   struct ext2_super_block *sbp;
-   int fd, bytes;
-   
-   buf = malloc(4096);
-   if (!buf) {
-      fprintf(stderr, "%s: malloc failed, %s\n", progname,
-			strerror(ENOMEM));
-      return (NULL);
-   }
-   
-   fd = open(device, O_RDONLY, 0);
-   if (fd < 0) {
-      free(buf);
-      fprintf(stderr, "%s: open '%s' failed, %s\n", progname, device,
-			strerror(errno));
-      return (NULL);
-   }
-   
-   bytes = read (fd, buf, 4096);
-   if (4096 != bytes) {
-      free(buf);
-      fprintf(stderr, "%s: device read '%s' failed, %s\n", progname, device,
-			strerror(errno));
-      return (NULL);
-   }
-   
-   close(fd);
-   
-    /* Superblock starts at offset 1024 (block 2). */
-   sbp = (struct ext2_super_block*)(buf+1024);
-   if (EXT2_SUPER_MAGIC != le16_to_cpu(sbp->s_magic)) {
-      free(buf);
-      fprintf(stderr, "%s: device '%s' does not contain a valid filesystem\n",
-         progname, device);
-      return (NULL);
-   }
-   
-   ubytes = (CFUUIDBytes*)&sbp->s_uuid[0];
-   uuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, *ubytes);
-   free(buf);
-   if (uuid) {
-      str = CFUUIDCreateString(kCFAllocatorDefault, uuid);
-      CFRelease(uuid);
-      return (str);
-   }
-   return (NULL);
-}
+#define EXT_SUPER_UUID
+#include <util/super.c>
 
 void extmgr_mntopts (const char *device, int *mopts, int *eopts, int *nomount)
 {
@@ -100,7 +52,7 @@ void extmgr_mntopts (const char *device, int *mopts, int *eopts, int *nomount)
    
    mediaRoot = CFPreferencesCopyAppValue(EXT_PREF_KEY_MEDIA, EXT_PREF_ID);
    if (mediaRoot && CFDictionaryGetTypeID() == CFGetTypeID(mediaRoot)) {
-      uuid = extmgr_uuid(device);
+      uuid = extsuper_uuid(device);
       if (uuid) {
          media = CFDictionaryGetValue(mediaRoot, uuid);
          if (media && CFDictionaryGetTypeID() == CFGetTypeID(media)) {
