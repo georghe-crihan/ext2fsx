@@ -29,9 +29,11 @@ fi
 if [ ! -f ./.e2configdone ]; then
 # Panther has libiconv, but Jag doesn't
 # --with-libiconv-prefix=/usr 
+#
+# --with-included-gettext   -- this would be nice, but the po/ build fails
 	./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
 --without-libintl-prefix --without-libiconv-prefix --disable-fsck --enable-bsd-shlibs \
---with-ccopts="-DAPPLE_DARWIN=1 -DHAVE_EXT2_IOCTLS=1 -DSYS_fsctl=242 -pipe -traditional-cpp"
+--with-ccopts="-DAPPLE_DARWIN=1 -DHAVE_EXT2_IOCTLS=1 -DSYS_fsctl=242 -pipe"
 	if [ $? -ne 0 ]; then
 		echo "configure failed!"
 		exit $?
