@@ -33,3 +33,12 @@ control of his code....
 John
 dyson@freebsd.org
 
+Addendum - Dec 16, 2003
+Brian Bergstrand
+
+In addition to the files above, the following files are also covered by the GPL.
+
+ppc-bitops.h
+
+All files in linux/ and its sub-directories.
+
