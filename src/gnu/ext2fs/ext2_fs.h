@@ -76,6 +76,16 @@
 #	define ext2_debug(f, a...)	/**/
 #endif
 
+#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
+#define ext2_trace_enter() ext2_debug("ENTER\n")
+#define ext2_trace_leave() ext2_debug("DONE\n")
+#define ext2_trace ext2_debug
+#else
+#define ext2_trace_enter()
+#define ext2_trace_leave()
+#define ext2_trace(f, a...)
+#endif
+
 /*
  * Special inodes numbers
  */
