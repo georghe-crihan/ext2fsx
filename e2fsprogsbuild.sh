@@ -24,7 +24,8 @@ if [ ! -f ./.e2patchdone ]; then
 fi
 
 if [ ! -f ./.e2configdone ]; then
-	./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-fsck --enable-bsd-shlibs
+	./configure --prefix=/usr/local --mandir=/usr/local/share/man \
+--disable-fsck --enable-bsd-shlibs --with-ccopts="-DAPPLE_DARWIN=1"
 	if [ $? -ne 0 ]; then
 		echo "configure failed!"
 		exit $?
