@@ -159,7 +159,9 @@ int main (int argc, char *argv[])
     if (2 != argc)
         return (-1);
     
-    progname = argv[0];
+    progname = strrchr(argv[0], '/');
+    if (!progname)
+        progname = argv[0];
     
     type = efs_getdevicefs(argv[1], &uuid);
     if (uuid) {
