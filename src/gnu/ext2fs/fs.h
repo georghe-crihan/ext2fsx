@@ -152,11 +152,6 @@ extern u_char *fragtbl[];
 #define  lock_super(devvp)   	vn_lock(devvp, LK_EXCLUSIVE | LK_RETRY, curthread)
 #define  unlock_super(devvp) 	VOP_UNLOCK(devvp, 0, curthread)
 
-#ifdef APPLE
-/* Buffer, Lock, InterLock */
-#define BUF_LOCK(b,l,il)
-#endif
-
 /*
  * To lock a buffer, set the B_LOCKED flag and then brelse() it. To unlock,
  * reset the B_LOCKED flag and brelse() the buffer back on the LRU list
