@@ -210,18 +210,20 @@ withObject:args waitUntilDone:NO]; \
 - (ExtFSMedia*)createMediaWithIOService:(io_service_t)service properties:(NSDictionary*)props
 {
    ExtFSMedia *e2media, *parent;
+   NSString *device;
    
    e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
    if (e2media) {
+      device = [e2media bsdName];
       ewlock(e_lock);
-      [e_media setObject:e2media forKey:[e2media bsdName]];
+      [e_media setObject:e2media forKey:device];
       eulock(e_lock);
       
       [e2media updateAttributesFromIOService:service];
       if ((parent = [e2media parent]))
          [parent addChild:e2media];
    #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Media %@ created with parent %@.\n", [e2media bsdName], parent);
+      NSLog(@"ExtFS: Media %@ created with parent %@.\n", device, parent);
    #endif
       
       EFSMCPostNotification(ExtFSMediaNotificationAppeared, e2media, nil);
@@ -794,14 +796,14 @@ exit:
 /* Helpers */
 
 // e_fsNames is read-only, so there is no need for a lock
-const char* FSNameFromType(int type)
+const char* EFSNameFromType(int type)
 {
    if (type > fsTypeUnknown)
       type = fsTypeUnknown;
    return (e_fsNames[(type)]);
 }
 
-NSString* NSFSNameFromType(int type)
+NSString* EFSNSNameFromType(int type)
 {
    if (type > fsTypeUnknown)
       type = fsTypeUnknown;
@@ -811,7 +813,7 @@ NSString* NSFSNameFromType(int type)
 static NSDictionary *e_fsPrettyNames = nil;
 static pthread_mutex_t e_fsPrettyMutex = PTHREAD_MUTEX_INITIALIZER;
 
-NSString* NSFSPrettyNameFromType(int type)
+NSString* EFSNSPrettyNameFromType(int type)
 {
     if (nil == e_fsPrettyNames) {
         NSBundle *me;
