@@ -72,27 +72,6 @@
 #endif
 #include <gnu/ext2fs/inode.h>
 
-#if 0
-/* Cribbed from FreeBSD kern/kern_prot.c */
-/*
- * Check if gid is a member of the group set.
- */
-int
-groupmember(gid, cred)
-	gid_t gid;
-	register struct ucred *cred;
-{
-	register gid_t *gp;
-	gid_t *egp;
-
-	egp = &(cred->cr_groups[cred->cr_ngroups]);
-	for (gp = cred->cr_groups; gp < egp; gp++)
-		if (*gp == gid)
-			return (1);
-	return (0);
-}
-#endif
-
 /* Cribbed from FreeBSD kern/vfs_subr.c */
 /* This will cause the KEXT to break if/when the kernel proper defines this routine.
  * (It's declared in <sys/vnode.h>, but is not actually in the 6.x kernels.)
@@ -184,7 +163,7 @@ vrefcnt(struct vnode *vp)
 
 	VI_LOCK(vp);
 	usecnt = vp->v_usecount;
-   if (usecnt < 1 && UBCISVALID(vp))
+   if (usecnt < 1 && (UBCISVALID(vp) && ubc_isinuse(vp, 1)))
       usecnt = 1;
 	VI_UNLOCK(vp);
 
@@ -201,31 +180,17 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
    loop:
 	VI_LOCK(vp);
 	s = splbio();
-   #ifndef APPLE
-	for (bp = TAILQ_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
-		nbp = TAILQ_NEXT(bp, b_vnbufs);
-   #else
    for (bp = LIST_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
 		nbp = LIST_NEXT(bp, b_vnbufs);
-   #endif /* APPLE */
 		VI_UNLOCK(vp);
-      #ifndef APPLE
-		if (BUF_LOCK(bp, LK_EXCLUSIVE | LK_NOWAIT)) {
-			VI_LOCK(vp);
-			continue;
-		}
-      #else
       if ((bp->b_flags & B_BUSY)) {
          VI_LOCK(vp);
          continue;
       }
-      #endif
 		if ((bp->b_flags & B_DELWRI) == 0)
 			panic("vop_stdfsync: not dirty");
 		bremfree(bp);
-      #ifdef APPLE
       bp->b_flags |= B_BUSY;
-      #endif
 		splx(s);
 		/*
 		 * Wait for I/O associated with indirect blocks to complete,
@@ -244,11 +209,7 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
 			    PRIBIO + 1, "e2fsyn", 0);
 		}
 #if DIAGNOSTIC
-      #ifndef APPLE
-		if (!TAILQ_EMPTY(&vp->v_dirtyblkhd)) {
-      #else
       if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
-      #endif
 			vprint("ext2_fsync: dirty", vp);
 			goto loop;
 		}
