@@ -4,11 +4,23 @@
 \margl1440\margr1440\vieww11160\viewh11700\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.?\
+\f0\fs24 \cf0 1.2\
 \
-It is now possible to mount Ext2/3 volumes with permissions ignored (for files/dirs not owned by root).\
+It is now possible to mount Ext2/3 volumes with permissions ignored (for files/dirs not owned by root). Note: Everything may not work as expected. If you find problems with non-root owned files, please open a bug.\
 \
-Fixed ENOSPC bug fixed in Linux 2.6.4 (by Chris Mason @ Suse).\
+Updated ExtFS Manager (EFSM) to handle the new support for ignoring permissions.\
+\
+Added progress indicators and better error detection (Bug #920261) for mount/unmount to EFSM.\
+\
+Added more French translations to EFSM.\
+\
+EFSM now detects DOS partition labels and refuses to try and mount them.\
+\
+Updated to e2fsprogs 1.35.\
+\
+Everything is now compiled with GCC 3.3.\
+\
+Added ENOSPC bug fix from Linux 2.6.4 (by Chris Mason @ Suse).\
 =======\
 find_group_other looks buggy for ext2 and ext3 in 2.6, it can cause -ENOSPC\
 errors when the fs has plenty of free room.\
