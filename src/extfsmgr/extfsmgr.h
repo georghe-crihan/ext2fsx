@@ -40,7 +40,7 @@ in the global preferences. Only the global copy affects mount_ext2fs.
 */
 #define EXT_PREF_KEY_GLOBAL @"Global"
 /*!
-@defined EXT_PREF_KEY_GLOBAL
+@defined EXT_PREF_KEY_MEDIA
 @abstract Dictionary key to get the preferences specific to a single disk/partition.
 @discussion The list is stored as a dictionary keyed on the filesystem UUID.
 */
