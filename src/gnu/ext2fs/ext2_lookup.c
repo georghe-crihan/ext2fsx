@@ -79,13 +79,13 @@ extern struct nchstats nchstats;
 #include <ext2_byteorder.h>
 
 #ifdef DIAGNOSTIC
-static int dirchk = 1;
+__private_extern__ int dirchk = 1;
 #else
-static int dirchk = 0;
+__private_extern__ int dirchk = 0;
 #endif
 
 SYSCTL_NODE(_vfs, OID_AUTO, e2fs, CTLFLAG_RD, 0, "EXT2FS filesystem");
-SYSCTL_INT(_vfs_e2fs, OID_AUTO, dircheck, CTLFLAG_RW, &dirchk, 0, "");
+SYSCTL_INT(_vfs_e2fs, EXT2_SYSCTL_INT_DIRCHECK, dircheck, CTLFLAG_RW, &dirchk, 0, "");
 
 /* 
    DIRBLKSIZE in ffs is DEV_BSIZE (in most cases 512)
@@ -460,6 +460,12 @@ ext2_lookup(ap)
    /* Check for indexed dir */
    if (is_dx(dp)) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
+      /* For some reason, ext3_dx_find_entry() doesn't handle
+         '.' and '..', so fall back. */
+      if ((1 == cnp->cn_namelen && !strncmp(cnp->cn_nameptr, ".", 1)) ||
+         (2 == cnp->cn_namelen && !strncmp(cnp->cn_nameptr, "..", 2)))
+         goto dx_fallback;
+      
       dentry.d_parent = &dparent;
       dentry.d_name.name = cnp->cn_nameptr;
       dentry.d_name.len = cnp->cn_namelen;
@@ -474,16 +480,19 @@ ext2_lookup(ap)
       if (bp) {
          dp->i_ino = le32_to_cpu(ep->inode);
          dp->i_reclen = le16_to_cpu(ep->rec_len);
+         entryoffsetinblock = (char*)ep - bp->b_data;
          error = 0;
          goto found;
       }
       if (error != ERR_BAD_DX_DIR) {
          error = -error; /* Linux uses -ve errors */
+         entryoffsetinblock = 0;
          goto notfound;
       }
       dxtrace(printf("ext2_lookup: dx failed, falling back\n"));
       dx = 0;
    }
+dx_fallback:
 
 	/*
 	 * If there is cached information on a previous search of
@@ -1171,7 +1180,6 @@ ext2_dirrewrite(dp, ip, cnp)
       dentry.d_name.name = cnp->cn_nameptr;
       dentry.d_name.len = cnp->cn_namelen;
       dentry.d_inode = NULL;
-      error = ENOENT;
       
       bp = ext3_dx_find_entry(&dentry, &ep, &error);
       if (!bp)
