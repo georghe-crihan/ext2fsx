@@ -28,7 +28,7 @@ static const char super_whatid[] __attribute__ ((unused)) =
 
 #define EXT_SUPER_SIZE 4096
 #define EXT_SUPER_OFF 1024
-static extsuper_read (const char *device, char **bout, struct ext2_super_block **sbp)
+static int extsuper_read (const char *device, char **bout, struct ext2_super_block **sbp)
 {
    int fd, bytes;
    char *buf;
@@ -77,6 +77,8 @@ static extsuper_read (const char *device, char **bout, struct ext2_super_block *
    return (0);
 }
 
+#ifdef EXT_SUPER_ISCLEAN
+
 static int extsuper_isclean(char *devpath)
 {
    char *buf;
@@ -92,6 +94,8 @@ static int extsuper_isclean(char *devpath)
    free(buf);
    return (err);
 }
+
+#endif /* EXT_SUPER_ISCLEAN */
 
 #ifdef EXT_SUPER_UUID
 
