@@ -18,6 +18,8 @@
 	<false/>
 	<key>IFPkgFlagAuthorizationAction</key>
 	<string>RootAuthorization</string>
+	<key>IFPkgFlagBackgroundAlignment</key>
+	<string>right</string>
 	<key>IFPkgFlagDefaultLocation</key>
 	<string>/</string>
 	<key>IFPkgFlagInstallFat</key>
@@ -34,5 +36,7 @@
 	<false/>
 	<key>IFPkgFormatVersion</key>
 	<real>0.10000000149011612</real>
+	<key>IfPkgFlagBackgroundScaling</key>
+	<string>none</string>
 </dict>
 </plist>
