@@ -867,6 +867,7 @@
 				D3660D7E064407A1009810C9,
 				D3660C160643EDA2009810C9,
 				D3660C1E0643EDA6009810C9,
+				D38220C30667035500AD3D37,
 				D3EF01CF065FBB3F008F2E4E,
 				D38220590666B05800AD3D37,
 			);
@@ -886,6 +887,8 @@
 			files = (
 				D3660C190643EDA5009810C9,
 				D3660C240643EDAC009810C9,
+				D38222C40667BE5200AD3D37,
+				D382233C0667C01500AD3D37,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1181,7 +1184,10 @@
 				D36725B3057A698B00A80164,
 				D36725B4057A698B00A80164,
 				D36725B5057A698B00A80164,
+				D38220C10667035500AD3D37,
+				D38220C20667035500AD3D37,
 				D38220580666B05800AD3D37,
+				D38222C30667BE5200AD3D37,
 				D3660C680643F85B009810C9,
 				D36725FE057BB78100A80164,
 				D36725BA057A6F0700A80164,
@@ -1381,6 +1387,51 @@
 		};
 		D38220590666B05800AD3D37 = {
 			fileRef = D38220580666B05800AD3D37;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38220C10667035500AD3D37 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = ExtFSMediaSMART.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38220C20667035500AD3D37 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			path = ExtFSMediaSMART.m;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38220C30667035500AD3D37 = {
+			fileRef = D38220C10667035500AD3D37;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		D38222C30667BE5200AD3D37 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			path = ExtFSMediaPrivate.m;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38222C40667BE5200AD3D37 = {
+			fileRef = D38222C30667BE5200AD3D37;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D382233C0667C01500AD3D37 = {
+			fileRef = D38220C20667035500AD3D37;
 			isa = PBXBuildFile;
 			settings = {
 			};
