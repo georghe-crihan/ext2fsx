@@ -829,11 +829,11 @@
 			<key>FSRepairArguments</key>
 			<string>-y</string>
 			<key>FSRepairExecutable</key>
-			<string>../../../../../../usr/local/sbin/fsck_ext2</string>
+			<string>../../../../../../sbin/fsck_ext2</string>
 			<key>FSVerificationArguments</key>
 			<string>-n</string>
 			<key>FSVerificationExecutable</key>
-			<string>../../../../../../usr/local/sbin/fsck_ext2</string>
+			<string>../../../../../../sbin/fsck_ext2</string>
 		</dict>
 	</dict>
 </dict>
