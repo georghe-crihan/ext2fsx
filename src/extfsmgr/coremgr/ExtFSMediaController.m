@@ -722,7 +722,7 @@ exit:
             kr = IORegistryEntryGetParentEntry(ioparentold, kIOServicePlane, &ioparent);
             IOObjectRelease(ioparentold);
         }
-        //NSLog(@"dbg: type = %x", transType); if (ioparent)
+        if (ioparent)
             IOObjectRelease(ioparent);
         dvd = IOObjectConformsTo(service, kIODVDMediaClass);
         cd = IOObjectConformsTo(service, kIOCDMediaClass);
