@@ -295,11 +295,11 @@ ext2_readdir(ap)
 			 * - the file type is encoded in a different way.
 			 *
 			 * "Old" ext2fs directory entries need no special
-			 * conversions, since they binary compatible with
+			 * conversions, since they are binary compatible with
 			 * "new" entries having a file type of 0 (i.e.,
 			 * EXT2_FT_UNKNOWN).  Splitting the old name length
 			 * field didn't make a mess like it did in ufs,
-			 * because ext2fs uses a machine-dependent disk
+			 * because ext2fs uses a machine-independent disk
 			 * layout.
 			 */
 			dstdp.d_fileno = le32_to_cpu(dp->inode);
@@ -336,7 +336,7 @@ io_done:
 			off_t off;
 
 			if (uio->uio_segflg != UIO_SYSSPACE || uio->uio_iovcnt != 1)
-				panic("ext2fs_readdir: unexpected uio from NFS server");
+				panic("ext2_readdir: unexpected uio from NFS server");
 			MALLOC(cookies, u_long *, ncookies * sizeof(u_long), M_TEMP,
 			       M_WAITOK);
 			off = startoffset;
@@ -375,7 +375,7 @@ io_done:
  * be "."., but the caller must check to ensure it does an vrele and vput
  * instead of two vputs.
  *
- * Overall outline of ufs_lookup:
+ * Overall outline of ext2_lookup:
  *
  *	search for name in directory, to found or notfound
  * notfound:
