@@ -67,9 +67,7 @@
 #include <machine/spl.h>
 
 #include "ext2_apple.h"
-#ifdef EXT2FS_DEBUG
 #include <gnu/ext2fs/ext2_fs.h>
-#endif
 #include <gnu/ext2fs/inode.h>
 
 /* Cribbed from FreeBSD kern/vfs_subr.c */
