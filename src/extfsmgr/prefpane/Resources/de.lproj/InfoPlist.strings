@@ -1,7 +1,7 @@
 /* Localized versions of Info.plist keys */
 
 CFBundleName = "Manager von ExtFS";
-CFBundleShortVersionString = "Manager von ExtFS 1.0.3";
-CFBundleGetInfoString = "Manager von ExtFS 1.0.3, © Copyright 2003-2004, Brian Bergstrand.";
+CFBundleShortVersionString = "Manager von ExtFS 1.1";
+CFBundleGetInfoString = "Manager von ExtFS 1.1, © Copyright 2003-2004, Brian Bergstrand.";
 NSHumanReadableCopyright = "© Copyright 2003-2004, Brian Bergstrand.";
 NSPrefPaneIconLabel = "Manager\nvon ExtFS";
