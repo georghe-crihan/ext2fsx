@@ -42,7 +42,9 @@
 #include <machine/spl.h>
 
 #include "ext2_apple.h"
-#endif
+#else
+#define meta_bread bread
+#endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -83,19 +85,23 @@ struct ext2_group_desc * get_group_desc (struct mount * mp,
 	unsigned long desc;
 	struct ext2_group_desc * gdp;
 
-	if (block_group >= sb->s_groups_count)
+	if (block_group >= sb->s_groups_count) {
 		panic ("get_group_desc: "
 			    "block_group >= groups_count - "
 			    "block_group = %d, groups_count = %lu",
 			    block_group, sb->s_groups_count);
+      /* Linux logs the panic msg and returns NULL */
+   }
 
 	group_desc = block_group / EXT2_DESC_PER_BLOCK(sb);
 	desc = block_group % EXT2_DESC_PER_BLOCK(sb);
-	if (!sb->s_group_desc[group_desc])
+	if (!sb->s_group_desc[group_desc]) {
 		panic ( "get_group_desc:"
 			    "Group descriptor not loaded - "
 			    "block_group = %d, group_desc = %lu, desc = %lu",
 			     block_group, group_desc, desc);
+      /* Linux logs the panic msg and returns NULL */
+   }
 	gdp = (struct ext2_group_desc *) 
 		sb->s_group_desc[group_desc]->b_data;
 	if (bh)
@@ -113,7 +119,7 @@ static void read_inode_bitmap (struct mount * mp,
 	int	error;
 
 	gdp = get_group_desc (mp, block_group, NULL);
-	if ((error = bread (VFSTOEXT2(mp)->um_devvp,
+	if ((error = meta_bread (VFSTOEXT2(mp)->um_devvp,
 			    fsbtodb(sb, le32_to_cpu(gdp->bg_inode_bitmap)), 
 			    sb->s_blocksize,
 			    NOCRED, &bh)) != 0)
