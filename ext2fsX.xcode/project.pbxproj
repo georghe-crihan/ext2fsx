@@ -36,6 +36,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "\U0001-DOSX -DEXT_KNOTE";
 				ZERO_LINK = NO;
@@ -743,6 +744,7 @@
 			buildRules = (
 			);
 			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "\U0001-DOSX";
 			};
@@ -865,6 +867,7 @@
 				D3660D7E064407A1009810C9,
 				D3660C160643EDA2009810C9,
 				D3660C1E0643EDA6009810C9,
+				D3EF01CF065FBB3F008F2E4E,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -905,13 +908,12 @@
 			buildRules = (
 			);
 			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 2;
+				DYLIB_CURRENT_VERSION = 2;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = A;
+				FRAMEWORK_VERSION = B;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = src/extfsmgr/coremgr/ExtFSDiskManager.h;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
@@ -1173,6 +1175,7 @@
 		D367265C057D3ECB00A80164 = {
 			children = (
 				D3660D7D064407A1009810C9,
+				D3EF01CE065FBB3F008F2E4E,
 				D36725B2057A698B00A80164,
 				D36725B3057A698B00A80164,
 				D36725B4057A698B00A80164,
@@ -2183,11 +2186,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.3</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.3</string>
+	<string>1.1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>10.2.0</string>
 	<key>NSMainNibFile</key>
@@ -2316,6 +2319,20 @@
 		};
 		D3D4AF400579166400A80164 = {
 			fileRef = D3D4AF3E0579166400A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3EF01CE065FBB3F008F2E4E = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = ExtFSLock.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D3EF01CF065FBB3F008F2E4E = {
+			fileRef = D3EF01CE065FBB3F008F2E4E;
 			isa = PBXBuildFile;
 			settings = {
 			};
