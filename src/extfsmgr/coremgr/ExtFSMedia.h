@@ -161,7 +161,7 @@ BSD kernel identifies it.
 
 /*!
 @method isEjectable
-@abstract Determine if the media is ejectable from it's enclosure.
+@abstract Determine if the media is ejectable from its enclosure.
 @result YES if the media can be ejected, otherwise NO.
 */
 - (BOOL)isEjectable;
@@ -200,13 +200,13 @@ as a whole (ie the total disk, not a partition of the disk).
 - (BOOL)isLeafDisk;
 /*!
 @method isDVDROM
-@abstract Determine if the media is a DVD disc.
+@abstract Determine if the media is a DVD.
 @result YES if the media is a DVD, otherwise NO.
 */
 - (BOOL)isDVDROM;
 /*!
 @method isCDROM
-@abstract Determine if the media is a CD disc.
+@abstract Determine if the media is a CD.
 @result YES if the media is a CD, otherwise NO.
 */
 - (BOOL)isCDROM;
@@ -254,7 +254,7 @@ be fsTypeUnknown.
 @result Size of available space in bytes. Always 0 if the filesystem is
 not mounted.
 */
-- (u_int64_t)availableSize; /* bytes */
+- (u_int64_t)availableSize;
 /*!
 @method blockCount
 @abstract Determine the block count of the filesystem or media.
@@ -379,7 +379,7 @@ Always NO if the media is not mounted or the filesystem is not Ext2/3.
 @const ExtFSMediaNotificationUpdatedInfo
 @abstract This notification is sent to the default Notification center
 when the filesystem information has been updated (available space, file count, etc).
-The affected media object is attached.
+The changed media object is attached.
 */
 extern NSString * const ExtFSMediaNotificationUpdatedInfo;
 /*!

@@ -79,7 +79,7 @@ disk and each partition on a disk.
 - (NSArray*)mediaWithFSType:(ExtFSType)fstype;
 /*!
 @method mediaWithBSDName
-@abstract Search for a media object by it's BSD kernel name.
+@abstract Search for a media object by its BSD kernel name.
 @param device A string containing the device name to search for
 (excluding any paths).
 @result A media object matching the device name, or nil if a match was not found.
