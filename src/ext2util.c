@@ -103,6 +103,10 @@ static const char whatid[] __attribute__ ((unused)) =
 #define FSUC_UNJNL   'U'
 #endif
 
+#ifndef FSUC_LABEL
+#define FSUC_LABEL		'n'
+#endif
+
 #define FS_TYPE			EXT2FS_NAME
 #define FS_NAME_FILE		EXT2FS_NAME
 #define FS_BUNDLE_NAME		"ext2fs.kext"
@@ -122,7 +126,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #define NODEV_OPT			"nodev"
 #define LABEL_LENGTH		16
 
-#define FSUC_LABEL		'n'
+#define FS_LABEL_COMMAND "/usr/local/sbin/e2label"
 
 #define UNKNOWN_LABEL		"UNTITLED"
 
@@ -151,9 +155,7 @@ static int fs_probe(char *devpath, int removable, int writable);
 static int fs_mount(char *devpath, char *mount_point, int removable, 
 	int writable, int suid, int dev);
 static int fs_unmount(char *devpath);
-#if 0
 static int fs_label(char *devpath, char *volName);
-#endif
 static void fs_set_label_file(char *labelPtr);
 static int fs_getuuid(char *devpath, u_char *uuid);
 
@@ -189,7 +191,7 @@ void usage()
         fprintf(stderr, "\t-%c (Probe)\n", FSUC_PROBE);
         fprintf(stderr, "\t-%c (Mount)\n", FSUC_MOUNT);
         fprintf(stderr, "\t-%c (Unmount)\n", FSUC_UNMOUNT);
-        fprintf(stderr, "\t-%c name\n", 'n');
+        fprintf(stderr, "\t-%c (Set Name)\n", FSUC_LABEL);
         fprintf(stderr, "\t-%c (Get UUID)\n", FSUC_GETUUID);
     fprintf(stderr, "device_arg:\n");
     fprintf(stderr, "\tdevice we are acting upon (for example, 'disk0s2')\n");
@@ -290,11 +292,10 @@ int main(int argc, char **argv)
             ret = fs_unmount(rawdevpath);
             break;
         case FSUC_LABEL:
-            #if 0
-            ret = fs_label(rawdevpath, argv[2]);
-            #else
-            ret = FSUR_INVAL;
-            #endif
+            if (argc != 3)
+               usage();
+               
+            ret = fs_label(blockdevpath, argv[2]);
             break;
          case FSUC_GETUUID:
             {
@@ -349,8 +350,8 @@ int main(int argc, char **argv)
 }
 
 static int fs_mount(char *devpath, char *mount_point, int removable, int writable, int suid, int dev) {
-    const char *kextargs[] = {KEXTLOAD_COMMAND, FS_KEXT_DIR, NULL};
-    const char *mountargs[] = {MOUNT_COMMAND, READWRITE_OPT, "-o", SUID_OPT, "-o",
+    char *kextargs[] = {KEXTLOAD_COMMAND, FS_KEXT_DIR, NULL};
+    char *mountargs[] = {MOUNT_COMMAND, READWRITE_OPT, "-o", SUID_OPT, "-o",
         DEV_OPT, "-t", FS_TYPE, devpath, mount_point, NULL};
 
     if (! writable)
@@ -371,7 +372,7 @@ static int fs_mount(char *devpath, char *mount_point, int removable, int writabl
 }
 
 static int fs_unmount(char *devpath) {
-        const char *umountargs[] = {UMOUNT_COMMAND, devpath, NULL};
+        char *umountargs[] = {UMOUNT_COMMAND, devpath, NULL};
 
         safe_execv(umountargs);
         return(FSUR_IO_SUCCESS);
@@ -702,8 +703,10 @@ static int fs_getuuid(char *devpath, u_char *uuid)
    return (FSUR_IO_SUCCESS);
 }
 
-#if 0
 static int fs_label(char *devpath, char *volName)
 {
+   char *labelargs[] = {FS_LABEL_COMMAND, devpath, volName, NULL};
+               
+   safe_execv(labelargs);
+   return (FSUR_IO_SUCCESS);
 }
-#endif
