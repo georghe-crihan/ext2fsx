@@ -29,6 +29,9 @@
 #define EXT2FS_NAME "ext2"
 #define EXT3FS_NAME "ext3"
 
+#define EXT2_VOL_LABEL_LENGTH 16
+#define EXT2_VOL_LABEL_INVAL_CHARS "\"*/:;<=>?[\\]|"
+
 #ifdef KERNEL
 
 #ifdef DIAGNOSTIC
@@ -66,6 +69,7 @@ __private_extern__ int ext2_unlock __P((struct vop_unlock_args *));
 __private_extern__ int ext2_islocked __P((struct vop_islocked_args *));
 __private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
 __private_extern__ int ext2_ioctl __P((struct vop_ioctl_args *));
+__private_extern__ int ext2_setattrlist __P((struct vop_setattrlist_args *));
 
 #if 0 //DIAGNOSTIC
 __private_extern__ void ext2_checkdirsize(struct vnode *dvp);
