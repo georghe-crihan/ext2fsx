@@ -159,4 +159,10 @@ static __inline__ char * memscan(void * addr, unsigned char c, int size)
         return addr;
 }
 
+#define ext2_set_bit set_bit
+#define ext2_clear_bit clear_bit
+#define ext2_test_bit test_bit
+#define ext2_find_first_zero_bit find_first_zero_bit
+#define ext2_find_next_zero_bit find_next_zero_bit
+
 #endif /* !_SYS_GNU_EXT2FS_I386_BITOPS_H_ */
