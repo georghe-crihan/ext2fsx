@@ -34,8 +34,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				OPTIMIZATION_CFLAGS = "-O2";
-				OTHER_CFLAGS = "-D_KERNEL";
+				OPTIMIZATION_CFLAGS = "\U0001-O2";
+				OTHER_CFLAGS = "\U0001-D_KERNEL";
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -68,6 +68,7 @@
 				06AA1262FFB20DD611CA28AA,
 				06AA1263FFB20DD611CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -108,7 +109,7 @@
 				MODULE_STOP = ext2fs_stop;
 				MODULE_VERSION = 1.0.0d1;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "\U0001-DREADONLY";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2fs;
@@ -145,10 +146,14 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>1.0.0d1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+	</dict>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -305,6 +310,7 @@
 //F53
 //F54
 		F5106D60035A69B701A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_vfsops.c;
 			refType = 4;
@@ -316,6 +322,7 @@
 			};
 		};
 		F53B8660035FE78601A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_subr.c;
 			refType = 4;
@@ -327,6 +334,7 @@
 			};
 		};
 		F53B86BF03610B5901A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_readwrite.c;
 			refType = 4;
@@ -338,6 +346,7 @@
 			};
 		};
 		F53B86C10361275401A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_vnops.c;
 			refType = 4;
@@ -349,6 +358,7 @@
 			};
 		};
 		F53BA31103CBEF8D01A80164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_apple.c;
 			refType = 4;
@@ -360,6 +370,7 @@
 			};
 		};
 		F53FE97F035E7DB501A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_ihash.c;
 			refType = 4;
@@ -371,6 +382,7 @@
 			};
 		};
 		F53FE981035E84C201A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_inode_cnv.c;
 			refType = 4;
@@ -382,6 +394,7 @@
 			};
 		};
 		F53FE983035E84F001A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_inode.c;
 			refType = 4;
@@ -393,6 +406,7 @@
 			};
 		};
 		F53FE985035E8E5201A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_linux_balloc.c;
 			refType = 4;
@@ -404,6 +418,7 @@
 			};
 		};
 		F54E5107035FDEE601A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_linux_ialloc.c;
 			refType = 4;
@@ -415,6 +430,7 @@
 			};
 		};
 		F54E5109035FDFBE01A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_lookup.c;
 			refType = 4;
@@ -426,6 +442,7 @@
 			};
 		};
 		F5E7E349035BD34B01A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_apple.h;
 			refType = 2;
@@ -437,6 +454,7 @@
 			};
 		};
 		F5E7E34B035BEAA101A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_alloc.c;
 			refType = 4;
@@ -448,6 +466,7 @@
 			};
 		};
 		F5E7E34D035BEC0801A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_balloc.c;
 			refType = 4;
@@ -459,6 +478,7 @@
 			};
 		};
 		F5E7E34F035BF11D01A80165 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ext2_bmap.c;
 			refType = 4;
