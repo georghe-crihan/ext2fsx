@@ -1950,7 +1950,6 @@ ext2_strategy(ap)
 	bp->b_dev = vp->v_rdev;
 	VOP_STRATEGY(vp, bp);
    #else
-   vp = ip->i_devvp;
    bp->b_dev = vp->v_rdev;
    return (VOCALL (vp->v_op, VOFFSET(vop_strategy), ap));
    #endif
@@ -2195,6 +2194,11 @@ ext2_pathconf(ap)
 	case _PC_NO_TRUNC:
 		*ap->a_retval = 1;
 		return (0);
+   #ifdef APPLE
+   case _PC_CASE_SENSITIVE:
+      *ap->a_retval = 1;
+      return(0);
+   #endif
 	default:
 		return (EINVAL);
 	}
