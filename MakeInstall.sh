@@ -41,11 +41,12 @@ fi
 
 mkdir -p "${INSTALL}/System/Library/Extensions"
 mkdir -p "${INSTALL}/System/Library/Filesystems"
-mkdir -p "${INSTALL}/Library/PreferencePanes/"
+mkdir -p "${INSTALL}/Library/PreferencePanes"
 mkdir "${INSTALL}/sbin"
 mkdir -p "${INSTALL}/usr/share/man/man8"
 mkdir -p "${INSTALL}/usr/local/lib"
 mkdir -p "${INSTALL}/usr/local/share/doc"
+mkdir -p "${INSTALL}/usr/local/man"
 
 #install e2fsprogs
 cd "${EXT2BUILD}/src/e2fsprogs"
@@ -53,18 +54,21 @@ DESTDIR="${INSTALL}" make install
 
 cd "${EXT2BUILD}"
 
-#mv fsck to /sbin and then remake the links
-mv "${INSTALL}/usr/local/sbin/e2fsck" "${INSTALL}/sbin/fsck_ext2"
-
-cd "${INSTALL}/usr/local/sbin"
-rm fsck.ext2 fsck.ext3
-ln -sf ../../../sbin/fsck_ext2 ./e2fsck
-ln -sf ../../../sbin/fsck_ext2 ./fsck.ext2
-ln -sf ../../../sbin/fsck_ext2 ./fsck.ext3
-
-cd ../share/man/man8
+cd "${INSTALL}/usr/local/share/man/man8"
 ln -f e2fsck.8 ./fsck_ext2.8
 ln -f mke2fs.8 ./newfs_ext2.8
+
+# link them into man also, since MANPATH defaults to /usr/local/man
+cd "${INSTALL}/usr/local/share/man"
+PAGES=`find . -type f`
+for i in ${PAGES}
+do
+if [ ! -d ../../man/`dirname $i` ]; then
+mkdir ../../man/`dirname $i`
+fi
+ln -f $i ../../man/$i
+done
+
 
 #lib sym links
 cd "${INSTALL}/usr/local/lib"
@@ -92,20 +96,19 @@ cp -p "${EXT2BUILD}/src/mount_ext2fs/mount_ext2fs.8" "${INSTALL}/usr/share/man/m
 #newfs
 cp -p "${BUILD}/newfs_ext2" "${INSTALL}/sbin"
 
+#fsck
+cp -p "${BUILD}/fsck_ext2" "${INSTALL}/sbin"
+
 #e2undel
 cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
 cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
 
-#get rid of unwanted files
-find "${INSTALL}" -name "\.DS_Store" -exec rm {} \;
-find "${INSTALL}" -name "pbdevelopment.plist" -exec rm {} \;
-find "${INSTALL}" -name "CVS" -type d -exec rm -fr {} \;
-
-#e2fsprogs copyright
-cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSPROGS_COPYRIGHT"
-
-# build the jag version of the kext
-mv "${BUILD}/ext2fs.kext" "${BUILD}/ext2fs_panther.kext"
+# build the jag version of the kext if needed
+PANK="${BUILD}/ext2fs_panther.kext"
+JAGK="${BUILD}/ext2fs_jag.kext"
+KMOD="Contents/MacOS/ext2fs"
+if [ ! -d "${JAGK}" ] || [ ! `find "${JAGK}/${KMOD}" -newer "${BUILD}/ext2fs.kext/${KMOD}"` ]; then
+mv "${BUILD}/ext2fs.kext" "${PANK}"
 BUILDER=pbxbuild
 if [ -d "${EXT2BUILD}/ext2fsX.xcode" ]; then
 	BUILDER=xcodebuild
@@ -115,7 +118,7 @@ else
 fi
 # XXX hack to determine if we are building a debug version
 BUILDSTYLE="JagDeployment"
-DBG=`nm -m "${BUILD}/ext2fs_panther.kext/Contents/MacOS/ext2fs" | grep logwakeup`
+DBG=`nm -m "${PANK}/Contents/MacOS/ext2fs" | grep logwakeup`
 if [ "${DBG}" != "" ]; then
 	BUILDSTYLE="JagDevelopment"
 fi
@@ -125,21 +128,34 @@ echo "Building Jaguar Kext..."
 ${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean > ${BUILDLOG} 2>&1
 ${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} build >> ${BUILDLOG} 2>&1
 if [ ! -d "${BUILD}/ext2fs.kext" ]; then
-	mv "${BUILD}/ext2fs_panther.kext" "${BUILD}/ext2fs.kext"
+	mv "${PANK}" "${BUILD}/ext2fs.kext"
 	echo "Jag Kext build failed! Stopping. See ${BUILDLOG}."
 	exit 1
 fi
 rm ${BUILDLOG}
-# Set the correct kernel dependency
-sed -f "${EXT2BUILD}/inst/infover.sed" "${BUILD}/ext2fs_panther.kext/Contents/Info.plist" \
+# Set the correct kernel dependency version
+sed -f "${EXT2BUILD}/inst/infover.sed" "${PANK}/Contents/Info.plist" \
 > "${BUILD}/ext2fs.kext/Contents/Info.plist"
-#copy to install
-cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/System/Library/Extensions/ext2fs_jag.kext"
-#build clean, so rebuilding from PB won't pick up stale object files.
+#save jag kext
+mv "${BUILD}/ext2fs.kext" "${JAGK}"
+#build clean, so rebuilding from XCode/PB won't pick up stale object files.
 ${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean > /dev/null 2>&1
-mv "${BUILD}/ext2fs_panther.kext" "${BUILD}/ext2fs.kext"
+mv "${PANK}" "${BUILD}/ext2fs.kext"
 # Get back to the root
 cd "${EXT2BUILD}"
+else
+echo "Using existing Jaguar Kext"
+fi # -newer test
+#copy to install
+cp -pR "${JAGK}" "${INSTALL}/System/Library/Extensions/ext2fs_jag.kext"
+
+#get rid of unwanted files
+find "${INSTALL}" -name "\.DS_Store" | xargs rm
+find "${INSTALL}" -name "pbdevelopment.plist" | xargs rm
+find "${INSTALL}" -name "CVS" -type d | xargs rm -fr
+
+#e2fsprogs copyright
+cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSPROGS_COPYRIGHT"
 
 # set perms
 chmod -R go-w "${INSTALL}"
