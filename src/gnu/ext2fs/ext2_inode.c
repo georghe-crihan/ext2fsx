@@ -144,6 +144,9 @@ ext2_truncate(vp, length, flags, cred, td)
 	int offset, size, level;
 	long count, nblocks, blocksreleased = 0;
 	int aflags, error, i, allerror;
+   #ifdef APPLE
+   int devBlockSize=0, vflags;
+   #endif
 	off_t osize;
 /*
 printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
@@ -155,6 +158,11 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 	    return EFBIG;
 
 	oip = VTOI(ovp);
+   
+   #ifdef APPLE
+   VOP_DEVBLOCKSIZE(oip->i_devvp, &devBlockSize);
+   #endif
+   
 	if (ovp->v_type == VLNK &&
 	    oip->i_size < ovp->v_mount->mnt_maxsymlinklen) {
 #if DIAGNOSTIC
@@ -184,15 +192,27 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 		aflags = B_CLRBUF;
 		if (flags & IO_SYNC)
 			aflags |= B_SYNC;
+      #ifndef APPLE
 		vnode_pager_setsize(ovp, length);
+      #endif
 		if ((error = ext2_balloc(oip, lbn, offset + 1, cred, &bp,
 		    aflags)) != 0)
 			return (error);
 		oip->i_size = length;
+      #ifdef APPLE
+      if (UBCINFOEXISTS(ovp)) {
+			bp->b_flags |= B_INVAL;
+			bwrite(bp);
+			ubc_setsize(ovp, (off_t)length); 
+		} else {
+      #endif
 		if (aflags & IO_SYNC)
 			bwrite(bp);
 		else
 			bawrite(bp);
+      #ifdef APPLE
+      }
+      #endif
 		oip->i_flag |= IN_CHANGE | IN_UPDATE;
 		return (ext2_update(ovp, 1));
 	}
@@ -204,6 +224,15 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 	 * of subsequent file growth.
 	 */
 	/* I don't understand the comment above */
+   
+   #ifdef APPLE
+   if (UBCINFOEXISTS(ovp))
+		ubc_setsize(ovp, (off_t)length); 
+
+	vflags = ((length > 0) ? V_SAVE : 0) | V_SAVEMETA;
+	allerror = vinvalbuf(ovp, vflags, cred, td, 0, 0);
+   #endif
+   
 	offset = blkoff(fs, length);
 	if (offset == 0) {
 		oip->i_size = length;
@@ -219,10 +248,19 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 		size = blksize(fs, oip, lbn);
 		bzero((char *)bp->b_data + offset, (u_int)(size - offset));
 		allocbuf(bp, size);
+      #ifdef APPLE
+      if (UBCINFOEXISTS(ovp)) {
+			bp->b_flags |= B_INVAL;
+			bwrite(bp);
+		} else {
+      #endif
 		if (aflags & IO_SYNC)
 			bwrite(bp);
 		else
 			bawrite(bp);
+      #ifdef APPLE
+      }
+      #endif
 	}
 	/*
 	 * Calculate index into inode's block list of
@@ -234,11 +272,10 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 	lastiblock[SINGLE] = lastblock - NDADDR;
 	lastiblock[DOUBLE] = lastiblock[SINGLE] - NINDIR(fs);
 	lastiblock[TRIPLE] = lastiblock[DOUBLE] - NINDIR(fs) * NINDIR(fs);
-	nblocks =
-   #ifndef APPLE
-   btodb(fs->s_blocksize);
+	#ifndef APPLE
+   nblocks = btodb(fs->s_blocksize);
    #else
-   btodb(fs->s_blocksize, DEV_BSIZE);
+   nblocks = btodb(fs->s_blocksize, devBlockSize);
    #endif
 	/*
 	 * Update file and block pointers on disk before we start freeing
@@ -269,7 +306,8 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
    #ifndef APPLE
 	error = vtruncbuf(ovp, cred, td, length, (int)fs->s_blocksize);
    #else
-   error = vinvalbuf(ovp, 0, cred, td, 0, 0);
+   vflags = ((length > 0) ? V_SAVE : 0) | V_SAVEMETA;
+   error = vinvalbuf(ovp, vflags, cred, td, 0, 0);
    #endif
 	if (error && (allerror == 0))
 		allerror = error;
@@ -314,7 +352,7 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
       #ifndef APPLE
       btodb(bsize);
       #else
-      btodb(bsize, DEV_BSIZE);
+      btodb(bsize, devBlockSize);
       #endif
 	}
 	if (lastblock < 0)
@@ -349,7 +387,7 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
          #ifndef APPLE
          btodb(oldspace - newspace);
          #else
-         btodb(oldspace - newspace, DEV_BSIZE);
+         btodb(oldspace - newspace, devBlockSize);
          #endif
 		}
 	}
@@ -380,7 +418,10 @@ done:
 	if (oip->i_blocks < 0)			/* sanity */
 		oip->i_blocks = 0;
 	oip->i_flag |= IN_CHANGE;
+   
+   #ifndef APPLE
 	vnode_pager_setsize(ovp, length);
+   #endif
 	return (allerror);
 }
 
@@ -409,6 +450,11 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	long blkcount, factor;
 	int i, nblocks, blocksreleased = 0;
 	int error = 0, allerror = 0;
+   #ifdef APPLE
+   int devBlockSize=0;
+   
+   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   #endif
 
 	/*
 	 * Calculate index in current block of last
@@ -425,7 +471,7 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
    #ifndef APPLE
    btodb(fs->s_blocksize);
    #else
-   btodb(fs->s_blocksize, DEV_BSIZE);
+   btodb(fs->s_blocksize, devBlockSize);
    #endif
 	/*
 	 * Get buffer of block pointers, zero those entries corresponding
@@ -579,7 +625,7 @@ ext2_reclaim(ap)
 	struct vnode *vp = ap->a_vp;
 
 	if (prtactive && vrefcnt(vp) != 0)
-		vprint("ufs_reclaim: pushing active", vp);
+		vprint("ext2_reclaim: pushing active", vp);
 	ip = VTOI(vp);
 	if (ip->i_flag & IN_LAZYMOD) {
 		ip->i_flag |= IN_MODIFIED;

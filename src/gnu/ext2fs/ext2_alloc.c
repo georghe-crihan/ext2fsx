@@ -58,6 +58,7 @@
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
+#include <ext2_byteorder.h>
 
 static void	ext2_fserr(struct ext2_sb_info *, u_int, char *);
 
@@ -107,6 +108,9 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 {
 	struct ext2_sb_info *fs;
 	int32_t bno;
+   #ifdef APPLE
+   int devBlockSize=0;
+   #endif
 	
 	*bnp = 0;
 	fs = ip->i_e2fs;
@@ -119,12 +123,12 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 	if (cred == NOCRED)
 		panic("ext2_alloc: missing credential");
 #endif /* DIAGNOSTIC */
-	if (size == fs->s_blocksize && fs->s_es->s_free_blocks_count == 0)
+	if (size == fs->s_blocksize && le32_to_cpu(fs->s_es->s_free_blocks_count) == 0)
 		goto nospace;
 	if (cred->cr_uid != 0 && 
-		fs->s_es->s_free_blocks_count < fs->s_es->s_r_blocks_count)
+		le32_to_cpu(fs->s_es->s_free_blocks_count) < le32_to_cpu(fs->s_es->s_r_blocks_count))
 		goto nospace;
-	if (bpref >= fs->s_es->s_blocks_count)
+	if (bpref >= le32_to_cpu(fs->s_es->s_blocks_count))
 		bpref = 0;
 	/* call the Linux code */
 #ifdef EXT2_PREALLOCATE
@@ -169,7 +173,8 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
       #ifndef APPLE
 		ip->i_blocks += btodb(size);
       #else
-      ip->i_blocks += btodb(size, DEV_BSIZE);
+      VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+      ip->i_blocks += btodb(size, devBlockSize);
       #endif
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 		*bnp = bno;
@@ -381,7 +386,7 @@ ext2_valloc(pvp, mode, cred, vpp)
 	*vpp = NULL;
 	pip = VTOI(pvp);
 	fs = pip->i_e2fs;
-	if (fs->s_es->s_free_inodes_count == 0)
+	if (le32_to_cpu(fs->s_es->s_free_inodes_count) == 0)
 		goto noinodes;
 
 	/* call the Linux routine - it returns the inode number only */
@@ -393,8 +398,6 @@ ext2_valloc(pvp, mode, cred, vpp)
 	error = VFS_VGET(pvp->v_mount, ino, LK_EXCLUSIVE, vpp);
    #else
    error = VFS_VGET(pvp->v_mount, (void*)ino, vpp);
-   if (!error)
-      vn_lock(*vpp, LK_EXCLUSIVE|LK_RETRY, current_proc());
    #endif / * APPLE */
 	if (error) {
 		ext2_vfree(pvp, ino, mode);
@@ -476,7 +479,7 @@ ext2_blkpref(ip, lbn, indx, bap, blocknr)
 	return blocknr ? blocknr :
 			(int32_t)(ip->i_block_group * 
 			EXT2_BLOCKS_PER_GROUP(ip->i_e2fs)) + 
-			ip->i_e2fs->s_es->s_first_data_block;
+			le32_to_cpu(ip->i_e2fs->s_es->s_first_data_block);
 }
 
 /*

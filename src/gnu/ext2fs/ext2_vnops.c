@@ -90,6 +90,7 @@
 
 #define vfs_timestamp nanotime
 
+#include <xnu/bsd/miscfs/fifofs/fifo.h>
 #include "ext2_apple.h"
 #endif
 
@@ -146,18 +147,15 @@ static void filt_ext2detach(struct knote *kn);
 #endif /* APPLE */
 
 #ifdef APPLE
-#define vop_defaultop vn_default_error
-#define vop_stdislocked nop_islocked
-#define vop_stdlock nop_lock
-#define vop_stdunlock nop_unlock
+static int ext2fs_truncate (struct vop_truncate_args *);
 
+#define vop_defaultop vn_default_error
 #define spec_vnoperate vn_default_error
 #define fifo_vnoperate vn_default_error
 
 #define vfs_cache_lookup cache_lookup
 
-#define spec_vnodeop_p ext2_vnodeop_p
-#define fifo_vnodeop_p ext2_vnodeop_p
+extern int (**fifo_vnodeop_p)(void *); /* From kernel */
 #endif
 
 #ifndef APPLE
@@ -203,6 +201,23 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_strategy_desc,		(vop_t *) ext2_strategy },
 	{ &vop_symlink_desc,		(vop_t *) ext2_symlink },
 	{ &vop_write_desc,		(vop_t *) ext2_write },
+   #ifdef APPLE
+   { &vop_lookup_desc,	(vop_t *) ext2_cache_lookup },
+   { &vop_truncate_desc, (vop_t *) ext2fs_truncate },		/* truncate */
+   { &vop_lock_desc, (vop_t *)ext2_lock },
+	{ &vop_unlock_desc, (vop_t *)ext2_unlock },
+   { &vop_islocked_desc, (vop_t *)ext2_islocked },
+   { &vop_abortop_desc, (vop_t *)ext2_abortop },
+   { &vop_pagein_desc,			(vop_t *) ext2_pagein },
+	{ &vop_pageout_desc,		(vop_t *) ext2_pageout },
+	{ &vop_blktooff_desc,		(vop_t *) ext2_blktooff },
+	{ &vop_offtoblk_desc,		(vop_t *) ext2_offtoblk },
+  	{ &vop_cmap_desc,			(vop_t *) ext2_cmap },
+   { &vop_mmap_desc,       (vop_t *) ext2_mmap },		/* mmap */
+   { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   { &vop_getattrlist_desc,	(vop_t *) ext2_getattrlist },
+/*   { &vop_setattrlist_desc,	(vop_t *) ext2_setattrlist }, */
+   #endif /* APPLE */
 	{ NULL, NULL }
 };
 __private_extern__ struct vnodeopv_desc ext2fs_vnodeop_opv_desc =
@@ -221,6 +236,38 @@ static struct vnodeopv_entry_desc ext2_specop_entries[] = {
 	{ &vop_reclaim_desc,		(vop_t *) ext2_reclaim },
 	{ &vop_setattr_desc,		(vop_t *) ext2_setattr },
 	{ &vop_write_desc,		(vop_t *) ext2spec_write },
+  #ifdef APPLE
+	{ &vop_advlock_desc,		(vop_t *) spec_advlock },
+	{ &vop_bmap_desc,		(vop_t *) spec_bmap },
+	{ &vop_lookup_desc,	(vop_t *) spec_lookup },
+	{ &vop_create_desc,		(vop_t *) spec_create },
+	{ &vop_link_desc,		(vop_t *) spec_link },
+	{ &vop_lookup_desc,		(vop_t *) spec_lookup },
+	{ &vop_mkdir_desc,		(vop_t *) spec_mkdir },
+	{ &vop_mknod_desc,		(vop_t *) spec_mknod },
+	{ &vop_open_desc,		(vop_t *) spec_open },
+	{ &vop_pathconf_desc,		(vop_t *) spec_pathconf },
+	{ &vop_readdir_desc,		(vop_t *) spec_readdir },
+	{ &vop_readlink_desc,		(vop_t *) spec_readlink },
+	{ &vop_reallocblks_desc,	(vop_t *) spec_reallocblks },
+	{ &vop_remove_desc,		(vop_t *) spec_remove },
+	{ &vop_rename_desc,		(vop_t *) spec_rename },
+	{ &vop_rmdir_desc,		(vop_t *) spec_rmdir },
+	{ &vop_strategy_desc,		(vop_t *) spec_strategy },
+	{ &vop_symlink_desc,		(vop_t *) spec_symlink },
+   { &vop_truncate_desc, (vop_t *) spec_truncate },		/* truncate */
+   { &vop_lock_desc, (vop_t *)ext2_lock },
+	{ &vop_unlock_desc, (vop_t *)ext2_unlock },
+   { &vop_islocked_desc, (vop_t *)ext2_islocked },
+   { &vop_abortop_desc, (vop_t *)spec_abortop },
+   { &vop_pagein_desc,			(vop_t *) ext2_pagein },
+	{ &vop_pageout_desc,		(vop_t *) ext2_pageout },
+	{ &vop_blktooff_desc,		(vop_t *) ext2_blktooff },
+	{ &vop_offtoblk_desc,		(vop_t *) ext2_offtoblk },
+  	{ &vop_cmap_desc,			(vop_t *) spec_cmap },
+   { &vop_mmap_desc,       (vop_t *) spec_mmap },		/* mmap */
+   { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   #endif /* APPLE */
 	{ NULL, NULL }
 };
 __private_extern__ struct vnodeopv_desc ext2fs_specop_opv_desc =
@@ -242,6 +289,38 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 	{ &vop_reclaim_desc,		(vop_t *) ext2_reclaim },
 	{ &vop_setattr_desc,		(vop_t *) ext2_setattr },
 	{ &vop_write_desc,		(vop_t *) ext2fifo_write },
+   #ifdef APPLE
+	{ &vop_advlock_desc,		(vop_t *) fifo_advlock },
+	{ &vop_bmap_desc,		(vop_t *) fifo_bmap },
+	{ &vop_lookup_desc,	(vop_t *) fifo_lookup },
+	{ &vop_create_desc,		(vop_t *) fifo_create },
+	{ &vop_link_desc,		(vop_t *) fifo_link },
+	{ &vop_lookup_desc,		(vop_t *) fifo_lookup },
+	{ &vop_mkdir_desc,		(vop_t *) fifo_mkdir },
+	{ &vop_mknod_desc,		(vop_t *) fifo_mknod },
+	{ &vop_open_desc,		(vop_t *) fifo_open },
+	{ &vop_pathconf_desc,		(vop_t *) fifo_pathconf },
+	{ &vop_readdir_desc,		(vop_t *) fifo_readdir },
+	{ &vop_readlink_desc,		(vop_t *) fifo_readlink },
+	{ &vop_reallocblks_desc,	(vop_t *) fifo_reallocblks },
+	{ &vop_remove_desc,		(vop_t *) fifo_remove },
+	{ &vop_rename_desc,		(vop_t *) fifo_rename },
+	{ &vop_rmdir_desc,		(vop_t *) fifo_rmdir },
+	{ &vop_strategy_desc,		(vop_t *) fifo_strategy },
+	{ &vop_symlink_desc,		(vop_t *) fifo_symlink },
+   { &vop_truncate_desc, (vop_t *) fifo_truncate },		/* truncate */
+   { &vop_lock_desc, (vop_t *)ext2_lock },
+	{ &vop_unlock_desc, (vop_t *)ext2_unlock },
+   { &vop_islocked_desc, (vop_t *)ext2_islocked },
+   { &vop_abortop_desc, (vop_t *)fifo_abortop },
+   { &vop_pagein_desc,			(vop_t *) ext2_pagein },
+	{ &vop_pageout_desc,		(vop_t *) ext2_pageout },
+	{ &vop_blktooff_desc,		(vop_t *) ext2_blktooff },
+	{ &vop_offtoblk_desc,		(vop_t *) ext2_offtoblk },
+  	{ &vop_cmap_desc,			(vop_t *) ext2_cmap },
+   { &vop_mmap_desc,       (vop_t *) fifo_mmap },		/* mmap */
+   { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   #endif /* APPLE */
 	{ NULL, NULL }
 };
 __private_extern__ struct vnodeopv_desc ext2fs_fifoop_opv_desc =
@@ -386,7 +465,12 @@ ext2_close(ap)
    #endif
 
 	VI_LOCK(vp);
+   #ifndef APPLE
 	if (vp->v_usecount > 1) {
+   #else
+   if ((!UBCISVALID(vp) && vp->v_usecount > 1)
+	    || (UBCISVALID(vp) && ubc_isinuse(vp, 1))) {
+   #endif
 		ext2_itimes(vp);
 		VI_UNLOCK(vp);
 	} else {
@@ -477,6 +561,11 @@ ext2_getattr(ap)
 	struct vnode *vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	struct vattr *vap = ap->a_vap;
+   #ifdef APPLE
+   int devBlockSize=0;
+   
+   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   #endif
 
 	ext2_itimes(vp);
 	/*
@@ -507,7 +596,7 @@ ext2_getattr(ap)
    #ifndef APPLE
    dbtob((u_quad_t)ip->i_blocks);
    #else
-   dbtob((u_quad_t)ip->i_blocks, DEV_BSIZE);
+   dbtob((u_quad_t)ip->i_blocks, devBlockSize);
    #endif
 	vap->va_type = IFTOVT(ip->i_mode);
 	vap->va_filerev = ip->i_modrev;
@@ -899,8 +988,6 @@ ext2_mknod(ap)
 	error = VFS_VGET(ap->a_dvp->v_mount, ino, LK_EXCLUSIVE, vpp);
    #else
    error = VFS_VGET(ap->a_dvp->v_mount, (void*)ino, vpp);
-   if (!error)
-      vn_lock(*vpp, LK_EXCLUSIVE|LK_RETRY, current_proc());
    #endif
 	if (error) {
 		*vpp = NULL;
@@ -928,10 +1015,27 @@ ext2_remove(ap)
 		error = EPERM;
 		goto out;
 	}
+   
+   #ifdef APPLE
+   if (ap->a_cnp->cn_flags & NODELETEBUSY) {
+		/* Caller requested Carbon delete semantics */
+		if ((!UBCISVALID(vp) && vp->v_usecount > 1)
+		    || (UBCISVALID(vp) && ubc_isinuse(vp, 1))) {
+			error = EBUSY;
+			goto out;
+		}
+	}
+   #endif
+   
 	error = ext2_dirremove(dvp, ap->a_cnp);
 	if (error == 0) {
 		ip->i_nlink--;
 		ip->i_flag |= IN_CHANGE;
+      
+      #ifdef APPLE
+      /* ufs calls ubc_uncache even for errors, but we follow hfs precedent */
+      (void)ubc_uncache(vp);
+      #endif
 	}
 out:
 	return (error);
@@ -1663,16 +1767,29 @@ ext2_strategy(ap)
 	ip = VTOI(vp);
 	if (vp->v_type == VBLK || vp->v_type == VCHR)
 		panic("ext2_strategy: spec");
+      
+   #ifdef APPLE
+   if (bp->b_flags & B_PAGELIST) {
+      /*
+         * If we have a page list associated with this bp,
+         * then go through cluster_bp since it knows how to 
+         * deal with a page request that might span non-
+         * contiguous physical blocks on the disk...
+         */
+      error = cluster_bp(bp);
+      vp = ip->i_devvp;
+      bp->b_dev = vp->v_rdev;
+
+      return (error);
+   }
+   #endif
+   
 	if (bp->b_blkno == bp->b_lblkno) {
 		error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
 		bp->b_blkno = blkno;
 		if (error) {
 			bp->b_error = error;
-         #ifndef APPLE
 			bp->b_ioflags |= BIO_ERROR;
-         #else
-         bp->b_flags |= B_ERROR;
-         #endif
 			bufdone(bp);
 			return (error);
 		}
@@ -1688,8 +1805,9 @@ ext2_strategy(ap)
 	bp->b_dev = vp->v_rdev;
 	VOP_STRATEGY(vp, bp);
    #else
-   bp->b_vp = vp;
-   VOP_STRATEGY(bp);
+   vp = ip->i_devvp;
+   bp->b_dev = vp->v_rdev;
+   return (VOCALL (vp->v_op, VOFFSET(vop_strategy), ap));
    #endif
 	return (0);
 }
@@ -1983,11 +2101,7 @@ ext2_vinit(mntp, specops, fifoops, vpp)
 
 	}
 	if (ip->i_number == ROOTINO)
-      #ifndef APPLE
 		vp->v_vflag |= VV_ROOT;
-      #else
-      vp->v_flag |= VROOT;
-      #endif
 	/*
 	 * Initialize modrev times
 	 */
@@ -2190,5 +2304,18 @@ filt_ext2vnode(struct knote *kn, long hint)
 		return (1);
 	}
 	return (kn->kn_fflags != 0);
+}
+#else
+int
+ext2fs_truncate(ap)
+	struct vop_truncate_args /* {
+		struct vnode *a_vp;
+		off_t a_length;
+		int a_flags;
+		struct ucred *a_cred;
+		struct proc *a_p;
+	} */ *ap;
+{
+   return (ext2_truncate(ap->a_vp, ap->a_length, ap->a_flags, ap->a_cred, ap->a_p));
 }
 #endif /* APPLE */

@@ -38,6 +38,7 @@
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
+#include <ext2_byteorder.h>
 
 void
 ext2_print_inode( in )
@@ -73,29 +74,31 @@ ext2_ei2i(ei, ip)
 {
         int i;
 
-	ip->i_nlink = ei->i_links_count;
+	ip->i_nlink = le16_to_cpu(ei->i_links_count);
 	/* Godmar thinks - if the link count is zero, then the inode is
 	   unused - according to ext2 standards. Ufs marks this fact
 	   by setting i_mode to zero - why ?
 	   I can see that this might lead to problems in an undelete.
 	*/
-	ip->i_mode = ei->i_links_count ? ei->i_mode : 0;
-	ip->i_size = ei->i_size;
-	ip->i_atime = ei->i_atime;
-	ip->i_mtime = ei->i_mtime;
-	ip->i_ctime = ei->i_ctime;
+	ip->i_mode = le16_to_cpu(ei->i_links_count) ? le16_to_cpu(ei->i_mode) : 0;
+	ip->i_size = le32_to_cpu(ei->i_size);
+	ip->i_atime = le32_to_cpu(ei->i_atime);
+	ip->i_mtime = le32_to_cpu(ei->i_mtime);
+	ip->i_ctime = le32_to_cpu(ei->i_ctime);
 	ip->i_flags = 0;
-	ip->i_flags |= (ei->i_flags & EXT2_APPEND_FL) ? APPEND : 0;
-	ip->i_flags |= (ei->i_flags & EXT2_IMMUTABLE_FL) ? IMMUTABLE : 0;
-	ip->i_blocks = ei->i_blocks;
-	ip->i_gen = ei->i_generation;
-	ip->i_uid = ei->i_uid;
-	ip->i_gid = ei->i_gid;
+	ip->i_flags |= (le32_to_cpu(ei->i_flags) & EXT2_APPEND_FL) ? APPEND : 0;
+	ip->i_flags |= (le32_to_cpu(ei->i_flags) & EXT2_IMMUTABLE_FL) ? IMMUTABLE : 0;
+	ip->i_blocks = le32_to_cpu(ei->i_blocks);
+	ip->i_gen = le32_to_cpu(ei->i_generation);
+	ip->i_uid = le32_to_cpu(ei->i_uid);
+	ip->i_gid = le32_to_cpu(ei->i_gid);
 	/* XXX use memcpy */
+   
+   /* Linux leaves the block #'s in LE order*/
 	for(i = 0; i < NDADDR; i++)
-		ip->i_db[i] = ei->i_block[i];
+		ip->i_db[i] = le32_to_cpu(ei->i_block[i]);
 	for(i = 0; i < NIADDR; i++)
-		ip->i_ib[i] = ei->i_block[EXT2_NDIR_BLOCKS + i];
+		ip->i_ib[i] = le32_to_cpu(ei->i_block[EXT2_NDIR_BLOCKS + i]);
 }
 
 /*
@@ -108,28 +111,28 @@ ext2_i2ei(ip, ei)
 {
 	int i;
 
-	ei->i_mode = ip->i_mode;
-        ei->i_links_count = ip->i_nlink;
+	ei->i_mode = cpu_to_le16(ip->i_mode);
+        ei->i_links_count = cpu_to_le16(ip->i_nlink);
 	/* 
 	   Godmar thinks: if dtime is nonzero, ext2 says this inode
 	   has been deleted, this would correspond to a zero link count
 	 */
-	ei->i_dtime = ei->i_links_count ? 0 : ip->i_mtime;
-	ei->i_size = ip->i_size;
-	ei->i_atime = ip->i_atime;
-	ei->i_mtime = ip->i_mtime;
-	ei->i_ctime = ip->i_ctime;
-	ei->i_flags = ip->i_flags;
+	ei->i_dtime = ip->i_nlink ? 0 : cpu_to_le32(ip->i_mtime);
+	ei->i_size = cpu_to_le32(ip->i_size);
+	ei->i_atime = cpu_to_le32(ip->i_atime);
+	ei->i_mtime = cpu_to_le32(ip->i_mtime);
+	ei->i_ctime = cpu_to_le32(ip->i_ctime);
+	/*ei->i_flags = ip->i_flags;*/
 	ei->i_flags = 0;
-	ei->i_flags |= (ip->i_flags & APPEND) ? EXT2_APPEND_FL: 0;
-	ei->i_flags |= (ip->i_flags & IMMUTABLE) ? EXT2_IMMUTABLE_FL: 0;
-	ei->i_blocks = ip->i_blocks;
-	ei->i_generation = ip->i_gen;
-	ei->i_uid = ip->i_uid;
-	ei->i_gid = ip->i_gid;
+	ei->i_flags |= cpu_to_le32((ip->i_flags & APPEND) ? EXT2_APPEND_FL: 0);
+	ei->i_flags |= cpu_to_le32((ip->i_flags & IMMUTABLE) ? EXT2_IMMUTABLE_FL: 0);
+	ei->i_blocks = cpu_to_le32(ip->i_blocks);
+	ei->i_generation = cpu_to_le32(ip->i_gen);
+	ei->i_uid = cpu_to_le32(ip->i_uid);
+	ei->i_gid = cpu_to_le32(ip->i_gid);
 	/* XXX use memcpy */
 	for(i = 0; i < NDADDR; i++)
-		ei->i_block[i] = ip->i_db[i];
+		ei->i_block[i] = cpu_to_le32(ip->i_db[i]);
 	for(i = 0; i < NIADDR; i++)
-		ei->i_block[EXT2_NDIR_BLOCKS + i] = ip->i_ib[i];
+		ei->i_block[EXT2_NDIR_BLOCKS + i] = cpu_to_le32(ip->i_ib[i]);
 }

@@ -50,6 +50,7 @@
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/fs.h>
+#include <ext2_byteorder.h>
 #include <sys/stat.h>
 
 #ifdef __i386__
@@ -113,13 +114,13 @@ static void read_inode_bitmap (struct mount * mp,
 
 	gdp = get_group_desc (mp, block_group, NULL);
 	if ((error = bread (VFSTOEXT2(mp)->um_devvp,
-			    fsbtodb(sb, gdp->bg_inode_bitmap), 
+			    fsbtodb(sb, le32_to_cpu(gdp->bg_inode_bitmap)), 
 			    sb->s_blocksize,
 			    NOCRED, &bh)) != 0)
 		panic ( "read_inode_bitmap:"
 			    "Cannot read inode bitmap - "
 			    "block_group = %lu, inode_bitmap = %lu",
-			    block_group, (unsigned long) gdp->bg_inode_bitmap);
+			    block_group, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
 	sb->s_inode_bitmap_number[bitmap_nr] = block_group;
 	sb->s_inode_bitmap[bitmap_nr] = bh;
 	LCK_BUF(bh)
@@ -224,7 +225,7 @@ void ext2_free_inode (struct inode * inode)
 	sb = inode->i_e2fs;
 	lock_super (DEVVP(inode));
 	if (inode->i_number < EXT2_FIRST_INO ||
-	    inode->i_number > sb->s_es->s_inodes_count) {
+	    inode->i_number > le32_to_cpu(sb->s_es->s_inodes_count)) {
 		printf ("free_inode reserved inode or nonexistent inode");
 		unlock_super (DEVVP(inode));
 		return;
@@ -244,11 +245,11 @@ void ext2_free_inode (struct inode * inode)
 		      (unsigned long)inode->i_number);
 	else {
 		gdp = get_group_desc (ITOV(inode)->v_mount, block_group, &bh2);
-		gdp->bg_free_inodes_count++;
+		gdp->bg_free_inodes_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_inodes_count) + 1);
 		if (S_ISDIR(inode->i_mode)) 
-			gdp->bg_used_dirs_count--;
+			gdp->bg_used_dirs_count = cpu_to_le16(le16_to_cpu(gdp->bg_used_dirs_count) - 1);
 		mark_buffer_dirty(bh2);
-		es->s_free_inodes_count++;
+		es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) + 1);
 	}
 	mark_buffer_dirty(bh);
 /*** XXX
@@ -275,7 +276,7 @@ static void inc_inode_version (struct inode * inode,
 	struct buffer_head * bh;
 	struct ext2_inode * raw_inode;
 
-	inode_block = gdp->bg_inode_table + (((inode->i_number - 1) %
+	inode_block = cpu_to_le32(gdp->bg_inode_table) + (((inode->i_number - 1) %
 			EXT2_INODES_PER_GROUP(inode->i_sb)) /
 			EXT2_INODES_PER_BLOCK(inode->i_sb));
 	bh = bread (inode->i_sb->s_dev, inode_block, inode->i_sb->s_blocksize);
@@ -331,7 +332,7 @@ repeat:
         gdp = NULL; i=0;
 
         if (S_ISDIR(mode)) {
-		avefreei = es->s_free_inodes_count /
+		avefreei = le32_to_cpu(es->s_free_inodes_count) /
 			sb->s_groups_count;
 /* I am not yet convinced that this next bit is necessary.
 		i = dir->u.ext2_i.i_block_group;
@@ -349,11 +350,11 @@ repeat:
 		if (!gdp) {
 			for (j = 0; j < sb->s_groups_count; j++) {
 				tmp = get_group_desc(ITOV(dir)->v_mount,j,&bh2);
-				if (tmp->bg_free_inodes_count &&
-					tmp->bg_free_inodes_count >= avefreei) {
+				if (le16_to_cpu(tmp->bg_free_inodes_count) &&
+					le16_to_cpu(tmp->bg_free_inodes_count) >= avefreei) {
 					if (!gdp || 
-					    (tmp->bg_free_blocks_count >
-					     gdp->bg_free_blocks_count)) {
+					    (le16_to_cpu(tmp->bg_free_blocks_count) >
+					     le16_to_cpu(gdp->bg_free_blocks_count))) {
 						i = j;
 						gdp = tmp;
 					}
@@ -431,7 +432,7 @@ repeat:
 */
 		mark_buffer_dirty(bh);
 	} else {
-		if (gdp->bg_free_inodes_count != 0) {
+		if (le16_to_cpu(gdp->bg_free_inodes_count) != 0) {
 			printf ( "ext2_new_inode:"
 				    "Free inodes count corrupted in group %d",
 				    i);
@@ -441,18 +442,18 @@ repeat:
 		goto repeat;
 	}
 	j += i * EXT2_INODES_PER_GROUP(sb) + 1;
-	if (j < EXT2_FIRST_INO || j > es->s_inodes_count) {
+	if (j < EXT2_FIRST_INO || j > le32_to_cpu(es->s_inodes_count)) {
 		printf ( "ext2_new_inode:"
 			    "reserved inode or inode > inodes count - "
 			    "block_group = %d,inode=%d", i, j);
 		unlock_super (DEVVP(dir));
 		return 0;
 	}
-	gdp->bg_free_inodes_count--;
+	gdp->bg_free_inodes_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_inodes_count) - 1);
 	if (S_ISDIR(mode))
-		gdp->bg_used_dirs_count++;
+		gdp->bg_used_dirs_count = cpu_to_le16(le16_to_cpu(gdp->bg_used_dirs_count) + 1);
 	mark_buffer_dirty(bh2);
-	es->s_free_inodes_count--;
+	es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) - 1);
 	/* mark_buffer_dirty(sb->u.ext2_sb.s_sbh, 1); */
 	sb->s_dirt = 1;
 	unlock_super (DEVVP(dir));
@@ -477,16 +478,16 @@ static unsigned long ext2_count_free_inodes (struct mount * mp)
 	gdp = NULL;
 	for (i = 0; i < sb->s_groups_count; i++) {
 		gdp = get_group_desc (mp, i, NULL);
-		desc_count += gdp->bg_free_inodes_count;
+		desc_count += le16_to_cpu(gdp->bg_free_inodes_count);
 		bitmap_nr = load_inode_bitmap (mp, i);
 		x = ext2_count_free (sb->s_inode_bitmap[bitmap_nr],
 				     EXT2_INODES_PER_GROUP(sb) / 8);
 		ext2_debug ("group %d: stored = %d, counted = %lu\n",
-			i, gdp->bg_free_inodes_count, x);
+			i, le16_to_cpu(gdp->bg_free_inodes_count), x);
 		bitmap_count += x;
 	}
 	ext2_debug("stored = %lu, computed = %lu, %lu\n",
-		es->s_free_inodes_count, desc_count, bitmap_count);
+		le32_to_cpu(es->s_free_inodes_count), desc_count, bitmap_count);
 	unlock_super (VFSTOEXT2(mp)->um_devvp);
 	return desc_count;
 #else
@@ -511,22 +512,22 @@ void ext2_check_inodes_bitmap (struct mount * mp)
 	gdp = NULL;
 	for (i = 0; i < sb->u.ext2_sb.s_groups_count; i++) {
 		gdp = get_group_desc (sb, i, NULL);
-		desc_count += gdp->bg_free_inodes_count;
+		desc_count += le16_to_cpu(gdp->bg_free_inodes_count);
 		bitmap_nr = load_inode_bitmap (sb, i);
 		x = ext2_count_free (sb->u.ext2_sb.s_inode_bitmap[bitmap_nr],
 				     EXT2_INODES_PER_GROUP(sb) / 8);
-		if (gdp->bg_free_inodes_count != x)
+		if (le16_to_cpu(gdp->bg_free_inodes_count) != x)
 			printf ( "ext2_check_inodes_bitmap:"
 				    "Wrong free inodes count in group %d, "
 				    "stored = %d, counted = %lu", i,
-				    gdp->bg_free_inodes_count, x);
+				    le16_to_cpu(gdp->bg_free_inodes_count), x);
 		bitmap_count += x;
 	}
-	if (es->s_free_inodes_count != bitmap_count)
+	if (le32_to_cpu(es->s_free_inodes_count) != bitmap_count)
 		printf ( "ext2_check_inodes_bitmap:"
 			    "Wrong free inodes count in super block, "
 			    "stored = %lu, counted = %lu",
-			    (unsigned long) es->s_free_inodes_count, bitmap_count);
+			    (unsigned long) le32_to_cpu(es->s_free_inodes_count), bitmap_count);
 	unlock_super (sb);
 }
 #endif

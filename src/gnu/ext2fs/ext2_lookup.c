@@ -69,6 +69,7 @@
 #include <gnu/ext2fs/ext2_extern.h>
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
+#include <ext2_byteorder.h>
 
 #ifdef DIAGNOSTIC
 static int dirchk = 1;
@@ -213,7 +214,7 @@ ext2_readdir(ap)
 			 * because ext2fs uses a machine-dependent disk
 			 * layout.
 			 */
-			dstdp.d_fileno = dp->inode;
+			dstdp.d_fileno = le32_to_cpu(dp->inode);
 			dstdp.d_type = FTTODT(dp->file_type);
 			dstdp.d_namlen = dp->name_len;
 			dstdp.d_reclen = GENERIC_DIRSIZ(&dstdp);
@@ -222,11 +223,11 @@ ext2_readdir(ap)
 			    dstdp.d_reclen - offsetof(struct dirent, d_name) -
 			    dstdp.d_namlen);
 
-			if (dp->rec_len > 0) {
+			if (le16_to_cpu(dp->rec_len) > 0) {
 				if(dstdp.d_reclen <= uio->uio_resid) {
 					/* advance dp */
 					dp = (struct ext2_dir_entry_2 *)
-					    ((char *)dp + dp->rec_len); 
+					    ((char *)dp + le16_to_cpu(dp->rec_len)); 
 					error = 
 					  uiomove((caddr_t)&dstdp,
 						  dstdp.d_reclen, uio);
@@ -254,8 +255,8 @@ ext2_readdir(ap)
 			for (dp = (struct ext2_dir_entry_2 *)dirbuf,
 			     cookiep = cookies, ecookies = cookies + ncookies;
 			     cookiep < ecookies;
-			     dp = (struct ext2_dir_entry_2 *)((caddr_t) dp + dp->rec_len)) {
-				off += dp->rec_len;
+			     dp = (struct ext2_dir_entry_2 *)((caddr_t) dp + le16_to_cpu(dp->rec_len))) {
+				off += le16_to_cpu(dp->rec_len);
 				*cookiep++ = (u_long) off;
 			}
 			*ap->a_ncookies = ncookies;
@@ -429,7 +430,7 @@ searchloop:
 		 */
 		ep = (struct ext2_dir_entry_2 *)
 			((char *)bp->b_data + entryoffsetinblock);
-		if (ep->rec_len == 0 ||
+		if (le16_to_cpu(ep->rec_len) == 0 ||
 		    (dirchk && ext2_dirbadentry(vdp, ep, entryoffsetinblock))) {
 			int i;
 			ext2_dirbad(dp, dp->i_offset, "mangled entry");
@@ -446,15 +447,15 @@ searchloop:
 		 * compaction is viable.
 		 */
 		if (slotstatus != FOUND) {
-			int size = ep->rec_len;
+			int size = le16_to_cpu(ep->rec_len);
 
-			if (ep->inode != 0)
+			if (le32_to_cpu(ep->inode) != 0)
 				size -= EXT2_DIR_REC_LEN(ep->name_len);
 			if (size > 0) {
 				if (size >= slotneeded) {
 					slotstatus = FOUND;
 					slotoffset = dp->i_offset;
-					slotsize = ep->rec_len;
+					slotsize = le16_to_cpu(ep->rec_len);
 				} else if (slotstatus == NONE) {
 					slotfreespace += size;
 					if (slotoffset == -1)
@@ -462,7 +463,7 @@ searchloop:
 					if (slotfreespace >= slotneeded) {
 						slotstatus = COMPACT;
 						slotsize = dp->i_offset +
-						      ep->rec_len - slotoffset;
+						      le16_to_cpu(ep->rec_len) - slotoffset;
 					}
 				}
 			}
@@ -471,7 +472,7 @@ searchloop:
 		/*
 		 * Check for a name match.
 		 */
-		if (ep->inode) {
+		if (le32_to_cpu(ep->inode)) {
 			namlen = ep->name_len;
 			if (namlen == cnp->cn_namelen &&
 			    !bcmp(cnp->cn_nameptr, ep->name,
@@ -481,15 +482,15 @@ searchloop:
 				 * reclen in ndp->ni_ufs area, and release
 				 * directory buffer.
 				 */
-				dp->i_ino = ep->inode;
-				dp->i_reclen = ep->rec_len;
+				dp->i_ino = le32_to_cpu(ep->inode);
+				dp->i_reclen = le16_to_cpu(ep->rec_len);
 				goto found;
 			}
 		}
 		prevoff = dp->i_offset;
-		dp->i_offset += ep->rec_len;
-		entryoffsetinblock += ep->rec_len;
-		if (ep->inode)
+		dp->i_offset += le16_to_cpu(ep->rec_len);
+		entryoffsetinblock += le16_to_cpu(ep->rec_len);
+		if (le32_to_cpu(ep->inode))
 			enduseful = dp->i_offset;
 	}
 /* notfound: */
@@ -622,10 +623,7 @@ found:
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
       #else
-      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
-      if (!error)
-         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
-      else
+      if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
       #endif
 			return (error);
 		/*
@@ -667,10 +665,7 @@ found:
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
       #else
-      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
-      if (!error)
-         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
-      else
+      if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
       #endif
 			return (error);
 		*vpp = tdp;
@@ -706,10 +701,7 @@ found:
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
       #else
-      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
-      if (!error)
-         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
-      else
+      if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
       #endif
       {
 			vn_lock(pdp, LK_EXCLUSIVE | LK_RETRY, td);
@@ -729,10 +721,7 @@ found:
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
       #else
-      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
-      if (!error)
-         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
-      else
+      if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
       #endif
 			return (error);
 		if (!lockparent || !(flags & ISLASTCN))
@@ -784,24 +773,24 @@ ext2_dirbadentry(dp, de, entryoffsetinblock)
 
         char * error_msg = NULL;
 
-        if (de->rec_len < EXT2_DIR_REC_LEN(1))
+        if (le16_to_cpu(de->rec_len) < EXT2_DIR_REC_LEN(1))
                 error_msg = "rec_len is smaller than minimal";
-        else if (de->rec_len % 4 != 0)
+        else if (le16_to_cpu(de->rec_len) % 4 != 0)
                 error_msg = "rec_len % 4 != 0";
-        else if (de->rec_len < EXT2_DIR_REC_LEN(de->name_len))
+        else if (le16_to_cpu(de->rec_len) < EXT2_DIR_REC_LEN(de->name_len))
                 error_msg = "reclen is too small for name_len";
-        else if (entryoffsetinblock + de->rec_len > DIRBLKSIZ)
+        else if (entryoffsetinblock + le16_to_cpu(de->rec_len) > DIRBLKSIZ)
                 error_msg = "directory entry across blocks";
         /* else LATER
-	     if (de->inode > dir->i_sb->u.ext2_sb.s_es->s_inodes_count)
+	     if (le32_to_cpu(de->inode) > le32_to_cpu(dir->i_sb->u.ext2_sb.s_es->s_inodes_count))
                 error_msg = "inode out of bounds";
 	*/
 
         if (error_msg != NULL) {
                 printf("bad directory entry: %s\n", error_msg);
                 printf("offset=%d, inode=%lu, rec_len=%u, name_len=%u\n",
-			entryoffsetinblock, (unsigned long)de->inode,
-			de->rec_len, de->name_len);
+			entryoffsetinblock, (unsigned long)le32_to_cpu(de->inode),
+			le16_to_cpu(de->rec_len), de->name_len);
         }
         return error_msg == NULL ? 0 : 1;
 }
@@ -837,7 +826,7 @@ ext2_direnter(ip, dvp, cnp)
 		panic("direnter: missing name");
 #endif
 	dp = VTOI(dvp);
-	newdir.inode = ip->i_number;
+	newdir.inode = cpu_to_le32(ip->i_number);
 	newdir.name_len = cnp->cn_namelen;
 	if (EXT2_HAS_INCOMPAT_FEATURE(ip->i_e2fs->s_es,
 	    EXT2_FEATURE_INCOMPAT_FILETYPE))
@@ -856,7 +845,7 @@ ext2_direnter(ip, dvp, cnp)
 		if (dp->i_offset & (DIRBLKSIZ - 1))
 			panic("ext2_direnter: newblk");
 		auio.uio_offset = dp->i_offset;
-		newdir.rec_len = DIRBLKSIZ;
+		newdir.rec_len = cpu_to_le16(DIRBLKSIZ);
 		auio.uio_resid = newentrysize;
 		aiov.iov_len = newentrysize;
 		aiov.iov_base = (caddr_t)&newdir;
@@ -910,35 +899,35 @@ ext2_direnter(ip, dvp, cnp)
 	 */
 	ep = (struct ext2_dir_entry_2 *)dirbuf;
 	dsize = EXT2_DIR_REC_LEN(ep->name_len);
-	spacefree = ep->rec_len - dsize;
-	for (loc = ep->rec_len; loc < dp->i_count; ) {
+	spacefree = le16_to_cpu(ep->rec_len) - dsize;
+	for (loc = le16_to_cpu(ep->rec_len); loc < dp->i_count; ) {
 		nep = (struct ext2_dir_entry_2 *)(dirbuf + loc);
-		if (ep->inode) {
+		if (le32_to_cpu(ep->inode)) {
 			/* trim the existing slot */
-			ep->rec_len = dsize;
+			ep->rec_len = cpu_to_le16(dsize);
 			ep = (struct ext2_dir_entry_2 *)((char *)ep + dsize);
 		} else {
 			/* overwrite; nothing there; header is ours */
 			spacefree += dsize;
 		}
 		dsize = EXT2_DIR_REC_LEN(nep->name_len);
-		spacefree += nep->rec_len - dsize;
-		loc += nep->rec_len;
+		spacefree += le16_to_cpu(nep->rec_len) - dsize;
+		loc += le16_to_cpu(nep->rec_len);
 		bcopy((caddr_t)nep, (caddr_t)ep, dsize);
 	}
 	/*
 	 * Update the pointer fields in the previous entry (if any),
 	 * copy in the new entry, and write out the block.
 	 */
-	if (ep->inode == 0) {
+	if (le32_to_cpu(ep->inode) == 0) {
 		if (spacefree + dsize < newentrysize)
 			panic("ext2_direnter: compact1");
-		newdir.rec_len = spacefree + dsize;
+		newdir.rec_len = cpu_to_le16(spacefree + dsize);
 	} else {
 		if (spacefree < newentrysize)
 			panic("ext2_direnter: compact2");
-		newdir.rec_len = spacefree;
-		ep->rec_len = dsize;
+		newdir.rec_len = cpu_to_le16(spacefree);
+		ep->rec_len = cpu_to_le16(dsize);
 		ep = (struct ext2_dir_entry_2 *)((char *)ep + dsize);
 	}
 	bcopy((caddr_t)&newdir, (caddr_t)ep, (u_int)newentrysize);
@@ -992,7 +981,7 @@ ext2_dirremove(dvp, cnp)
 	if ((error = ext2_blkatoff(dvp, (off_t)(dp->i_offset - dp->i_count),
 	    (char **)&ep, &bp)) != 0)
 		return (error);
-	ep->rec_len += dp->i_reclen;
+	ep->rec_len += cpu_to_le16(dp->i_reclen);
 	error = BUF_WRITE(bp);
 	dp->i_flag |= IN_CHANGE | IN_UPDATE;
 	return (error);
@@ -1016,7 +1005,7 @@ ext2_dirrewrite(dp, ip, cnp)
 	if ((error = ext2_blkatoff(vdp, (off_t)dp->i_offset, (char **)&ep,
 	    &bp)) != 0)
 		return (error);
-	ep->inode = ip->i_number;
+	ep->inode = cpu_to_le32(ip->i_number);
 	if (EXT2_HAS_INCOMPAT_FEATURE(ip->i_e2fs->s_es,
 	    EXT2_FEATURE_INCOMPAT_FILETYPE))
 		ep->file_type = DTTOFT(IFTODT(ip->i_mode));
@@ -1049,7 +1038,7 @@ ext2_dirempty(ip, parentino, cred)
 		 
 #define	MINDIRSIZ (sizeof (struct dirtemplate) / 2)
 
-	for (off = 0; off < ip->i_size; off += dp->rec_len) {
+	for (off = 0; off < ip->i_size; off += le16_to_cpu(dp->rec_len)) {
 		error = vn_rdwr(UIO_READ, ITOV(ip), (caddr_t)dp, MINDIRSIZ,
 		    off, UIO_SYSSPACE, IO_NODELOCKED | IO_NOMACCHECK, cred,
           #ifndef APPLE
@@ -1064,7 +1053,7 @@ ext2_dirempty(ip, parentino, cred)
 		if (error || count != 0)
 			return (0);
 		/* avoid infinite loops */
-		if (dp->rec_len == 0)
+		if (le16_to_cpu(dp->rec_len) == 0)
 			return (0);
 		/* skip empty entries */
 		if (dp->inode == 0)
@@ -1082,7 +1071,7 @@ ext2_dirempty(ip, parentino, cred)
 		 */
 		if (namlen == 1)
 			continue;
-		if (dp->name[1] == '.' && dp->inode == parentino)
+		if (dp->name[1] == '.' && le32_to_cpu(dp->inode) == parentino)
 			continue;
 		return (0);
 	}
@@ -1147,10 +1136,7 @@ ext2_checkpath(source, target, cred)
 		if ((error = VFS_VGET(vp->v_mount, dirbuf.dotdot_ino,
           LK_EXCLUSIVE, &vp)) != 0)
       #else
-      error = VFS_VGET(vp->v_mount, (void*)dirbuf.dotdot_ino, &vp);
-      if (!error)
-         vn_lock(vp, LK_EXCLUSIVE|LK_RETRY, current_proc());
-      else
+      if ((error = VFS_VGET(vp->v_mount, (void*)dirbuf.dotdot_ino, &vp)) != 0)
       #endif
 		{
 			vp = NULL;

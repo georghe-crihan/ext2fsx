@@ -139,11 +139,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	devvp = ump->um_devvp;
 
 	if (runp) {
-      #ifndef APPLE
 		maxrun = mp->mnt_iosize_max / mp->mnt_stat.f_iosize - 1;
-      #else
-      maxrun = 1; /* / XXX mp->mnt_stat.f_iosize / mp->mnt_stat.f_iosize - 1 */
-      #endif
 		*runp = 0;
 	}
 
@@ -203,24 +199,20 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		ap->in_exists = 1;
 		bp = getblk(vp, metalbn, mp->mnt_stat.f_iosize, 0, 0
       #ifdef APPLE
-      , BLK_READ
+      , BLK_META
       #endif
       );
 		if ((bp->b_flags & B_CACHE) == 0) {
 #ifdef DIAGNOSTIC
 			if (!daddr)
-				panic("ufs_bmaparray: indirect block not in cache");
+				panic("ext2_bmaparray: indirect block not in cache");
 #endif
 			bp->b_blkno = blkptrtodb(ump, daddr);
          #ifndef APPLE
 			bp->b_iocmd = BIO_READ;
          #endif
 			bp->b_flags &= ~B_INVAL;
-         #ifndef APPLE
 			bp->b_ioflags &= ~BIO_ERROR;
-         #else
-         bp->b_flags &= ~B_ERROR;
-         #endif
          #ifndef APPLE
 			vfs_busy_pages(bp, 0);
          #endif
@@ -228,6 +220,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
          #ifndef APPLE
          VOP_STRATEGY(bp->b_vp, bp);
          #else
+         bp->b_flags |= B_READ;
 			VOP_STRATEGY(bp);
          #endif
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */

@@ -39,28 +39,27 @@
  *	@(#)ufs_readwrite.c	8.7 (Berkeley) 1/21/94
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_readwrite.c,v 1.25 2002/05/16 19:43:28 iedowse Exp $
  */
-
-#ifdef APPLE
-#include <sys/param.h>
-
-#include <sys/resourcevar.h>
-#include <sys/proc.h>
-#include <sys/systm.h>
-#include <sys/buf.h>
-#include <sys/mount.h>
-#include <sys/signalvar.h>
-#include <sys/stat.h>
-#include <sys/ucred.h>
-#include <sys/vnode.h>
-
-#include <sys/ubc.h>
-#include "ext2_apple.h"
-
-#include <gnu/ext2fs/inode.h>
-#include <gnu/ext2fs/ext2_extern.h>
-#include <gnu/ext2fs/ext2_fs_sb.h>
-#include <gnu/ext2fs/fs.h>
-#endif
+ /*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #define	BLKSIZE(a, b, c)	blksize(a, b, c)
 #define	FS			struct ext2_sb_info
@@ -93,6 +92,9 @@ READ(ap)
 	long size, xfersize, blkoffset;
 	int error, orig_resid;
 	int seqcount = ap->a_ioflag >> 16;
+   #ifdef APPLE
+   int devBlockSize=0;
+   #endif
 	u_short mode;
 
 	vp = ap->a_vp;
@@ -117,6 +119,14 @@ READ(ap)
 #endif
 
 	orig_resid = uio->uio_resid;
+   #ifdef APPLE
+   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   if (UBCISVALID(vp)) {
+		bp = NULL; /* So we don't try to free it later. */
+      error = cluster_read(vp, uio, (off_t)ip->i_size, 
+			devBlockSize, 0);
+	} else {
+   #endif
 	for (error = 0, bp = NULL; uio->uio_resid > 0; bp = NULL) {
 		if ((bytesinfile = ip->i_size - uio->uio_offset) <= 0)
 			break;
@@ -133,18 +143,11 @@ READ(ap)
 
 		if (lblktosize(fs, nextlbn) >= ip->i_size)
 			error = bread(vp, lbn, size, NOCRED, &bp);
-		else if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERR) == 0)
-      #ifndef APPLE
+		#ifndef APPLE
+      else if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERR) == 0)
 			error = cluster_read(vp,
 			    ip->i_size, lbn, size, NOCRED,
 				uio->uio_resid, (ap->a_ioflag >> 16), &bp);
-      #else
-      {
-         bp = getblk (vp, lbn, size, 0, 0, BLK_CLREAD);
-         bp->b_flags |= B_READ;
-         bp->b_flags &= ~B_WRITE;
-         error = cluster_bp(bp);
-      }
       #endif
 		else if (seqcount > 1) {
 			int nextsize = BLKSIZE(fs, ip, nextlbn);
@@ -178,6 +181,9 @@ READ(ap)
 
 		bqrelse(bp);
 	}
+   #ifdef APPLE
+   }
+   #endif
 	if (bp != NULL)
 		bqrelse(bp);
 	if (orig_resid > 0 && (error == 0 || uio->uio_resid != orig_resid) &&
@@ -208,6 +214,9 @@ WRITE(ap)
 	off_t osize;
 	int seqcount;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
+   #ifdef APPLE
+   int devBlockSize=0, rsd, blkalloc=0, save_error=0, save_size=0;
+   #endif
 
 	ioflag = ap->a_ioflag;
 	seqcount = ap->a_ioflag >> 16;
@@ -272,6 +281,130 @@ WRITE(ap)
 	resid = uio->uio_resid;
 	osize = ip->i_size;
 	flags = ioflag & IO_SYNC ? B_SYNC : 0;
+   
+   #ifdef APPLE
+   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   if (UBCISVALID(vp)) {
+      off_t filesize;
+      off_t endofwrite;
+      off_t local_offset;
+      off_t head_offset;
+      int local_flags;
+      int first_block;
+      int fboff;
+      int fblk;
+      int loopcount;
+      int file_extended = 0;
+   
+      endofwrite = uio->uio_offset + uio->uio_resid;
+   
+      if (endofwrite > ip->i_size) {
+         filesize = endofwrite;
+                  file_extended = 1;
+      } else 
+         filesize = ip->i_size;
+   
+      head_offset = ip->i_size;
+   
+      /* Go ahead and allocate the blocks that are going to be written */
+      rsd = uio->uio_resid;
+      local_offset = uio->uio_offset;
+      local_flags = ioflag & IO_SYNC ? B_SYNC : 0;
+      local_flags |= B_NOBUFF;
+      
+      first_block = 1;
+      fboff = 0;
+      fblk = 0;
+      loopcount = 0;
+   
+      for (error = 0; rsd > 0;) {
+         blkalloc = 0;
+         lbn = lblkno(fs, local_offset);
+         blkoffset = blkoff(fs, local_offset);
+         xfersize = EXT2_BLOCK_SIZE(fs) - blkoffset;
+         if (first_block)
+            fboff = blkoffset;
+         if (rsd < xfersize)
+            xfersize = rsd;
+         if (EXT2_BLOCK_SIZE(fs) > xfersize)
+            local_flags |= B_CLRBUF;
+         else
+            local_flags &= ~B_CLRBUF;
+         
+         error = ext2_balloc2(ip,
+            lbn, blkoffset + xfersize, ap->a_cred, 
+            &bp, local_flags, &blkalloc);
+         if (error)
+            break;
+         if (first_block) {
+            fblk = blkalloc;
+            first_block = 0;
+         }
+         loopcount++;
+   
+         rsd -= xfersize;
+         local_offset += (off_t)xfersize;
+         if (local_offset > ip->i_size)
+            ip->i_size = local_offset;
+      }
+   
+      if(error) {
+         save_error = error;
+         save_size = rsd;
+         uio->uio_resid -= rsd;
+                  if (file_extended)
+                     filesize -= rsd;
+      }
+   
+      flags = ioflag & IO_SYNC ? IO_SYNC : 0;
+      /* flags |= IO_NOZEROVALID; */
+   
+      if((error == 0) && fblk && fboff) {
+         if( fblk > EXT2_BLOCK_SIZE(fs)) 
+            panic("ext2_write : ext2_balloc allocated more than bsize(head)");
+         /* We need to zero out the head */
+         head_offset = uio->uio_offset - (off_t)fboff ;
+         flags |= IO_HEADZEROFILL;
+         /* flags &= ~IO_NOZEROVALID; */
+      }
+   
+      if((error == 0) && blkalloc && ((blkalloc - xfersize) > 0)) {
+         /* We need to zero out the tail */
+         if( blkalloc > EXT2_BLOCK_SIZE(fs)) 
+            panic("ext2_write : ext2_balloc allocated more than bsize(tail)");
+         local_offset += (blkalloc - xfersize);
+         if (loopcount == 1) {
+         /* blkalloc is same as fblk; so no need to check again*/
+            local_offset -= fboff;
+         }
+         flags |= IO_TAILZEROFILL;
+         /*  Freshly allocated block; bzero even if 
+         * find a page 
+         */
+         /* flags &= ~IO_NOZEROVALID; */
+      }
+      /*
+      * if the write starts beyond the current EOF then
+      * we we'll zero fill from the current EOF to where the write begins
+      */
+
+      error = cluster_write(vp, uio, osize, filesize, head_offset, local_offset,  devBlockSize, flags);
+      
+      if (uio->uio_offset > osize) {
+         if (error && (ioflag & IO_UNIT))
+            (void)VOP_TRUNCATE(vp, uio->uio_offset,
+               ioflag & IO_SYNC, ap->a_cred, uio->uio_procp);
+         ip->i_size = uio->uio_offset; 
+         ubc_setsize(vp, (off_t)ip->i_size);
+      }
+      if(save_error) {
+         uio->uio_resid += save_size;
+         if(!error)
+            error = save_error;	
+      }
+      ip->i_flag |= IN_CHANGE | IN_UPDATE;
+   } else {
+   #endif
 
 	for (error = 0; uio->uio_resid > 0;) {
 		lbn = lblkno(fs, uio->uio_offset);
@@ -280,8 +413,10 @@ WRITE(ap)
 		if (uio->uio_resid < xfersize)
 			xfersize = uio->uio_resid;
 
-		if (uio->uio_offset + xfersize > ip->i_size)
+		#ifndef APPLE
+      if (uio->uio_offset + xfersize > ip->i_size)
 			vnode_pager_setsize(vp, uio->uio_offset + xfersize);
+      #endif
 
 		/*
 		 * Avoid a data-consistency race between write() and mmap()
@@ -304,6 +439,11 @@ WRITE(ap)
 
 		if (uio->uio_offset + xfersize > ip->i_size) {
 			ip->i_size = uio->uio_offset + xfersize;
+         
+         #ifdef APPLE
+         if (UBCISVALID(vp))
+				ubc_setsize(vp, (u_long)ip->i_size); /* XXX check errors */
+         #endif
 		}
 
 		size = BLKSIZE(fs, ip, lbn) - bp->b_resid;
@@ -321,21 +461,18 @@ WRITE(ap)
 		if (ioflag & IO_SYNC) {
 			(void)bwrite(bp);
 		} else if (xfersize + blkoffset == fs->s_frag_size) {
+         #ifndef APPLE
 			if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERW) == 0) {
-				#ifndef APPLE
             bp->b_flags |= B_CLUSTEROK;
             cluster_write(bp, ip->i_size, seqcount);
-            #else
-            {
-               bp->b_flags |= B_WRITE;
-               bp->b_flags &= ~B_READ;
-               error = cluster_bp(bp);
-            }
-            #endif
-            
 			} else {
+         #else
+         bp->b_flags |= B_AGE;
 				bawrite(bp);
+         #endif
+         #ifndef APPLE
 			}
+         #endif
 		} else {
 			#ifndef APPLE
          bp->b_flags |= B_CLUSTEROK;
@@ -346,6 +483,9 @@ WRITE(ap)
 			break;
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
+   #ifdef APPLE
+   }
+   #endif
 	/*
 	 * If we successfully wrote any data, and we are not the superuser
 	 * we clear the setuid and setgid bits as a precaution against

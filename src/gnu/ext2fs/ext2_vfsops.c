@@ -59,10 +59,12 @@
 #include <sys/mutex.h>
 #else
 #include <machine/spl.h>
+#include <sys/disk.h>
 
-#define mtx_lock(l)
-#define mtx_unlock(l)
-static int mntvnode_mtx __attribute__ ((unused)) = 0;
+#define mntvnode_mtx mntvnode_slock
+/* XXX Redefining mtx_* */
+#define mtx_lock(l) simple_lock((l))
+#define mtx_unlock(l) simple_unlock((l))
 
 #include "ext2_apple.h"
 
@@ -80,6 +82,7 @@ typedef struct ufs_args ext2_args;
 #include <gnu/ext2fs/ext2_extern.h>
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
+#include <ext2_byteorder.h>
 
 #ifndef APPLE
 static int ext2_fhtovp(struct mount *, struct fid *, struct vnode **);
@@ -112,13 +115,29 @@ static int ext2_vget(struct mount *, void *, struct vnode **);
 static int ext2_vptofh(struct vnode *, struct fid *);
 
 #ifdef APPLE
+static int ext2_sysctl(int *, u_int, void *, size_t *, void *, size_t, struct proc *);
 static int vfs_stdstart(struct mount *, int, struct proc *);
 static int vfs_stdquotactl(struct mount *, int, uid_t, caddr_t, struct proc *);
+
+/* These assume SBSIZE == 1024 in fs.h */
+#ifdef SBLOCK
+#undef SBLOCK
+#endif
+#define SBLOCK ( 1024 / devBlockSize )
+#ifdef SBSIZE
+#undef SBSIZE
+#endif
+#define SBSIZE ( devBlockSize <= 1024 ? 1024 : devBlockSize )
+#define SBOFF ( devBlockSize <= 1024 ? 0 : 1024 ) 
 #endif /* APPLE */
 
 #ifndef APPLE
 MALLOC_DEFINE(M_EXT2NODE, "EXT2 node", "EXT2 vnode private part");
 static MALLOC_DEFINE(M_EXT2MNT, "EXT2 mount", "EXT2 mount structure");
+
+#define VT_EXT2 "ext2fs"
+#define meta_bread bread
+#define SBOFF 0
 #endif /* APPLE */
 
 static struct vfsops ext2fs_vfsops = {
@@ -145,7 +164,7 @@ static struct vfsops ext2fs_vfsops = {
 	vfs_stdextattrctl,
 	ext2_mount,
    #else
-   NULL /* sysctl */
+   ext2_sysctl
    #endif
 };
 
@@ -242,9 +261,9 @@ ext2_mount(mp, path, data, ndp, td)
 	struct nameidata *ndp;
 	struct thread *td;
 {
-	#ifndef APPLE
    struct export_args *export;
-	struct vfsoptlist *opts;
+	#ifndef APPLE
+   struct vfsoptlist *opts;
    #endif
 	struct vnode *devvp;
 	struct ext2mount *ump = 0;
@@ -278,6 +297,8 @@ ext2_mount(mp, path, data, ndp, td)
    if ((error = copyin(data, (caddr_t)&args, sizeof (ext2_args))) != 0)
 		return (error);
    
+   export = &args.export;
+   
    (void) copyinstr(args.fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, 
 	    &size);
 	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
@@ -302,7 +323,8 @@ ext2_mount(mp, path, data, ndp, td)
 			error = ext2_flushfiles(mp, flags, td);
 			vfs_unbusy(mp, td);
 			if (!error && fs->s_wasvalid) {
-				fs->s_es->s_state |= EXT2_VALID_FS;
+				fs->s_es->s_state =
+               cpu_to_le16(le16_to_cpu(fs->s_es->s_state) | EXT2_VALID_FS);
 				ext2_sbupdate(ump, MNT_WAIT);
 			}
 			fs->s_rd_only = 1;
@@ -334,8 +356,8 @@ ext2_mount(mp, path, data, ndp, td)
 				VOP_UNLOCK(devvp, 0, td);
 			}
 
-			if ((fs->s_es->s_state & EXT2_VALID_FS) == 0 ||
-			    (fs->s_es->s_state & EXT2_ERROR_FS)) {
+			if ((le16_to_cpu(fs->s_es->s_state) & EXT2_VALID_FS) == 0 ||
+			    (le16_to_cpu(fs->s_es->s_state) & EXT2_ERROR_FS)) {
 				if (mp->mnt_flag & MNT_FORCE) {
 					printf(
 "WARNING: %s was not properly dismounted\n",
@@ -347,7 +369,8 @@ ext2_mount(mp, path, data, ndp, td)
 					return (EPERM);
 				}
 			}
-			fs->s_es->s_state &= ~EXT2_VALID_FS;
+			fs->s_es->s_state =
+            cpu_to_le16(le16_to_cpu(fs->s_es->s_state) & ~EXT2_VALID_FS);
 			ext2_sbupdate(ump, MNT_WAIT);
 			fs->s_rd_only = 0;
 		}
@@ -364,7 +387,7 @@ ext2_mount(mp, path, data, ndp, td)
          struct export_args apple_exp;
          struct netexport apple_netexp;
          
-         return (vfs_export(mp, &apple_netexp, &apple_exp));
+         return (vfs_export(mp, &apple_netexp, export));
          #endif
          return (EINVAL);
          #endif
@@ -457,7 +480,7 @@ static int ext2_check_descriptors (struct ext2_sb_info * sb)
 {
         int i;
         int desc_block = 0;
-        unsigned long block = sb->s_es->s_first_data_block;
+        unsigned long block = le32_to_cpu(sb->s_es->s_first_data_block);
         struct ext2_group_desc * gdp = NULL;
 
         /* ext2_debug ("Checking group descriptors"); */
@@ -468,32 +491,32 @@ static int ext2_check_descriptors (struct ext2_sb_info * sb)
                 if ((i % EXT2_DESC_PER_BLOCK(sb)) == 0)
                         gdp = (struct ext2_group_desc *) 
 				sb->s_group_desc[desc_block++]->b_data;
-                if (gdp->bg_block_bitmap < block ||
-                    gdp->bg_block_bitmap >= block + EXT2_BLOCKS_PER_GROUP(sb))
+                if (le32_to_cpu(gdp->bg_block_bitmap) < block ||
+                    le32_to_cpu(gdp->bg_block_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
                 {
                         printf ("ext2_check_descriptors: "
                                     "Block bitmap for group %d"
                                     " not in group (block %lu)!\n",
-                                    i, (unsigned long) gdp->bg_block_bitmap);
+                                    i, (unsigned long) le32_to_cpu(gdp->bg_block_bitmap));
                         return 0;
                 }
-                if (gdp->bg_inode_bitmap < block ||
-                    gdp->bg_inode_bitmap >= block + EXT2_BLOCKS_PER_GROUP(sb))
+                if (le32_to_cpu(gdp->bg_inode_bitmap) < block ||
+                    le32_to_cpu(gdp->bg_inode_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
                 {
                         printf ("ext2_check_descriptors: "
                                     "Inode bitmap for group %d"
                                     " not in group (block %lu)!\n",
-                                    i, (unsigned long) gdp->bg_inode_bitmap);
+                                    i, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
                         return 0;
                 }
-                if (gdp->bg_inode_table < block ||
-                    gdp->bg_inode_table + sb->s_itb_per_group >=
+                if (le32_to_cpu(gdp->bg_inode_table) < block ||
+                    le32_to_cpu(gdp->bg_inode_table) + sb->s_itb_per_group >=
                     block + EXT2_BLOCKS_PER_GROUP(sb))
                 {
                         printf ("ext2_check_descriptors: "
                                     "Inode table for group %d"
                                     " not in group (block %lu)!\n",
-                                    i, (unsigned long) gdp->bg_inode_table);
+                                    i, (unsigned long) le32_to_cpu(gdp->bg_inode_table));
                         return 0;
                 }
                 block += EXT2_BLOCKS_PER_GROUP(sb);
@@ -509,20 +532,20 @@ ext2_check_sb_compat(es, dev, ronly)
 	int ronly;
 {
 
-	if (es->s_magic != EXT2_SUPER_MAGIC) {
+	if (le16_to_cpu(es->s_magic) != EXT2_SUPER_MAGIC) {
 		printf("ext2fs: %s: wrong magic number %#x (expected %#x)\n",
-		    devtoname(dev), es->s_magic, EXT2_SUPER_MAGIC);
+		    devtoname(dev), le16_to_cpu(es->s_magic), EXT2_SUPER_MAGIC);
 		return (1);
 	}
-	if (es->s_rev_level > EXT2_GOOD_OLD_REV) {
-		if (es->s_feature_incompat & ~EXT2_FEATURE_INCOMPAT_SUPP) {
+	if (le32_to_cpu(es->s_rev_level) > EXT2_GOOD_OLD_REV) {
+		if (le32_to_cpu(es->s_feature_incompat) & ~EXT2_FEATURE_INCOMPAT_SUPP) {
 			printf(
 "WARNING: mount of %s denied due to unsupported optional features\n",
 			    devtoname(dev));
 			return (1);
 		}
 		if (!ronly &&
-		    (es->s_feature_ro_compat & ~EXT2_FEATURE_RO_COMPAT_SUPP)) {
+		    (le32_to_cpu(es->s_feature_ro_compat) & ~EXT2_FEATURE_RO_COMPAT_SUPP)) {
 			printf(
 "WARNING: R/W mount of %s denied due to unsupported optional features\n",
 			    devtoname(dev));
@@ -535,6 +558,8 @@ ext2_check_sb_compat(es, dev, ronly)
 /*
  * this computes the fields of the  ext2_sb_info structure from the
  * data in the ext2_super_block structure read in
+ * ext2_sb_info is kept in cpu byte order except for group info
+ * which is kept in LE (on disk) order.
  */
 static int compute_sb_data(devvp, es, fs)
 	struct vnode * devvp;
@@ -544,6 +569,11 @@ static int compute_sb_data(devvp, es, fs)
     int db_count, error;
     int i, j;
     int logic_sb_block = 1;	/* XXX for now */
+    #if 0 /*#ifdef APPLE*/
+    int devBlockSize=0;
+    
+    VOP_DEVBLOCKSIZE(devvp, &devBlockSize);
+    #endif
 
 #if 1
 #define V(v)  
@@ -551,26 +581,26 @@ static int compute_sb_data(devvp, es, fs)
 #define V(v)  printf(#v"= %d\n", fs->v);
 #endif
 
-    fs->s_blocksize = EXT2_MIN_BLOCK_SIZE << es->s_log_block_size; 
+    fs->s_blocksize = EXT2_MIN_BLOCK_SIZE << le32_to_cpu(es->s_log_block_size); 
     V(s_blocksize)
-    fs->s_bshift = EXT2_MIN_BLOCK_LOG_SIZE + es->s_log_block_size;
+    fs->s_bshift = EXT2_MIN_BLOCK_LOG_SIZE + le32_to_cpu(es->s_log_block_size);
     V(s_bshift)
-    fs->s_fsbtodb = es->s_log_block_size + 1;
+    fs->s_fsbtodb = le32_to_cpu(es->s_log_block_size) + 1;
     V(s_fsbtodb)
     fs->s_qbmask = fs->s_blocksize - 1;
     V(s_bmask)
-    fs->s_blocksize_bits = EXT2_BLOCK_SIZE_BITS(es);
+    fs->s_blocksize_bits = le32_to_cpu(EXT2_BLOCK_SIZE_BITS(es));
     V(s_blocksize_bits)
-    fs->s_frag_size = EXT2_MIN_FRAG_SIZE << es->s_log_frag_size;
+    fs->s_frag_size = EXT2_MIN_FRAG_SIZE << le32_to_cpu(es->s_log_frag_size);
     V(s_frag_size)
     if (fs->s_frag_size)
 	fs->s_frags_per_block = fs->s_blocksize / fs->s_frag_size;
     V(s_frags_per_block)
-    fs->s_blocks_per_group = es->s_blocks_per_group;
+    fs->s_blocks_per_group = le32_to_cpu(es->s_blocks_per_group);
     V(s_blocks_per_group)
-    fs->s_frags_per_group = es->s_frags_per_group;
+    fs->s_frags_per_group = le32_to_cpu(es->s_frags_per_group);
     V(s_frags_per_group)
-    fs->s_inodes_per_group = es->s_inodes_per_group;
+    fs->s_inodes_per_group = le32_to_cpu(es->s_inodes_per_group);
     V(s_inodes_per_group)
     fs->s_inodes_per_block = fs->s_blocksize / EXT2_INODE_SIZE;
     V(s_inodes_per_block)
@@ -579,8 +609,8 @@ static int compute_sb_data(devvp, es, fs)
     fs->s_desc_per_block = fs->s_blocksize / sizeof (struct ext2_group_desc);
     V(s_desc_per_block)
     /* s_resuid / s_resgid ? */
-    fs->s_groups_count = (es->s_blocks_count -
-			  es->s_first_data_block +
+    fs->s_groups_count = (le32_to_cpu(es->s_blocks_count) -
+			  le32_to_cpu(es->s_first_data_block) +
 			  EXT2_BLOCKS_PER_GROUP(fs) - 1) /
 			 EXT2_BLOCKS_PER_GROUP(fs);
     V(s_groups_count)
@@ -593,14 +623,14 @@ static int compute_sb_data(devvp, es, fs)
 		M_EXT2MNT, M_WAITOK);
 
     /* adjust logic_sb_block */
-    if(fs->s_blocksize > SBSIZE) 
+    if(fs->s_blocksize > 1024 /*SBSIZE*/) 
 	/* Godmar thinks: if the blocksize is greater than 1024, then
 	   the superblock is logically part of block zero. 
 	 */
         logic_sb_block = 0;
     
     for (i = 0; i < db_count; i++) {
-	error = bread(devvp , fsbtodb(fs, logic_sb_block + i + 1), 
+	error = meta_bread(devvp , fsbtodb(fs, logic_sb_block + i + 1), 
 		fs->s_blocksize, NOCRED, &fs->s_group_desc[i]);
 	if(error) {
 	    for (j = 0; j < i; j++)
@@ -657,6 +687,9 @@ ext2_reload(mountp, cred, td)
 	struct ext2_super_block * es;
 	struct ext2_sb_info *fs;
 	int error;
+   #ifdef APPLE
+   int devBlockSize=0;
+   #endif
 
 	if ((mountp->mnt_flag & MNT_RDONLY) == 0)
 		return (EINVAL);
@@ -670,21 +703,19 @@ ext2_reload(mountp, cred, td)
 	 * Step 2: re-read superblock from disk.
 	 * constants have been adjusted for ext2
 	 */
-	if ((error = bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
-		return (error);
-	es = (struct ext2_super_block *)bp->b_data;
-	if (ext2_check_sb_compat(es,
-   #ifndef APPLE
-   devvp->v_rdev,
-   #else
-   (dev_t)mountp->mnt_stat.f_mntonname,
+   #ifdef APPLE
+   /* Get the current block size */
+   VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
    #endif
-   0) != 0) {
+	if ((error = meta_bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
+		return (error);
+	es = (struct ext2_super_block *)(bp->b_data+SBOFF);
+	if (ext2_check_sb_compat(es, (dev_t)devvp->v_rdev, 0) != 0) {
 		brelse(bp);
 		return (EIO);		/* XXX needs translation */
 	}
 	fs = VFSTOEXT2(mountp)->um_e2fs;
-	bcopy(bp->b_data, fs->s_es, sizeof(struct ext2_super_block));
+	bcopy(es, fs->s_es, sizeof(struct ext2_super_block));
 
 	if((error = compute_sb_data(devvp, es, fs)) != 0) {
 		brelse(bp);
@@ -721,7 +752,11 @@ loop:
 		/*
 		 * Step 5: invalidate all cached file data.
 		 */
-		mtx_lock(&vp->v_interlock);
+		#ifndef APPLE
+      mtx_lock (&vp->v_interlock);
+      #else
+      simple_lock (&vp->v_interlock);
+      #endif
 		if (vget(vp, LK_EXCLUSIVE | LK_INTERLOCK, td)) {
 			goto loop;
 		}
@@ -764,6 +799,9 @@ ext2_mountfs(devvp, mp, td)
 	dev_t dev = (dev_t)devvp->v_rdev;
 	int error;
 	int ronly;
+   #ifdef APPLE
+   int devBlockSize=0;
+   #endif
 
 	/*
 	 * Disallow multiple mounts of the same device.
@@ -793,21 +831,46 @@ ext2_mountfs(devvp, mp, td)
 		mp->mnt_iosize_max = devvp->v_rdev->si_iosize_max;
 	if (mp->mnt_iosize_max > MAXPHYS)
 		mp->mnt_iosize_max = MAXPHYS;
-   #else
-   mp->mnt_stat.f_iosize = 256 * 1024; /* XXX Some better way to get this value */
-   #endif /* APPLE */
-
+   #endif
+   
+   #ifdef APPLE
+   /* Set the block size to 512. Things just seem to royally screw 
+      up otherwise.
+    */
+   devBlockSize = 512;
+   if (VOP_IOCTL(devvp, DKIOCSETBLOCKSIZE, (caddr_t)&devBlockSize,
+         FWRITE, td->td_ucred, td)) {
+      return (ENXIO);
+   }
+   /* force specfs to re-read the new size */
+   set_fsblocksize(devvp);
+   
+   /* cache the IO attributes */
+	if ((error = vfs_init_io_attributes(devvp, mp))) {
+		printf("ext2_mountfs: vfs_init_io_attributes returned %d\n",
+			error);
+		return (error);
+	}
+   
+   /* VOP_DEVBLOCKSIZE(devvp, &devBlockSize); */
+   #endif
+   
 	bp = NULL;
 	ump = NULL;
-	if ((error = bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
+	if ((error = meta_bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		goto out;
-	es = (struct ext2_super_block *)bp->b_data;
+   #if defined(DIAGNOSTIC) && defined(APPLE)
+   printf("ext2fs: first two sb words (%lX, %lX) -- sb=%u, sb size=%u\n",
+      *(u_long*)(bp->b_data+SBOFF), *(u_long*)(bp->b_data+(SBOFF+4)),
+      SBLOCK, SBSIZE);
+   #endif
+	es = (struct ext2_super_block *)(bp->b_data+SBOFF);
 	if (ext2_check_sb_compat(es, dev, ronly) != 0) {
 		error = EINVAL;		/* XXX needs translation */
 		goto out;
 	}
-	if ((es->s_state & EXT2_VALID_FS) == 0 ||
-	    (es->s_state & EXT2_ERROR_FS)) {
+	if ((le16_to_cpu(es->s_state) & EXT2_VALID_FS) == 0 ||
+	    (le16_to_cpu(es->s_state) & EXT2_ERROR_FS)) {
 		if (ronly || (mp->mnt_flag & MNT_FORCE)) {
 			printf(
 "WARNING: Filesystem was not properly dismounted\n");
@@ -842,10 +905,11 @@ ext2_mountfs(devvp, mp, td)
 	/* if the fs is not mounted read-only, make sure the super block is 
 	   always written back on a sync()
 	 */
-	fs->s_wasvalid = fs->s_es->s_state & EXT2_VALID_FS ? 1 : 0;
+	fs->s_wasvalid = le16_to_cpu(fs->s_es->s_state) & EXT2_VALID_FS ? 1 : 0;
 	if (ronly == 0) {
 		fs->s_dirt = 1;		/* mark it modified */
-		fs->s_es->s_state &= ~EXT2_VALID_FS;	/* set fs invalid */
+		fs->s_es->s_state =
+         cpu_to_le16(le16_to_cpu(fs->s_es->s_state) & ~EXT2_VALID_FS);	/* set fs invalid */
 	}
 	mp->mnt_data = (qaddr_t)ump;
    #ifndef APPLE
@@ -863,7 +927,7 @@ ext2_mountfs(devvp, mp, td)
 	   ufs_bmap w/o changse !
 	*/
 	ump->um_nindir = EXT2_ADDR_PER_BLOCK(fs);
-	ump->um_bptrtodb = fs->s_es->s_log_block_size + 1;
+	ump->um_bptrtodb = le32_to_cpu(fs->s_es->s_log_block_size) + 1;
 	ump->um_seqinc = EXT2_FRAGS_PER_BLOCK(fs);
    #ifndef APPLE
 	devvp->v_rdev->si_mountpoint = mp;
@@ -910,7 +974,8 @@ ext2_unmount(mp, mntflags, td)
 	ronly = fs->s_rd_only;
 	if (ronly == 0) {
 		if (fs->s_wasvalid)
-			fs->s_es->s_state |= EXT2_VALID_FS;
+			fs->s_es->s_state =
+            cpu_to_le16(le16_to_cpu(fs->s_es->s_state) | EXT2_VALID_FS);
 		ext2_sbupdate(ump, MNT_WAIT);
 	}
 
@@ -976,21 +1041,20 @@ ext2_statfs(mp, sbp, td)
 	ump = VFSTOEXT2(mp);
 	fs = ump->um_e2fs;
 	es = fs->s_es;
-
-	if (es->s_magic != EXT2_SUPER_MAGIC)
+	if (le16_to_cpu(es->s_magic) != EXT2_SUPER_MAGIC)
 		panic("ext2_statfs - magic number spoiled");
 
 	/*
 	 * Compute the overhead (FS structures)
 	 */
-	if (es->s_feature_ro_compat & EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER) {
+	if (le32_to_cpu(es->s_feature_ro_compat) & EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER) {
 		nsb = 0;
 		for (i = 0 ; i < fs->s_groups_count; i++)
 			if (ext2_group_sparse(i))
 				nsb++;
 	} else
 		nsb = fs->s_groups_count;
-	overhead = es->s_first_data_block + 
+	overhead = le32_to_cpu(es->s_first_data_block) + 
 	    /* Superblocks and block group descriptors: */
 	    nsb * (1 + fs->s_db_per_group) +
 	    /* Inode bitmap, block bitmap, and inode table: */
@@ -998,11 +1062,11 @@ ext2_statfs(mp, sbp, td)
 
 	sbp->f_bsize = EXT2_FRAG_SIZE(fs);	
 	sbp->f_iosize = EXT2_BLOCK_SIZE(fs);
-	sbp->f_blocks = es->s_blocks_count - overhead;
-	sbp->f_bfree = es->s_free_blocks_count; 
-	sbp->f_bavail = sbp->f_bfree - es->s_r_blocks_count; 
-	sbp->f_files = es->s_inodes_count; 
-	sbp->f_ffree = es->s_free_inodes_count; 
+	sbp->f_blocks = le32_to_cpu(es->s_blocks_count) - overhead;
+	sbp->f_bfree = le32_to_cpu(es->s_free_blocks_count); 
+	sbp->f_bavail = sbp->f_bfree - le32_to_cpu(es->s_r_blocks_count); 
+	sbp->f_files = le32_to_cpu(es->s_inodes_count); 
+	sbp->f_ffree = le32_to_cpu(es->s_free_inodes_count); 
 	if (sbp != &mp->mnt_stat) {
 		sbp->f_type = mp->mnt_vfc->vfc_typenum;
 		bcopy((caddr_t)mp->mnt_stat.f_mntonname,
@@ -1032,6 +1096,9 @@ ext2_sync(mp, waitfor, cred, td)
 	struct ext2mount *ump = VFSTOEXT2(mp);
 	struct ext2_sb_info *fs;
 	int error, allerror = 0;
+   #ifdef APPLE
+   int didhold;
+   #endif
 
 	fs = ump->um_e2fs;
 	if (fs->s_dirt != 0 && fs->s_rd_only != 0) {		/* XXX */
@@ -1081,9 +1148,16 @@ loop:
 				goto loop;
 			continue;
 		}
+      #ifdef APPLE
+      didhold = ubc_hold(vp);
+      #endif
 		if ((error = VOP_FSYNC(vp, cred, waitfor, td)) != 0)
 			allerror = error;
 		VOP_UNLOCK(vp, 0, td);
+      #ifdef APPLE
+      if (didhold)
+         ubc_rele(vp);
+      #endif
 		vrele(vp);
 		mtx_lock(&mntvnode_mtx);
 	}
@@ -1105,7 +1179,7 @@ loop:
 	 */
 	if (fs->s_dirt != 0) {
 		fs->s_dirt = 0;
-		fs->s_es->s_wtime = time_second;
+		fs->s_es->s_wtime = cpu_to_le32(time_second);
 		if ((error = ext2_sbupdate(ump, waitfor)) != 0)
 			allerror = error;
 	}
@@ -1178,11 +1252,7 @@ restart:
 	MALLOC(ip, struct inode *, sizeof(struct inode), M_EXT2NODE, M_WAITOK);
 
 	/* Allocate a new vnode/inode. */
-   #ifndef APPLE
-	if ((error = getnewvnode("ext2fs", mp, ext2_vnodeop_p, &vp)) != 0) {
-   #else
-   if ((error = getnewvnode(VT_OTHER, mp, ext2_vnodeop_p, &vp)) != 0) {
-   #endif
+   if ((error = getnewvnode(VT_EXT2, mp, ext2_vnodeop_p, &vp)) != 0) {
 		if (ext2fs_inode_hash_lock < 0)
 			wakeup(&ext2fs_inode_hash_lock);
 		ext2fs_inode_hash_lock = 0;
@@ -1196,6 +1266,10 @@ restart:
 	ip->i_e2fs = fs = ump->um_e2fs;
 	ip->i_dev = dev;
 	ip->i_number = ino;
+   #ifdef APPLE
+   /* Init our private lock */
+   lockinit(&ip->i_lock, PINOD, "ext2 inode", 0, 0);
+   #endif
 	/*
 	 * Put it onto its hash chain and lock it so that other requests for
 	 * this inode will block if they arrive while we are sleeping waiting
@@ -1270,6 +1344,15 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 		if ((vp->v_mount->mnt_flag & MNT_RDONLY) == 0)
 			ip->i_flag |= IN_MODIFIED;
 	}
+   
+   /* Setup UBC info for VREG*/
+   #ifdef APPLE
+   if (S_ISREG(ip->i_mode)) {
+      if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
+         ubc_info_init(vp);
+   }
+   #endif
+   
 	*vpp = vp;
 	return (0);
 }
@@ -1310,15 +1393,13 @@ ext2_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
 	ufhp = (struct ufid *)fhp;
 	fs = VFSTOEXT2(mp)->um_e2fs;
 	if (ufhp->ufid_ino < ROOTINO ||
-	    ufhp->ufid_ino > fs->s_groups_count * fs->s_es->s_inodes_per_group)
+	    ufhp->ufid_ino > fs->s_groups_count * le32_to_cpu(fs->s_es->s_inodes_per_group))
 		return (ESTALE);
    
    #ifndef APPLE
 	error = VFS_VGET(mp, ufhp->ufid_ino, LK_EXCLUSIVE, &nvp);
    #else
    error = VFS_VGET(mp, (void*)ufhp->ufid_ino, &nvp);
-   if (!error)
-      vn_lock(nvp, LK_EXCLUSIVE|LK_RETRY, current_proc());
    #endif / * APPLE */
 	if (error) {
 		*vpp = NULLVP;
@@ -1367,15 +1448,20 @@ ext2_sbupdate(mp, waitfor)
 	struct ext2_super_block *es = fs->s_es;
 	struct buf *bp;
 	int error = 0;
+   #ifdef APPLE
+   int devBlockSize=0;
+   
+   VOP_DEVBLOCKSIZE(mp->um_devvp, &devBlockSize);
+   #endif
 /*
 printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 */
-	bp = getblk(mp->um_devvp, SBLOCK, SBSIZE, 0, 0
+	bp = getblk(mp->um_devvp, SBLOCK, fs->s_blocksize, 0, 0
    #ifdef APPLE
-   ,BLK_WRITE
+   ,BLK_META
    #endif
    );
-	bcopy((caddr_t)es, bp->b_data, (u_int)sizeof(struct ext2_super_block));
+	bcopy((caddr_t)es, (bp->b_data+SBOFF), (u_int)sizeof(struct ext2_super_block));
 	if (waitfor == MNT_WAIT)
 		error = bwrite(bp);
 	else
@@ -1405,8 +1491,6 @@ ext2_root(mp, vpp)
 	error = VFS_VGET(mp, (ino_t)ROOTINO, LK_EXCLUSIVE, &nvp);
    #else
    error = VFS_VGET(mp, (void*)ROOTINO, &nvp);
-   if (!error)
-      vn_lock(nvp, LK_EXCLUSIVE|LK_RETRY, current_proc());
    #endif / * APPLE */
 	if (error)
 		return (error);
@@ -1445,7 +1529,7 @@ vn_isdisk(vp, errp)
    struct cdevsw *cdevsw;
    #endif
 
-	if (vp->v_type != VCHR) {
+	if (vp->v_type != VBLK) {
 		if (errp != NULL)
 			*errp = ENOTBLK;
 		return (0);
@@ -1499,6 +1583,13 @@ vfs_stdquotactl(mp, cmd, uid, arg, p)
 	struct proc *p;
 {
 	return EOPNOTSUPP;
+}
+
+static int
+ext2_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
+	   size_t newlen, struct proc *p)
+{
+   return (ENOTSUP);
 }
 
 extern int vfs_opv_numops; // kernel

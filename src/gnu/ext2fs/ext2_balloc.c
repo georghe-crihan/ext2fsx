@@ -66,13 +66,14 @@
  * the inode and the logical block number in a file.
  */
 int
-ext2_balloc(ip, bn, size, cred, bpp, flags)
+ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	struct inode *ip;
 	int32_t bn;
 	int size;
 	struct ucred *cred;
 	struct buf **bpp;
 	int flags;
+   int *blk_alloc;
 {
 	struct ext2_sb_info *fs;
 	int32_t nb;
@@ -90,6 +91,9 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		return (EFBIG);
 	fs = ip->i_e2fs;
 	lbn = bn;
+   
+   if (blk_alloc)
+      *blk_alloc = 0;
 
 	/*
 	 * check if this is a sequential block allocation. 
@@ -155,7 +159,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 				return (error);
 			bp = getblk(vp, bn, nsize, 0, 0
          #ifdef APPLE
-         ,BLK_READ /* XXX Right type */
+         ,BLK_WRITE
          #endif
          );
 			bp->b_blkno = fsbtodb(fs, newb);
@@ -164,6 +168,8 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		}
 		ip->i_db[bn] = dbtofsb(fs, bp->b_blkno);
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
+      if (blk_alloc)
+         *blk_alloc = nsize;
 		*bpp = bp;
 		return (0);
 	}
@@ -206,7 +212,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		nb = newb;
 		bp = getblk(vp, indirs[1].in_lbn, fs->s_blocksize, 0, 0
       #ifdef APPLE
-      ,BLK_WRITE
+      ,BLK_META
       #endif
       );
 		bp->b_blkno = fsbtodb(fs, newb);
@@ -262,7 +268,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		nb = newb;
 		nbp = getblk(vp, indirs[i].in_lbn, fs->s_blocksize, 0, 0
       #ifdef APPLE
-      , BLK_WRITE
+      , BLK_META
       #endif
       );
 		nbp->b_blkno = fsbtodb(fs, nb);
@@ -308,6 +314,8 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		if (flags & B_CLRBUF)
 			vfs_bio_clrbuf(nbp);
 		bap[indirs[i].in_off] = nb;
+      if (blk_alloc)
+         *blk_alloc = fs->s_blocksize;
 		/*
 		 * If required, write synchronously, otherwise use
 		 * delayed write.
@@ -330,7 +338,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 	} else {
 		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0
       #ifdef APPLE
-      ,BLK_READ /* XXX Right value */
+      ,BLK_WRITE
       #endif
       );
 		nbp->b_blkno = fsbtodb(fs, nb);

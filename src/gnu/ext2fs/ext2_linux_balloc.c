@@ -49,6 +49,7 @@
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/fs.h>
+#include <ext2_byteorder.h>
 
 #ifdef __i386__
 #include <gnu/ext2fs/i386-bitops.h>
@@ -77,11 +78,11 @@ static void read_block_bitmap (struct mount * mp,
 	
 	gdp = get_group_desc (mp, block_group, NULL);
 	if ((error = bread (VFSTOEXT2(mp)->um_devvp,
-		fsbtodb(sb, gdp->bg_block_bitmap),sb->s_blocksize, NOCRED, &bh)) != 0)
+		fsbtodb(sb, le32_to_cpu(gdp->bg_block_bitmap)),sb->s_blocksize, NOCRED, &bh)) != 0)
 		panic ( "read_block_bitmap: "
 			    "Cannot read block bitmap - "
 			    "block_group = %d, block_bitmap = %lu",
-			    block_group, (unsigned long) gdp->bg_block_bitmap);
+			    block_group, (unsigned long) le32_to_cpu(gdp->bg_block_bitmap));
 	sb->s_block_bitmap_number[bitmap_nr] = block_group;
 	sb->s_block_bitmap[bitmap_nr] = bh;
 	LCK_BUF(bh)
@@ -192,8 +193,8 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 		return;
 	}
 	lock_super (VFSTOEXT2(mp)->um_devvp);
-	if (block < es->s_first_data_block || 
-	    (block + count) > es->s_blocks_count) {
+	if (block < le32_to_cpu(es->s_first_data_block) || 
+	    (block + count) > le32_to_cpu(es->s_blocks_count)) {
 		printf ( "ext2_free_blocks: "
 			    "Freeing blocks not in datazone - "
 			    "block = %lu, count = %lu", block, count);
@@ -203,9 +204,9 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 
 	ext2_debug ("freeing blocks %lu to %lu\n", block, block+count-1);
 
-	block_group = (block - es->s_first_data_block) /
+	block_group = (block - le32_to_cpu(es->s_first_data_block)) /
 		      EXT2_BLOCKS_PER_GROUP(sb);
-	bit = (block - es->s_first_data_block) % EXT2_BLOCKS_PER_GROUP(sb);
+	bit = (block - le32_to_cpu(es->s_first_data_block)) % EXT2_BLOCKS_PER_GROUP(sb);
 	if (bit + count > EXT2_BLOCKS_PER_GROUP(sb))
 		panic ( "ext2_free_blocks: "
 			    "Freeing blocks across group boundary - "
@@ -216,11 +217,11 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 	gdp = get_group_desc (mp, block_group, &bh2);
 
 	if (/* test_opt (sb, CHECK_STRICT) && 	assume always strict ! */
-	    (in_range (gdp->bg_block_bitmap, block, count) ||
-	     in_range (gdp->bg_inode_bitmap, block, count) ||
-	     in_range (block, gdp->bg_inode_table,
+	    (in_range (le32_to_cpu(gdp->bg_block_bitmap), block, count) ||
+	     in_range (le32_to_cpu(gdp->bg_inode_bitmap), block, count) ||
+	     in_range (block, le32_to_cpu(gdp->bg_inode_table),
 		       sb->s_itb_per_group) ||
-	     in_range (block + count - 1, gdp->bg_inode_table,
+	     in_range (block + count - 1, le32_to_cpu(gdp->bg_inode_table),
 		       sb->s_itb_per_group)))
 		panic ( "ext2_free_blocks: "
 			    "Freeing blocks in system zones - "
@@ -237,8 +238,8 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 				      "bit already cleared for block %lu", 
 				      block);
 		else {
-			gdp->bg_free_blocks_count++;
-			es->s_free_blocks_count++;
+			gdp->bg_free_blocks_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count) + 1);
+			es->s_free_blocks_count = cpu_to_le32(le32_to_cpu(es->s_free_blocks_count) + 1);
 		}
 	}
 
@@ -290,12 +291,12 @@ repeat:
 	/*
 	 * First, test whether the goal block is free.
 	 */
-	if (goal < es->s_first_data_block || goal >= es->s_blocks_count)
-		goal = es->s_first_data_block;
-	i = (goal - es->s_first_data_block) / EXT2_BLOCKS_PER_GROUP(sb);
+	if (goal < le32_to_cpu(es->s_first_data_block) || goal >= le32_to_cpu(es->s_blocks_count))
+		goal = le32_to_cpu(es->s_first_data_block);
+	i = (goal - le32_to_cpu(es->s_first_data_block)) / EXT2_BLOCKS_PER_GROUP(sb);
 	gdp = get_group_desc (mp, i, &bh2);
-	if (gdp->bg_free_blocks_count > 0) {
-		j = ((goal - es->s_first_data_block) % EXT2_BLOCKS_PER_GROUP(sb));
+	if (le16_to_cpu(gdp->bg_free_blocks_count) > 0) {
+		j = ((goal - le32_to_cpu(es->s_first_data_block)) % EXT2_BLOCKS_PER_GROUP(sb));
 #ifdef EXT2FS_DEBUG
 		if (j)
 			goal_attempts++;
@@ -369,7 +370,7 @@ repeat:
 		if (i >= sb->s_groups_count)
 			i = 0;
 		gdp = get_group_desc (mp, i, &bh2);
-		if (gdp->bg_free_blocks_count > 0)
+		if (le16_to_cpu(gdp->bg_free_blocks_count) > 0)
 			break;
 	}
 	if (k >= sb->s_groups_count) {
@@ -403,14 +404,14 @@ search_back:
 	
 got_block:
 
-	ext2_debug ("using block group %d(%d)\n", i, gdp->bg_free_blocks_count);
+	ext2_debug ("using block group %d(%d)\n", i, le16_to_cpu(gdp->bg_free_blocks_count));
 
-	tmp = j + i * EXT2_BLOCKS_PER_GROUP(sb) + es->s_first_data_block;
+	tmp = j + i * EXT2_BLOCKS_PER_GROUP(sb) + le32_to_cpu(es->s_first_data_block);
 
 	if (/* test_opt (sb, CHECK_STRICT) && we are always strict. */
-	    (tmp == gdp->bg_block_bitmap ||
-	     tmp == gdp->bg_inode_bitmap ||
-	     in_range (tmp, gdp->bg_inode_table, sb->s_itb_per_group)))
+	    (tmp == le32_to_cpu(gdp->bg_block_bitmap) ||
+	     tmp == le32_to_cpu(gdp->bg_inode_bitmap) ||
+	     in_range (tmp, le32_to_cpu(gdp->bg_inode_table), sb->s_itb_per_group)))
 		panic ( "ext2_new_block: "
 			    "Allocating block in system zone - "
 			    "%dth block = %u in group %u", j, tmp, i);
@@ -444,8 +445,10 @@ got_block:
 				break;
 			(*prealloc_count)++;
 		}	
-		gdp->bg_free_blocks_count -= *prealloc_count;
-		es->s_free_blocks_count -= *prealloc_count;
+		gdp->bg_free_blocks_count =
+         cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count) - *prealloc_count);
+		es->s_free_blocks_count =
+         cpu_to_le32(le32_to_cpu(es->s_free_blocks_count) - *prealloc_count);
 		ext2_debug ("Preallocated a further %lu bits.\n",
 			    *prealloc_count); 
 	}
@@ -460,7 +463,7 @@ got_block:
 		wait_on_buffer (bh);
 	}
 ****/
-	if (j >= es->s_blocks_count) {
+	if (j >= le32_to_cpu(es->s_blocks_count)) {
 		printf ( "ext2_new_block: "
 			    "block >= blocks count - "
 			    "block_group = %d, block=%d", i, j);
@@ -471,9 +474,9 @@ got_block:
 	ext2_debug ("allocating block %d. "
 		    "Goal hits %d of %d.\n", j, goal_hits, goal_attempts);
 
-	gdp->bg_free_blocks_count--;
+	gdp->bg_free_blocks_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count) - 1);
 	mark_buffer_dirty(bh2);
-	es->s_free_blocks_count--;
+	es->s_free_blocks_count = cpu_to_le32(le32_to_cpu(es->s_free_blocks_count) - 1);
 	sb->s_dirt = 1;
 	unlock_super (VFSTOEXT2(mp)->um_devvp);
 	return j;
@@ -497,20 +500,20 @@ static unsigned long ext2_count_free_blocks (struct mount * mp)
 	gdp = NULL;
 	for (i = 0; i < sb->s_groups_count; i++) {
 		gdp = get_group_desc (mp, i, NULL);
-		desc_count += gdp->bg_free_blocks_count;
+		desc_count += le16_to_cpu(gdp->bg_free_blocks_count);
 		bitmap_nr = load_block_bitmap (mp, i);
 		x = ext2_count_free (sb->s_block_bitmap[bitmap_nr],
 				     sb->s_blocksize);
 		ext2_debug ("group %d: stored = %d, counted = %lu\n",
-			i, gdp->bg_free_blocks_count, x);
+			i, le16_to_cpu(gdp->bg_free_blocks_count), x);
 		bitmap_count += x;
 	}
 	ext2_debug( "stored = %lu, computed = %lu, %lu\n",
-	       es->s_free_blocks_count, desc_count, bitmap_count);
+	       le32_to_cpu(es->s_free_blocks_count), desc_count, bitmap_count);
 	unlock_super (VFSTOEXT2(mp)->um_devvp);
 	return bitmap_count;
 #else
-	return sb->s_es->s_free_blocks_count;
+	return le32_to_cpu(sb->s_es->s_free_blocks_count);
 #endif
 }
 #endif /* unused */
@@ -519,7 +522,7 @@ static __inline int block_in_use (unsigned long block,
 				  struct ext2_sb_info * sb,
 				  unsigned char * map)
 {
-	return test_bit ((block - sb->s_es->s_first_data_block) %
+	return test_bit ((block - le32_to_cpu(sb->s_es->s_first_data_block)) %
 			 EXT2_BLOCKS_PER_GROUP(sb), (u_long*)map);
 }
 
@@ -563,11 +566,11 @@ static void ext2_check_blocks_bitmap (struct mount * mp)
 		      EXT2_DESC_PER_BLOCK(sb);
 	for (i = 0; i < sb->s_groups_count; i++) {
 		gdp = get_group_desc (mp, i, NULL);
-		desc_count += gdp->bg_free_blocks_count;
+		desc_count += le16_to_cpu(gdp->bg_free_blocks_count);
 		bitmap_nr = load_block_bitmap (mp, i);
 		bh = sb->s_block_bitmap[bitmap_nr];
 
-		if (!(es->s_feature_ro_compat &
+		if (!(le32_to_cpu(es->s_feature_ro_compat) &
 		     EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER) ||
 		    ext2_group_sparse(i)) {
 			if (!test_bit (0, bh->b_data))
@@ -582,35 +585,35 @@ static void ext2_check_blocks_bitmap (struct mount * mp)
 					    "%d is marked free", j, i);
 		}
 
-		if (!block_in_use (gdp->bg_block_bitmap, sb, bh->b_data))
+		if (!block_in_use (le32_to_cpu(gdp->bg_block_bitmap), sb, bh->b_data))
 			printf ("ext2_check_blocks_bitmap: "
 				    "Block bitmap for group %d is marked free",
 				    i);
 
-		if (!block_in_use (gdp->bg_inode_bitmap, sb, bh->b_data))
+		if (!block_in_use (le32_to_cpu(gdp->bg_inode_bitmap), sb, bh->b_data))
 			printf ("ext2_check_blocks_bitmap: "
 				    "Inode bitmap for group %d is marked free",
 				    i);
 
 		for (j = 0; j < sb->s_itb_per_group; j++)
-			if (!block_in_use (gdp->bg_inode_table + j, sb, bh->b_data))
+			if (!block_in_use (le32_to_cpu(gdp->bg_inode_table) + j, sb, bh->b_data))
 				printf ("ext2_check_blocks_bitmap: "
 					    "Block #%d of the inode table in "
 					    "group %d is marked free", j, i);
 
 		x = ext2_count_free (bh, sb->s_blocksize);
-		if (gdp->bg_free_blocks_count != x)
+		if (le16_to_cpu(gdp->bg_free_blocks_count) != x)
 			printf ("ext2_check_blocks_bitmap: "
 				    "Wrong free blocks count for group %d, "
 				    "stored = %d, counted = %lu", i,
-				    gdp->bg_free_blocks_count, x);
+				    le16_to_cpu(gdp->bg_free_blocks_count), x);
 		bitmap_count += x;
 	}
-	if (es->s_free_blocks_count != bitmap_count)
+	if (le32_to_cpu(es->s_free_blocks_count) != bitmap_count)
 		printf ("ext2_check_blocks_bitmap: "
 			    "Wrong free blocks count in super block, "
 			    "stored = %lu, counted = %lu",
-			    (unsigned long) es->s_free_blocks_count, bitmap_count);
+			    (unsigned long) le32_to_cpu(es->s_free_blocks_count), bitmap_count);
 	unlock_super (VFSTOEXT2(mp)->um_devvp);
 }
 #endif /* unused */
