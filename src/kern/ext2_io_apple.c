@@ -291,11 +291,6 @@ ext2_cmap(ap)
 	ip = VTOI(vp);
 	fs = ip->i_e2fs;
 
-#if 0
-// For bug #965119. It stops the constant calls to VOP_CMAP(), but doesn't seem to fix the overall problem.
-	if (ap->a_foffset > roundup(ip->i_size, (u_int64_t)EXT2_BLOCK_SIZE(fs)))
-        return (EFBIG);
-#endif
     if ((error = blkoff(fs, ap->a_foffset))) {
 		panic("ext2_cmap: allocation requested inside a block (possible filesystem corruption): "
          "qbmask=%qd, inode=%u, offset=%qd, blkoff=%d",
@@ -312,9 +307,10 @@ ext2_cmap(ap)
 		panic("ext2_cmap: size is not multiple of device block size\n");
 	}
 
-	if ((error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks))) {
+cmap_bmap:
+    if ((error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks))) {
         ext2_trace_return(error);
-	}
+    }
 
 	retsize = nblks * EXT2_BLOCK_SIZE(fs);
 
@@ -325,7 +321,20 @@ ext2_cmap(ap)
 		*(int *)ap->a_poff = 0;
 
 	if (daddr == -1) {
-		if (size < EXT2_BLOCK_SIZE(fs)) {
+        /* XXX - BDB - Workaround for bug #965119
+           There is a bug in cluster_io() in all pre 10.4.x kernels that causes nasty problems 
+           when there is a hole in the inode that is not aligned on a page boundry.
+           To fix this, we allocate a new block. No more sparse hole, but also no
+           more panics, or system lock-ups.
+         */
+        if (EXT2_BLOCK_SIZE(fs) < PAGE_SIZE) { 
+            if ((error = ext2_blkalloc(ip, bn, EXT2_BLOCK_SIZE(fs), curproc->p_ucred, 0))) {
+                ext2_trace_return(error);
+            }
+            goto cmap_bmap;
+        }
+        
+        if (size < EXT2_BLOCK_SIZE(fs)) {
 			retsize = fragroundup(fs, size);
 			if(size >= retsize)
 				*runp = retsize;
@@ -369,10 +378,10 @@ ext2_cmap(ap)
  * marked busy as it is being paged out. Also it's important to note that we are not
  * growing the file in pageouts. So ip->i_size  cannot increase by this call
  * due to the way UBC works.  
- * This code is derived from ext2_balloc and many cases of that are  dealt
- * in ext2_balloc are not applicable here 
+ * This code is derived from ext2_balloc and many cases of that are dealt with
+ * in ext2_balloc are not applicable here.
  * Do not call with B_CLRBUF flags as this should only be called only 
- * from pageouts
+ * from pageouts.
  */
 static int
 ext2_blkalloc(ip, lbn, size, cred, flags)
