@@ -120,7 +120,7 @@ static const char whatid[] __attribute__ ((unused)) =
    ATTR_VOL_FSTYPE | ATTR_VOL_SIGNATURE | ATTR_VOL_SIZE | \
    ATTR_VOL_SPACEFREE | ATTR_VOL_SPACEAVAIL | ATTR_VOL_IOBLOCKSIZE | \
    ATTR_VOL_OBJCOUNT |  ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT | \
-   ATTR_VOL_MAXOBJCOUNT | ATTR_VOL_MOUNTPOINT | ATTR_VOL_NAME | \
+   ATTR_VOL_MAXOBJCOUNT | ATTR_VOL_MOUNTPOINT | ATTR_VOL_NAME | ATTR_VOL_MOUNTPOINT | \
    ATTR_VOL_MOUNTFLAGS | ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES | \
    ATTR_VOL_ATTRIBUTES | ATTR_VOL_INFO )
 /*  ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT aren't really native, but close enough */
@@ -437,7 +437,7 @@ ext2_packvolattr (struct attrlist *alist,
    struct ext2mount *emp;
 	attrgroup_t a;
 	u_long attrlength;
-   int err = 0, i;
+   int err = 0;
    struct timespec ts;
 	
 	attrbufptr = *attrbufptrptr;
@@ -451,12 +451,13 @@ ext2_packvolattr (struct attrlist *alist,
    if ((a = alist->commonattr) != 0) {
       
       if (a & ATTR_CMN_NAME) {
-         attrlength = 0;
+         attrlength = ext2_vol_label_len(fs->s_es->s_volume_name);
          
          ((struct attrreference *)attrbufptr)->attr_dataoffset = (u_int8_t *)varbufptr - (u_int8_t *)attrbufptr;
          ((struct attrreference *)attrbufptr)->attr_length = attrlength;
          /* copy name */
          (void) strncpy((unsigned char *)varbufptr, fs->s_es->s_volume_name, attrlength);
+         *((unsigned char *)varbufptr + attrlength) = 0;
          
          /* Advance beyond the space just allocated and round up to the next 4-byte boundary: */
          (u_int8_t *)varbufptr += attrlength + ((4 - (attrlength & 3)) & 3);
@@ -513,24 +514,10 @@ ext2_packvolattr (struct attrlist *alist,
 	
 	if ((a = alist->volattr) != 0) {
       struct statfs sb;
-      int numdirs = 0;
+      int numdirs = fs->s_dircount;
       
       if (0 != (err = mp->mnt_op->vfs_statfs(mp, &sb, p)))
          goto exit;
-      
-      if (a & (ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT)) {
-         // Get a count of directories
-         struct ext2_group_desc *gdp = NULL;
-         int block = 0;
-         lock_super (fs);
-         for (i=0; i < fs->s_groups_count; ++i) {
-            if ((i % EXT2_DESC_PER_BLOCK(fs)) == 0)
-               gdp = (struct ext2_group_desc *)fs->s_group_desc[block++]->b_data;
-            numdirs += le32_to_cpu(gdp->bg_used_dirs_count);
-            gdp++;
-         }
-         unlock_super (fs);
-      }
 
 		if (a & ATTR_VOL_FSTYPE) *((u_long *)attrbufptr)++ = (u_long)mp->mnt_vfc->vfc_typenum;
 		if (a & ATTR_VOL_SIGNATURE) *((u_long *)attrbufptr)++ = (u_long)EXT2_SUPER_MAGIC;
@@ -544,12 +531,27 @@ ext2_packvolattr (struct attrlist *alist,
 		if (a & ATTR_VOL_FILECOUNT) *((u_long *)attrbufptr)++ = (sb.f_files - sb.f_ffree) - numdirs;
 		if (a & ATTR_VOL_DIRCOUNT) *((u_long *)attrbufptr)++ = numdirs;
 		if (a & ATTR_VOL_MAXOBJCOUNT) *((u_long *)attrbufptr)++ = sb.f_files;
+      if (a & ATTR_VOL_MOUNTPOINT) {
+         ((struct attrreference *)attrbufptr)->attr_dataoffset =
+               (char *)varbufptr - (char *)attrbufptr;
+         ((struct attrreference *)attrbufptr)->attr_length =
+               strlen(mp->mnt_stat.f_mntonname) + 1;
+         attrlength = ((struct attrreference *)attrbufptr)->attr_length;
+         /* round up to the next 4-byte boundary: */
+         attrlength = attrlength + ((4 - (attrlength & 3)) & 3);
+         (void) bcopy(mp->mnt_stat.f_mntonname, varbufptr, attrlength);
+            
+         /* Advance beyond the space just allocated: */
+         (char *)varbufptr += attrlength;
+         ++((struct attrreference *)attrbufptr);
+      }
       if (a & ATTR_VOL_NAME) {
-         attrlength = 0;
+         attrlength = ext2_vol_label_len(fs->s_es->s_volume_name);
          ((struct attrreference *)attrbufptr)->attr_dataoffset = (u_int8_t *)varbufptr - (u_int8_t *)attrbufptr;
          ((struct attrreference *)attrbufptr)->attr_length = attrlength;
          /* Copy vol name */
          (void) strncpy((unsigned char *)varbufptr, fs->s_es->s_volume_name, attrlength);
+         *((unsigned char *)varbufptr + attrlength) = 0;
 
          /* Advance beyond the space just allocated and round up to the next 4-byte boundary: */
          (u_int8_t *)varbufptr += attrlength + ((4 - (attrlength & 3)) & 3);
@@ -569,6 +571,10 @@ ext2_packvolattr (struct attrlist *alist,
         };
         if (a & ATTR_VOL_ENCODINGSUSED) *((unsigned long long *)attrbufptr)++ = (unsigned long long)0;
         if (a & ATTR_VOL_CAPABILITIES) {
+         int extracaps = 0;
+         if (EXT3_HAS_COMPAT_FEATURE(fs, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
+            extracaps = VOL_CAP_FMT_JOURNAL /* | VOL_CAP_FMT_JOURNAL_ACTIVE */;
+            
          /* Capabilities we support */
         	((vol_capabilities_attr_t *)attrbufptr)->capabilities[VOL_CAPABILITIES_FORMAT] =
             VOL_CAP_FMT_SYMBOLICLINKS|
@@ -576,7 +582,8 @@ ext2_packvolattr (struct attrlist *alist,
             VOL_CAP_FMT_SPARSE_FILES|
             VOL_CAP_FMT_CASE_SENSITIVE|
             VOL_CAP_FMT_CASE_PRESERVING|
-            VOL_CAP_FMT_FAST_STATFS;
+            VOL_CAP_FMT_FAST_STATFS|
+            extracaps;
         	((vol_capabilities_attr_t *)attrbufptr)->capabilities[VOL_CAPABILITIES_INTERFACES] =
             VOL_CAP_INT_ATTRLIST|
             /* VOL_CAP_INT_NFSEXPORT| */
@@ -658,11 +665,12 @@ ext2_packcommonattr (struct attrlist *alist,
 		struct ext2mount *emp = VFSTOEXT2(ip->i_vnode->v_mount);
 
         if (a & ATTR_CMN_NAME) {
-			/* special case root since we know how to get it's name */
+			/* special case root since we know how to get it's name
 			if (ITOV(ip)->v_flag & VROOT) {
 				attrlength = strlen(emp->um_e2fs->s_es->s_volume_name) + 1;
 				(void) strncpy((unsigned char *)varbufptr, emp->um_e2fs->s_es->s_volume_name, attrlength);
-        	} else {
+            *((unsigned char *)varbufptr + attrlength) = 0;
+        	} else */ {
             attrlength = 0; // No way to determine the name
          }
 
@@ -870,7 +878,7 @@ ext2_check_label(const char *label)
 {
    int c, i;
 
-   for (i = 0, c = 0; i <= EXT2_VOL_LABEL_LENGTH; i++) {
+   for (i = 0, c = 0; i < EXT2_VOL_LABEL_LENGTH; i++) {
       c = (u_char)*label++;
       if (c < ' ' + !i || strchr(EXT2_VOL_LABEL_INVAL_CHARS, c))
          break;
