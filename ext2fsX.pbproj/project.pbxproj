@@ -817,7 +817,7 @@
 			<key>FSFormatContentMask</key>
 			<string>EXT2</string>
 			<key>FSFormatExecutable</key>
-			<string>../../../../../../usr/local/sbin/mke2fs</string>
+			<string>../../../../../../sbin/newfs_ext2</string>
 			<key>FSFormatMinimumSize</key>
 			<integer>524288</integer>
 			<key>FSMountArguments</key>
