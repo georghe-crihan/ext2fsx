@@ -28,6 +28,7 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #import <ExtFSDiskManager/ExtFSDiskManager.h>
 #import "ExtFSManager.h"
+#import "ExtFSManagerAdditions.h"
 
 /* Note: For the "Options" button, the image/title
       is the reverse of the actual action. */
@@ -742,6 +743,7 @@ info_alt_switch:
    NSString *alt_titles[] = {EXT_TOOLBAR_ALT_ACTION_MOUNT, nil,
       EXT_TOOLBAR_ALT_ACTION_INFO, nil};
    NSString *alt_images[] = {EXT_TOOLBAR_ALT_ACTION_MOUNT, nil, EXT_TOOLBAR_ALT_ACTION_INFO, nil};
+   NSNumber *boolVal;
    int i;
    
    e_infoButtonAlt = NO; // Used to deterimine state
@@ -865,6 +867,31 @@ info_alt_switch:
    [e_copyrightText setStringValue:
       [[[self bundle] localizedInfoDictionary] objectForKey:@"CFBundleGetInfoString"]];
    [e_copyrightText setTextColor:[NSColor disabledControlTextColor]];
+   
+    // Install the SMART monitor into the user's login items
+    boolVal = [e_prefMgr objectForKey:EXT_PREF_KEY_MGR_SMARTD_ADDED];
+    if (nil == boolVal || NO == [boolVal boolValue]) {
+        NSEnumerator *en;
+        NSString *path;
+        id obj;
+        
+        path = [[self bundle] pathForResource:@"efssmartd" ofType:@"app"];
+        if ([self addLoginItem:path]) {
+            boolVal = [NSNumber numberWithBool:YES];
+            [e_prefMgr setObject:boolVal forKey:EXT_PREF_KEY_MGR_SMARTD_ADDED];
+            [self savePrefs];
+        }
+        // Launch it if it's not running
+        en = [[[NSWorkspace sharedWorkspace] launchedApplications] objectEnumerator];
+        while ((obj = [en nextObject])) {
+            if ([@"efssmartd" isEqualToString:[obj objectForKey:@"NSApplicationName"]]) {
+                break;
+            }
+        }
+        if (nil == obj)
+            if (NO == [[NSWorkspace sharedWorkspace] launchApplication:path])
+                NSLog(@"ExtFSM: NSWorkspace faild to launch '%@'.\n", path);
+    }
    
    [self performSelector:@selector(startup) withObject:nil afterDelay:0.3];
 }
