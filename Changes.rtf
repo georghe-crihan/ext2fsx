@@ -4,7 +4,14 @@
 \margl1440\margr1440\vieww9000\viewh9000\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.0a3\
+\f0\fs24 \cf0 1.0b1\
+Volume labels containing plus (+), period (.), or a comma (,) are now supported by the automount plug-in.\
+\
+Enforce max file size of 2GB.\
+\
+Removed debugging code.\
+\
+1.0a3\
 Fixed directory corruption and a very possible kernel panic when renaming an object (bug #742939). This was due to some meta-data not being byte-swapped. Many thanks to J. Peel for helping to track this down (and suffering through all of those panics).\
 \
 Fixed another instance of directory corruption (and a panic from the corruption) related to bug #742939. This would happen during removal of an object. This was more elusive than the previous bug, because it would only happen when the directory contained a certain number of entries. The problem was that an integer field was being overflowed because we were doing addition AFTER byte swapping the inode sizes. Switching the addition to native byte order fixed the bug. This should also fix bug #

@@ -388,7 +388,7 @@ oklabel(const char *src)
 
     for (i = 0, c = 0; i <= LABEL_LENGTH; i++) {
         c = (u_char)*src++;
-        if (c < ' ' + !i || strchr("\"*+,./:;<=>?[\\]|", c))
+        if (c < ' ' + !i || strchr("\"*/:;<=>?[\\]|", c))
             break;
     }
     return i && !c;

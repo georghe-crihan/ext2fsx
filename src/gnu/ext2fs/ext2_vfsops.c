@@ -669,6 +669,10 @@ static int compute_sb_data(devvp, es, fs)
 	EXT2_DESC_PER_BLOCK(fs);
     fs->s_db_per_group = db_count;
     V(s_db_per_group)
+   if (EXT2_FEATURE_RO_COMPAT_SUPP & EXT2_FEATURE_RO_COMPAT_LARGE_FILE)
+      fs->s_maxfilesize = 0x7FFFFFFFFFFFFFFFLL;
+   else
+      fs->s_maxfilesize = 0x7FFFFFFFLL;
 
     fs->s_group_desc = bsd_malloc(db_count * sizeof (struct buf *),
 		M_EXT2MNT, M_WAITOK);

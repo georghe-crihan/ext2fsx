@@ -70,6 +70,7 @@ struct ext2_sb_info {
 	unsigned long s_blocksize_bits;
 	unsigned int  s_bshift;			/* = log2(s_blocksize) */
 	quad_t	 s_qbmask;			/* = s_blocksize - 1 */
+   quad_t    s_maxfilesize;
 	unsigned int  s_fsbtodb;		/* shift to get disk block */
 	char    s_rd_only;                      /* read-only 		*/
 	char    s_dirt;                         /* fs modified flag */

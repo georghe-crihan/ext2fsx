@@ -119,7 +119,8 @@ READ(ap)
 #endif
 	fs = ip->I_FS;
 
-	if ((u_quad_t)uio->uio_offset > fs->fs_maxfilesize)
+	if ((u_quad_t)uio->uio_offset > fs->s_maxfilesize)
+
 		ext2_trace_return (EFBIG);
 
 	orig_resid = uio->uio_resid;
