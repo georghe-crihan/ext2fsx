@@ -72,6 +72,7 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFStringEncodingExt.h>
+#include <CoreFoundation/CFUUID.h>
 
 #include "ext2_apple.h"
 #include <ext2_fs.h>
@@ -131,6 +132,8 @@ static const char whatid[] __attribute__ ((unused)) =
 #define	DEVICE_DEV			"dev"
 #define	DEVICE_NODEV		"nodev"
 
+#define VOL_UUID_STR_LEN	36
+
 #ifdef DEBUG
 #undef DEBUG
 #endif
@@ -150,8 +153,9 @@ static int fs_mount(char *devpath, char *mount_point, int removable,
 static int fs_unmount(char *devpath);
 #if 0
 static int fs_label(char *devpath, char *volName);
-static void fs_set_label_file(char *labelPtr);
 #endif
+static void fs_set_label_file(char *labelPtr);
+static int fs_getuuid(char *devpath, u_char *uuid);
 
 static int safe_open(char *path, int flags, mode_t mode);
 static void safe_read(int fd, char *buf, int nbytes, off_t off);
@@ -182,21 +186,21 @@ void usage()
 {
         fprintf(stderr, "usage: %s action_arg device_arg [mount_point_arg] [Flags]\n", progname);
         fprintf(stderr, "action_arg:\n");
-        fprintf(stderr, "       -%c (Probe)\n", FSUC_PROBE);
-        fprintf(stderr, "       -%c (Mount)\n", FSUC_MOUNT);
-        fprintf(stderr, "       -%c (Unmount)\n", FSUC_UNMOUNT);
-        fprintf(stderr, "       -%c name\n", 'n');
+        fprintf(stderr, "\t-%c (Probe)\n", FSUC_PROBE);
+        fprintf(stderr, "\t-%c (Mount)\n", FSUC_MOUNT);
+        fprintf(stderr, "\t-%c (Unmount)\n", FSUC_UNMOUNT);
+        fprintf(stderr, "\t-%c name\n", 'n');
+        fprintf(stderr, "\t-%c (Get UUID)\n", FSUC_GETUUID);
     fprintf(stderr, "device_arg:\n");
-    fprintf(stderr, "       device we are acting upon (for example, 'disk0s2')\n");
+    fprintf(stderr, "\tdevice we are acting upon (for example, 'disk0s2')\n");
     fprintf(stderr, "mount_point_arg:\n");
-    fprintf(stderr, "       required for Mount and Force Mount \n");
+    fprintf(stderr, "\trequired for Mount and Force Mount \n");
     fprintf(stderr, "Flags:\n");
-    fprintf(stderr, "       required for Mount, Force Mount and Probe\n");
-    fprintf(stderr, "       indicates removable or fixed (for example 'fixed')\n");
-    fprintf(stderr, "       indicates readonly or writable (for example 'readonly')\n");
+    fprintf(stderr, "\trequired for Mount, Force Mount and Probe\n");
+    fprintf(stderr, "\tindicates removable or fixed (for example 'fixed')\n");
+    fprintf(stderr, "\tindicates readonly or writable (for example 'readonly')\n");
     fprintf(stderr, "Examples:\n");
-    fprintf(stderr, "		%s -p disk0s2 fixed writable\n", progname);
-    fprintf(stderr, "		%s -m disk0s2 /my/hfs removable readonly\n", progname);
+    fprintf(stderr, "\t%s -p disk0s2 fixed writable\n", progname);
         exit(FSUR_INVAL);
 }
 
@@ -224,8 +228,10 @@ int main(int argc, char **argv)
     if (argc < 2 || argv[0][0] != '-')
         usage();
     opt = argv[0][1];
-    if (opt != FSUC_PROBE && opt != FSUC_MOUNT && opt != FSUC_UNMOUNT && opt != FSUC_LABEL)
+    if (opt != FSUC_PROBE && opt != FSUC_MOUNT && opt != FSUC_UNMOUNT && opt != FSUC_LABEL
+         && FSUC_GETUUID != opt) {
         usage(); /* Not supported action */
+    }
     if ((opt == FSUC_MOUNT || opt == FSUC_UNMOUNT || opt == FSUC_LABEL) && argc < 3)
         usage(); /* mountpoint arg missing! */
 
@@ -291,7 +297,39 @@ int main(int argc, char **argv)
             #endif
             break;
          case FSUC_GETUUID:
+            {
+               CFUUIDBytes uuid;
+               
+               if (argc != 2)
+                  usage();
+               
+               ret = fs_getuuid(blockdevpath, (u_char*)&uuid);
+               if (FSUR_IO_SUCCESS == ret) {
+                  CFUUIDRef cuuid;
+                  CFStringRef suuid;
+                  
+                  cuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, uuid);
+                  if (cuuid) {
+                     suuid = CFUUIDCreateString(kCFAllocatorDefault, cuuid);
+                     CFRelease(cuuid);
+                     if (suuid) {
+                        u_char pruuid[40];
+                        /* Convert to UTF8 */
+                        (void) CFStringGetCString(suuid, pruuid, sizeof(pruuid),
+                           kCFStringEncodingUTF8);
+                        CFRelease(suuid);
+                        /* Write to stdout */
+                        write(1, pruuid, strlen(pruuid));
+                        break;
+                     }
+                  }
+                  /* If we get here, something failed */
+                  ret = FSUR_INVAL;   
+               }
+            }
+            break;
          case FSUC_SETUUID:
+            /* This is done at volume creation time */
          case FSUC_ADOPT:
          case FSUC_DISOWN:
          case FSUC_MKJNL:
@@ -633,6 +671,35 @@ static int fs_probe(char *devpath, int removable, int writable)
 
    free(buf);
    return(FSUR_RECOGNIZED);
+}
+
+static int fs_getuuid(char *devpath, u_char *uuid)
+{
+   char *buf;
+   struct ext2_super_block *sbp;
+   int fd;
+   
+   buf = malloc(4096);
+   if (!buf)
+      return (FSUR_UNRECOGNIZED);
+   
+   fd = safe_open(devpath, O_RDONLY, 0);
+   
+   safe_read(fd, buf, 4096, 0);
+   
+   /* Superblock starts at offset 1024 (block 2). */
+   sbp = (struct ext2_super_block*)(buf+SBSIZE);
+   
+   safe_close(fd);
+   
+   if (EXT2_SUPER_MAGIC != le16_to_cpu(sbp->s_magic)) {
+      free(buf);
+      return (FSUR_UNRECOGNIZED);
+   }
+   
+   bcopy(sbp->s_uuid, uuid, sizeof(sbp->s_uuid));
+   
+   return (FSUR_IO_SUCCESS);
 }
 
 #if 0
