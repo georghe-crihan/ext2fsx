@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -42,7 +42,7 @@ int ext2_vol_label_len(char *label) {
 #include <sys/mount.h>
 struct ext2_args {
 	char	*fspec;			/* block special device to mount */
-   unsigned long e2_mnt_flags; /* Ext2 specific mount flags */
+    unsigned long e2_mnt_flags; /* Ext2 specific mount flags */
     uid_t   e2_uid; /* Only active when MNT_UNKNOWNPERMISSIONS is set */
     gid_t   e2_gid; /* ditto */
 	struct	export_args export;	/* network export information */
@@ -139,7 +139,10 @@ static __inline__ int msleep(void *chan, void *lock /*ignored*/, int pri,
 #define VI_MTX(vp) NULL
 /* #define VI_MTX(vp) (&(vp)->v_interlock) */
 
-#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
+/*  As of 10.3.x simple_lock/unlock (as defined in sys/lock.h)
+    is a no-op.
+ */
+#if 0 /* defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE) */
 
 #define VI_LOCK(vp) \
 do { \
@@ -259,6 +262,20 @@ static __inline void * memscan(void * addr, int c, size_t size)
 #define EXT3_I(inode) (inode)
 
 #define KERN_CRIT "CRITICAL"
+
+/* Debug */
+
+#ifdef EXT2FS_DEBUG
+
+__private_extern__
+void print_clusters(struct vnode *, char *);
+#define dprint_clusters(vp) print_clusters((vp), __FUNCTION__)
+
+#else
+
+#define dprint_clusters(vp)
+
+#endif /* EXT2FS_DEBUG */
 
 #endif /*KERNEL*/
 
