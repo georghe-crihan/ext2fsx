@@ -24,7 +24,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-DOSX -DDEBUG -DEXT2FS_DEBUG=1 -DDIAGNOSTIC -DDX_DEBUG";
+				OTHER_CFLAGS = "\U0001-DOSX -DEXT_KNOTE -DDEBUG -DEXT2FS_DEBUG=1 -DDIAGNOSTIC -DDX_DEBUG";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -35,7 +35,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				OPTIMIZATION_CFLAGS = "-O2";
-				OTHER_CFLAGS = "\U0001-DOSX";
+				OTHER_CFLAGS = "\U0001-DOSX -DEXT_KNOTE";
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -67,9 +67,18 @@
 			buildStyles = (
 				06AA1262FFB20DD611CA28AA,
 				06AA1263FFB20DD611CA28AA,
+				D3360E46058AF97E004AF361,
+				D3360E47058AF9A6004AF361,
 			);
 			hasScannedForEncodings = 1;
 			isa = PBXProject;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+				fr,
+			);
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
 			targets = (
@@ -123,7 +132,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.1d4;
+				MODULE_VERSION = 1.1b1;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -159,15 +168,15 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1d4</string>
+	<string>1.1b1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1d4</string>
+	<string>1.1b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
+		<string>6.9.9</string>
 	</dict>
 </dict>
 </plist>
@@ -603,6 +612,26 @@
 			settings = {
 			};
 		};
+		D3360E46058AF97E004AF361 = {
+			buildRules = (
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "\U0001-DOSX -DDEBUG -DEXT2FS_DEBUG=1 -DDIAGNOSTIC -DDX_DEBUG";
+			};
+			isa = PBXBuildStyle;
+			name = JagDevelopment;
+		};
+		D3360E47058AF9A6004AF361 = {
+			buildRules = (
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "\U0001-DOSX";
+			};
+			isa = PBXBuildStyle;
+			name = JagDeployment;
+		};
 		D33C06890418779900A80164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -658,6 +687,28 @@
 			settingsToExpand = 6;
 			settingsToPassInEnvironment = 287;
 			settingsToPassOnCommandLine = 280;
+		};
+		D3556142058517B7008148F9 = {
+			children = (
+				D3556143058517B7008148F9,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+		};
+		D3556143058517B7008148F9 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = fr;
+			path = fr.lproj/Localizable.strings;
+			refType = 4;
+		};
+		D3556144058517B7008148F9 = {
+			fileRef = D3556142058517B7008148F9;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		D36725B2057A698B00A80164 = {
 			fileEncoding = 30;
@@ -1403,6 +1454,7 @@
 				D3F2225D057FBCE10085CE79,
 				D3F2225E057FBCE30085CE79,
 				D3A9B7CD057FE5DC00B93FC7,
+				D3556144058517B7008148F9,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1539,6 +1591,7 @@
 			children = (
 				D3F2223C057FB4720085CE79,
 				D3D4AF3A057915F800A80164,
+				D3556142058517B7008148F9,
 				D3A9B7CC057FE5DC00B93FC7,
 				D3F2223E057FB5010085CE79,
 				D3F22252057FB7390085CE79,
