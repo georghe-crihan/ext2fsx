@@ -6,13 +6,18 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.2\
-2004/05/17\
+\f1\b0 1.3b1\
+2004/06/24\
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b \cf0 Donations
+\f0\b \cf0 !!! WARNING !!!!
+\f1\b0 \
+There is a bug in 10.3.4 and earlier that will cause data loss, kernel panics, or system hangs if a sparse file is written to a filesystem with a block size < 4KB. I've opened a bug report with Apple, but don't know if or when this will be fixed.\
+\
+
+\f0\b Donations
 \f1\b0 \
 \
 If you are interested in making a donation, please vist my {\field{\*\fldinst{HYPERLINK "https://order.kagi.com/?VN"}}{\fldrslt \cf2 \ul \ulc2 Kagi Payment page}}. A minimum of US $10 is requested because of the fees Kagi charges. Please don\'d5t take this as a request for donations. Make a donation only if you want to, not because you feel you have to. Gifts from my {\field{\*\fldinst{HYPERLINK "http://www.amazon.com/exec/obidos/registry/1UV8OJ9VKS9VV/"}}{\fldrslt \cf2 \ul \ulc2 Amazon wish list}} are also appreciated (and preferred).\
@@ -41,11 +46,23 @@ Enable Indexed Directories -- See 'Supported Features' below.\
 \
 Ignore Permissions -- When checked, the filesystem will be mounted with only root permissions in effect. All other files will be accessible by any user.\
 \
-All options (except "Ignore Permissions") can be temporarily overridden using '/sbin/mount_ext2 -x'.\
+All options (except "Enable Indexed Directories") can be temporarily overridden using '/sbin/mount_ext2 -x' followed by 'disktool -r'.\
 \
 
 \f0\b Note:
 \f1\b0  You must be an admin user and /Library/Preferences must be writable by the admin group or changes made to the options will have no effect.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
+\cf0 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f0\b \cf0 ExtFS S.M.A.R.T. Hard Disk Monitor
+\f1\b0 \
+\
+ExtFS Manager includes a utility that is designed to monitor your local ATA disk drives for impending problems. This is done by querying the drives for their S.M.A.R.T. status. S.M.A.R.T. is a built in feature of modern ATA disk drives that allows the drive to perform diagnostic tests on itself. The results of these tests can then be queried by applications.\
+\
+The ExtFS S.M.A.R.T. monitor is installed in your Login Items the first time you launch the ExtFS Manager preference pane. It will continually monitor your ATA drives for any S.M.A.R.T. warnings or errors and report those to you via an alert panel.\
+\
+If you do not want the S.M.A.R.T. monitor running, simply remove it from your Login Items and it will not be installed again.\
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
@@ -92,6 +109,8 @@ hdiutil: detach: "disk1s2" detached successfully.\
 hdiutil: detach: "disk1" detached successfully.\
 \
 Linux does not care what character encoding is used for directory entries (IOW, file names). Linux just treats the name as a byte stream with no interpretation done. If you are using non-ASCII characters in file names,  there is no way to find out what encoding is used for a particular file (or the FS as a whole). The solution to this is to use UTF-8. This is what Mac OS X does. Unfortunatly, if you are not currently using UTF-8 in Linux, then your names will be mis-interpreted on Mac OS X and there is nothing that can be done to fix this.\
+\
+Block fragments are not supported!\
 \
 NFS export is not supported.\
 Boot/Root is not supported.\
