@@ -276,13 +276,13 @@ exit:
    if (!_children)
       _children = [[NSMutableArray alloc] init];
 
-#ifdef DIAGNOSTIC
    if ([_children containsObject:media]) {
+#ifdef DIAGNOSTIC
       NSLog(@"ExtFS: Oops! Parent %@ already contains child %@.\n",
          [self bsdName], [media bsdName]);
+#endif
       return;
    };
-#endif
 
    [_children addObject:media];
    [[NSNotificationCenter defaultCenter]
@@ -389,7 +389,6 @@ exit:
 
 - (BOOL)canMount
 {
-   // We assume a parent disk cannot be mounted
    if ((_attributeFlags & kfsNoMount))
       return (NO);
    
@@ -597,6 +596,10 @@ exit:
 
 - (void)dealloc
 {
+#ifdef DIAGNOSTIC
+   NSLog(@"ExtFS: Object '%@' dealloc\n",
+      [_media objectForKey:NSSTR(kIOBSDNameKey)]);
+#endif
    e2super_free;
 #ifdef EXT_MGR_GUI
    unsigned count;
