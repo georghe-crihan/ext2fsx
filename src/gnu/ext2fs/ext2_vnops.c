@@ -129,14 +129,16 @@ static int ext2_setattr(struct vop_setattr_args *);
 static int ext2_strategy(struct vop_strategy_args *);
 static int ext2_symlink(struct vop_symlink_args *);
 static int ext2_write(struct vop_write_args *);
-#ifndef APPLE
 static int ext2fifo_close(struct vop_close_args *);
+#ifndef APPLE
 static int ext2fifo_kqfilter(struct vop_kqfilter_args *);
+#endif
 static int ext2fifo_read(struct vop_read_args *);
 static int ext2fifo_write(struct vop_write_args *);
 static int ext2spec_close(struct vop_close_args *);
 static int ext2spec_read(struct vop_read_args *);
 static int ext2spec_write(struct vop_write_args *);
+#ifndef APPLE
 static int filt_ext2read(struct knote *kn, long hint);
 static int filt_ext2write(struct knote *kn, long hint);
 static int filt_ext2vnode(struct knote *kn, long hint);
@@ -153,6 +155,13 @@ static void filt_ext2detach(struct knote *kn);
 #define fifo_vnoperate vn_default_error
 
 #define vfs_cache_lookup cache_lookup
+
+#define spec_vnodeop_p ext2_vnodeop_p
+#define fifo_vnodeop_p ext2_vnodeop_p
+#endif
+
+#ifndef APPLE
+#define __private_extern__ static
 #endif
 
 /* Global vfs data structures for ext2. */
@@ -196,10 +205,8 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_write_desc,		(vop_t *) ext2_write },
 	{ NULL, NULL }
 };
-static struct vnodeopv_desc ext2fs_vnodeop_opv_desc =
+__private_extern__ struct vnodeopv_desc ext2fs_vnodeop_opv_desc =
 	{ &ext2_vnodeop_p, ext2_vnodeop_entries };
-
-#ifndef APPLE
 
 vop_t **ext2_specop_p;
 static struct vnodeopv_entry_desc ext2_specop_entries[] = {
@@ -216,7 +223,7 @@ static struct vnodeopv_entry_desc ext2_specop_entries[] = {
 	{ &vop_write_desc,		(vop_t *) ext2spec_write },
 	{ NULL, NULL }
 };
-static struct vnodeopv_desc ext2fs_specop_opv_desc =
+__private_extern__ struct vnodeopv_desc ext2fs_specop_opv_desc =
 	{ &ext2_specop_p, ext2_specop_entries };
 
 vop_t **ext2_fifoop_p;
@@ -237,10 +244,8 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 	{ &vop_write_desc,		(vop_t *) ext2fifo_write },
 	{ NULL, NULL }
 };
-static struct vnodeopv_desc ext2fs_fifoop_opv_desc =
+__private_extern__ struct vnodeopv_desc ext2fs_fifoop_opv_desc =
 	{ &ext2_fifoop_p, ext2_fifoop_entries };
-
-#endif /* APPLE */
 
 #ifndef APPLE
 	VNODEOP_SET(ext2fs_vnodeop_opv_desc);
@@ -1711,7 +1716,6 @@ ext2_print(ap)
 	return (0);
 }
 
-#ifndef APPLE
 
 /*
  * Read wrapper for special devices.
@@ -1863,6 +1867,8 @@ ext2fifo_close(ap)
 	VI_UNLOCK(vp);
 	return (VOCALL(fifo_vnodeop_p, VOFFSET(vop_close), ap));
 }
+
+#ifndef APPLE
 
 /*
  * Kqfilter wrapper for fifos.
