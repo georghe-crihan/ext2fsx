@@ -79,17 +79,17 @@ a filesystem or device for its properties.
 {
 @private
    void *e_lock; // lock storage
-   ExtFSMedia *_parent;
-   id _children;
+   ExtFSMedia *e_parent;
+   id e_children;
    
-   id _media, _iconDesc, _object;
-   NSString *_where, *_ioregName, *_volName;
-   struct superblock *_sb;
-   u_int64_t _size, _blockCount, _blockAvail;
-   u_int32_t _devBlockSize, _fsBlockSize, _attributeFlags,
-      _volCaps, _lastFSUpdate, _fileCount, _dirCount;
-   ExtFSType _fsType;
-   NSImage *_icon;
+   id e_media, e_iconDesc, e_object;
+   NSString *e_where, *e_ioregName, *e_volName;
+   struct superblock *e_sb;
+   u_int64_t e_size, e_blockCount, e_blockAvail;
+   u_int32_t e_devBlockSize, e_fsBlockSize, e_attributeFlags,
+      e_volCaps, e_lastFSUpdate, e_fileCount, e_dirCount;
+   ExtFSType e_fsType;
+   NSImage *e_icon;
    unsigned char e_reserved[32];
 }
 

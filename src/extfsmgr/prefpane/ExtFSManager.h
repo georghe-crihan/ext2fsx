@@ -29,29 +29,29 @@
 
 @interface ExtFSManager : NSPreferencePane
 {
-   IBOutlet NSButton *_mountButton;
-   IBOutlet NSButton *_ejectButton;
-   IBOutlet NSButton *_infoButton;
-   IBOutlet NSImageView *_diskIconView;
-   IBOutlet NSOutlineView *_vollist;
-   IBOutlet NSTabView *_tabs;
+   IBOutlet NSButton *e_mountButton;
+   IBOutlet NSButton *e_ejectButton;
+   IBOutlet NSButton *e_infoButton;
+   IBOutlet NSImageView *e_diskIconView;
+   IBOutlet NSOutlineView *e_vollist;
+   IBOutlet NSTabView *e_tabs;
    
-   IBOutlet id _mountReadOnlyBox;
-   IBOutlet id _dontAutomountBox;
-   IBOutlet id _ignorePermsBox;
-   IBOutlet id _indexedDirsBox;
-   IBOutlet id _optionNoteText;
+   IBOutlet id e_mountReadOnlyBox;
+   IBOutlet id e_dontAutomountBox;
+   IBOutlet id e_ignorePermsBox;
+   IBOutlet id e_indexedDirsBox;
+   IBOutlet id e_optionNoteText;
    
-   IBOutlet id _copyrightText;
-   IBOutlet id _infoText;
+   IBOutlet id e_copyrightText;
+   IBOutlet id e_infoText;
    
-   IBOutlet id _startupProgress;
-   IBOutlet id _startupText;
+   IBOutlet id e_startupProgress;
+   IBOutlet id e_startupText;
    
-   IBOutlet id _opProgress;
+   IBOutlet id e_opProgress;
    
-   id _volData, _curSelection;
-   BOOL _infoButtonAlt;
+   id e_volData, e_curSelection;
+   BOOL e_infoButtonAlt;
 }
 
 - (IBAction)click_readOnly:(id)sender;

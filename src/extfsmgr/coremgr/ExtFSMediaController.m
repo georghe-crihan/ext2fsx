@@ -54,7 +54,7 @@ NSString * const ExtFSMediaNotificationUnmounted = @"ExtFSMediaNotificationUnmou
 NSString * const ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotificationCreationFailed";
 NSString * const ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
 
-static ExtFSMediaController *_instance;
+static ExtFSMediaController *e_instance;
 static void* e_instanceLock = nil; // Ptr to global controller internal lock
 static pthread_mutex_t e_initMutex = PTHREAD_MUTEX_INITIALIZER;
 static IONotificationPortRef notify_port_ref=0;
@@ -75,7 +75,7 @@ static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
 #define MSDOS_NAME "msdos"
 #define NTFS_NAME "ntfs"
 
-static const char *_fsNames[] = {
+static const char *e_fsNames[] = {
    EXT2FS_NAME,
    EXT3FS_NAME,
    HFS_NAME,
@@ -168,10 +168,10 @@ withObject:args waitUntilDone:NO]; \
       return;
    
    ewlock(e_lock);
-   pMounts = [_pending objectAtIndex:kPendingMounts];
+   pMounts = [e_pending objectAtIndex:kPendingMounts];
    for (i = 0; i < count; ++i) {
       device = [NSSTR(stats[i].f_mntfromname) lastPathComponent];      
-      e2media = [_media objectForKey:device];
+      e2media = [e_media objectForKey:device];
       if (!e2media || [e2media isMounted])
          continue;
       
@@ -188,10 +188,10 @@ withObject:args waitUntilDone:NO]; \
    BOOL isMounted;
    
    ewlock(e_lock);
-   e2media = [_media objectForKey:device];
+   e2media = [e_media objectForKey:device];
    isMounted = [e2media isMounted];
    if (e2media && isMounted) {
-      NSMutableArray *pUMounts = [_pending objectAtIndex:kPendingUMounts];
+      NSMutableArray *pUMounts = [e_pending objectAtIndex:kPendingUMounts];
       [pUMounts removeObject:e2media];
       eulock(e_lock);
       [e2media setIsMounted:nil];
@@ -214,7 +214,7 @@ withObject:args waitUntilDone:NO]; \
    e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
    if (e2media) {
       ewlock(e_lock);
-      [_media setObject:e2media forKey:[e2media bsdName]];
+      [e_media setObject:e2media forKey:[e2media bsdName]];
       eulock(e_lock);
       
       [e2media updateAttributesFromIOService:service];
@@ -245,7 +245,7 @@ withObject:args waitUntilDone:NO]; \
 
    [e2media retain];
    ewlock(e_lock);
-   [_media removeObjectForKey:device];
+   [e_media removeObjectForKey:device];
    eulock(e_lock);
    [self removePending:e2media];
 
@@ -273,7 +273,7 @@ withObject:args waitUntilDone:NO]; \
       if (0 == kr) {
          device = [(NSMutableDictionary*)properties objectForKey:NSSTR(kIOBSDNameKey)];
          erlock(e_lock);
-         e2media = [_media objectForKey:device];
+         e2media = [e_media objectForKey:device];
          eulock(e_lock);
          if (e2media) {
             if (remove)
@@ -305,7 +305,7 @@ withObject:args waitUntilDone:NO]; \
     ExtFSMedia *media = [timer userInfo];
     
     erlock(e_lock);
-    pMounts = [_pending objectAtIndex:kPendingMounts];
+    pMounts = [e_pending objectAtIndex:kPendingMounts];
     if ([pMounts containsObject:media]) {
         eulock(e_lock);
         // Send an error
@@ -324,8 +324,8 @@ withObject:args waitUntilDone:NO]; \
     NSMutableArray *pUMounts;
     
     ewlock(e_lock);
-    pMounts = [_pending objectAtIndex:kPendingMounts];
-    pUMounts = [_pending objectAtIndex:kPendingUMounts];
+    pMounts = [e_pending objectAtIndex:kPendingMounts];
+    pUMounts = [e_pending objectAtIndex:kPendingUMounts];
    
     [pMounts removeObject:media];
     [pUMounts removeObject:media];
@@ -336,18 +336,18 @@ withObject:args waitUntilDone:NO]; \
 
 + (ExtFSMediaController*)mediaController
 {
-   if (!_instance) {
+   if (!e_instance) {
       (void)[[ExtFSMediaController alloc] init];
    }
    
-   return (_instance);
+   return (e_instance);
 } 
 
 - (unsigned)mediaCount
 {
    unsigned ct;
    erlock(e_lock);
-   ct = [_media count];
+   ct = [e_media count];
    eulock(e_lock);
    return (ct);
 }
@@ -356,7 +356,7 @@ withObject:args waitUntilDone:NO]; \
 {
    NSArray *m;
    erlock(e_lock);
-   m = [_media allValues];
+   m = [e_media allValues];
    eulock(e_lock);
    return (m);
 }
@@ -369,7 +369,7 @@ withObject:args waitUntilDone:NO]; \
    
    array = [NSMutableArray array];
    erlock(e_lock);
-   en = [_media objectEnumerator];
+   en = [e_media objectEnumerator];
    while ((e2media = [en nextObject])) {
       if (nil == [e2media parent]) {
          [array addObject:e2media];
@@ -388,7 +388,7 @@ withObject:args waitUntilDone:NO]; \
    
    array = [NSMutableArray array];
    erlock(e_lock);
-   en = [_media objectEnumerator];
+   en = [e_media objectEnumerator];
    while ((e2media = [en nextObject])) {
       if (fstype == [e2media fsType]) {
          [array addObject:e2media];
@@ -403,7 +403,7 @@ withObject:args waitUntilDone:NO]; \
 {
    ExtFSMedia *m;
    erlock(e_lock);
-   m = [_media objectForKey:device];
+   m = [e_media objectForKey:device];
    eulock(e_lock);
    return ([[m retain] autorelease]);
 }
@@ -415,8 +415,8 @@ withObject:args waitUntilDone:NO]; \
    kern_return_t ke;
    
    ewlock(e_lock);
-   pMounts = [_pending objectAtIndex:kPendingMounts];
-   pUMounts = [_pending objectAtIndex:kPendingUMounts];
+   pMounts = [e_pending objectAtIndex:kPendingMounts];
+   pUMounts = [e_pending objectAtIndex:kPendingUMounts];
    if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
         eulock(e_lock);
     #ifdef DIAGNOSTIC
@@ -455,8 +455,8 @@ withObject:args waitUntilDone:NO]; \
    kern_return_t ke;
    
    erlock(e_lock);
-   pMounts = [_pending objectAtIndex:kPendingMounts];
-   pUMounts = [_pending objectAtIndex:kPendingUMounts];
+   pMounts = [e_pending objectAtIndex:kPendingMounts];
+   pUMounts = [e_pending objectAtIndex:kPendingUMounts];
    if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
         eulock(e_lock);
     #ifdef DIAGNOSTIC
@@ -500,10 +500,10 @@ withObject:args waitUntilDone:NO]; \
    
    pthread_mutex_lock(&e_initMutex);
    
-   if (_instance) {
+   if (e_instance) {
       pthread_mutex_unlock(&e_initMutex);
       [super release];
-      return (_instance);
+      return (e_instance);
    }
    
    if (!(self = [super init])) {
@@ -520,12 +520,12 @@ withObject:args waitUntilDone:NO]; \
       return (nil);
    }
    
-   _instance = self;
+   e_instance = self;
    
-   _pending = [[NSMutableArray alloc] initWithCapacity:kPendingCount];
+   e_pending = [[NSMutableArray alloc] initWithCapacity:kPendingCount];
    for (i=0; i < kPendingCount; ++i) {
         obj = [[NSMutableArray alloc] init];
-        [_pending addObject:obj];
+        [e_pending addObject:obj];
         [obj release];
    }
    
@@ -552,7 +552,7 @@ withObject:args waitUntilDone:NO]; \
       goto exit;
    }
    
-   _media = [[NSMutableDictionary alloc] init];
+   e_media = [[NSMutableDictionary alloc] init];
    /* Process the initial registry entrires */
    iomatch_add_callback(nil, notify_add_iter);
    iomatch_rem_callback(nil, notify_rem_iter);
@@ -572,10 +572,10 @@ withObject:args waitUntilDone:NO]; \
    return (self);
 
 exit:
-   _instance = nil;
+   e_instance = nil;
    if (e_lock) edlock(e_lock);
-   [_media release];
-   [_pending release];
+   [e_media release];
+   [e_pending release];
    if (notify_add_iter) IOObjectRelease(notify_add_iter);
    if (notify_rem_iter) IOObjectRelease(notify_rem_iter);
    if (notify_port_ref) IONotificationPortDestroy(notify_port_ref);
@@ -591,8 +591,8 @@ exit:
 #if 0
    DiskArbRemoveCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY,
       (void *)&DiskArbCallback_UnmountPostNotification);
-   [_media release];
-   [_pending release];
+   [e_media release];
+   [e_pending release];
    pthread_mutex_lock(&e_initMutex);
    e_instanceLock = nil;
    pthread_mutex_unlock(&e_initMutex);
@@ -624,7 +624,7 @@ exit:
    mc = [ExtFSMediaController mediaController];
    
    erlock(e_lock);
-   wholeDisk = (_attributeFlags & kfsWholeDisk);
+   wholeDisk = (e_attributeFlags & kfsWholeDisk);
    eulock(e_lock);
    
    /* Get IOKit name */
@@ -688,18 +688,18 @@ exit:
    cd = IOObjectConformsTo(service, kIOCDMediaClass);
    
    ewlock(e_lock);
-   if (regName && nil == _ioregName)
-      _ioregName = [regName retain];
-   if (parent && nil == _parent)
-      _parent = [parent retain];
+   if (regName && nil == e_ioregName)
+      e_ioregName = [regName retain];
+   if (parent && nil == e_parent)
+      e_parent = [parent retain];
    if (iconDesc) {
-      [_iconDesc release];
-      _iconDesc = [(NSDictionary*)iconDesc retain];
+      [e_iconDesc release];
+      e_iconDesc = [(NSDictionary*)iconDesc retain];
    }
    if (dvd)
-      _attributeFlags |= kfsDVDROM;
+      e_attributeFlags |= kfsDVDROM;
    if (cd)
-      _attributeFlags |= kfsCDROM;
+      e_attributeFlags |= kfsCDROM;
    eulock(e_lock);
 }
 
@@ -711,19 +711,19 @@ exit:
    
    if (!stat) {
       ewlock(e_lock);
-      _attributeFlags &= ~(kfsMounted|kfsPermsEnabled);
-      _fsBlockSize = 0;
-      _blockCount = 0;
-      _blockAvail = 0;
-      _lastFSUpdate = 0;
-      //_fsType = fsTypeUnknown;
-      [_where release]; _where = nil;
-      [_volName release]; _volName = nil;
+      e_attributeFlags &= ~(kfsMounted|kfsPermsEnabled);
+      e_fsBlockSize = 0;
+      e_blockCount = 0;
+      e_blockAvail = 0;
+      e_lastFSUpdate = 0;
+      //e_fsType = fsTypeUnknown;
+      [e_where release]; e_where = nil;
+      [e_volName release]; e_volName = nil;
       
       /* Reset the write flag in case the device is writable,
          but the mounted filesystem was not */
-      if ([[_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
-         _attributeFlags |= kfsWritable;
+      if ([[e_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
+         e_attributeFlags |= kfsWritable;
       eulock(e_lock);
       
       EFSMCPostNotification(ExtFSMediaNotificationUnmounted, self, nil);
@@ -746,24 +746,24 @@ exit:
    fstype = [fsTypes objectForKey:NSSTR(stat->f_fstypename)];
    ewlock(e_lock);
    if (fstype)
-      _fsType = [fstype intValue];
+      e_fsType = [fstype intValue];
    else
-      _fsType = fsTypeUnknown;
+      e_fsType = fsTypeUnknown;
    
    [fsTypes release];
    
-   _attributeFlags |= kfsMounted;
+   e_attributeFlags |= kfsMounted;
    if (stat->f_flags & MNT_RDONLY)
-      _attributeFlags &= ~kfsWritable;
+      e_attributeFlags &= ~kfsWritable;
    
    if (0 == (stat->f_flags & MNT_UNKNOWNPERMISSIONS))
-      _attributeFlags |= kfsPermsEnabled;
+      e_attributeFlags |= kfsPermsEnabled;
    
-   _fsBlockSize = stat->f_bsize;
-   _blockCount = stat->f_blocks;
-   _blockAvail = stat->f_bavail;
-   [_where release];
-   _where = [[NSString alloc] initWithCString:stat->f_mntonname];
+   e_fsBlockSize = stat->f_bsize;
+   e_blockCount = stat->f_blocks;
+   e_blockAvail = stat->f_bavail;
+   [e_where release];
+   e_where = [[NSString alloc] initWithCString:stat->f_mntonname];
    eulock(e_lock);
    
    (void)[self fsInfo];
@@ -771,12 +771,12 @@ exit:
    isJournaled = [self isJournaled];
    
    ewlock(e_lock);
-   if (fsTypeExt2 == _fsType && hasJournal)
-      _fsType = fsTypeExt3;
+   if (fsTypeExt2 == e_fsType && hasJournal)
+      e_fsType = fsTypeExt3;
    
-   if (fsTypeHFSPlus == _fsType) {
+   if (fsTypeHFSPlus == e_fsType) {
       if (isJournaled) {
-         _fsType = fsTypeHFSJ;
+         e_fsType = fsTypeHFSJ;
       }
    }
    eulock(e_lock);
@@ -786,38 +786,38 @@ exit:
 
 - (NSDictionary*)iconDescription
 {
-   return ([[_iconDesc retain] autorelease]);
+   return ([[e_iconDesc retain] autorelease]);
 }
 
 @end
 
 /* Helpers */
 
-// _fsNames is read-only, so there is no need for a lock
+// e_fsNames is read-only, so there is no need for a lock
 const char* FSNameFromType(int type)
 {
    if (type > fsTypeUnknown)
       type = fsTypeUnknown;
-   return (_fsNames[(type)]);
+   return (e_fsNames[(type)]);
 }
 
 NSString* NSFSNameFromType(int type)
 {
    if (type > fsTypeUnknown)
       type = fsTypeUnknown;
-   return ([NSString stringWithCString:_fsNames[(type)]]);
+   return ([NSString stringWithCString:e_fsNames[(type)]]);
 }
 
-static NSDictionary *_fsPrettyNames = nil;
+static NSDictionary *e_fsPrettyNames = nil;
 static pthread_mutex_t e_fsPrettyMutex = PTHREAD_MUTEX_INITIALIZER;
 
 NSString* NSFSPrettyNameFromType(int type)
 {
-    if (nil == _fsPrettyNames) {
+    if (nil == e_fsPrettyNames) {
         NSBundle *me;
         pthread_mutex_lock(&e_fsPrettyMutex);
         // Make sure the global is still nil once we hold the lock
-        if (nil != _fsPrettyNames) {
+        if (nil != e_fsPrettyNames) {
             pthread_mutex_unlock(&e_fsPrettyMutex);
             goto fspretty_lookup;
         }
@@ -832,7 +832,7 @@ NSString* NSFSPrettyNameFromType(int type)
         /* The correct way to get these names is to enum the FS bundles and
           get the FSName value for each personality. This turns out to be more
           work than it's worth though. */
-        _fsPrettyNames = [[NSDictionary alloc] initWithObjectsAndKeys:
+        e_fsPrettyNames = [[NSDictionary alloc] initWithObjectsAndKeys:
             @"Linux Ext2", [NSNumber numberWithInt:fsTypeExt2],
             [me localizedStringForKey:@"Linux Ext3 (Journaled)" value:nil table:nil],
                 [NSNumber numberWithInt:fsTypeExt3],
@@ -860,7 +860,7 @@ fspretty_lookup:
     // Once allocated, the name table is considered read-only
     if (type > fsTypeUnknown)
       type = fsTypeUnknown;
-    return ([_fsPrettyNames objectForKey:[NSNumber numberWithInt:type]]);
+    return ([e_fsPrettyNames objectForKey:[NSNumber numberWithInt:type]]);
 }
 
 /* Callbacks */
@@ -899,7 +899,7 @@ NSString * const ExtMediaKeyOpFailureErrorString = @"ExtMediaKeyOpFailureErrorSt
 NSString * const ExtMediaKeyOpFailureMsgString = @"ExtMediaKeyOpFailureMsgString";
 
 // Error codes are defined in DiskArbitration/DADissenter.h
-static NSString * const _DiskArbErrorTable[] = {
+static NSString * const e_DiskArbErrorTable[] = {
    @"", // Empty
    @"Unknown Error", // kDAReturnError
    @"Device is busy", // kDAReturnBusy
@@ -938,7 +938,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
             idx = 1;
       }
       // Table is read-only, no need to protect it.
-      err = _DiskArbErrorTable[idx];
+      err = e_DiskArbErrorTable[idx];
       
       msg = nil;
       switch (type) {

@@ -39,8 +39,8 @@ There should only be one instance of this class.
 {
 @private
    void *e_lock;
-   id _media;
-   id _pending;
+   id e_media;
+   id e_pending;
    unsigned char e_reserved[32];
 }
 

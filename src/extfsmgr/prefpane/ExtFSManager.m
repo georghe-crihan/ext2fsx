@@ -98,16 +98,16 @@ static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
     e_prefsChanged = YES;
 }
 
-static int _operations = 0;
+static int e_operations = 0;
 #define BeginOp() do { \
-if (0 == _operations) [_opProgress startAnimation:nil]; \
-++_operations; \
+if (0 == e_operations) [e_opProgress startAnimation:nil]; \
+++e_operations; \
 } while(0)
 
 #define EndOp() do { \
---_operations; \
-if (0 == _operations) [_opProgress stopAnimation:nil]; \
-if (_operations < 0) _operations = 0; \
+--e_operations; \
+if (0 == e_operations) [e_opProgress stopAnimation:nil]; \
+if (e_operations < 0) e_operations = 0; \
 } while(0)
 
 @implementation ExtFSManager : NSPreferencePane
@@ -119,11 +119,11 @@ if (_operations < 0) _operations = 0; \
    ExtFSMediaController *mc;
    mc = [ExtFSMediaController mediaController];
    
-   _volData = [[NSMutableArray alloc] initWithArray:
+   e_volData = [[NSMutableArray alloc] initWithArray:
       [[mc rootMedia] sortedArrayUsingSelector:@selector(compare:)]];
    
    // Preload the icon data (this can take a few seconds if loading from disk)
-   [_volData makeObjectsPerformSelector:@selector(icon)];
+   [e_volData makeObjectsPerformSelector:@selector(icon)];
    
    return (0);
 }
@@ -132,23 +132,23 @@ if (_operations < 0) _operations = 0; \
 {
    NSString *tmp;
    
-   tmp = [(NSButtonCell*)[_mountButton cell] representedObject];
+   tmp = [(NSButtonCell*)[e_mountButton cell] representedObject];
    if ([media canMount] && NO == [[media mountPoint] isEqualToString:@"/"]) {
-      [_mountButton setEnabled:YES];
+      [e_mountButton setEnabled:YES];
       if ([media isMounted]) {
          if ([tmp isEqualTo:EXT_TOOLBAR_ACTION_MOUNT]) {
-            ExtSwapButtonState(_mountButton, YES);
-            [(NSButtonCell*)[_mountButton cell]
+            ExtSwapButtonState(e_mountButton, YES);
+            [(NSButtonCell*)[e_mountButton cell]
                setRepresentedObject:EXT_TOOLBAR_ALT_ACTION_MOUNT];
          }
       } else 
          goto unmount_state;
    } else {
-      [_mountButton setEnabled:NO];
+      [e_mountButton setEnabled:NO];
 unmount_state:
       if ([tmp isEqualTo:EXT_TOOLBAR_ALT_ACTION_MOUNT]) {
-         ExtSwapButtonState(_mountButton, YES);
-         [(NSButtonCell*)[_mountButton cell]
+         ExtSwapButtonState(e_mountButton, YES);
+         [(NSButtonCell*)[e_mountButton cell]
             setRepresentedObject:EXT_TOOLBAR_ACTION_MOUNT];
       }
    }
@@ -164,34 +164,34 @@ unmount_state:
 #endif
 
    if ((parent = [media parent])) {
-      if (![_volData containsObject:parent] && nil == [parent parent]) {
-         [_volData addObject:parent];
+      if (![e_volData containsObject:parent] && nil == [parent parent]) {
+         [e_volData addObject:parent];
          goto exit;
       } else {
-         if ([_vollist isItemExpanded:parent])
-            [_vollist reloadItem:parent reloadChildren:YES];
+         if ([e_vollist isItemExpanded:parent])
+            [e_vollist reloadItem:parent reloadChildren:YES];
          else
-            [_vollist reloadItem:parent reloadChildren:NO];
+            [e_vollist reloadItem:parent reloadChildren:NO];
          return;
       }
-   } else if (NO == [_volData containsObject:media]){
-      [_volData addObject:media];
+   } else if (NO == [e_volData containsObject:media]){
+      [e_volData addObject:media];
    }
 
 exit:
-   [_volData sortUsingSelector:@selector(compare:)];
-   [_vollist reloadData];
+   [e_volData sortUsingSelector:@selector(compare:)];
+   [e_vollist reloadData];
 }
 
 #define ExtSetDefaultState() \
 do { \
-_curSelection = nil; \
-[_mountButton setEnabled:NO]; \
-[_ejectButton setEnabled:NO]; \
-[_infoButton setEnabled:NO]; \
-[_diskIconView setImage:nil]; \
+e_curSelection = nil; \
+[e_mountButton setEnabled:NO]; \
+[e_ejectButton setEnabled:NO]; \
+[e_infoButton setEnabled:NO]; \
+[e_diskIconView setImage:nil]; \
 [self doOptions:self]; \
-[_tabs selectTabViewItemWithIdentifier:@"Startup"]; \
+[e_tabs selectTabViewItemWithIdentifier:@"Startup"]; \
 } while (0)
 
 - (void)mediaRemove:(NSNotification*)notification
@@ -206,14 +206,14 @@ _curSelection = nil; \
 #endif
 
    if ((parent = [media parent])) {
-      [_vollist reloadItem:parent reloadChildren:YES];
+      [e_vollist reloadItem:parent reloadChildren:YES];
       return;
    }
    
-   if (YES == [_volData containsObject:media]) {
-      [_volData removeObject:media];
-      [_vollist reloadData];
-      if (-1 == [_vollist selectedRow])
+   if (YES == [e_volData containsObject:media]) {
+      [e_volData removeObject:media];
+      [e_vollist reloadData];
+      if (-1 == [e_vollist selectedRow])
          ExtSetDefaultState();
    }
 }
@@ -227,9 +227,9 @@ _curSelection = nil; \
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFSM: **** Media '%s' mounted ***\n", BSDNAMESTR(media));
 #endif
-   if (media == _curSelection)
+   if (media == e_curSelection)
       [self doMediaSelection:media];
-   [_vollist reloadItem:media];
+   [e_vollist reloadItem:media];
 }
 
 - (void)volUnmount:(NSNotification*)notification
@@ -241,9 +241,9 @@ _curSelection = nil; \
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFSM: **** Media '%s' unmounted ***\n", BSDNAMESTR([notification object]));
 #endif
-   if (media == _curSelection)
+   if (media == e_curSelection)
       [self doMediaSelection:media];
-   [_vollist reloadItem:media];
+   [e_vollist reloadItem:media];
 }
 
 - (void)volInfoUpdated:(NSNotification*)notification
@@ -252,7 +252,7 @@ _curSelection = nil; \
    ExtFSMedia *media;
    
    media = [notification object];
-    if (media == _curSelection)
+    if (media == e_curSelection)
       [self generateInfo:media];
 #endif
 }
@@ -296,12 +296,12 @@ _curSelection = nil; \
    ExtFSMedia *media;
    NSEnumerator *en;
    
-   [_vollist setEnabled:NO];
+   [e_vollist setEnabled:NO];
    
    (void)[self probeDisks];
    
    // Startup complete
-   [_vollist reloadData];
+   [e_vollist reloadData];
    
    // Register for notifications
    [[NSNotificationCenter defaultCenter] addObserver:self
@@ -334,18 +334,18 @@ _curSelection = nil; \
             object:nil];
    
    // Exapnd the root items
-   en = [_volData objectEnumerator];
+   en = [e_volData objectEnumerator];
    while ((media = [en nextObject])) {
-      [_vollist expandItem:media];
+      [e_vollist expandItem:media];
    }
    
-   [_startupProgress stopAnimation:self];
-   [_startupProgress displayIfNeeded];
+   [e_startupProgress stopAnimation:self];
+   [e_startupProgress displayIfNeeded];
    title = ExtLocalizedString(@"Please select a disk or volume",
       "Startup Message");
-   [_startupText setStringValue:title];
+   [e_startupText setStringValue:title];
    
-   [_vollist setEnabled:YES];
+   [e_vollist setEnabled:YES];
 }
 
 // args are NSString*
@@ -356,7 +356,7 @@ data = [@" " stringByAppendingString:(value)]; \
 data = [data stringByAppendingString:@"\n"]; \
 [line appendAttributedString: \
    [[[NSAttributedString alloc] initWithString:data] autorelease]]; \
-[_infoText insertText:line]; \
+[e_infoText insertText:line]; \
 } while(0)
 
 #define ExtFmtInt(i) \
@@ -384,8 +384,8 @@ data = [data stringByAppendingString:@"\n"]; \
    
    mounted = [media isMounted];
    
-   [_infoText setEditable:YES];
-   [_infoText setString:@""];
+   [e_infoText setEditable:YES];
+   [e_infoText setString:@""];
    
    ExtInfoInsert(ExtLocalizedString(@"IOKit Name", ""),
       ExtLocalizedString([media ioRegistryName], ""));
@@ -465,11 +465,11 @@ data = [data stringByAppendingString:@"\n"]; \
       ExtInfoInsert(ExtLocalizedString(@"Number of Directories", ""), data);
       
       if ([media isExtFS]) {
-         [_infoText insertText:@"\n"];
+         [e_infoText insertText:@"\n"];
          line = ExtMakeInfoTitle(ExtLocalizedString(@"Ext2/3 Specific", ""));
          [line setAlignment:NSCenterTextAlignment range:NSMakeRange(0, [line length])];
-         [_infoText insertText:line];
-         [_infoText insertText:@"\n\n"];
+         [e_infoText insertText:line];
+         [e_infoText insertText:@"\n\n"];
          
          ExtInfoInsert(ExtLocalizedString(@"Indexed Directories", ""),
             ([media hasIndexedDirs] ? e_yes : e_no));
@@ -492,9 +492,9 @@ data = [data stringByAppendingString:@"\n"]; \
    }
    
    // Scroll back to the top
-   [_infoText scrollRangeToVisible:NSMakeRange(0,0)]; 
+   [e_infoText scrollRangeToVisible:NSMakeRange(0,0)]; 
    
-   [_infoText setEditable:NO];
+   [e_infoText setEditable:NO];
    [intFmt release];
    [floatFmt release];
 }
@@ -517,30 +517,30 @@ data = [data stringByAppendingString:@"\n"]; \
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_DIRINDEX];
    state = ([media hasIndexedDirs] || (boolVal && [boolVal boolValue]) ? NSOnState : NSOffState);
-   [_indexedDirsBox setState:state];
+   [e_indexedDirsBox setState:state];
    if (NSOnState == state || mediaRO)
-      [_indexedDirsBox setEnabled:NO];
+      [e_indexedDirsBox setEnabled:NO];
    else
-      [_indexedDirsBox setEnabled:YES];
+      [e_indexedDirsBox setEnabled:YES];
    
    if (!dict)
       return;
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_NOAUTO];
    state = ([boolVal boolValue] ? NSOnState : NSOffState);
-   [_dontAutomountBox setState:state];
+   [e_dontAutomountBox setState:state];
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_NOPERMS];
    state = ([boolVal boolValue] ? NSOnState : NSOffState);
-   [_ignorePermsBox setState:state];
+   [e_ignorePermsBox setState:state];
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_RDONLY];
    state = ([boolVal boolValue] || mediaRO ? NSOnState : NSOffState);
-   [_mountReadOnlyBox setState:state];
+   [e_mountReadOnlyBox setState:state];
    if (!mediaRO)
-      [_mountReadOnlyBox setEnabled:YES];
+      [e_mountReadOnlyBox setEnabled:YES];
    else
-      [_mountReadOnlyBox setEnabled:NO];
+      [e_mountReadOnlyBox setEnabled:NO];
 }
 
 - (void)doMediaSelection:(ExtFSMedia*)media
@@ -550,7 +550,7 @@ data = [data stringByAppendingString:@"\n"]; \
       return;
    }
    
-   _curSelection = media;
+   e_curSelection = media;
 #ifdef TRACE
    NSLog(@"ExtFSM: media %@ selected, canMount=%d",
       [media bsdName], [media canMount]);
@@ -559,28 +559,28 @@ data = [data stringByAppendingString:@"\n"]; \
    /* Change state of buttons, options, info etc */
    [self generateInfo:media];
    
-   [_diskIconView setImage:[media icon]];
+   [e_diskIconView setImage:[media icon]];
    
    if ([media isExtFS] && [media isMounted]) {
       if (nil != [media uuidString]) {
          [self setOptionState:media];
-         [_infoButton setEnabled:YES];
+         [e_infoButton setEnabled:YES];
       } else {
          NSLog(@"ExtFSM: Options for '%@' disabled -- missing UUID.\n",
             [media bsdName]);
-         [_infoButton setEnabled:NO];
+         [e_infoButton setEnabled:NO];
       }
    } else
-      [_infoButton setEnabled:NO];
+      [e_infoButton setEnabled:NO];
 
    [self doOptions:self];
    
    [self updateMountState:media];
    
    if ([media isEjectable])
-      [_ejectButton setEnabled:YES];
+      [e_ejectButton setEnabled:YES];
    else
-      [_ejectButton setEnabled:NO];
+      [e_ejectButton setEnabled:NO];
 }
 
 /* Public */
@@ -594,8 +594,8 @@ data = [data stringByAppendingString:@"\n"]; \
 #endif
    
    boolVal = [NSNumber numberWithBool:
-      (NSOnState == [_mountReadOnlyBox state] ? YES : NO)];
-   ExtSetPrefVal(_curSelection, EXT_PREF_KEY_RDONLY, boolVal);
+      (NSOnState == [e_mountReadOnlyBox state] ? YES : NO)];
+   ExtSetPrefVal(e_curSelection, EXT_PREF_KEY_RDONLY, boolVal);
 }
 
 - (IBAction)click_automount:(id)sender
@@ -607,8 +607,8 @@ data = [data stringByAppendingString:@"\n"]; \
 #endif
 
    boolVal = [NSNumber numberWithBool:
-      (NSOnState == [_dontAutomountBox state] ? YES : NO)];
-   ExtSetPrefVal(_curSelection, EXT_PREF_KEY_NOAUTO, boolVal);
+      (NSOnState == [e_dontAutomountBox state] ? YES : NO)];
+   ExtSetPrefVal(e_curSelection, EXT_PREF_KEY_NOAUTO, boolVal);
 }
 
 - (IBAction)click_ignorePerms:(id)sender
@@ -616,8 +616,8 @@ data = [data stringByAppendingString:@"\n"]; \
     NSNumber *boolVal;
     
     boolVal = [NSNumber numberWithBool:
-       (NSOnState == [_ignorePermsBox state] ? YES : NO)];
-    ExtSetPrefVal(_curSelection, EXT_PREF_KEY_NOPERMS, boolVal);
+       (NSOnState == [e_ignorePermsBox state] ? YES : NO)];
+    ExtSetPrefVal(e_curSelection, EXT_PREF_KEY_NOPERMS, boolVal);
 }
 
 - (IBAction)click_indexedDirs:(id)sender
@@ -628,31 +628,31 @@ data = [data stringByAppendingString:@"\n"]; \
 #endif
 
    boolVal = [NSNumber numberWithBool:
-      (NSOnState == [_indexedDirsBox state] ? YES : NO)];
-   ExtSetPrefVal(_curSelection, EXT_PREF_KEY_DIRINDEX, boolVal);
+      (NSOnState == [e_indexedDirsBox state] ? YES : NO)];
+   ExtSetPrefVal(e_curSelection, EXT_PREF_KEY_DIRINDEX, boolVal);
 }
 
 - (void)doMount:(id)sender
 {
    int err, mount;
    
-   mount = ![_curSelection isMounted];
+   mount = ![e_curSelection isMounted];
 #ifdef TRACE
    NSLog(@"ExtFSM: %@ '%@'.\n", (mount ? @"Mounting" : @"Unmounting"),
-      [_curSelection bsdName]);
+      [e_curSelection bsdName]);
 #endif
    
    // Save the prefs so mount will behave correctly if an Ext2 disk was changed.
    [self savePrefs];
    
    if (mount)
-      err = [[ExtFSMediaController mediaController] mount:_curSelection on:nil];
+      err = [[ExtFSMediaController mediaController] mount:e_curSelection on:nil];
    else
-      err = [[ExtFSMediaController mediaController] unmount:_curSelection
+      err = [[ExtFSMediaController mediaController] unmount:e_curSelection
          force:NO eject:NO];
    if (0 == err) {
       BeginOp();
-      [self updateMountState:_curSelection];
+      [self updateMountState:e_curSelection];
    } else {
       NSString *op = (mount ? @"mount" : @"unmount");
       op = ExtLocalizedString(op, "");
@@ -660,7 +660,7 @@ data = [data stringByAppendingString:@"\n"]; \
          @"OK", nil, nil, [NSApp keyWindow], nil, nil, nil, nil,
          [NSString stringWithFormat:@"%@ %@ '%@'. Error = %d.",
             ExtLocalizedString(@"Could not", ""), op,
-            [_curSelection bsdName]], err);
+            [e_curSelection bsdName]], err);
    }
 }
 
@@ -668,10 +668,10 @@ data = [data stringByAppendingString:@"\n"]; \
 {
    int err;
 #ifdef TRACE
-   NSLog(@"ExtFSM: Ejecting '%@'.\n", [_curSelection bsdName]);
+   NSLog(@"ExtFSM: Ejecting '%@'.\n", [e_curSelection bsdName]);
 #endif
    
-   err = [[ExtFSMediaController mediaController] unmount:_curSelection
+   err = [[ExtFSMediaController mediaController] unmount:e_curSelection
       force:NO eject:YES];
    if (!err) {
       BeginOp();
@@ -679,7 +679,7 @@ data = [data stringByAppendingString:@"\n"]; \
          NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""),
          @"OK", nil, nil, [NSApp keyWindow], nil, nil, nil, nil,
          [NSString stringWithFormat:@"%@ '%@'",
-            ExtLocalizedString(@"Could not eject", ""), [_curSelection bsdName]]);
+            ExtLocalizedString(@"Could not eject", ""), [e_curSelection bsdName]]);
    }
 }
 
@@ -687,20 +687,20 @@ data = [data stringByAppendingString:@"\n"]; \
 {
    BOOL opts, info, startup, enabled;;
    
-   startup = [[[_tabs selectedTabViewItem] identifier] isEqualTo:@"Startup"];
-   opts = [[[_tabs selectedTabViewItem] identifier]
+   startup = [[[e_tabs selectedTabViewItem] identifier] isEqualTo:@"Startup"];
+   opts = [[[e_tabs selectedTabViewItem] identifier]
       isEqualTo:EXT_TOOLBAR_ALT_ACTION_INFO];
    info = !opts && !startup;
-   enabled = [_infoButton isEnabled];
+   enabled = [e_infoButton isEnabled];
    
 #ifdef TRACE
    NSLog(@"ExtFSM: doOptions: start=%d, opts=%d, info=%d, enabled=%d, infoAlt=%d\n",
-      startup, opts, info, enabled, _infoButtonAlt);
+      startup, opts, info, enabled, e_infoButtonAlt);
 #endif
    
    if (!info || !enabled) {
       if (!info)
-         [_tabs selectTabViewItemWithIdentifier:EXT_TOOLBAR_ACTION_INFO];
+         [e_tabs selectTabViewItemWithIdentifier:EXT_TOOLBAR_ACTION_INFO];
       if (enabled)
          goto info_alt_switch;
       else 
@@ -711,17 +711,17 @@ data = [data stringByAppendingString:@"\n"]; \
    if (info && enabled) {
       if (self != sender) {
          // User action
-         [_tabs selectTabViewItemWithIdentifier:EXT_TOOLBAR_ALT_ACTION_INFO];
+         [e_tabs selectTabViewItemWithIdentifier:EXT_TOOLBAR_ALT_ACTION_INFO];
 info_alt_switch_back:
-         if (_infoButtonAlt)
-            ExtSwapButtonState(_infoButton, YES);
-         _infoButtonAlt = NO;
+         if (e_infoButtonAlt)
+            ExtSwapButtonState(e_infoButton, YES);
+         e_infoButtonAlt = NO;
          return;
       }
 info_alt_switch:
-      if (!_infoButtonAlt)
-         ExtSwapButtonState(_infoButton, YES);
-      _infoButtonAlt = YES;
+      if (!e_infoButtonAlt)
+         ExtSwapButtonState(e_infoButton, YES);
+      e_infoButtonAlt = YES;
    }
 }
 
@@ -732,7 +732,7 @@ info_alt_switch:
    NSButton *button;
    NSButtonCell *buttonCell;
    NSImage *image;
-   NSButton *buttons[] = {_mountButton, _ejectButton, _infoButton, nil};
+   NSButton *buttons[] = {e_mountButton, e_ejectButton, e_infoButton, nil};
    SEL tbactions[] = {@selector(doMount:), @selector(doEject:),
       @selector(doOptions:)};
    NSString *titles[] = {EXT_TOOLBAR_ACTION_MOUNT, EXT_TOOLBAR_ACTION_EJECT,
@@ -742,24 +742,24 @@ info_alt_switch:
    NSString *alt_images[] = {EXT_TOOLBAR_ALT_ACTION_MOUNT, nil, EXT_TOOLBAR_ALT_ACTION_INFO, nil};
    int i;
    
-   _infoButtonAlt = NO; // Used to deterimine state
+   e_infoButtonAlt = NO; // Used to deterimine state
    
-   [[_vollist tableColumnWithIdentifier:@"vols"]
+   [[e_vollist tableColumnWithIdentifier:@"vols"]
       setDataCell:[[[NSBrowserCell alloc] init] autorelease]];
    
    // Change controls for startup
-   [_startupProgress setStyle:NSProgressIndicatorSpinningStyle];
-   [_startupProgress sizeToFit];
-   [_startupProgress setDisplayedWhenStopped:NO];
-   [_startupProgress setIndeterminate:YES];
-   [_startupProgress setUsesThreadedAnimation:YES];
-   [_startupProgress startAnimation:self]; // Stopped in [startup]
-   [_startupProgress display];
-   [_tabs selectTabViewItemWithIdentifier:@"Startup"];
+   [e_startupProgress setStyle:NSProgressIndicatorSpinningStyle];
+   [e_startupProgress sizeToFit];
+   [e_startupProgress setDisplayedWhenStopped:NO];
+   [e_startupProgress setIndeterminate:YES];
+   [e_startupProgress setUsesThreadedAnimation:YES];
+   [e_startupProgress startAnimation:self]; // Stopped in [startup]
+   [e_startupProgress display];
+   [e_tabs selectTabViewItemWithIdentifier:@"Startup"];
    title = [ExtLocalizedString(@"Please wait, gathering disk information",
       "Startup Message") stringByAppendingString:@"É"];
-   [_startupText setStringValue:title];
-   [_startupText display];
+   [e_startupText setStringValue:title];
+   [e_startupText display];
    
    /* Get our prefs */
    plist = [[self bundle] infoDictionary];
@@ -797,7 +797,7 @@ info_alt_switch:
    e_bytes = [ExtLocalizedString(@"bytes", "") retain];
    e_monikers[0] = e_bytes;
    
-   [_tabs setTabViewType:NSNoTabsNoBorder];
+   [e_tabs setTabViewType:NSNoTabsNoBorder];
    
    button = buttons[0];
    for (i=0; nil != button; ++i, button = buttons[i]) {
@@ -843,26 +843,26 @@ info_alt_switch:
       [button setEnabled:NO];
    }
    
-   [_opProgress setUsesThreadedAnimation:YES];
-   [_opProgress setDisplayedWhenStopped:NO];
-   [_opProgress displayIfNeeded];
-   _operations = 0;
+   [e_opProgress setUsesThreadedAnimation:YES];
+   [e_opProgress setDisplayedWhenStopped:NO];
+   [e_opProgress displayIfNeeded];
+   e_operations = 0;
    
-   [_mountReadOnlyBox setTitle:
+   [e_mountReadOnlyBox setTitle:
       ExtLocalizedString(@"Mount Read Only", "")];
-   [_dontAutomountBox setTitle:
+   [e_dontAutomountBox setTitle:
       ExtLocalizedString(@"Don't Automount", "")];
-   [_ignorePermsBox setTitle:
+   [e_ignorePermsBox setTitle:
       ExtLocalizedString(@"Ignore Permissions", "")]; 
-   [_indexedDirsBox setTitle:
+   [e_indexedDirsBox setTitle:
       ExtLocalizedString(@"Enable Indexed Directories", "")];
    
-   [_optionNoteText setStringValue:
+   [e_optionNoteText setStringValue:
       ExtLocalizedString(@"Changes to these options will take effect during the next mount.", "")];
    
-   [_copyrightText setStringValue:
+   [e_copyrightText setStringValue:
       [[[self bundle] localizedInfoDictionary] objectForKey:@"CFBundleGetInfoString"]];
-   [_copyrightText setTextColor:[NSColor disabledControlTextColor]];
+   [e_copyrightText setTextColor:[NSColor disabledControlTextColor]];
    
    [self performSelector:@selector(startup) withObject:nil afterDelay:0.3];
 }
@@ -919,7 +919,7 @@ info_alt_switch:
    NSLog(@"ExtFSM: outline # children for %@", item);
 #endif
    if (!item)
-      return ([_volData count]); // Return # of children for top-level item
+      return ([e_volData count]); // Return # of children for top-level item
       
    return ([item childCount]);
 }
@@ -940,8 +940,8 @@ info_alt_switch:
 #ifdef TRACE
    NSLog(@"ExtFSM: outline get child at index %d for %@", index, item);
 #endif
-   if (nil == item && index < [_volData count]) {
-      return ([_volData objectAtIndex:index]);
+   if (nil == item && index < [e_volData count]) {
+      return ([e_volData objectAtIndex:index]);
    }
    
    if (index < [item childCount])
@@ -954,9 +954,9 @@ info_alt_switch:
 - (void)outlineViewSelectionDidChange:(NSNotification *)notification
 {
 #ifdef TRACE
-   NSLog(@"ExtFSM: outline selection row = %u", [_vollist selectedRow]);
+   NSLog(@"ExtFSM: outline selection row = %u", [e_vollist selectedRow]);
 #endif
-   [self doMediaSelection:[_vollist itemAtRow:[_vollist selectedRow]]];
+   [self doMediaSelection:[e_vollist itemAtRow:[e_vollist selectedRow]]];
 }
 
 - (id)outlineView:(NSOutlineView *)outlineView
@@ -1007,7 +1007,7 @@ info_alt_switch:
         [cell setImage:cellIcon];
     }
     
-    if ([_volData containsObject:item]) {
+    if ([e_volData containsObject:item]) {
         // Root disks get a bold name
         value = [[NSAttributedString alloc] initWithString:name attributes:
                     [NSDictionary dictionaryWithObjectsAndKeys:

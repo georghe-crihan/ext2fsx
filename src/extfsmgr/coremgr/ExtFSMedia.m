@@ -77,23 +77,23 @@ static void *e_mediaIconCacheLck = nil;
 struct superblock {
    struct ext2_super_block *s_es;
 };
-#define e2super _sb
+#define e2super e_sb
 #define e2sblock e2super->s_es
 
 // Must be called with the write lock held
 #define e2super_alloc() \
 do { \
-   _sb = malloc(sizeof(struct superblock)); \
-   if (_sb) { \
+   e_sb = malloc(sizeof(struct superblock)); \
+   if (e_sb) { \
       e2sblock = malloc(sizeof(struct ext2_super_block)); \
-      if (!e2sblock) { free(_sb); _sb = nil; } \
+      if (!e2sblock) { free(e_sb); e_sb = nil; } \
    } \
 } while(0)
 
 // Must be called with the write lock held
 #define e2super_free() \
 do { \
-   if (_sb) { free(e2sblock); free(_sb); _sb = nil; } \
+   if (e_sb) { free(e2sblock); free(e_sb); e_sb = nil; } \
 } while(0)
 
 #ifndef __HFS_FORMAT__
@@ -132,9 +132,9 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    
    /* Get the superblock if we don't have it */
    ewlock(e_lock);
-   if ((fsTypeExt2 == _fsType || fsTypeExt3 == _fsType) && !_sb) {
+   if ((fsTypeExt2 == e_fsType || fsTypeExt3 == e_fsType) && !e_sb) {
       e2super_alloc();
-      if (_sb)
+      if (e_sb)
          err = syscall(SYS_fsctl, path, EXT2_IOC_GETSBLOCK, e2sblock, 0);
       else
          err = ENOMEM;
@@ -146,11 +146,11 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    }
    
    gettimeofday(&now, nil);
-   if (_lastFSUpdate + VOL_INFO_CACHE_TIME > now.tv_sec) {
+   if (e_lastFSUpdate + VOL_INFO_CACHE_TIME > now.tv_sec) {
       eulock(e_lock);
       return (0);
    }
-   _lastFSUpdate = now.tv_sec;
+   e_lastFSUpdate = now.tv_sec;
    
    eulock(e_lock); // drop the lock while we do the I/O
    
@@ -159,23 +159,23 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    alist.bitmapcount = ATTR_BIT_MAP_COUNT;
    alist.volattr = ATTR_VOL_INFO|ATTR_VOL_SIGNATURE|ATTR_VOL_SPACEAVAIL|
       ATTR_VOL_FILECOUNT|ATTR_VOL_DIRCOUNT;
-   if (!_volName)
+   if (!e_volName)
       alist.volattr |= ATTR_VOL_CAPABILITIES|ATTR_VOL_NAME;
    
    err = getattrlist(path, &alist, &vinfo.vinfo, sizeof(vinfo.vinfo), 0);
    if (!err) {
       ewlock(e_lock);
-      _fileCount = vinfo.vinfo.v_filecount;
-      _dirCount = vinfo.vinfo.v_dircount;
-      _blockAvail = vinfo.vinfo.v_availspace / _fsBlockSize;
+      e_fileCount = vinfo.vinfo.v_filecount;
+      e_dirCount = vinfo.vinfo.v_dircount;
+      e_blockAvail = vinfo.vinfo.v_availspace / e_fsBlockSize;
       if (0 != vinfo.vinfo.v_name[VOL_CAPABILITIES_FORMAT])
-         _volName = [NSSTR(vinfo.vinfo.v_name) retain];
+         e_volName = [NSSTR(vinfo.vinfo.v_name) retain];
       if (alist.volattr & ATTR_VOL_CAPABILITIES)
-         _volCaps = vinfo.vinfo.v_caps.capabilities[0];
-      if (fsTypeHFS == _fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
-            _fsType = fsTypeHFSPlus;
-      else if (fsTypeHFS == _fsType && kHFSXSigWord == vinfo.vinfo.v_signature)
-         _fsType = fsTypeHFSX;
+         e_volCaps = vinfo.vinfo.v_caps.capabilities[0];
+      if (fsTypeHFS == e_fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
+            e_fsType = fsTypeHFSPlus;
+      else if (fsTypeHFS == e_fsType && kHFSXSigWord == vinfo.vinfo.v_signature)
+         e_fsType = fsTypeHFSX;
       eulock(e_lock);
       goto eminfo_exit;
    }
@@ -184,18 +184,18 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    err = statfs(path, &vinfo.vstat);
    ewlock(e_lock);
    if (!err) {
-      _blockAvail = vinfo.vstat.f_bavail;
-      _fileCount = vinfo.vstat.f_files - vinfo.vstat.f_ffree;
+      e_blockAvail = vinfo.vstat.f_bavail;
+      e_fileCount = vinfo.vstat.f_files - vinfo.vstat.f_ffree;
    }
    
-   _attributeFlags &= ~kfsGetAttrlist;
+   e_attributeFlags &= ~kfsGetAttrlist;
    eulock(e_lock);
    
 eminfo_exit:
    if (!err) {
       EFSMPostNotification(ExtFSMediaNotificationUpdatedInfo, nil);
    } else {
-      _lastFSUpdate = 0;
+      e_lastFSUpdate = 0;
    }
    return (err);
 }
@@ -224,42 +224,42 @@ init_err:
         goto init_err;
       }
       
-      _media = [properties retain];
-      _size = [[_media objectForKey:NSSTR(kIOMediaSizeKey)] unsignedLongLongValue];
-      _devBlockSize = [[_media objectForKey:NSSTR(kIOMediaPreferredBlockSizeKey)] unsignedLongValue];
-      _fsType = fsTypeUnknown;
+      e_media = [properties retain];
+      e_size = [[e_media objectForKey:NSSTR(kIOMediaSizeKey)] unsignedLongLongValue];
+      e_devBlockSize = [[e_media objectForKey:NSSTR(kIOMediaPreferredBlockSizeKey)] unsignedLongValue];
+      e_fsType = fsTypeUnknown;
       
-      _attributeFlags = kfsDiskArb | kfsGetAttrlist;
-      if ([[_media objectForKey:NSSTR(kIOMediaEjectableKey)] boolValue])
-         _attributeFlags |= kfsEjectable;
-      if ([[_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
-         _attributeFlags |= kfsWritable;
-      if ([[_media objectForKey:NSSTR(kIOMediaWholeKey)] boolValue])
-         _attributeFlags |= kfsWholeDisk;
-      if ([[_media objectForKey:NSSTR(kIOMediaLeafKey)] boolValue])
-         _attributeFlags |= kfsLeafDisk;
+      e_attributeFlags = kfsDiskArb | kfsGetAttrlist;
+      if ([[e_media objectForKey:NSSTR(kIOMediaEjectableKey)] boolValue])
+         e_attributeFlags |= kfsEjectable;
+      if ([[e_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
+         e_attributeFlags |= kfsWritable;
+      if ([[e_media objectForKey:NSSTR(kIOMediaWholeKey)] boolValue])
+         e_attributeFlags |= kfsWholeDisk;
+      if ([[e_media objectForKey:NSSTR(kIOMediaLeafKey)] boolValue])
+         e_attributeFlags |= kfsLeafDisk;
       
-      hint = [_media objectForKey:NSSTR(kIOMediaContentHintKey)];
+      hint = [e_media objectForKey:NSSTR(kIOMediaContentHintKey)];
       r = [hint rangeOfString:@"partition"];
       if (hint && NSNotFound != r.location)
-         _attributeFlags |= kfsNoMount;
+         e_attributeFlags |= kfsNoMount;
          
       r = [hint rangeOfString:@"Driver"];
       if (hint && NSNotFound != r.location)
-         _attributeFlags |= kfsNoMount;
+         e_attributeFlags |= kfsNoMount;
          
       r = [hint rangeOfString:@"Patches"];
       if (hint && NSNotFound != r.location)
-         _attributeFlags |= kfsNoMount;
+         e_attributeFlags |= kfsNoMount;
       
       r = [hint rangeOfString:@"CD_DA"]; /* Digital Audio tracks */
       if (hint && NSNotFound != r.location)
-         _attributeFlags |= kfsNoMount;
+         e_attributeFlags |= kfsNoMount;
          
-      hint = [_media objectForKey:NSSTR(kIOMediaContentKey)];
+      hint = [e_media objectForKey:NSSTR(kIOMediaContentKey)];
       r = [hint rangeOfString:@"partition"];
       if (hint && NSNotFound != r.location)
-         _attributeFlags |= kfsNoMount;
+         e_attributeFlags |= kfsNoMount;
       
       ewlock(e_mediaIconCacheLck);
       if (nil != e_mediaIconCache)
@@ -273,23 +273,23 @@ init_err:
 
 - (id)representedObject
 {
-   return ([[_object retain] autorelease]);
+   return ([[e_object retain] autorelease]);
 }
 
 - (void)setRepresentedObject:(id)object
 {
    id tmp;
    (void)[object retain];
-   tmp = _object;
+   tmp = e_object;
    ewlock(e_lock);
-   _object = object;
+   e_object = object;
    eulock(e_lock);
    [tmp release];
 }
 
 - (ExtFSMedia*)parent
 {
-   return ([[_parent retain] autorelease]);
+   return ([[e_parent retain] autorelease]);
 }
 
 - (NSArray*)children
@@ -299,7 +299,7 @@ init_err:
    /* We have to return a copy, so the caller
       can use the array in a thread safe context.
     */
-   c = [_children copy];
+   c = [e_children copy];
    eulock(e_lock);
    return ([c autorelease]);
 }
@@ -308,7 +308,7 @@ init_err:
 {
    unsigned ct;
    erlock(e_lock);
-   ct  = [_children count];
+   ct  = [e_children count];
    eulock(e_lock);
    return (ct);
 }
@@ -319,10 +319,10 @@ init_err:
    NSString *myname = [self bsdName], *oname = [media bsdName];
 #endif   
    ewlock(e_lock);
-   if (!_children)
-      _children = [[NSMutableArray alloc] init];
+   if (!e_children)
+      e_children = [[NSMutableArray alloc] init];
 
-   if ([_children containsObject:media]) {
+   if ([e_children containsObject:media]) {
 #ifdef DIAGNOSTIC
       NSLog(@"ExtFS: Oops! Parent '%@' already contains child '%@'.\n",
          myname, oname);
@@ -331,7 +331,7 @@ init_err:
       return;
    };
 
-   [_children addObject:media];
+   [e_children addObject:media];
    eulock(e_lock);
    EFSMPostNotification(ExtFSMediaNotificationChildChange, nil);
 }
@@ -342,7 +342,7 @@ init_err:
    NSString *myname = [self bsdName], *oname = [media bsdName];
 #endif
    ewlock(e_lock);
-   if (nil == _children || NO == [_children containsObject:media]) {
+   if (nil == e_children || NO == [e_children containsObject:media]) {
 #ifdef DIAGNOSTIC
       NSLog(@"ExtFS: Oops! Parent '%@' does not contain child '%@'.\n",
          myname, oname);
@@ -351,21 +351,21 @@ init_err:
       return;
    };
 
-   [_children removeObject:media];
+   [e_children removeObject:media];
    eulock(e_lock);
    EFSMPostNotification(ExtFSMediaNotificationChildChange, nil);
 }
 
 - (NSString*)ioRegistryName
 {
-   return ([[_ioregName retain] autorelease]);
+   return ([[e_ioregName retain] autorelease]);
 }
 
 - (NSString*)bsdName
 {
    NSString *name;
    erlock(e_lock);
-   name = [[_media objectForKey:NSSTR(kIOBSDNameKey)] retain];
+   name = [[e_media objectForKey:NSSTR(kIOBSDNameKey)] retain];
    eulock(e_lock);
    return ([name autorelease]);
 }
@@ -378,28 +378,28 @@ init_err:
    int err;
    
    erlock(e_lock);
-   if (_icon) {
+   if (e_icon) {
       eulock(e_lock);
-      return ([[_icon retain] autorelease]);
+      return ([[e_icon retain] autorelease]);
    }
    euplock(e_lock); // Upgrade to write lock
    
-   if (_parent && (_icon = [_parent icon])) {
-      (void)[_icon retain]; // For ourself
+   if (e_parent && (e_icon = [e_parent icon])) {
+      (void)[e_icon retain]; // For ourself
       eulock(e_lock);
 #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Retrieved icon %@ from %@ (%u).\n", [_icon name], _parent, [_icon retainCount]);
+      NSLog(@"ExtFS: Retrieved icon %@ from %@ (%u).\n", [e_icon name], e_parent, [e_icon retainCount]);
 #endif
-      return ([[_icon retain] autorelease]);
+      return ([[e_icon retain] autorelease]);
    }
    
-   if (_attributeFlags & kfsIconNotFound) {
+   if (e_attributeFlags & kfsIconNotFound) {
       eulock(e_lock);
       return (nil);
    }
    
-   bundleid = [_iconDesc objectForKey:(NSString*)kCFBundleIdentifierKey];
-   iconName = [_iconDesc objectForKey:NSSTR(kIOBundleResourceFileKey)];
+   bundleid = [e_iconDesc objectForKey:(NSString*)kCFBundleIdentifierKey];
+   iconName = [e_iconDesc objectForKey:NSSTR(kIOBundleResourceFileKey)];
    cacheKey = [NSString stringWithFormat:@"%@.%@", bundleid, [iconName lastPathComponent]];
    if (!bundleid || !iconName) {
       eulock(e_lock);
@@ -411,14 +411,14 @@ init_err:
    
    /* Try the global cache */
    erlock(e_mediaIconCacheLck);
-   if ((_icon = [e_mediaIconCache objectForKey:cacheKey])) {
-      (void)[_icon retain]; // For ourself
+   if ((e_icon = [e_mediaIconCache objectForKey:cacheKey])) {
+      (void)[e_icon retain]; // For ourself
       eulock(e_mediaIconCacheLck);
       eulock(e_lock);
 #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Retrieved icon %@ from icon cache (%u).\n", cacheKey, [_icon retainCount]);
+      NSLog(@"ExtFS: Retrieved icon %@ from icon cache (%u).\n", cacheKey, [e_icon retainCount]);
 #endif
-      return ([[_icon retain] autorelease]);
+      return ([[e_icon retain] autorelease]);
    }
    eulock(e_mediaIconCacheLck);
    
@@ -459,7 +459,7 @@ init_err:
    ewlock(e_lock);
    // Now that we are under the lock again,
    // check to make sure no one beat us to the punch.
-   if (nil != _icon) {
+   if (nil != e_icon) {
       eulock(e_lock);
       [ico release];
       goto emicon_exit;
@@ -468,35 +468,35 @@ init_err:
    if (ico) {
       ewlock(e_mediaIconCacheLck);
       // Somebody else could have added us to the cache
-      if (nil == (_icon = [e_mediaIconCache objectForKey:cacheKey])) {
-         _icon = ico;
-         [_icon setName:cacheKey];
+      if (nil == (e_icon = [e_mediaIconCache objectForKey:cacheKey])) {
+         e_icon = ico;
+         [e_icon setName:cacheKey];
          // This supposedly allows images to be cached safely across threads
-         [_icon setCachedSeparately:YES];
-         [e_mediaIconCache setObject:_icon forKey:cacheKey];
+         [e_icon setCachedSeparately:YES];
+         [e_mediaIconCache setObject:e_icon forKey:cacheKey];
 #ifdef DIAGNOSTIC
-         NSLog(@"ExtFS: Added icon %@ to icon cache (%u).\n", cacheKey, [_icon retainCount]);
+         NSLog(@"ExtFS: Added icon %@ to icon cache (%u).\n", cacheKey, [e_icon retainCount]);
 #endif
       } else {
          // Use the cached icon instead of the one we found
          [ico release];
-         (void)[_icon retain];
+         (void)[e_icon retain];
       }
       eulock(e_mediaIconCacheLck);
    } else {
-      _attributeFlags |= kfsIconNotFound;
+      e_attributeFlags |= kfsIconNotFound;
    }
    eulock(e_lock);
 
 emicon_exit:
-   return ([[_icon retain] autorelease]);
+   return ([[e_icon retain] autorelease]);
 }
 
 - (BOOL)isEjectable
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsEjectable));
+   test = (0 != (e_attributeFlags & kfsEjectable));
    eulock(e_lock);
    return (test);
 }
@@ -504,7 +504,7 @@ emicon_exit:
 - (BOOL)canMount
 {
    erlock(e_lock);
-   if ((_attributeFlags & kfsNoMount)) {
+   if ((e_attributeFlags & kfsNoMount)) {
       eulock(e_lock);
       return (NO);
    }
@@ -517,7 +517,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsMounted));
+   test = (0 != (e_attributeFlags & kfsMounted));
    eulock(e_lock);
    return (test);
 }
@@ -526,7 +526,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsWritable));
+   test = (0 != (e_attributeFlags & kfsWritable));
    eulock(e_lock);
    return (test);
 }
@@ -535,7 +535,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsWholeDisk));
+   test = (0 != (e_attributeFlags & kfsWholeDisk));
    eulock(e_lock);
    return (test);
 }
@@ -544,7 +544,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsLeafDisk));
+   test = (0 != (e_attributeFlags & kfsLeafDisk));
    eulock(e_lock);
    return (test);
 }
@@ -553,7 +553,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsDVDROM));
+   test = (0 != (e_attributeFlags & kfsDVDROM));
    eulock(e_lock);
    return (test);
 }
@@ -562,7 +562,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsCDROM));
+   test = (0 != (e_attributeFlags & kfsCDROM));
    eulock(e_lock);
    return (test);
 }
@@ -571,7 +571,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsDiskArb));
+   test = (0 != (e_attributeFlags & kfsDiskArb));
    eulock(e_lock);
    return (test);
 }
@@ -581,40 +581,40 @@ emicon_exit:
 {
    ewlock(e_lock);
    if (diskarb)
-      _attributeFlags |= kfsDiskArb;
+      e_attributeFlags |= kfsDiskArb;
    else
-      _attributeFlags &= ~kfsDiskArb;
+      e_attributeFlags &= ~kfsDiskArb;
    eulock(e_lock);
 }
 #endif
 
 - (u_int64_t)size
 {
-   return (_size);
+   return (e_size);
 }
 
 - (u_int32_t)blockSize
 {
    u_int32_t sz;
    erlock(e_lock);
-   sz = (_attributeFlags & kfsMounted) ? _fsBlockSize : _devBlockSize;
+   sz = (e_attributeFlags & kfsMounted) ? e_fsBlockSize : e_devBlockSize;
    eulock(e_lock);
    return (sz);
 }
 
 - (ExtFSType)fsType
 {
-   return (_fsType);
+   return (e_fsType);
 }
 
 - (NSString*)fsName
 {
-    return (NSFSPrettyNameFromType(_fsType));
+    return (NSFSPrettyNameFromType(e_fsType));
 }
 
 - (NSString*)mountPoint
 {
-   return ([[_where retain] autorelease]);
+   return ([[e_where retain] autorelease]);
 }
 
 - (u_int64_t)availableSize
@@ -624,7 +624,7 @@ emicon_exit:
    (void)[self fsInfo];
    
    erlock(e_lock);
-   sz = _blockAvail * _fsBlockSize;
+   sz = e_blockAvail * e_fsBlockSize;
    eulock(e_lock);
    
    return (sz);
@@ -632,39 +632,39 @@ emicon_exit:
 
 - (u_int64_t)blockCount
 {
-   return (_blockCount);
+   return (e_blockCount);
 }
 
 - (u_int64_t)fileCount
 {
    (void)[self fsInfo];
    
-   return (_fileCount);
+   return (e_fileCount);
 }
 
 - (u_int64_t)dirCount
 {
    erlock(e_lock);
-   if (_attributeFlags & kfsGetAttrlist) {
+   if (e_attributeFlags & kfsGetAttrlist) {
       eulock(e_lock);
       (void)[self fsInfo];
    } else {
       eulock(e_lock);
    }
       
-   return (_dirCount);
+   return (e_dirCount);
 }
 
 - (NSString*)volName
 {
-   return ([[_volName retain] autorelease]);
+   return ([[e_volName retain] autorelease]);
 }
 
 - (BOOL)hasPermissions
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_attributeFlags & kfsPermsEnabled));
+   test = (0 != (e_attributeFlags & kfsPermsEnabled));
    eulock(e_lock);
    return (test);
 }
@@ -673,7 +673,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_volCaps & VOL_CAP_FMT_JOURNAL));
+   test = (0 != (e_volCaps & VOL_CAP_FMT_JOURNAL));
    eulock(e_lock);
    return (test);
 }
@@ -682,7 +682,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_volCaps & VOL_CAP_FMT_JOURNAL_ACTIVE));
+   test = (0 != (e_volCaps & VOL_CAP_FMT_JOURNAL_ACTIVE));
    eulock(e_lock);
    return (test);
 }
@@ -691,7 +691,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_volCaps & VOL_CAP_FMT_CASE_SENSITIVE));
+   test = (0 != (e_volCaps & VOL_CAP_FMT_CASE_SENSITIVE));
    eulock(e_lock);
    return (test);
 }
@@ -700,7 +700,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_volCaps & VOL_CAP_FMT_CASE_PRESERVING));
+   test = (0 != (e_volCaps & VOL_CAP_FMT_CASE_PRESERVING));
    eulock(e_lock);
    return (test);
 }
@@ -709,7 +709,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (_volCaps & VOL_CAP_FMT_SPARSE_FILES));
+   test = (0 != (e_volCaps & VOL_CAP_FMT_SPARSE_FILES));
    eulock(e_lock);
    return (test);
 }
@@ -719,7 +719,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (nil != _sb);
+   test = (nil != e_sb);
    eulock(e_lock);
    return (test);
 }
@@ -732,7 +732,7 @@ emicon_exit:
    CFUUIDBytes *bytes;
    
    erlock(e_lock);
-   if (_sb) {
+   if (e_sb) {
       bytes = (CFUUIDBytes*)&e2sblock->s_uuid[0];
       uuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, *bytes);
    }
@@ -745,7 +745,7 @@ emicon_exit:
 {
    BOOL test;
    erlock(e_lock);
-   test = (_fsType == fsTypeExt2 || _fsType == fsTypeExt3);
+   test = (e_fsType == fsTypeExt2 || e_fsType == fsTypeExt3);
    eulock(e_lock);
    return (test);
 }
@@ -769,7 +769,7 @@ emicon_exit:
 {
    BOOL test = NO;
    erlock(e_lock);
-   if (_sb)
+   if (e_sb)
       test = (0 != EXT3_HAS_COMPAT_FEATURE(e2super, EXT3_FEATURE_COMPAT_DIR_INDEX));
    eulock(e_lock);
    return (test);
@@ -779,7 +779,7 @@ emicon_exit:
 {
    BOOL test = NO;
    erlock(e_lock);
-   if (_sb)
+   if (e_sb)
       test = (0 != EXT2_HAS_RO_COMPAT_FEATURE(e2super, EXT2_FEATURE_RO_COMPAT_LARGE_FILE));
    eulock(e_lock);
    return (test);
@@ -820,7 +820,7 @@ emicon_exit:
    unsigned count;
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFS: Media '%@' dealloc.\n",
-      [_media objectForKey:NSSTR(kIOBSDNameKey)]);
+      [e_media objectForKey:NSSTR(kIOBSDNameKey)]);
 #endif
    
    // Icon cache
@@ -833,15 +833,15 @@ emicon_exit:
    // The mediaIconCache lock is never released.
    
    e2super_free();
-   [_object release];
-   [_icon release];
-   [_iconDesc release];
-   [_ioregName release];
-   [_volName release];
-   [_where release];
-   [_media release];
-   [_children release];
-   [_parent release];
+   [e_object release];
+   [e_icon release];
+   [e_iconDesc release];
+   [e_ioregName release];
+   [e_volName release];
+   [e_where release];
+   [e_media release];
+   [e_children release];
+   [e_parent release];
    
    edlock(e_lock);
    
