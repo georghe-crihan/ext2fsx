@@ -6,8 +6,8 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.0d4\
-3/13/2003
+\f1\b0 1.0a1\
+2003/05/04
 \f0\b \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
@@ -40,6 +40,8 @@ Volumes may fail to auto-mount if they are corrupted. The auto-mounter funs fsck
 \f0\b \
 
 \f1\b0 \
+If you re-format an existing partition as Ext2, then that partition may fail to automount in the future. This is because re-formating does not change the partition type in the partition header of the disk. Automounter uses this type as a "hint" when trying to find the right filesystem utility to use. Unfortunately, the "hint" is actually literal; automounter will find an incorrect filesystem utility based on the partition type and when that utility fails the probe phase, automounter will return an error without trying other filesystem utilities. There is no known way to change a partition type without re-formating the entire disk.\
+\
 Disk Copy disables the "Volume Name" field when the Ext2 format is selected. To change the name of a disk image volume, you must use the Terminal program 'e2label'. Example:\
 \
 brian$ hdid -nomount Desktop/MyExt2Image.dmg\
@@ -57,6 +59,7 @@ NFS export is not supported.\
 Boot/Root is not supported.\
 EXT3 is not supported.\
 Quotas are not supported.\
+ACL's are not supported.\
 Large file support has not been tested thoroughly.\
 \
 
