@@ -262,7 +262,7 @@ WRITE(ap)
 	fs = ip->I_FS;
 
 	if (uio->uio_offset < 0 ||
-	    ip->i_size + uio->uio_resid > fs->s_maxfilesize)
+	    uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
 
 	/*
