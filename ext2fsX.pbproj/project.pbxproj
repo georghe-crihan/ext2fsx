@@ -83,11 +83,13 @@
 		089C166AFE841209C02AAC07 = {
 			children = (
 				247142CAFF3F8F9811CA285C,
-				F5E7E349035BD34B01A80165,
-				F53BA31103CBEF8D01A80164,
 				D33D91670405A28700A80164,
+				D3B4645704099F8700A80164,
+				D3C06DAB040A137600A80164,
 				D3D485770405AC0900A80164,
 				D3D485870405C3B900A80164,
+				D376F3C6040DF69900A80164,
+				D376F3CC040E085900A80164,
 				D30B790D04059A6B00A80164,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
@@ -115,7 +117,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.0.0d1;
+				MODULE_VERSION = 1.0.0d2;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL";
 				OTHER_LDFLAGS = "";
@@ -151,11 +153,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0d1</string>
+	<string>1.0.0d2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d1</string>
+	<string>1.0.0d2</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -168,7 +170,7 @@
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				F5E7E34A035BD34B01A80165,
+				D3B4645904099F8700A80164,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -195,9 +197,10 @@
 				F54E5108035FDEE601A80165,
 				F54E510A035FDFBE01A80165,
 				F53B8661035FE78601A80165,
-				F53B86C003610B5901A80165,
 				F53B86C20361275401A80165,
-				F53BA31203CBEF8D01A80164,
+				D3B4645804099F8700A80164,
+				D3C06DAE040A137600A80164,
+				D3C06DAF040A137600A80164,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -384,19 +387,12 @@
 		};
 		D30B790D04059A6B00A80164 = {
 			children = (
-				D30B790E04059A6B00A80164,
 				D30B790F04059A6B00A80164,
 				D30B791004059A6B00A80164,
 			);
 			isa = PBXGroup;
 			name = mount_ext2fs;
 			path = src/mount_ext2fs;
-			refType = 4;
-		};
-		D30B790E04059A6B00A80164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = Makefile;
 			refType = 4;
 		};
 		D30B790F04059A6B00A80164 = {
@@ -430,11 +426,74 @@
 			settings = {
 			};
 		};
+		D376F3C6040DF69900A80164 = {
+			children = (
+				D376F3C7040DF6C200A80164,
+			);
+			isa = PBXGroup;
+			name = fs_bndl;
+			refType = 4;
+		};
+		D376F3C7040DF6C200A80164 = {
+			children = (
+				D376F3C8040DF6C200A80164,
+				D376F3CA040DF78800A80164,
+				D376F3CB040DF79100A80164,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+		};
+		D376F3C8040DF6C200A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = English;
+			path = fs_bndl/English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		D376F3CA040DF78800A80164 = {
+			isa = PBXFileReference;
+			name = French;
+			path = fs_bndl/French.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		D376F3CB040DF79100A80164 = {
+			isa = PBXFileReference;
+			name = German;
+			path = fs_bndl/German.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		D376F3CC040E085900A80164 = {
+			children = (
+				D376F3CD040E088100A80164,
+			);
+			isa = PBXGroup;
+			name = fs_util;
+			refType = 4;
+		};
+		D376F3CD040E088100A80164 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		D376F3CE040E088100A80164 = {
+			fileRef = D376F3CD040E088100A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D376F3D9040E968300A80164 = {
+			fileRef = D376F3C7040DF6C200A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		D39ED63004060E7300A80164 = {
 			buildPhases = (
 			);
 			buildSettings = {
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -468,6 +527,66 @@
 			isa = PBXTargetDependency;
 			target = D3D485850405AEF400A80164;
 		};
+		D3B4645604099F8700A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ext2_apple.c;
+			refType = 4;
+		};
+		D3B4645704099F8700A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ext2_apple.h;
+			path = src/ext2_apple.h;
+			refType = 4;
+		};
+		D3B4645804099F8700A80164 = {
+			fileRef = D3B4645604099F8700A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3B4645904099F8700A80164 = {
+			fileRef = D3B4645704099F8700A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3C06DAB040A137600A80164 = {
+			children = (
+				D3B4645604099F8700A80164,
+				D3C06DAC040A137600A80164,
+				D3C06DAD040A137600A80164,
+			);
+			isa = PBXGroup;
+			name = kern;
+			path = src/kern;
+			refType = 4;
+		};
+		D3C06DAC040A137600A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ext2_attrlist.c;
+			refType = 4;
+		};
+		D3C06DAD040A137600A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ext2_io_apple.c;
+			refType = 4;
+		};
+		D3C06DAE040A137600A80164 = {
+			fileRef = D3C06DAC040A137600A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3C06DAF040A137600A80164 = {
+			fileRef = D3C06DAD040A137600A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		D3D485770405AC0900A80164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -500,6 +619,7 @@
 		D3D4857B0405AE8E00A80164 = {
 			buildActionMask = 2147483647;
 			files = (
+				D376F3CE040E088100A80164,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -552,6 +672,7 @@
 		D3D485810405AEF400A80164 = {
 			buildActionMask = 2147483647;
 			files = (
+				D376F3D9040E968300A80164,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -623,11 +744,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0d1</string>
+	<string>1.0.0d2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d1</string>
+	<string>1.0.0d2</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>EXT2</key>
@@ -644,7 +765,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
-			<string>5000</string>
+			<integer>5000</integer>
 		</dict>
 		<key>Partitionless</key>
 		<dict>
@@ -658,7 +779,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
-			<string>5000</string>
+			<integer>5000</integer>
 		</dict>
 	</dict>
 	<key>FSPersonalities</key>
@@ -668,9 +789,9 @@
 			<key>FSMountArguments</key>
 			<string></string>
 			<key>FSMountExecutable</key>
-			<string>/sbin/mount_ext2</string>
+			<string>../../../../../../sbin/mount_ext2</string>
 			<key>FSName</key>
-			<string>EXT2</string>
+			<string>Ext2 Filesystem</string>
 		</dict>
 	</dict>
 </dict>
@@ -757,12 +878,6 @@
 			path = ext2_readwrite.c;
 			refType = 4;
 		};
-		F53B86C003610B5901A80165 = {
-			fileRef = F53B86BF03610B5901A80165;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F53B86C10361275401A80165 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -771,19 +886,6 @@
 		};
 		F53B86C20361275401A80165 = {
 			fileRef = F53B86C10361275401A80165;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F53BA31103CBEF8D01A80164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			name = ext2_apple.h;
-			path = src/ext2_apple.h;
-			refType = 4;
-		};
-		F53BA31203CBEF8D01A80164 = {
-			fileRef = F53BA31103CBEF8D01A80164;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -856,19 +958,6 @@
 		};
 		F54E510A035FDFBE01A80165 = {
 			fileRef = F54E5109035FDFBE01A80165;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E7E349035BD34B01A80165 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			name = ext2_apple.c;
-			path = src/ext2_apple.c;
-			refType = 2;
-		};
-		F5E7E34A035BD34B01A80165 = {
-			fileRef = F5E7E349035BD34B01A80165;
 			isa = PBXBuildFile;
 			settings = {
 			};
