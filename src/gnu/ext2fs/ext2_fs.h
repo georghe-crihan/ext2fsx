@@ -264,10 +264,16 @@ struct ext2_group_desc
 #define EXT2_ECOMPR_FL			0x00000800 /* Compression error */
 /* End compression flags --- maybe not all used */	
 #define EXT2_BTREE_FL			0x00001000 /* btree format dir */
+#define EXT2_INDEX_FL			0x00001000 /* hash-indexed directory */
+#define EXT2_IMAGIC_FL			0x00002000
+#define EXT3_JOURNAL_DATA_FL		0x00004000 /* file data should be journaled */
+#define EXT2_NOTAIL_FL			0x00008000 /* file tail should not be merged */
+#define EXT2_DIRSYNC_FL 		0x00010000 /* Synchronous directory modifications */
+#define EXT2_TOPDIR_FL			0x00020000 /* Top of directory hierarchies*/
 #define EXT2_RESERVED_FL		0x80000000 /* reserved for ext2 lib */
 
-#define EXT2_FL_USER_VISIBLE		0x00001FFF /* User visible flags */
-#define EXT2_FL_USER_MODIFIABLE		0x000000FF /* User modifiable flags */
+#define EXT2_FL_USER_VISIBLE		0x0003DFFF /* User visible flags */
+#define EXT2_FL_USER_MODIFIABLE		0x000080FF /* User modifiable flags */
 
 /*
  * ioctl commands
@@ -553,6 +559,7 @@ struct ext2_super_block {
 #define EXT2_FEATURE_INCOMPAT_FILETYPE		0x0002
 #define EXT3_FEATURE_INCOMPAT_RECOVER		0x0004
 #define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x0008
+#define EXT2_FEATURE_INCOMPAT_META_BG		0x0010
 #define EXT2_FEATURE_INCOMPAT_ANY		0xffffffff
 
 #define EXT2_FEATURE_COMPAT_SUPP	0
@@ -572,6 +579,19 @@ struct ext2_super_block {
  */
 #define	EXT2_DEF_RESUID		0
 #define	EXT2_DEF_RESGID		0
+
+/*
+ * Default mount options
+ */
+#define EXT2_DEFM_DEBUG		0x0001
+#define EXT2_DEFM_BSDGROUPS	0x0002
+#define EXT2_DEFM_XATTR_USER	0x0004
+#define EXT2_DEFM_ACL		0x0008
+#define EXT2_DEFM_UID16		0x0010
+#define EXT3_DEFM_JMODE		0x0060 
+#define EXT3_DEFM_JMODE_DATA	0x0020
+#define EXT3_DEFM_JMODE_ORDERED	0x0040
+#define EXT3_DEFM_JMODE_WBACK	0x0060
 
 /*
  * Structure of a directory entry
