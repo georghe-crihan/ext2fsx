@@ -20,8 +20,10 @@ Updated to e2fsprogs 1.35.\
 \
 Everything is now compiled with GCC 3.3.\
 \
+Fixed some bugs in EFSM (including a possible crasher and memory leak every time a device was removed).\
+\
 Added ENOSPC bug fix from Linux 2.6.4 (by Chris Mason @ Suse).\
-=======\
+=============================================================\
 find_group_other looks buggy for ext2 and ext3 in 2.6, it can cause -ENOSPC\
 errors when the fs has plenty of free room.\
 	\
@@ -41,7 +43,7 @@ groups.\
 	\
 The end result is that parent_group and parent_group + 1 are not checked\
 for free inodes in the final linear search.  ext3 has the same problem.\
-=======\
+=============================================================\
 The corresponding Darwin code can be found in ext2_linux_ialloc.c:432.\
 \
 1.1.1\
