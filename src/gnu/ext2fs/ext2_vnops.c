@@ -657,12 +657,8 @@ ext2_setattr(ap)
       #endif
 			if (ip->i_flags
 			    & (SF_NOUNLINK | SF_IMMUTABLE | SF_APPEND)) {
-				#ifndef APPLE
             error = securelevel_gt(cred, 0);
 				if (error)
-            #else
-            error = EPERM;
-            #endif
 					return (error);
 			}
 			ip->i_flags = vap->va_flags;
