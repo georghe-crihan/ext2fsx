@@ -3,7 +3,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifndef BSD
 #include <linux/limits.h>
+#else
+#include <limits.h>
+#endif
 #include <unistd.h>
 
 #include "common.h"
