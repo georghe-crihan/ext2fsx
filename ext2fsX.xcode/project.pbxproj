@@ -80,6 +80,7 @@
 				German,
 				fr,
 				de,
+				en,
 			);
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -93,6 +94,7 @@
 				D3FCC55A041C72E000A80164,
 				D387FCA90595632700C31A93,
 				D31F7D360569E3E700A80164,
+				D3660BF90643ED20009810C9,
 				D3D4AF220579135600A80164,
 			);
 		};
@@ -315,6 +317,7 @@
 				D31F7D370569E3E700A80164,
 				D3D4AF230579135600A80164,
 				D387FCAA0595632700C31A93,
+				D3660BFA0643ED20009810C9,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -823,8 +826,8 @@
 		};
 		D3556142058517B7008148F9 = {
 			children = (
-				D3556143058517B7008148F9,
 				D3560A840597A33700890EA3,
+				D3556143058517B7008148F9,
 			);
 			isa = PBXVariantGroup;
 			name = Localizable.strings;
@@ -853,6 +856,255 @@
 			lastKnownFileType = text.plist.strings;
 			name = de;
 			path = de.lproj/Localizable.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D3660BF50643ED20009810C9 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3660D7E064407A1009810C9,
+				D3660C160643EDA2009810C9,
+				D3660C1E0643EDA6009810C9,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3660BF60643ED20009810C9 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3660C7E0643FA4D009810C9,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3660BF70643ED20009810C9 = {
+			buildActionMask = 2147483647;
+			files = (
+				D3660C190643EDA5009810C9,
+				D3660C240643EDAC009810C9,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3660BF80643ED20009810C9 = {
+			buildActionMask = 2147483647;
+			files = (
+				D366103C064409E2009810C9,
+				D366103D064409E2009810C9,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3660BF90643ED20009810C9 = {
+			buildPhases = (
+				D3660BF50643ED20009810C9,
+				D3660BF60643ED20009810C9,
+				D3660BF70643ED20009810C9,
+				D3660BF80643ED20009810C9,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = src/extfsmgr/coremgr/ExtFSDiskManager.h;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
+				INFOPLIST_FILE = "Resources/ExtFSDiskManager-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-framework Cocoa";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ExtFSDiskManager;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = ExtFSDiskManager;
+			productName = ExtFSDiskManager;
+			productReference = D3660BFA0643ED20009810C9;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>ExtFSDiskManager</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.MySoftwareCompany.ExtFSDiskManager</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string></string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+</dict>
+</plist>
+";
+			productType = "com.apple.product-type.framework";
+		};
+		D3660BFA0643ED20009810C9 = {
+			explicitFileType = wrapper.framework;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = ExtFSDiskManager.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		D3660BFB0643ED21009810C9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			name = "ExtFSDiskManager-Info.plist";
+			path = "Resources/ExtFSDiskManager-Info.plist";
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		D3660C160643EDA2009810C9 = {
+			fileRef = D36725B2057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		D3660C190643EDA5009810C9 = {
+			fileRef = D36725B3057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3660C1E0643EDA6009810C9 = {
+			fileRef = D36725B4057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		D3660C240643EDAC009810C9 = {
+			fileRef = D36725B5057A698B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3660C680643F85B009810C9 = {
+			children = (
+				D3660C7C0643FA4D009810C9,
+				D3660BFB0643ED21009810C9,
+			);
+			isa = PBXGroup;
+			path = Resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D3660C7C0643FA4D009810C9 = {
+			children = (
+				D3660C7D0643FA4D009810C9,
+				D366110106442CD1009810C9,
+				D3660C870643FA66009810C9,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D3660C7D0643FA4D009810C9 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = de;
+			path = de.lproj/Localizable.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D3660C7E0643FA4D009810C9 = {
+			fileRef = D3660C7C0643FA4D009810C9;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3660C870643FA66009810C9 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = fr;
+			path = fr.lproj/Localizable.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D3660D4C064404F6009810C9 = {
+			fileRef = D3660BFA0643ED20009810C9;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3660D620644059B009810C9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = D3660BF90643ED20009810C9;
+			remoteInfo = ExtFSDiskManager;
+		};
+		D3660D630644059B009810C9 = {
+			isa = PBXTargetDependency;
+			target = D3660BF90643ED20009810C9;
+			targetProxy = D3660D620644059B009810C9;
+		};
+		D3660D7D064407A1009810C9 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = ExtFSDiskManager.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D3660D7E064407A1009810C9 = {
+			fileRef = D3660D7D064407A1009810C9;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		D366103C064409E2009810C9 = {
+			fileRef = D36725FE057BB78100A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D366103D064409E2009810C9 = {
+			fileRef = D36725BA057A6F0700A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D366110106442CD1009810C9 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = en;
+			path = en.lproj/Localizable.strings;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -888,30 +1140,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		D36725B6057A698B00A80164 = {
-			fileRef = D36725B2057A698B00A80164;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		D36725B7057A698B00A80164 = {
-			fileRef = D36725B3057A698B00A80164;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		D36725B8057A698B00A80164 = {
-			fileRef = D36725B4057A698B00A80164;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		D36725B9057A698B00A80164 = {
-			fileRef = D36725B5057A698B00A80164;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		D36725BA057A6F0700A80164 = {
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
@@ -921,12 +1149,6 @@
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
-		D36725BB057A6F0700A80164 = {
-			fileRef = D36725BA057A6F0700A80164;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		D36725FE057BB78100A80164 = {
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
@@ -935,12 +1157,6 @@
 			path = /System/Library/PrivateFrameworks/DiskArbitration.framework;
 			refType = 0;
 			sourceTree = "<absolute>";
-		};
-		D36725FF057BB78100A80164 = {
-			fileRef = D36725FE057BB78100A80164;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		D367265B057D3E9600A80164 = {
 			children = (
@@ -957,10 +1173,14 @@
 		};
 		D367265C057D3ECB00A80164 = {
 			children = (
+				D3660D7D064407A1009810C9,
 				D36725B2057A698B00A80164,
 				D36725B3057A698B00A80164,
 				D36725B4057A698B00A80164,
 				D36725B5057A698B00A80164,
+				D3660C680643F85B009810C9,
+				D36725FE057BB78100A80164,
+				D36725BA057A6F0700A80164,
 			);
 			isa = PBXGroup;
 			path = coremgr;
@@ -1272,6 +1492,7 @@
 				D3D4AF240579136500A80164,
 				D39ED63304060E8300A80164,
 				D39ED63404060E8300A80164,
+				D3660D630644059B009810C9,
 				D3D4AF250579136800A80164,
 			);
 			isa = PBXAggregateTarget;
@@ -1326,8 +1547,6 @@
 		D3A9B8080582DE1400B93FC7 = {
 			children = (
 				D3D4AF27057913CB00A80164,
-				D36725FE057BB78100A80164,
-				D36725BA057A6F0700A80164,
 				D3D4AF28057913CB00A80164,
 			);
 			isa = PBXGroup;
@@ -1870,8 +2089,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D3D4AF3F0579166400A80164,
-				D36725B6057A698B00A80164,
-				D36725B8057A698B00A80164,
 				D3A9B806058283EC00B93FC7,
 			);
 			isa = PBXHeadersBuildPhase;
@@ -1897,8 +2114,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D3D4AF400579166400A80164,
-				D36725B7057A698B00A80164,
-				D36725B9057A698B00A80164,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1908,8 +2123,7 @@
 			files = (
 				D3D4AF29057913CB00A80164,
 				D3D4AF2A057913CB00A80164,
-				D36725BB057A6F0700A80164,
-				D36725FF057BB78100A80164,
+				D3660D4C064404F6009810C9,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1930,13 +2144,13 @@
 				D3D4AF210579135600A80164,
 			);
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_VERSION = 3.3;
-				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DEXT_MGR_GUI";
 				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
 				OTHER_REZFLAGS = "";
+				PRECOMPILE_PREFIX_HEADER = YES;
+				PREFIX_HEADER = build/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h;
 				PRODUCT_NAME = ExtFSManager;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
