@@ -284,7 +284,7 @@ echo "Finishing..."
 hdiutil eject ${DEVICE}
 
 #convert to compressed image
-hdiutil convert "${TMP}" -format UDZO -o "${IMAGE}"
+hdiutil convert "${TMP}" -format UDZO -o "${IMAGE}" -ov
 rm "${TMP}"
 
 md5 "${IMAGE}"
