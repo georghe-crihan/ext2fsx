@@ -29,6 +29,13 @@
 #include <sys/disklabel.h>
 #endif /* HAVE_SYS_DISKLABEL_H */
 
+#ifdef APPLE_DARWIN
+#include <sys/ioctl.h>
+#include <sys/disk.h>
+
+#define BLKGETSIZE DKIOCGETBLOCKCOUNT32
+#endif /* APPLE_DARWIN */
+
 #if defined(__linux__) && defined(_IO) && !defined(BLKGETSIZE)
 #define BLKGETSIZE _IO(0x12,96)	/* return device size */
 #endif

@@ -1212,6 +1212,10 @@ else
 	BSDLIB_CMT=
 	MAKEFILE_BSDLIB=$srcdir/lib/Makefile.bsd-lib
 	LIB_EXT=.so
+	if [ `uname -s` == Darwin ]; then
+		MAKEFILE_BSDLIB=$srcdir/lib/Makefile.darwin-lib
+		LIB_EXT=.dylib
+	fi
 	echo "Enabling BSD shared libraries"
 fi
 
