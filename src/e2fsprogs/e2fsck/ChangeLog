@@ -1,3 +1,47 @@
+2003-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.34
+
+2003-07-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass2.c: Fix gcc -Wall nitpicks (missing #include <string.h>)
+
+	* dict.c, dict.h: Fix gcc -Wall nitpicks (indented cpp directives)
+
+2003-06-8  Theodore Ts'o  <tytso@mit.edu>
+
+	* problem.c: Fix spelling error.
+
+2003-05-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (show_stats), e2fsck.h: Use ngettext (abbreivated with
+		the macro P_(str1, str2, n)) to simplify the statistics
+		reporting.
+
+2003-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (main): If --enable-testio-debug is set, then use the
+		test_io manager so we can watch what e2fsck is doing.
+
+2003-05-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (show_stats): Remove uneeded use of _() around string
+		under #ifndef NLS
+
+	* problem.c: Mark two strings (PR_1_RELOC_TO and
+		PR_2_NON_UNIQUE_FILE) as not being printf format strings.
+		Fix typo (doubled 'is') in PR_2_FILE_ACL_BAD.
+
+	* Makefile.in: Add $(LIBINTL) to the link line so we can support
+		using the internal gettext library.
+
+	* e2fsck.h: Add #ifndef protection around LOCALEDIR definition.
+
+2003-04-27  Theodore Ts'o  <tytso@mit.edu>
+
+	* message.c (expand_at_expression): Fixed NLS support for message
+		abbreviations. 
+
 2003-04-21  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.33

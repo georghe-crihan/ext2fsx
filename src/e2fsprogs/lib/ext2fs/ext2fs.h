@@ -491,6 +491,8 @@ extern errcode_t ext2fs_badblocks_list_add(ext2_badblocks_list bb,
 					   blk_t blk);
 extern int ext2fs_badblocks_list_test(ext2_badblocks_list bb,
 				    blk_t blk);
+extern int ext2fs_u32_list_del(ext2_u32_list bb, __u32 blk);
+extern void ext2fs_badblocks_list_del(ext2_u32_list bb, __u32 blk);
 extern errcode_t
 	ext2fs_badblocks_list_iterate_begin(ext2_badblocks_list bb,
 					    ext2_badblocks_iterate *ret);
@@ -719,6 +721,9 @@ extern void ext2fs_u32_list_free(ext2_u32_list bb);
 /* getsize.c */
 extern errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 					blk_t *retblocks);
+
+/* getsectsize.c */
+errcode_t ext2fs_get_device_sectsize(const char *file, int *sectsize);
 
 /* imager.c */
 extern errcode_t ext2fs_image_inode_write(ext2_filsys fs, int fd, int flags);

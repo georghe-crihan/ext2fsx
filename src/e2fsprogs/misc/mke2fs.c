@@ -147,7 +147,8 @@ struct mke2fs_defaults {
 
 static void set_fs_defaults(const char *fs_type,
 			    struct ext2_super_block *super,
-			    int blocksize, int *inode_ratio)
+			    int blocksize, int sector_size,
+			    int *inode_ratio)
 {
 	int	megs;
 	int	ratio = 0;
@@ -170,6 +171,8 @@ static void set_fs_defaults(const char *fs_type,
 				blocksize : p->inode_ratio;
 		use_bsize = p->blocksize;
 	}
+	if (sector_size && use_bsize < sector_size)
+		use_bsize = sector_size;
 	if (blocksize <= 0) {
 		if (use_bsize == DEF_MAX_BLOCKSIZE)
 			use_bsize = sys_page_size;
@@ -799,6 +802,7 @@ static void PRS(int argc, char *argv[])
 	int		inode_ratio = 0;
 	int		inode_size = 0;
 	int		reserved_ratio = 5;
+	int		sector_size = 0;
 	ext2_ino_t	num_inodes = 0;
 	errcode_t	retval;
 	char *		oldpath = getenv("PATH");
@@ -1078,10 +1082,17 @@ static void PRS(int argc, char *argv[])
 	 */
 	if (blocksize <= 0 && journal_device) {
 		ext2_filsys	jfs;
+		io_manager	io_ptr;
 
+#ifdef CONFIG_TESTIO_DEBUG
+		io_ptr = test_io_manager;
+		test_io_backing_manager = unix_io_manager;
+#else
+		io_ptr = unix_io_manager;
+#endif
 		retval = ext2fs_open(journal_device,
 				     EXT2_FLAG_JOURNAL_DEV_OK, 0,
-				     0, unix_io_manager, &jfs);
+				     0, io_ptr, &jfs);
 		if (retval) {
 			com_err(program_name, retval,
 				_("while trying to open journal device %s\n"),
@@ -1090,7 +1101,7 @@ static void PRS(int argc, char *argv[])
 		}
 		if ((blocksize < 0) && (jfs->blocksize < -blocksize)) {
 			com_err(program_name, 0,
-				_("Journal dev blocksize (%d) smaller than"
+				_("Journal dev blocksize (%d) smaller than "
 				  "minimum blocksize %d\n"), jfs->blocksize,
 				-blocksize);
 			exit(1);
@@ -1112,6 +1123,11 @@ static void PRS(int argc, char *argv[])
 				  "(max %d), forced to continue\n"),
 			blocksize, sys_page_size);
 	}
+	if ((blocksize > 4096) &&
+	    (param.s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL))
+		fprintf(stderr, "\nWarning: some 2.4 kernels do not support "
+			"blocksizes greater than 4096 \n\tusing ext3."
+			"  Use -b 4096 if this is an issue for you.\n\n");
 
 	if (param.s_feature_incompat & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
 		if (!fs_type)
@@ -1165,6 +1181,9 @@ static void PRS(int argc, char *argv[])
 				exit(1);
 			}
 			param.s_blocks_count = dev_size;
+			if (sys_page_size > EXT2_BLOCK_SIZE(&param))
+				param.s_blocks_count &= ~((sys_page_size /
+							   EXT2_BLOCK_SIZE(&param))-1);
 		}
 		
 	} else if (!force && (param.s_blocks_count > dev_size)) {
@@ -1187,7 +1206,15 @@ static void PRS(int argc, char *argv[])
 	    ((tmp = getenv("MKE2FS_FIRST_META_BG"))))
 		param.s_first_meta_bg = atoi(tmp);
 
-	set_fs_defaults(fs_type, &param, blocksize, &inode_ratio);
+	/* Get the hardware sector size, if available */
+	retval = ext2fs_get_device_sectsize(device_name, &sector_size);
+	if (retval) {
+		com_err(program_name, retval,
+			_("while trying to determine hardware sector size"));
+		exit(1);
+	}
+	
+	set_fs_defaults(fs_type, &param, blocksize, sector_size, &inode_ratio);
 	blocksize = EXT2_BLOCK_SIZE(&param);
 	
 	if (param.s_blocks_per_group) {
@@ -1237,6 +1264,7 @@ int main (int argc, char *argv[])
 	badblocks_list	bb_list = 0;
 	int		journal_blocks;
 	int		i, val;
+	io_manager	io_ptr;
 
 #ifdef ENABLE_NLS
 	setlocale(LC_MESSAGES, "");
@@ -1246,11 +1274,18 @@ int main (int argc, char *argv[])
 #endif
 	PRS(argc, argv);
 
+#ifdef CONFIG_TESTIO_DEBUG
+	io_ptr = test_io_manager;
+	test_io_backing_manager = unix_io_manager;
+#else
+	io_ptr = unix_io_manager;
+#endif
+
 	/*
 	 * Initialize the superblock....
 	 */
 	retval = ext2fs_initialize(device_name, 0, &param,
-				   unix_io_manager, &fs);
+				   io_ptr, &fs);
 	if (retval) {
 		com_err(device_name, retval, _("while setting up superblock"));
 		exit(1);

@@ -1,3 +1,113 @@
+e2fsprogs (1.34-1) unstable; urgency=low
+
+  * New upstream version.
+  * Fixed bug in fsck which caused it to waste CPU by spinning while
+    waiting for a child fsck process under some circumstances.
+  * Fixed bug in blkid library which would cause it to spin forever if
+    /proc is not mounted and /etc/blkid.tab is not present.
+  * Improved the blkid library's UDF's probing functions.
+  * Fixed the blkid library so it will remove delete the LABEL
+    attribute from its cache when a filesystem that previously had a
+    label no longer has one.
+  * Added Swedish translation.
+  * Remove debugging printf in badblocks program (Closes: #201499)
+  * Split shared libraries out of the e2fsprogs package into separate
+    packages: libss2, libcomerr2, libuuid1, and e2fslibs.  (Closes: #201155,
+    #201164)
+  * Warn the user when creating a filesystem with a journal and a blocksize
+    greater than 4096, since some kernels don't support ext3 with large
+    block sizes.  (Closes:  #193773)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sat, 26 Jul 2003 01:01:55 -0400
+
+e2fsprogs (1.33+1.34-WIP-2003.05.21-2) unstable; urgency=low
+
+  * Set up FreeBSD configuration defaults (Closes: #195274)
+  * Clarify resize2fs man page (Closes: #195616)
+  * Fix resize2fs to deal with filesystem with bad blocks
+  * Fix spelling error in e2fsck
+  * Add workaround for intl library on Darwin
+  * Fix gcc -Wall nitpicks
+  * Round down the default size of the filesystem for mke2fs and 
+    resize2fs to be a multiple of the pagesize to work around a potential
+    Linux kernel bug
+  * Fix bug in mke2fs where it could die with a floating exception if
+    the device does not support the BLKSSZGET ioctl (Closes: #196734)
+  * Add conflicts against older versions of sysvinit that don't correctly
+    handle an exit code that has the bit #2 set.  (Closes: #183675)
+  * Badblocks will attempt to use O_DIRECT if it is safe to do so.  
+    (Closes: #198006)
+  * Use symbolic links for fsck.ext{2,3} and mkfs.ext{2,3} in the udeb
+    package since busybox tar can't deal with hard links.  (Closes: #196508)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sat, 12 Jul 2003 03:16:08 -0400
+
+e2fsprogs (1.33+1.34-WIP-2003.05.21-1) unstable; urgency=low
+
+  * Fix problems with compiling e2fsprogs with NLS support on woody 
+    (Closes: #193372)
+  * Remove the extraneous de-utf.po file.
+  * Add get-text to build-depends.
+  * Use ngettext (abbreviated with P_()) to simplify the statistics reporting.
+  * Fix badblocks to be able to support arbitrary 4 byte test patterns.
+  * Fix bug which caused us to accidentally include the EVMS plugin in
+    the e2fsprogs package (which doesn't work, but causes confusing messages
+    to show up when the evms client is started).
+  * If the hardware sector size of a device is larger than the default 
+    blocksize, use the hardware sector size as the blocksize when creating 
+    a filesystem, to solve problems with s/390 DASD's.
+  * Add a shared library dependency to libuuid to libblkid (Closes: #194094)
+  * Add initial implementation of a dump_unused command (Closes: #79164)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sun, 18 May 2003 01:24:16 -0400
+
+e2fsprogs (1.33-5) unstable; urgency=low
+
+  * Clarify blocksize units when displaying messages in resize2fs, and 
+    support using suffixes (sectors, kilobytes, megabites, gigabytes) 
+    to the size parameter to indicate units.  (Closes: #189814)
+  * Fix debugfs core-dumping problem caused by getopt.  (Works around: #192834)
+  * Add package dependency to shlibs for comerr to indicate support 
+    for kth compatibility.  (Closes: #193096)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Tue, 13 May 2003 23:45:08 -0400
+
+e2fsprogs (1.33-4) unstable; urgency=low
+
+  * Add replaces field to comerr-dev to resolve a file conflict with
+    /usr/include/com_err.h and the libkrb5-dev package.  (Closes: #192277)
+  * Add -t option to badblocks to control the test pattern used.
+  * Remove e2fsprogs-bf package, as it is obsolete. (Closes: #183453)
+  * Remove NLS support from e2fsprogs-udeb.  Save 5.5k on the boot
+    floppies / install media.
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Thu,  8 May 2003 10:25:05 -0400
+
+e2fsprogs (1.33-3) unstable; urgency=low
+
+  * Add full Heimdall/Kerberos4-kth compatibility to com_err routines.
+  * Declare comerr-dev as replacing << e2fslibs-dev 1.33-2, to avoid
+    errors when upgrading to the new versions of comerr-dev and
+    e2fslibs-dev
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Tue,  6 May 2003 00:29:47 -0400
+
+e2fsprogs (1.33-2) unstable; urgency=low
+
+  * Fix up NLS support
+     - Fix message abbreviations support (i.e., @g --> group)
+     - Update to gettext 0.11.5 
+     - Add Czech translation
+     - Install message catalogs
+     - Other miscellaneous NLS bug fixes
+  * Add new debugfs command, imap, which prints the location of a 
+    specified inode in the inode table.
+  * Put /usr/include/com_err.h in comerr-dev instead of e2fslibs-dev.  
+    (Closes #191899)
+  * Add support for OV-style continuations in compile_et.  (Closes #191900)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Mon,  5 May 2003 18:13:12 -0400
+
 e2fsprogs (1.33-1) unstable; urgency=low
 
   * New upstream version (Closes: #189687)
