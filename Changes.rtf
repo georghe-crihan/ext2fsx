@@ -4,7 +4,35 @@
 \margl1440\margr1440\vieww11160\viewh11700\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.1.1\
+\f0\fs24 \cf0 1.?\
+\
+It is now possible to mount Ext2/3 volumes with permissions ignored (for files/dirs not owned by root).\
+\
+Fixed ENOSPC bug fixed in Linux 2.6.4 (by Chris Mason @ Suse).\
+=======\
+find_group_other looks buggy for ext2 and ext3 in 2.6, it can cause -ENOSPC\
+errors when the fs has plenty of free room.\
+	\
+To hit the bug, you need a filesystem where:\
+	\
+parent_group has no free blocks (but might have free inodes) Every other\
+group with free inodes has no free blocks.\
+	\
+That gets you down to the final linear search in find_group_other.  The\
+linear search has two bugs:\
+	\
+group = parent_group + 1; means we start searching at parent_group + 2\
+because the loop increments group before using it.\
+	\
+for(i = 2 ; i < ngroups ; i++) means we don't search through all the\
+groups.\
+	\
+The end result is that parent_group and parent_group + 1 are not checked\
+for free inodes in the final linear search.  ext3 has the same problem.\
+=======\
+The corresponding Darwin code can be found in ext2_linux_ialloc.c:432.\
+\
+1.1.1\
 Fixed a mount panic that should have been hit on every mount since day one. For some reason though, I've never had anyone report this panic, and I myself just hit it recently. It was a pretty stupid (but not readily apparent) error too.\
 \
 Fixed another partial inode kernel panic on an error path (related to the one fixed in 1.1 final).\
