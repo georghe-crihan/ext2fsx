@@ -33,8 +33,12 @@ typedef enum {
    fsTypeExt2,
    fsTypeExt3,
    fsTypeHFS,
+   fsTypeHFSPlus,
+   fsTypeHFSJ, /* Journal */
+   fsTypeHFSJCS, /* Journal, Case Sensisitive */
    fsTypeUFS,
    fsTypeCD9660,
+   fsTypeCDAudio,
    fsTypeUDF,
    fsTypeMSDOS,
    fsTypeNTFS,
@@ -72,8 +76,6 @@ struct superblock;
 - (ExtFSMedia*)parent;
 - (NSArray*)children;
 - (unsigned)childCount;
-- (void)addChild:(ExtFSMedia*)media;
-- (void)remChild:(ExtFSMedia*)media;
 
 /* Device */
 - (NSString*)ioRegistryName;
