@@ -9,7 +9,11 @@ Upgraded to e2fsprogs 1.33 (mke2fs, e2fsck, etc)\
 \
 Fixed a bug in the fs util that could cause a volume to mount as "UNKNOWN" instead of the actual volume name.\
 \
+The kext will no longer unload if there are active mounts.\
+\
 Removed some debugging code.\
+\
+Changed the partition label hint to "Ext2" to be more inline with Linux. I don't know if this hint is case-sensitive, but if it is, it may cause something to break.\
 \
 1.0d4\
 Write support is now enabled. This may corrupt filesystems!!\
