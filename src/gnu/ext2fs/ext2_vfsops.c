@@ -572,9 +572,13 @@ static int compute_sb_data(devvp, es, fs)
 	EXT2_DESC_PER_BLOCK(fs);
     fs->s_db_per_group = db_count;
     V(s_db_per_group)
-   if (EXT2_FEATURE_RO_COMPAT_SUPP & EXT2_FEATURE_RO_COMPAT_LARGE_FILE)
-      fs->s_maxfilesize = 0x7FFFFFFFFFFFFFFFLL;
-   else
+   if (EXT2_FEATURE_RO_COMPAT_SUPP & EXT2_FEATURE_RO_COMPAT_LARGE_FILE) {
+      u_int64_t addrs_per_block = fs->s_blocksize / sizeof(u32);
+	  fs->s_maxfilesize = (EXT2_NDIR_BLOCKS*(u_int64_t)fs->s_blocksize) +
+		(addrs_per_block*(u_int64_t)fs->s_blocksize) +
+		((addrs_per_block*addrs_per_block)*(u_int64_t)fs->s_blocksize) +
+		((addrs_per_block*addrs_per_block*addrs_per_block)*(u_int64_t)fs->s_blocksize);
+   } else
       fs->s_maxfilesize = 0x7FFFFFFFLL;
 	for (i = 0; i < 4; ++i)
 		fs->s_hash_seed[i] = le32_to_cpu(es->s_hash_seed[i]);
