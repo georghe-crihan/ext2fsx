@@ -54,12 +54,12 @@ safe_execv(char *args[])
 	int		pid;
 	union wait	status;
 
-	pid = fork();
+	pid = vfork();
 	if (pid == 0) {
 		(void)execv(args[0], args);
 		fprintf(stderr, "%s: execv %s failed, %s\n", progname, args[0],
 			strerror(errno));
-		exit(1);
+		_exit(1);
 	}
 	if (pid == -1) {
 		fprintf(stderr, "%s: fork failed, %s\n", progname,
