@@ -61,21 +61,6 @@ static pthread_mutex_t e_initMutex = PTHREAD_MUTEX_INITIALIZER;
 static IONotificationPortRef notify_port_ref=0;
 static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
 
-#ifndef EXT2FS_NAME
-#define EXT2FS_NAME "ext2"
-#endif
-#ifndef EXT3FS_NAME
-#define EXT3FS_NAME "ext3"
-#endif
-
-#define HFS_NAME "hfs"
-#define UFS_NAME "ufs"
-#define CD9660_NAME "cd9660"
-#define CDAUDIO_NAME "cddafs"
-#define UDF_NAME "udf"
-#define MSDOS_NAME "msdos"
-#define NTFS_NAME "ntfs"
-
 static const char *e_fsNames[] = {
    EXT2FS_NAME,
    EXT3FS_NAME,
@@ -102,59 +87,20 @@ static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device
 static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    int type, int status);
 
-@interface ExtFSMediaController (Private)
-- (void)updateMountStatus;
-- (ExtFSMedia*)createMediaWithIOService:(io_service_t)service properties:(NSDictionary*)props;
-- (int)updateMedia:(io_iterator_t)iter remove:(BOOL)remove;
-- (BOOL)volumeDidUnmount:(NSString*)name;
-- (void)removePending:(ExtFSMedia*)media;
-@end
-
-@interface ExtFSMedia (ExtFSMediaControllerPrivate)
-- (void)updateAttributesFromIOService:(io_service_t)service;
-- (void)setIsMounted:(struct statfs*)stat;
-- (NSDictionary*)iconDescription;
-- (void)addChild:(ExtFSMedia*)media;
-- (void)remChild:(ExtFSMedia*)media;
-/* Implemented in ExtFSMedia.m -- this just gets rid of the compiler warnings. */
-- (int)fsInfo;
-@end
-
 enum {
     kPendingMounts = 0,
     kPendingUMounts = 1,
     kPendingCount
-};
-enum {
-    kNoteArgName = 0,
-    kNoteArgObject = 1,
-    kNoteArgInfo = 2
 };
 
 // This may end up conflicting with Disk Arb at some point,
 // but as of Panther the largest DA Error is (1<<3).
 #define EXT_DISK_ARB_MOUNT_FAILURE (1<<31)
 #define EXT_MOUNT_ERROR_DELAY 4.0
-#define EXTFS_DM_BNDL_ID @"net.sourceforge.ext2fsx.ExtFSDiskManager"
 
 @implementation ExtFSMediaController : NSObject
 
 /* Private */
-
-- (void)postNotification:(NSArray*)args
-{
-    unsigned ct = [args count];
-    id obj = (ct >= kNoteArgObject+1) ? [args objectAtIndex:kNoteArgObject] : nil;
-    NSDictionary *info = (ct >= kNoteArgInfo+1) ? [args objectAtIndex:kNoteArgInfo] : nil;
-    [[NSNotificationCenter defaultCenter]
-         postNotificationName:[args objectAtIndex:kNoteArgName] object:obj userInfo:info];
-}
-#define EFSMCPostNotification(note, obj, info) do {\
-NSArray *args = [[NSArray alloc] initWithObjects:note, obj, info, nil]; \
-[[ExtFSMediaController mediaController] performSelectorOnMainThread:@selector(postNotification:) \
-withObject:args waitUntilDone:NO]; \
-[args release]; \
-} while(0)
 
 - (void)updateMountStatus
 {
@@ -402,13 +348,32 @@ withObject:args waitUntilDone:NO]; \
    return (array);
 }
 
+- (NSArray*)mediaWithIOTransportBus:(ExtFSIOTransportType)busType
+{
+   NSMutableArray *array;
+   NSEnumerator *en;
+   ExtFSMedia *e2media;
+   
+   array = [NSMutableArray array];
+   erlock(e_lock);
+   en = [e_media objectEnumerator];
+   while ((e2media = [en nextObject])) {
+      if (busType == [e2media transportBus]) {
+         [array addObject:e2media];
+      }
+   }
+   eulock(e_lock);
+   
+   return (array);
+}
+
 - (ExtFSMedia*)mediaWithBSDName:(NSString*)device
 {
    ExtFSMedia *m;
    erlock(e_lock);
-   m = [e_media objectForKey:device];
+   m = [[e_media objectForKey:device] retain];
    eulock(e_lock);
-   return ([[m retain] autorelease]);
+   return ([m autorelease]);
 }
 
 - (int)mount:(ExtFSMedia*)media on:(NSString*)dir
@@ -602,239 +567,6 @@ exit:
    edlock(e_lock);
    [super dealloc];
 #endif
-}
-
-@end
-
-#define MAX_PARENT_ITERS 10
-@implementation ExtFSMedia (ExtFSMediaController)
-
-- (void)updateAttributesFromIOService:(io_service_t)service
-{
-   ExtFSMediaController *mc;
-   NSString *regName = nil;
-   ExtFSMedia *parent = nil;
-   CFTypeRef iconDesc;
-   io_name_t ioname;
-   io_service_t ioparent, ioparentold;
-#ifdef notyet
-   io_iterator_t piter;
-#endif
-   int iterations;
-   kern_return_t kr;
-   ExtFSIOTransportType transType;
-   BOOL dvd, cd, wholeDisk;
-   
-   mc = [ExtFSMediaController mediaController];
-   
-   erlock(e_lock);
-   wholeDisk = (e_attributeFlags & kfsWholeDisk);
-   eulock(e_lock);
-   
-   /* Get IOKit name */
-   if (0 == IORegistryEntryGetNameInPlane(service, kIOServicePlane, ioname))
-      regName = NSSTR(ioname);
-   
-   /* Get Parent */
-#ifdef notyet
-   /* This seems to only return the first parent, don't know what's going on */
-   if (0 == IORegistryEntryGetParentIterator(service, kIOServicePlane, &piter)) {
-      while ((ioparent = IOIteratorNext(piter))) {
-#endif
-   if (NO == wholeDisk) {
-      ioparent = nil;
-      iterations = 0;
-      kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &ioparent);
-      while (!kr && ioparent && iterations < MAX_PARENT_ITERS) {
-         /* Break on the first IOMedia parent */
-         if (IOObjectConformsTo(ioparent, kIOMediaClass))
-            break;
-         /* Otherwise release it */
-         ioparentold = ioparent;
-         ioparent = nil;
-         kr = IORegistryEntryGetParentEntry(ioparentold, kIOServicePlane, &ioparent);
-         IOObjectRelease(ioparentold);
-         iterations++;
-      }
-#ifdef notyet
-      IOObjectRelease(piter);
-#endif
-      
-      if (ioparent) {
-         CFMutableDictionaryRef props;
-         kr = IORegistryEntryCreateCFProperties(ioparent, &props,
-            kCFAllocatorDefault, 0);
-         if (!kr) {
-            NSString *pdevice;
-            
-            /* See if the parent object exists */
-            pdevice = [(NSDictionary*)props objectForKey:NSSTR(kIOBSDNameKey)];
-            parent = [mc mediaWithBSDName:pdevice];
-            if (!parent) {
-               /* Parent does not exist */
-               parent = [mc createMediaWithIOService:ioparent
-                  properties:(NSDictionary*)props];
-            }
-            CFRelease(props);
-         }
-         
-         IOObjectRelease(ioparent);
-      }
-   }
-   
-   // Get transport properties
-    transType = efsIOTransportTypeUnknown | efsIOTransportTypeInternal;
-    if (nil != parent) {
-        transType = [parent transportType] | [parent transportBus];
-        dvd = [parent isDVDROM];
-        cd = [parent isCDROM];
-    } else {
-        io_name_t parentClass;
-        ioparent = nil;
-        kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &ioparent);
-        while (0 == kr && ioparent &&
-             (efsIOTransportTypeUnknown == (transType & efsIOTransportBusMask) ||
-             efsIOTransportTypeExternal != (transType & efsIOTransportTypeMask))) {
-            
-            if (0 == IOObjectGetClass(ioparent, parentClass)) {
-                if (0 == strncmp(parentClass, "IOATABlockStorageDevice", sizeof(parentClass)))
-                    transType = efsIOTransportTypeATA | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "IOATAPIProtocolTransport", sizeof(parentClass)))
-                    transType = efsIOTransportTypeATAPI | (transType & efsIOTransportTypeMask); 
-                else if (0 == strncmp(parentClass, "IOFireWireDevice", sizeof(parentClass)))
-                    transType = efsIOTransportTypeFirewire | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "IOUSBMassStorageClass", sizeof(parentClass)))
-                    transType = efsIOTransportTypeUSB | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "IOSCSIBlockCommandsDevice", sizeof(parentClass) /*"IOSCSIProtocolServices"*/))
-                    transType = efsIOTransportTypeSCSI | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "KDIDiskImageNub", sizeof(parentClass))) {
-                    transType = efsIOTransportTypeImage | efsIOTransportTypeVirtual;
-                    break;
-                }
-
-                if (0 == strncmp(parentClass, "IOSCSIPeripheralDeviceNub", sizeof(parentClass))) {
-                    transType |= efsIOTransportTypeExternal;
-                    transType &= ~efsIOTransportTypeInternal;
-                }
-            }
-            ioparentold = ioparent;
-            ioparent = nil;
-            kr = IORegistryEntryGetParentEntry(ioparentold, kIOServicePlane, &ioparent);
-            IOObjectRelease(ioparentold);
-        }
-        if (ioparent)
-            IOObjectRelease(ioparent);
-        dvd = IOObjectConformsTo(service, kIODVDMediaClass);
-        cd = IOObjectConformsTo(service, kIOCDMediaClass);
-    }
-   
-   /* Find the icon description */
-   if (!parent || !(iconDesc = [parent iconDescription]))
-      iconDesc = IORegistryEntrySearchCFProperty(service, kIOServicePlane,
-         CFSTR(kIOMediaIconKey), kCFAllocatorDefault,
-         kIORegistryIterateParents | kIORegistryIterateRecursively);
-   
-   ewlock(e_lock);
-   e_ioTransport = transType;
-   if (regName && nil == e_ioregName)
-      e_ioregName = [regName retain];
-   if (parent && nil == e_parent)
-      e_parent = [parent retain];
-   if (iconDesc) {
-      [e_iconDesc release];
-      e_iconDesc = [(NSDictionary*)iconDesc retain];
-   }
-   if (dvd)
-      e_attributeFlags |= kfsDVDROM;
-   if (cd)
-      e_attributeFlags |= kfsCDROM;
-   eulock(e_lock);
-}
-
-- (void)setIsMounted:(struct statfs*)stat
-{
-   NSDictionary *fsTypes;
-   NSNumber *fstype;
-   BOOL hasJournal, isJournaled;
-   
-   if (!stat) {
-      ewlock(e_lock);
-      e_attributeFlags &= ~(kfsMounted|kfsPermsEnabled);
-      e_fsBlockSize = 0;
-      e_blockCount = 0;
-      e_blockAvail = 0;
-      e_lastFSUpdate = 0;
-      //e_fsType = fsTypeUnknown;
-      [e_where release]; e_where = nil;
-      [e_volName release]; e_volName = nil;
-      
-      /* Reset the write flag in case the device is writable,
-         but the mounted filesystem was not */
-      if ([[e_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
-         e_attributeFlags |= kfsWritable;
-      eulock(e_lock);
-      
-      EFSMCPostNotification(ExtFSMediaNotificationUnmounted, self, nil);
-      return;
-   }
-   
-   fsTypes = [[NSDictionary alloc] initWithObjectsAndKeys:
-      [NSNumber numberWithInt:fsTypeExt2], NSSTR(EXT2FS_NAME),
-      [NSNumber numberWithInt:fsTypeExt3], NSSTR(EXT3FS_NAME),
-      [NSNumber numberWithInt:fsTypeHFS], NSSTR(HFS_NAME),
-      [NSNumber numberWithInt:fsTypeUFS], NSSTR(UFS_NAME),
-      [NSNumber numberWithInt:fsTypeCD9660], NSSTR(CD9660_NAME),
-      [NSNumber numberWithInt:fsTypeCDAudio], NSSTR(CDAUDIO_NAME),
-      [NSNumber numberWithInt:fsTypeUDF], NSSTR(UDF_NAME),
-      [NSNumber numberWithInt:fsTypeMSDOS], NSSTR(MSDOS_NAME),
-      [NSNumber numberWithInt:fsTypeNTFS], NSSTR(NTFS_NAME),
-      [NSNumber numberWithInt:fsTypeUnknown], NSSTR("Unknown"),
-      nil];
-   
-   fstype = [fsTypes objectForKey:NSSTR(stat->f_fstypename)];
-   ewlock(e_lock);
-   if (fstype)
-      e_fsType = [fstype intValue];
-   else
-      e_fsType = fsTypeUnknown;
-   
-   [fsTypes release];
-   
-   e_attributeFlags |= kfsMounted;
-   if (stat->f_flags & MNT_RDONLY)
-      e_attributeFlags &= ~kfsWritable;
-   
-   if (0 == (stat->f_flags & MNT_UNKNOWNPERMISSIONS))
-      e_attributeFlags |= kfsPermsEnabled;
-   
-   e_fsBlockSize = stat->f_bsize;
-   e_blockCount = stat->f_blocks;
-   e_blockAvail = stat->f_bavail;
-   [e_where release];
-   e_where = [[NSString alloc] initWithCString:stat->f_mntonname];
-   eulock(e_lock);
-   
-   (void)[self fsInfo];
-   hasJournal = [self hasJournal];
-   isJournaled = [self isJournaled];
-   
-   ewlock(e_lock);
-   if (fsTypeExt2 == e_fsType && hasJournal)
-      e_fsType = fsTypeExt3;
-   
-   if (fsTypeHFSPlus == e_fsType) {
-      if (isJournaled) {
-         e_fsType = fsTypeHFSJ;
-      }
-   }
-   eulock(e_lock);
-   
-   EFSMCPostNotification(ExtFSMediaNotificationMounted, self, nil);
-}
-
-- (NSDictionary*)iconDescription
-{
-   return ([[e_iconDesc retain] autorelease]);
 }
 
 @end
