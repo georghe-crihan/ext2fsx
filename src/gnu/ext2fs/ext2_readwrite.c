@@ -260,11 +260,11 @@ WRITE(ap)
 	}
 
 	fs = ip->I_FS;
-#if 0
+
 	if (uio->uio_offset < 0 ||
-	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->fs_maxfilesize)
+	    ip->i_size + uio->uio_resid > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
-#endif
+
 	/*
 	 * Maybe this should be above the vnode op call, but so long as
 	 * file servers have no limits, I don't think it matters.
