@@ -52,6 +52,8 @@
 
 #ifdef APPLE
 #include "ext2_apple.h"
+#else
+#define B_NOBUFF 0
 #endif
 
 #include <gnu/ext2fs/inode.h>
@@ -82,6 +84,7 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	struct indir indirs[NIADDR + 2];
 	int32_t newb, lbn, *bap, pref;
 	int osize, nsize, num, i, error;
+   int alloc_buf = 1;
 /*
 ext2_debug("ext2_balloc called (%d, %d, %d)\n", 
 	ip->i_number, (int)bn, (int)size);
@@ -91,6 +94,9 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		return (EFBIG);
 	fs = ip->i_e2fs;
 	lbn = bn;
+   
+   if (flags & B_NOBUFF) 
+		alloc_buf = 0;
    
    if (blk_alloc)
       *blk_alloc = 0;
@@ -113,13 +119,15 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		/* no new block is to be allocated, and no need to expand
 		   the file */
 		if (nb != 0 && ip->i_size >= (bn + 1) * fs->s_blocksize) {
-			error = bread(vp, bn, fs->s_blocksize, NOCRED, &bp);
+			if (alloc_buf) {
+         error = bread(vp, bn, fs->s_blocksize, NOCRED, &bp);
 			if (error) {
 				brelse(bp);
 				return (error);
 			}
 			bp->b_blkno = fsbtodb(fs, nb);
 			*bpp = bp;
+         } /* allocbuf */
 			return (0);
 		}
 		if (nb != 0) {
@@ -129,19 +137,21 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			osize = fragroundup(fs, blkoff(fs, ip->i_size));
 			nsize = fragroundup(fs, size);
 			if (nsize <= osize) {
+            if (alloc_buf) {
 				error = bread(vp, bn, osize, NOCRED, &bp);
 				if (error) {
 					brelse(bp);
 					return (error);
 				}
 				bp->b_blkno = fsbtodb(fs, nb);
+            } /* alloc_buf */
+            newb = nb;
 			} else {
 			/* Godmar thinks: this shouldn't happen w/o fragments */
 				printf("nsize %d(%d) > osize %d(%d) nb %d\n", 
 					(int)nsize, (int)size, (int)osize, 
 					(int)ip->i_size, (int)nb);
-				panic(
-				    "ext2_balloc: Something is terribly wrong");
+				panic("ext2_balloc: Something is terribly wrong");
 /*
  * please note there haven't been any changes from here on -
  * FFS seems to work.
@@ -157,6 +167,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			    nsize, cred, &newb);
 			if (error)
 				return (error);
+         if (alloc_buf) {
 			bp = getblk(vp, bn, nsize, 0, 0
          #ifdef APPLE
          ,BLK_WRITE
@@ -165,12 +176,14 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			bp->b_blkno = fsbtodb(fs, newb);
 			if (flags & B_CLRBUF)
 				vfs_bio_clrbuf(bp);
+         } /* alloc_buf */
 		}
-		ip->i_db[bn] = dbtofsb(fs, bp->b_blkno);
+		ip->i_db[bn] = dbtofsb(fs, newb);
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
       if (blk_alloc)
          *blk_alloc = nsize;
-		*bpp = bp;
+      if (alloc_buf)
+         *bpp = bp;
 		return (0);
 	}
 	/*
@@ -305,6 +318,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			return (error);
 		}
 		nb = newb;
+      if (alloc_buf) {
 		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0
       #ifdef APPLE
       ,BLK_WRITE
@@ -313,6 +327,8 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		nbp->b_blkno = fsbtodb(fs, nb);
 		if (flags & B_CLRBUF)
 			vfs_bio_clrbuf(nbp);
+      } /* alloc_buf */
+      
 		bap[indirs[i].in_off] = cpu_to_le32(nb);
       if (blk_alloc)
          *blk_alloc = fs->s_blocksize;
@@ -325,10 +341,12 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		} else {
 			bdwrite(bp);
 		}
-		*bpp = nbp;
+      if (alloc_buf)
+         *bpp = nbp;
 		return (0);
 	}
 	brelse(bp);
+   if (alloc_buf) {
 	if (flags & B_CLRBUF) {
 		error = bread(vp, lbn, (int)fs->s_blocksize, NOCRED, &nbp);
 		if (error) {
@@ -344,5 +362,6 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		nbp->b_blkno = fsbtodb(fs, nb);
 	}
 	*bpp = nbp;
+   } /* alloc_buf */
 	return (0);
 }
