@@ -45,6 +45,11 @@ static const char rcsid[] =
   "$FreeBSD: src/sbin/mount_ext2fs/mount_ext2fs.c,v 1.15 2002/08/13 16:06:14 mux Exp $";
 #endif /* not lint */
 
+#if defined(APPLE) && !defined(lint)
+static const char whatid[] __attribute__ ((unused)) =
+"@(#)Revision: $Revision$ Built: " __DATE__ __TIME__;
+#endif
+
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/uio.h>
@@ -71,7 +76,7 @@ struct ext2_args {
 	struct	export_args export;	/* network export information */
 };
 
-#define __dead2
+#define __dead2 __dead
 #endif
 
 struct mntopt mopts[] = {
@@ -95,9 +100,10 @@ main(argc, argv)
    struct ext2_args args;
    #endif
 	int ch, mntflags;
-	char *fs_name, *options, *fspec, mntpath[MAXPATHLEN];
-
-	options = NULL;
+	char *fs_name, *fspec, mntpath[MAXPATHLEN];
+   
+   sleep(30);
+   
 	mntflags = 0;
 	while ((ch = getopt(argc, argv, "o:")) != -1)
 		switch (ch) {
@@ -141,11 +147,20 @@ main(argc, argv)
 		err(EX_OSERR, "%s", fspec);
 #else
    args.fspec = fspec;
+   args.export.ex_root = 0;
+   if (mntflags & MNT_RDONLY)
+		args.export.ex_flags = MNT_EXRDONLY;
+	else
+		args.export.ex_flags = 0;
+   
+   /* Force NODEV for now. */
+   mntflags |= MNT_NODEV;
+   
    if (checkLoadable()) {		/* Is it already loaded? */
       if (load_kmod())		/* Load it in */
          errx(EX_OSERR, EXT2FS_NAME " filesystem is not available");
    }
-   if (mount(EXT2FS_NAME, mntpath, mntflags, NULL) < 0)
+   if (mount(EXT2FS_NAME, mntpath, mntflags, &args) < 0)
 		err(EX_OSERR, "%s on %s", args.fspec, mntpath);
 #endif
 	exit(0);
