@@ -46,32 +46,6 @@ static const char whatid[] __attribute__ ((unused)) =
 NSString *ExtFSMediaNotificationUpdatedInfo = @"ExtFSMediaNotificationUpdatedInfo";
 NSString *ExtFSMediaNotificationChildChange = @"ExtFSMediaNotificationChildChange";
 
-/* Extra VOL CAPS in Panther */
-#ifndef VOL_CAP_FMT_JOURNAL
-#define VOL_CAP_FMT_JOURNAL 0x00000008
-#endif
-#ifndef VOL_CAP_FMT_JOURNAL_ACTIVE
-#define VOL_CAP_FMT_JOURNAL_ACTIVE 0x00000010
-#endif
-#ifndef VOL_CAP_FMT_NO_ROOT_TIMES
-#define VOL_CAP_FMT_NO_ROOT_TIMES 0x00000020
-#endif
-#ifndef VOL_CAP_FMT_SPARSE_FILES
-#define VOL_CAP_FMT_SPARSE_FILES 0x00000040
-#endif
-#ifndef VOL_CAP_FMT_ZERO_RUNS
-#define VOL_CAP_FMT_ZERO_RUNS 0x00000080
-#endif
-#ifndef VOL_CAP_FMT_CASE_SENSITIVE
-#define VOL_CAP_FMT_CASE_SENSITIVE 0x00000100
-#endif
-#ifndef VOL_CAP_FMT_CASE_PRESERVING
-#define VOL_CAP_FMT_CASE_PRESERVING 0x00000200
-#endif
-#ifndef VOL_CAP_FMT_FAST_STATFS
-#define VOL_CAP_FMT_FAST_STATFS 0x00000400
-#endif
-
 struct attr_volinfo {
    size_t v_size;
    /* Fixed storage */
@@ -176,10 +150,12 @@ do { \
       goto exit;
    }
    
-   /* Fall back to statfs to get the available blocks */
+   /* Fall back to statfs to get the info. */
    err = statfs(path, &vinfo.vstat);
-   if (!err)
+   if (!err) {
       _blockAvail = vinfo.vstat.f_bavail;
+      _fileCount = vinfo.vstat.f_files - vinfo.vstat.f_ffree;
+   }
    
    _attributeFlags &= ~kfsGetAttrlist;
 
@@ -473,8 +449,7 @@ exit:
 
 - (u_int64_t)fileCount
 {
-   if (_attributeFlags & kfsGetAttrlist)
-      (void)[self fsInfo];
+   (void)[self fsInfo];
    
    return (_fileCount);
 }
