@@ -94,7 +94,10 @@ do { \
 @implementation ExtFSMedia
 
 /* Private */
+#ifndef __HFS_FORMAT__
 #define kHFSPlusSigWord 0x482B
+#define kHFSXSigWord 0x4858
+#endif
 
 - (int)fsInfo
 {
@@ -145,6 +148,8 @@ do { \
          _volCaps = vinfo.vinfo.v_caps.capabilities[0];
       if (fsTypeHFS == _fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
             _fsType = fsTypeHFSPlus;
+      else if (fsTypeHFS == _fsType && kHFSXSigWord == vinfo.vinfo.v_signature)
+         _fsType = fsTypeHFSX;
       goto exit;
    }
    

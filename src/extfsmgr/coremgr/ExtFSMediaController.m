@@ -657,8 +657,6 @@ exit:
    if (fsTypeHFSPlus == _fsType) {
       if ([self isJournaled]) {
          _fsType = fsTypeHFSJ;
-         if ([self isCaseSensitive])
-            _fsType = fsTypeHFSJCS;
       }
    }
    

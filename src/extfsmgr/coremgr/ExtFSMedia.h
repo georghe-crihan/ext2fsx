@@ -33,7 +33,7 @@
 @constant fsTypeHFS Macintosh HFS filesystem id.
 @constant fsTypeHFSPlus Macintosh HFS Extended filesystem id.
 @constant fsTypeHFSJ Macintosh HFS Extended Journaled filesystem id.
-@constant fsTypeHFSJCS Macintosh HFS Extended Journaled and Case Sensistive filesystem id.
+@constant fsTypeHFSX Macintosh HFS Extreme filesystem id.
 @constant fsTypeUFS UFS (Unix)filesystem id.
 @constant fsTypeCD9660 ISO 9660 filesystem id.
 @constant fsTypeCDAudio CD Audio filesystem id.
@@ -49,7 +49,7 @@ typedef enum {
    fsTypeHFS,
    fsTypeHFSPlus,
    fsTypeHFSJ, /* Journal */
-   fsTypeHFSJCS, /* Journal, Case Sensisitive */
+   fsTypeHFSX,
    fsTypeUFS,
    fsTypeCD9660,
    fsTypeCDAudio,
@@ -59,6 +59,12 @@ typedef enum {
    fsTypeUnknown,
    fsTypeNULL
 }ExtFSType;
+
+/*!
+@defined fsTypeHFSJCS
+@abstract Alias for fsTypeHFSX. HFSX in it's Panther form implements Case Sensitivity only.
+*/
+#define fsTypeHFSJCS fsTypeHFSX
 
 // Forward declaration for an ExtFSMedia private type.
 struct superblock;
