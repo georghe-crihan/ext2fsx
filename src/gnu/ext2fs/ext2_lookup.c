@@ -94,7 +94,7 @@ SYSCTL_INT(_vfs_e2fs, EXT2_SYSCTL_INT_DIRCHECK, dircheck, CTLFLAG_RW, &dirchk, 0
 */
 #undef  DIRBLKSIZ
 
-static u_char ext2_ft_to_dt[] = {
+static const u_char ext2_ft_to_dt[] = {
 	DT_UNKNOWN,		/* EXT2_FT_UNKNOWN */
 	DT_REG,			/* EXT2_FT_REG_FILE */
 	DT_DIR,			/* EXT2_FT_DIR */
@@ -108,7 +108,7 @@ static u_char ext2_ft_to_dt[] = {
     ((ft) > sizeof(ext2_ft_to_dt) / sizeof(ext2_ft_to_dt[0]) ?	\
     DT_UNKNOWN : ext2_ft_to_dt[(ft)])
 
-static u_char dt_to_ext2_ft[] = {
+static const u_char dt_to_ext2_ft[] = {
 	EXT2_FT_UNKNOWN,	/* DT_UNKNOWN */
 	EXT2_FT_FIFO,		/* DT_FIFO */
 	EXT2_FT_CHRDEV,		/* DT_CHR */
