@@ -47,13 +47,31 @@
 #include <sys/kernel.h>
 #include <sys/vnode.h>
 #include <sys/mount.h>
+#ifndef APPLE
 #include <sys/bio.h>
+#endif
 #include <sys/buf.h>
 #include <sys/conf.h>
 #include <sys/fcntl.h>
 #include <sys/malloc.h>
 #include <sys/stat.h>
+#ifndef APPLE
 #include <sys/mutex.h>
+#else
+#include <machine/spl.h>
+
+#define mtx_lock(l)
+#define mtx_unlock(l)
+static int mntvnode_mtx __attribute__ ((unused)) = 0;
+
+#include "ext2_apple.h"
+
+static int vn_isdisk(struct vnode *, int *);
+
+#include <ufs/ufs/ufsmount.h>
+
+typedef struct ufs_args ext2_args;
+#endif
 
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/inode.h>
@@ -63,10 +81,20 @@
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
 
+#ifndef APPLE
 static int ext2_fhtovp(struct mount *, struct fid *, struct vnode **);
+#else
+static int ext2_fhtovp(struct mount *, struct fid *, struct mbuf *, struct vnode **,
+         int *, struct ucred **);
+#endif
 static int ext2_flushfiles(struct mount *mp, int flags, struct thread *td);
 static int ext2_init(struct vfsconf *);
+#ifndef APPLE
 static int ext2_mount(struct mount *, struct nameidata *, struct thread *);
+#else
+static int ext2_mount(struct mount *, char *, caddr_t, struct nameidata *,
+         struct proc *);
+#endif /* APPLE */
 static int ext2_mountfs(struct vnode *, struct mount *, struct thread *);
 static int ext2_reload(struct mount *mountp, struct ucred *cred,
 			struct thread *td);
@@ -76,15 +104,30 @@ static int ext2_statfs(struct mount *, struct statfs *, struct thread *);
 static int ext2_sync(struct mount *, int, struct ucred *, struct thread *);
 static int ext2_uninit(struct vfsconf *);
 static int ext2_unmount(struct mount *, int, struct thread *);
+#ifndef APPLE
 static int ext2_vget(struct mount *, ino_t, int, struct vnode **);
+#else
+static int ext2_vget(struct mount *, void *, struct vnode **);
+#endif /* APPLE */
 static int ext2_vptofh(struct vnode *, struct fid *);
 
+#ifdef APPLE
+static int vfs_stdstart(struct mount *, int, struct proc *);
+static int vfs_stdquotactl(struct mount *, int, uid_t, caddr_t, struct proc *);
+#endif /* APPLE */
+
+#ifndef APPLE
 MALLOC_DEFINE(M_EXT2NODE, "EXT2 node", "EXT2 vnode private part");
 static MALLOC_DEFINE(M_EXT2MNT, "EXT2 mount", "EXT2 mount structure");
+#endif /* APPLE */
 
 static struct vfsops ext2fs_vfsops = {
-	NULL,
-	vfs_stdstart,
+	#ifndef APPLE
+   NULL,
+   #else
+   ext2_mount,
+   #endif
+   vfs_stdstart,
 	ext2_unmount,
 	ext2_root,		/* root inode via vget */
 	vfs_stdquotactl,
@@ -92,17 +135,28 @@ static struct vfsops ext2fs_vfsops = {
 	ext2_sync,
 	ext2_vget,
 	ext2_fhtovp,
+   #ifndef APPLE
 	vfs_stdcheckexp,
+   #endif
 	ext2_vptofh,
 	ext2_init,
+   #ifndef APPLE
 	ext2_uninit,
 	vfs_stdextattrctl,
 	ext2_mount,
+   #else
+   NULL /* sysctl */
+   #endif
 };
 
+#ifndef APPLE
 VFS_SET(ext2fs_vfsops, ext2fs, 0);
 #define bsd_malloc malloc
 #define bsd_free free
+#else
+#define bsd_malloc _MALLOC
+#define bsd_free FREE
+#endif /* APPLE */
 
 static int ext2fs_inode_hash_lock;
 
@@ -175,21 +229,40 @@ ext2_mountroot()
  * mount system call
  */
 static int
+#ifndef APPLE
 ext2_mount(mp, ndp, td)
+#else
+ext2_mount(mp, path, data, ndp, td)
+#endif /* APPLE */
 	struct mount *mp;
+   #ifdef APPLE
+   char *path;
+   caddr_t data;
+   #endif
 	struct nameidata *ndp;
 	struct thread *td;
 {
-	struct export_args *export;
+	#ifndef APPLE
+   struct export_args *export;
 	struct vfsoptlist *opts;
+   #endif
 	struct vnode *devvp;
 	struct ext2mount *ump = 0;
 	struct ext2_sb_info *fs;
-	char *path, *fspec;
+	#ifndef APPLE
+   char *path;
+   #else
+   ext2_args args;
+   #endif
+   char *fspec;
 	size_t size;
-	int error, flags, len;
+	int error, flags;
+   #ifndef APPLE
+   int len;
+   #endif
 	mode_t accessmode;
 
+   #ifndef APPLE
 	opts = mp->mnt_optnew;
 
 	vfs_getopt(opts, "fspath", (void **)&path, NULL);
@@ -201,6 +274,16 @@ ext2_mount(mp, ndp, td)
 	error = vfs_getopt(opts, "from", (void **)&fspec, &len);
 	if (!error && fspec[len - 1] != '\0')
 		return (EINVAL);
+   #else
+   if ((error = copyin(data, (caddr_t)&args, sizeof (ext2_args))) != 0)
+		return (error);
+   
+   (void) copyinstr(args.fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, 
+	    &size);
+	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
+   
+   fspec = mp->mnt_stat.f_mntfromname;
+   #endif /* APPLE */
 
 	/*
 	 * If updating, check whether changing from read-only to
@@ -229,7 +312,7 @@ ext2_mount(mp, ndp, td)
 		if (error)
 			return (error);
 		devvp = ump->um_devvp;
-		if (ext2_check_sb_compat(fs->s_es, devvp->v_rdev,
+		if (ext2_check_sb_compat(fs->s_es, (dev_t)devvp->v_rdev,
 		    (mp->mnt_kern_flag & MNTK_WANTRDWR) == 0) != 0)
 			return (EPERM);
 		if (fs->s_rd_only && (mp->mnt_kern_flag & MNTK_WANTRDWR)) {
@@ -237,7 +320,11 @@ ext2_mount(mp, ndp, td)
 			 * If upgrade to read-write by non-root, then verify
 			 * that user has necessary permissions on the device.
 			 */
+         #ifndef APPLE
 			if (suser(td)) {
+         #else
+         if (suser(td->p_ucred, &td->p_acflag)) {
+         #endif /* APPLE */
 				vn_lock(devvp, LK_EXCLUSIVE | LK_RETRY, td);
 				if ((error = VOP_ACCESS(devvp, VREAD | VWRITE,
 				    td->td_ucred, td)) != 0) {
@@ -265,12 +352,22 @@ ext2_mount(mp, ndp, td)
 			fs->s_rd_only = 0;
 		}
 		if (fspec == NULL) {
+         #ifndef APPLE
 			error = vfs_getopt(opts, "export", (void **)&export,
 			    &len);
 			if (error || len != sizeof(struct export_args))
 				return (EINVAL);
 				/* Process export requests. */
 			return (vfs_export(mp, export));
+         #else
+         #if 0
+         struct export_args apple_exp;
+         struct netexport apple_netexp;
+         
+         return (vfs_export(mp, &apple_netexp, &apple_exp));
+         #endif
+         return (EINVAL);
+         #endif
 		}
 	}
 	/*
@@ -282,7 +379,14 @@ ext2_mount(mp, ndp, td)
 	NDINIT(ndp, LOOKUP, FOLLOW, UIO_SYSSPACE, fspec, td);
 	if ((error = namei(ndp)) != 0)
 		return (error);
-	NDFREE(ndp, NDF_ONLY_PNBUF);
+	#ifndef APPLE
+   NDFREE(ndp, NDF_ONLY_PNBUF);
+   #else
+   if (ndp->ni_cnd.cn_flags & HASBUF) {
+      _FREE_ZONE(ndp->ni_cnd.cn_pnbuf, ndp->ni_cnd.cn_pnlen, M_NAMEI);		
+		ndp->ni_cnd.cn_flags &= ~HASBUF;
+   }
+   #endif /* APPLE */
 	devvp = ndp->ni_vp;
 
 	if (!vn_isdisk(devvp, &error)) {
@@ -294,7 +398,11 @@ ext2_mount(mp, ndp, td)
 	 * If mount by non-root, then verify that user has necessary
 	 * permissions on the device.
 	 */
-	if (suser(td)) {
+   #ifndef APPLE
+   if (suser(td)) {
+   #else
+   if (suser(td->p_ucred, &td->p_acflag)) {
+   #endif /* APPLE */
 		accessmode = VREAD;
 		if ((mp->mnt_flag & MNT_RDONLY) == 0)
 			accessmode |= VWRITE;
@@ -324,8 +432,15 @@ ext2_mount(mp, ndp, td)
 	 * Note that this strncpy() is ok because of a check at the start
 	 * of ext2_mount().
 	 */
+   #ifndef APPLE
 	strncpy(fs->fs_fsmnt, path, MAXMNTLEN);
-	fs->fs_fsmnt[MAXMNTLEN - 1] = '\0';
+   fs->fs_fsmnt[MAXMNTLEN - 1] = '\0';
+   #else
+   (void) copyinstr(path, fs->fs_fsmnt, sizeof(fs->fs_fsmnt) - 1, &size);
+   bzero(fs->fs_fsmnt + size, sizeof(fs->fs_fsmnt) - size);
+   bcopy((caddr_t)fs->fs_fsmnt, (caddr_t)mp->mnt_stat.f_mntonname,
+	    MNAMELEN);
+   #endif
 	(void)copystr(fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, &size);
 	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
@@ -556,7 +671,13 @@ ext2_reload(mountp, cred, td)
 	if ((error = bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		return (error);
 	es = (struct ext2_super_block *)bp->b_data;
-	if (ext2_check_sb_compat(es, devvp->v_rdev, 0) != 0) {
+	if (ext2_check_sb_compat(es,
+   #ifndef APPLE
+   devvp->v_rdev,
+   #else
+   (dev_t)mountp->mnt_stat.f_mntonname,
+   #endif
+   0) != 0) {
 		brelse(bp);
 		return (EIO);		/* XXX needs translation */
 	}
@@ -575,12 +696,20 @@ ext2_reload(mountp, cred, td)
 
 loop:
 	mtx_lock(&mntvnode_mtx);
+   #ifndef APPLE
 	for (vp = TAILQ_FIRST(&mountp->mnt_nvnodelist); vp != NULL; vp = nvp) {
+   #else
+   for (vp = LIST_FIRST(&mountp->mnt_vnodelist); vp != NULL; vp = nvp) {
+   #endif
 		if (vp->v_mount != mountp) {
 			mtx_unlock(&mntvnode_mtx);
 			goto loop;
 		}
+      #ifndef APPLE
 		nvp = TAILQ_NEXT(vp, v_nmntvnodes);
+      #else
+      nvp = LIST_NEXT(vp, v_mntvnodes);
+      #endif
 		mtx_unlock(&mntvnode_mtx);
 		/*
 		 * Step 4: invalidate all inactive vnodes.
@@ -630,7 +759,7 @@ ext2_mountfs(devvp, mp, td)
 	struct buf *bp;
 	struct ext2_sb_info *fs;
 	struct ext2_super_block * es;
-	dev_t dev = devvp->v_rdev;
+	dev_t dev = (dev_t)devvp->v_rdev;
 	int error;
 	int ronly;
 
@@ -657,10 +786,14 @@ ext2_mountfs(devvp, mp, td)
 	VOP_UNLOCK(devvp, 0, td);
 	if (error)
 		return (error);
+   #ifndef APPLE
 	if (devvp->v_rdev->si_iosize_max != 0)
 		mp->mnt_iosize_max = devvp->v_rdev->si_iosize_max;
 	if (mp->mnt_iosize_max > MAXPHYS)
 		mp->mnt_iosize_max = MAXPHYS;
+   #else
+   mp->mnt_stat.f_iosize = 256 * 1024; /* XXX Some better way to get this value */
+   #endif /* APPLE */
 
 	bp = NULL;
 	ump = NULL;
@@ -713,8 +846,12 @@ ext2_mountfs(devvp, mp, td)
 		fs->s_es->s_state &= ~EXT2_VALID_FS;	/* set fs invalid */
 	}
 	mp->mnt_data = (qaddr_t)ump;
+   #ifndef APPLE
 	mp->mnt_stat.f_fsid.val[0] = dev2udev(dev);
 	mp->mnt_stat.f_fsid.val[1] = mp->mnt_vfc->vfc_typenum;
+   #else
+   vfs_getnewfsid(mp);
+   #endif
 	mp->mnt_maxsymlinklen = EXT2_MAXSYMLINKLEN;
 	mp->mnt_flag |= MNT_LOCAL;
 	ump->um_mountp = mp;
@@ -726,7 +863,9 @@ ext2_mountfs(devvp, mp, td)
 	ump->um_nindir = EXT2_ADDR_PER_BLOCK(fs);
 	ump->um_bptrtodb = fs->s_es->s_log_block_size + 1;
 	ump->um_seqinc = EXT2_FRAGS_PER_BLOCK(fs);
+   #ifndef APPLE
 	devvp->v_rdev->si_mountpoint = mp;
+   #endif
 	if (ronly == 0) 
 		ext2_sbupdate(ump, MNT_WAIT);
 	return (0);
@@ -786,8 +925,10 @@ ext2_unmount(mp, mntflags, td)
         for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++)
                 if (fs->s_block_bitmap[i])
 			ULCK_BUF(fs->s_block_bitmap[i])
-
+   
+   #ifndef APPLE
 	ump->um_devvp->v_rdev->si_mountpoint = NULL;
+   #endif
 	error = VOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE,
 		NOCRED, td);
 	vrele(ump->um_devvp);
@@ -900,21 +1041,33 @@ ext2_sync(mp, waitfor, cred, td)
 	 */
 	mtx_lock(&mntvnode_mtx);
 loop:
+   #ifndef APPLE
 	for (vp = TAILQ_FIRST(&mp->mnt_nvnodelist); vp != NULL; vp = nvp) {
+   #else
+   for (vp = LIST_FIRST(&mp->mnt_vnodelist); vp != NULL; vp = nvp) {
+   #endif
 		/*
 		 * If the vnode that we are about to sync is no longer
 		 * associated with this mount point, start over.
 		 */
 		if (vp->v_mount != mp)
 			goto loop;
+      #ifndef APPLE
 		nvp = TAILQ_NEXT(vp, v_nmntvnodes);
+      #else
+      nvp = LIST_NEXT(vp, v_mntvnodes);
+      #endif
 		mtx_unlock(&mntvnode_mtx);
 		VI_LOCK(vp);
 		ip = VTOI(vp);
 		if (vp->v_type == VNON ||
 		    ((ip->i_flag &
 		    (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
+          #ifndef APPLE
 		    (TAILQ_EMPTY(&vp->v_dirtyblkhd) || waitfor == MNT_LAZY))) {
+          #else
+          LIST_EMPTY(&vp->v_dirtyblkhd))) {
+          #endif
 			VI_UNLOCK(vp);
 			mtx_lock(&mntvnode_mtx);
 			continue;
@@ -936,7 +1089,10 @@ loop:
 	/*
 	 * Force stale file system control information to be flushed.
 	 */
-	if (waitfor != MNT_LAZY) {
+   #ifndef APPLE
+	if (waitfor != MNT_LAZY)
+   #endif
+   {
 		vn_lock(ump->um_devvp, LK_EXCLUSIVE | LK_RETRY, td);
 		if ((error = VOP_FSYNC(ump->um_devvp, cred, waitfor, td)) != 0)
 			allerror = error;
@@ -961,10 +1117,18 @@ loop:
  * done by the calling routine.
  */
 static int
+#ifndef APPLE
 ext2_vget(mp, ino, flags, vpp)
+#else
+ext2_vget(mp, inop, vpp)
+#endif /* APPLE */
 	struct mount *mp;
+   #ifndef APPLE
 	ino_t ino;
 	int flags;
+   #else
+   void *inop;
+   #endif
 	struct vnode **vpp;
 {
 	struct ext2_sb_info *fs;
@@ -975,6 +1139,10 @@ ext2_vget(mp, ino, flags, vpp)
 	dev_t dev;
 	int i, error;
 	int used_blocks;
+   #ifdef APPLE
+   int flags = LK_EXCLUSIVE;
+   ino_t ino = (ino_t)inop;
+   #endif
 
 	ump = VFSTOEXT2(mp);
 	dev = ump->um_dev;
@@ -1008,7 +1176,11 @@ restart:
 	MALLOC(ip, struct inode *, sizeof(struct inode), M_EXT2NODE, M_WAITOK);
 
 	/* Allocate a new vnode/inode. */
+   #ifndef APPLE
 	if ((error = getnewvnode("ext2fs", mp, ext2_vnodeop_p, &vp)) != 0) {
+   #else
+   if ((error = getnewvnode(VT_OTHER, mp, ext2_vnodeop_p, &vp)) != 0) {
+   #endif
 		if (ext2fs_inode_hash_lock < 0)
 			wakeup(&ext2fs_inode_hash_lock);
 		ext2fs_inode_hash_lock = 0;
@@ -1111,10 +1283,21 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
  *   those rights via. exflagsp and credanonp
  */
 static int
+#ifndef APPLE
 ext2_fhtovp(mp, fhp, vpp)
+#else
+ext2_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
+#endif /* APPLE */
 	struct mount *mp;
 	struct fid *fhp;
+   #ifdef APPLE
+   struct mbuf *nam;
+   #endif
 	struct vnode **vpp;
+   #ifdef APPLE
+   int *exflagsp;
+   struct ucred **credanonp;
+   #endif
 {
 	struct inode *ip;
 	struct ufid *ufhp;
@@ -1127,8 +1310,14 @@ ext2_fhtovp(mp, fhp, vpp)
 	if (ufhp->ufid_ino < ROOTINO ||
 	    ufhp->ufid_ino > fs->s_groups_count * fs->s_es->s_inodes_per_group)
 		return (ESTALE);
-
+   
+   #ifndef APPLE
 	error = VFS_VGET(mp, ufhp->ufid_ino, LK_EXCLUSIVE, &nvp);
+   #else
+   error = VFS_VGET(mp, (void*)ufhp->ufid_ino, &nvp);
+   if (!error)
+      vn_lock(nvp, LK_EXCLUSIVE|LK_RETRY, current_proc());
+   #endif / * APPLE */
 	if (error) {
 		*vpp = NULLVP;
 		return (error);
@@ -1179,7 +1368,11 @@ ext2_sbupdate(mp, waitfor)
 /*
 printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 */
-	bp = getblk(mp->um_devvp, SBLOCK, SBSIZE, 0, 0);
+	bp = getblk(mp->um_devvp, SBLOCK, SBSIZE, 0, 0
+   #ifdef APPLE
+   ,BLK_WRITE
+   #endif
+   );
 	bcopy((caddr_t)es, bp->b_data, (u_int)sizeof(struct ext2_super_block));
 	if (waitfor == MNT_WAIT)
 		error = bwrite(bp);
@@ -1206,7 +1399,13 @@ ext2_root(mp, vpp)
 	struct vnode *nvp;
 	int error;
 
+	#ifndef APPLE
 	error = VFS_VGET(mp, (ino_t)ROOTINO, LK_EXCLUSIVE, &nvp);
+   #else
+   error = VFS_VGET(mp, (void*)ROOTINO, &nvp);
+   if (!error)
+      vn_lock(nvp, LK_EXCLUSIVE|LK_RETRY, current_proc());
+   #endif / * APPLE */
 	if (error)
 		return (error);
 	*vpp = nvp;
@@ -1228,3 +1427,86 @@ ext2_uninit(struct vfsconf *vfsp)
 	ext2_ihashuninit();
 	return (0);
 }
+
+
+#ifdef APPLE
+
+/*
+ * Check if vnode represents a disk device
+ */
+int
+vn_isdisk(vp, errp)
+	struct vnode *vp;
+	int *errp;
+{
+	#if 0
+   struct cdevsw *cdevsw;
+   #endif
+
+	if (vp->v_type != VCHR) {
+		if (errp != NULL)
+			*errp = ENOTBLK;
+		return (0);
+	}
+	if (vp->v_rdev == NULL) {
+		if (errp != NULL)
+			*errp = ENXIO;
+		return (0);
+	}
+   #if 0
+	cdevsw = devsw(vp->v_rdev);
+	if (cdevsw == NULL) {
+		if (errp != NULL)
+			*errp = ENXIO;
+		return (0);
+	}
+	if (cdevsw->d_flags != D_DISK) {
+		if (errp != NULL)
+			*errp = ENOTBLK;
+		return (0);
+	}
+   #endif
+	if (errp != NULL)
+		*errp = 0;
+	return (1);
+}
+
+/*
+ * Vfs start routine, a no-op.
+ */
+/* ARGSUSED */
+static int
+vfs_stdstart(mp, flags, p)
+	struct mount *mp;
+	int flags;
+	struct proc *p;
+{
+	return 0;
+}
+
+/*
+ * Do operations associated with quotas, not supported
+ */
+/* ARGSUSED */
+static int
+vfs_stdquotactl(mp, cmd, uid, arg, p)
+	struct mount *mp;
+	int cmd;
+	uid_t uid;
+	caddr_t arg;
+	struct proc *p;
+{
+	return EOPNOTSUPP;
+}
+
+kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
+   return (KERN_SUCCESS);
+}
+
+
+kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
+   ext2_uninit(NULL);
+   return (KERN_SUCCESS);
+}
+
+#endif /* APPLE */

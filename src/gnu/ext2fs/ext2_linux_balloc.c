@@ -30,10 +30,18 @@
 
 #include <sys/param.h>
 #include <sys/systm.h>
+#ifndef APPLE
 #include <sys/bio.h>
+#endif
 #include <sys/buf.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
+
+#ifdef APPLE
+#include <machine/spl.h>
+
+#include "ext2_apple.h"
+#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -46,6 +54,8 @@
 #include <gnu/ext2fs/i386-bitops.h>
 #elif __alpha__
 #include <gnu/ext2fs/alpha-bitops.h>
+#elif __ppc__
+#include <gnu/ext2fs/ppc-bitops.h>
 #else
 #error Provide an bitops.h file, please !
 #endif
@@ -218,7 +228,11 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
 			    block, count);
 
 	for (i = 0; i < count; i++) {
+      #ifndef __ppc__
 		if (!clear_bit (bit + i, bh->b_data))
+      #else
+      if (!test_and_clear_bit (bit + i, bh->b_data))
+      #endif
 			printf ("ext2_free_blocks: "
 				      "bit already cleared for block %lu", 
 				      block);
@@ -291,7 +305,7 @@ repeat:
 
 		ext2_debug ("goal is at %d:%d.\n", i, j); 
 
-		if (!test_bit(j, bh->b_data)) {
+		if (!test_bit(j, (u_long*)bh->b_data)) {
 #ifdef EXT2FS_DEBUG
 			goal_hits++;
 			ext2_debug ("goal bit allocated.\n");
@@ -312,8 +326,12 @@ repeat:
 			if (j < end_goal)
 				goto got_block;
 		}
-	
+      
+      #ifndef APPLE
 		ext2_debug ("Bit not found near goal\n");
+      #else
+      printf ("Bit not found near goal\n");
+      #endif
 
 		/*
 		 * There has been no free block found in the near vicinity
@@ -381,7 +399,7 @@ search_back:
 	 * bitmap.  Now search backwards up to 7 bits to find the
 	 * start of this group of free blocks.
 	 */
-	for (k = 0; k < 7 && j > 0 && !test_bit (j - 1, bh->b_data); k++, j--);
+	for (k = 0; k < 7 && j > 0 && !test_bit (j - 1, (u_long*)bh->b_data); k++, j--);
 	
 got_block:
 
@@ -396,8 +414,12 @@ got_block:
 		panic ( "ext2_new_block: "
 			    "Allocating block in system zone - "
 			    "%dth block = %u in group %u", j, tmp, i);
-
+   
+   #ifndef __ppc__
 	if (set_bit (j, bh->b_data)) {
+   #else
+   if (test_and_set_bit (j, bh->b_data)) {
+   #endif
 		printf ( "ext2_new_block: "
 			 "bit already set for block %d", j);
 		goto repeat;
@@ -414,7 +436,11 @@ got_block:
 		*prealloc_block = tmp + 1;
 		for (k = 1;
 		     k < 8 && (j + k) < EXT2_BLOCKS_PER_GROUP(sb); k++) {
-			if (set_bit (j + k, bh->b_data))
+			#ifndef __ppc__
+         if (set_bit (j + k, bh->b_data))
+         #else
+         if (test_and_set_bit (j + k, bh->b_data))
+         #endif
 				break;
 			(*prealloc_count)++;
 		}	
@@ -494,7 +520,7 @@ static __inline int block_in_use (unsigned long block,
 				  unsigned char * map)
 {
 	return test_bit ((block - sb->s_es->s_first_data_block) %
-			 EXT2_BLOCKS_PER_GROUP(sb), map);
+			 EXT2_BLOCKS_PER_GROUP(sb), (u_long*)map);
 }
 
 static int test_root(int a, int b)

@@ -40,6 +40,28 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_readwrite.c,v 1.25 2002/05/16 19:43:28 iedowse Exp $
  */
 
+#ifdef APPLE
+#include <sys/param.h>
+
+#include <sys/resourcevar.h>
+#include <sys/proc.h>
+#include <sys/systm.h>
+#include <sys/buf.h>
+#include <sys/mount.h>
+#include <sys/signalvar.h>
+#include <sys/stat.h>
+#include <sys/ucred.h>
+#include <sys/vnode.h>
+
+#include <sys/ubc.h>
+#include "ext2_apple.h"
+
+#include <gnu/ext2fs/inode.h>
+#include <gnu/ext2fs/ext2_extern.h>
+#include <gnu/ext2fs/ext2_fs_sb.h>
+#include <gnu/ext2fs/fs.h>
+#endif
+
 #define	BLKSIZE(a, b, c)	blksize(a, b, c)
 #define	FS			struct ext2_sb_info
 #define	I_FS			i_e2fs
@@ -112,9 +134,18 @@ READ(ap)
 		if (lblktosize(fs, nextlbn) >= ip->i_size)
 			error = bread(vp, lbn, size, NOCRED, &bp);
 		else if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERR) == 0)
+      #ifndef APPLE
 			error = cluster_read(vp,
 			    ip->i_size, lbn, size, NOCRED,
 				uio->uio_resid, (ap->a_ioflag >> 16), &bp);
+      #else
+      {
+         bp = getblk (vp, lbn, size, 0, 0, BLK_CLREAD);
+         bp->b_flags |= B_READ;
+         bp->b_flags &= ~B_WRITE;
+         error = cluster_bp(bp);
+      }
+      #endif
 		else if (seqcount > 1) {
 			int nextsize = BLKSIZE(fs, ip, nextlbn);
 			error = breadn(vp, lbn,
@@ -218,13 +249,23 @@ WRITE(ap)
 	 */
 	td = uio->uio_td;
 	/* For p_rlimit. */
+   #ifndef APPLE
 	mtx_assert(&Giant, MA_OWNED);
+   #endif
 	if (vp->v_type == VREG && td &&
 	    uio->uio_offset + uio->uio_resid >
+       #ifndef APPLE
 	    td->td_proc->p_rlimit[RLIMIT_FSIZE].rlim_cur) {
+       #else
+       td->p_rlimit[RLIMIT_FSIZE].rlim_cur) {
+       #endif
+      #ifndef APPLE
 		PROC_LOCK(td->td_proc);
 		psignal(td->td_proc, SIGXFSZ);
 		PROC_UNLOCK(td->td_proc);
+      #else
+      psignal(td, SIGXFSZ);
+      #endif
 		return (EFBIG);
 	}
 
@@ -271,21 +312,34 @@ WRITE(ap)
 
 		error =
 		    uiomove((char *)bp->b_data + blkoffset, (int)xfersize, uio);
+      #ifndef APPLE
 		if ((ioflag & IO_VMIO) &&
 		   (LIST_FIRST(&bp->b_dep) == NULL)) /* in ext2fs? */
 			bp->b_flags |= B_RELBUF;
+      #endif
 
 		if (ioflag & IO_SYNC) {
 			(void)bwrite(bp);
 		} else if (xfersize + blkoffset == fs->s_frag_size) {
 			if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERW) == 0) {
-				bp->b_flags |= B_CLUSTEROK;
-				cluster_write(bp, ip->i_size, seqcount);
+				#ifndef APPLE
+            bp->b_flags |= B_CLUSTEROK;
+            cluster_write(bp, ip->i_size, seqcount);
+            #else
+            {
+               bp->b_flags |= B_WRITE;
+               bp->b_flags &= ~B_READ;
+               error = cluster_bp(bp);
+            }
+            #endif
+            
 			} else {
 				bawrite(bp);
 			}
 		} else {
-			bp->b_flags |= B_CLUSTEROK;
+			#ifndef APPLE
+         bp->b_flags |= B_CLUSTEROK;
+         #endif
 			bdwrite(bp);
 		}
 		if (error || xfersize == 0)

@@ -48,6 +48,10 @@
 #include <sys/mount.h>
 #include <sys/syslog.h>
 
+#ifdef APPLE
+#include "ext2_apple.h"
+#endif
+
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/ext2_fs.h>
@@ -161,8 +165,12 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 		/* set next_alloc fields as done in block_getblk */
 		ip->i_next_alloc_block = lbn;
 		ip->i_next_alloc_goal = bno;
-
+      
+      #ifndef APPLE
 		ip->i_blocks += btodb(size);
+      #else
+      ip->i_blocks += btodb(size, DEV_BSIZE);
+      #endif
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 		*bnp = bno;
 		return (0);
@@ -381,7 +389,13 @@ ext2_valloc(pvp, mode, cred, vpp)
 
 	if (ino == 0)
 		goto noinodes;
+   #ifndef APPLE
 	error = VFS_VGET(pvp->v_mount, ino, LK_EXCLUSIVE, vpp);
+   #else
+   error = VFS_VGET(pvp->v_mount, (void*)ino, vpp);
+   if (!error)
+      vn_lock(*vpp, LK_EXCLUSIVE|LK_RETRY, current_proc());
+   #endif / * APPLE */
 	if (error) {
 		ext2_vfree(pvp, ino, mode);
 		return (error);

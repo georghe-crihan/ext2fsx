@@ -44,18 +44,26 @@
 
 #include <sys/proc.h>
 #include <sys/systm.h>
+#ifndef APPLE
 #include <sys/bio.h>
+#endif
 #include <sys/buf.h>
 #include <sys/lock.h>
 #include <sys/ucred.h>
 #include <sys/vnode.h>
+
+#ifdef APPLE
+#include "ext2_apple.h"
+#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_extern.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/fs.h>
 
+#ifndef APPLE
 #include "opt_ddb.h"
+#endif
 
 #ifdef DDB
 void	ext2_checkoverlap(struct buf *, struct inode *);

@@ -31,10 +31,18 @@
 
 #include <sys/param.h>
 #include <sys/systm.h>
+#ifndef APPLE
 #include <sys/bio.h>
+#endif
 #include <sys/buf.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
+
+#ifdef APPLE
+#include <machine/spl.h>
+
+#include "ext2_apple.h"
+#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -48,6 +56,8 @@
 #include <gnu/ext2fs/i386-bitops.h>
 #elif  __alpha__
 #include <gnu/ext2fs/alpha-bitops.h>
+#elif __ppc__
+#include <gnu/ext2fs/ppc-bitops.h>
 #else
 #error please provide bit operation functions
 #endif
@@ -224,7 +234,11 @@ void ext2_free_inode (struct inode * inode)
 	bit = (inode->i_number - 1) % EXT2_INODES_PER_GROUP(sb);
 	bitmap_nr = load_inode_bitmap (ITOV(inode)->v_mount, block_group);
 	bh = sb->s_inode_bitmap[bitmap_nr];
-	if (!clear_bit (bit, bh->b_data))	
+   #ifndef APPLE
+	if (!clear_bit (bit, bh->b_data))
+   #else
+   if (!test_and_clear_bit (bit, bh->b_data))
+   #endif
 		printf ( "ext2_free_inode:"
 		      "bit already cleared for inode %lu",
 		      (unsigned long)inode->i_number);
@@ -399,7 +413,11 @@ repeat:
 	if ((j = find_first_zero_bit ((unsigned long *) bh->b_data,
 				      EXT2_INODES_PER_GROUP(sb))) <
 	    EXT2_INODES_PER_GROUP(sb)) {
+      #ifndef APPLE
 		if (set_bit (j, bh->b_data)) {
+      #else
+      if (test_and_set_bit (j, bh->b_data)) {
+      #endif
 			printf ( "ext2_new_inode:"
 				      "bit already set for inode %d", j);
 			goto repeat;

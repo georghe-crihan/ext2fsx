@@ -31,6 +31,10 @@
 #include <sys/stat.h>
 #include <sys/vnode.h>
 
+#ifdef APPLE
+#include "ext2_apple.h"
+#endif
+
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_extern.h>

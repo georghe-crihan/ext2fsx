@@ -41,19 +41,35 @@
 #include <sys/vnode.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
+#ifndef APPLE
 #include <sys/mutex.h>
+#else
+#include <kern/lock.h>
+#endif
+
+#ifdef APPLE
+#include "ext2_apple.h"
+#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_extern.h>
 
+#ifndef APPLE
 static MALLOC_DEFINE(M_EXT2IHASH, "EXT2 ihash", "EXT2 Inode hash tables");
+#else
+#define M_EXT2IHASH M_MISCFSNODE
+#endif
 /*
  * Structures associated with inode cacheing.
  */
 static LIST_HEAD(ihashhead, inode) *ihashtbl;
 static u_long	ihash;		/* size of hash table - 1 */
 #define	INOHASH(device, inum)	(&ihashtbl[(minor(device) + (inum)) & ihash])
+#ifndef APPLE
 static struct mtx ext2_ihash_mtx;
+#else
+static mutex_t *ext2_ihash_mtx;
+#endif
 
 /*
  * Initialize inode hash table.
@@ -64,7 +80,11 @@ ext2_ihashinit()
 
 	KASSERT(ihashtbl == NULL, ("ext2_ihashinit called twice"));
 	ihashtbl = hashinit(desiredvnodes, M_EXT2IHASH, &ihash);
+   #ifndef APPLE
 	mtx_init(&ext2_ihash_mtx, "ext2 ihash", NULL, MTX_DEF);
+   #else
+   ext2_ihash_mtx = mutex_alloc(0);
+   #endif
 }
 
 /*
@@ -122,7 +142,9 @@ loop:
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash) {
 		if (inum == ip->i_number && dev == ip->i_dev) {
 			vp = ITOV(ip);
-			mtx_lock(&vp->v_interlock);
+			#ifndef APPLE
+         mtx_lock(&vp->v_interlock);
+         #endif
 			mtx_unlock(&ext2_ihash_mtx);
 			error = vget(vp, flags | LK_INTERLOCK, td);
 			if (error == ENOENT)

@@ -48,7 +48,9 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/namei.h>
+#ifndef APPLE
 #include <sys/bio.h>
+#endif
 #include <sys/buf.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
@@ -57,6 +59,10 @@
 #include <sys/sysctl.h>
 
 #include <ufs/ufs/dir.h>
+
+#ifdef APPLE
+#include "ext2_apple.h"
+#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -382,7 +388,10 @@ ext2_lookup(ap)
 		    &bp)))
 			return (error);
 		numdirpasses = 2;
+      #ifndef APPLE
 		nchstats.ncs_2passes++;
+      #endif
+      /* XXX Some FBSD global? */
 	}
 	prevoff = dp->i_offset;
 	endsearch = roundup(dp->i_size, DIRBLKSIZ);
@@ -557,8 +566,11 @@ searchloop:
 	return (ENOENT);
 
 found:
+   #ifndef APPLE
 	if (numdirpasses == 2)
 		nchstats.ncs_pass2++;
+   #endif
+   /* XXX Some FBSD global? */
 	/*
 	 * Check that directory length properly reflects presence
 	 * of this entry.
@@ -606,8 +618,15 @@ found:
 			*vpp = vdp;
 			return (0);
 		}
+      #ifndef APPLE
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
+      #else
+      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
+      if (!error)
+         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
+      else
+      #endif
 			return (error);
 		/*
 		 * If directory is "sticky", then user must own
@@ -644,8 +663,15 @@ found:
 		 */
 		if (dp->i_number == dp->i_ino)
 			return (EISDIR);
+      #ifndef APPLE
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
+      #else
+      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
+      if (!error)
+         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
+      else
+      #endif
 			return (error);
 		*vpp = tdp;
 		cnp->cn_flags |= SAVENAME;
@@ -676,8 +702,16 @@ found:
 	pdp = vdp;
 	if (flags & ISDOTDOT) {
 		VOP_UNLOCK(pdp, 0, td);	/* race to get the inode */
+      #ifndef APPLE
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
-		    &tdp)) != 0) {
+		    &tdp)) != 0)
+      #else
+      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
+      if (!error)
+         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
+      else
+      #endif
+      {
 			vn_lock(pdp, LK_EXCLUSIVE | LK_RETRY, td);
 			return (error);
 		}
@@ -691,8 +725,15 @@ found:
 		VREF(vdp);	/* we want ourself, ie "." */
 		*vpp = vdp;
 	} else {
+      #ifndef APPLE
 		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
 		    &tdp)) != 0)
+      #else
+      error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp);
+      if (!error)
+         vn_lock(tdp, LK_EXCLUSIVE|LK_RETRY, td);
+      else
+      #endif
 			return (error);
 		if (!lockparent || !(flags & ISLASTCN))
 			VOP_UNLOCK(pdp, 0, td);
@@ -1011,7 +1052,11 @@ ext2_dirempty(ip, parentino, cred)
 	for (off = 0; off < ip->i_size; off += dp->rec_len) {
 		error = vn_rdwr(UIO_READ, ITOV(ip), (caddr_t)dp, MINDIRSIZ,
 		    off, UIO_SYSSPACE, IO_NODELOCKED | IO_NOMACCHECK, cred,
+          #ifndef APPLE
 		    NOCRED, &count, (struct thread *)0);
+          #else
+          &count, (struct proc *)0);
+          #endif
 		/*
 		 * Since we read MINDIRSIZ, residual must
 		 * be 0 unless we're at end of file.
@@ -1075,7 +1120,12 @@ ext2_checkpath(source, target, cred)
 		}
 		error = vn_rdwr(UIO_READ, vp, (caddr_t)&dirbuf,
 			sizeof (struct dirtemplate), (off_t)0, UIO_SYSSPACE,
-			IO_NODELOCKED | IO_NOMACCHECK, cred, NOCRED, (int *)0,
+			IO_NODELOCKED | IO_NOMACCHECK, cred, 
+         #ifndef APPLE
+         NOCRED, (int *)0,
+         #else
+         (int *)0,
+         #endif
 			(struct thread *)0);
 		if (error != 0)
 			break;
@@ -1093,8 +1143,16 @@ ext2_checkpath(source, target, cred)
 		if (dirbuf.dotdot_ino == rootino)
 			break;
 		vput(vp);
+      #ifndef APPLE
 		if ((error = VFS_VGET(vp->v_mount, dirbuf.dotdot_ino,
-		    LK_EXCLUSIVE, &vp)) != 0) {
+          LK_EXCLUSIVE, &vp)) != 0)
+      #else
+      error = VFS_VGET(vp->v_mount, (void*)dirbuf.dotdot_ino, &vp);
+      if (!error)
+         vn_lock(vp, LK_EXCLUSIVE|LK_RETRY, current_proc());
+      else
+      #endif
+		{
 			vp = NULL;
 			break;
 		}

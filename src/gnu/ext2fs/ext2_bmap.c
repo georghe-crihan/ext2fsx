@@ -41,13 +41,19 @@
 
 #include <sys/param.h>
 #include <sys/systm.h>
+#ifndef APPLE
 #include <sys/bio.h>
+#endif
 #include <sys/buf.h>
 #include <sys/proc.h>
 #include <sys/vnode.h>
 #include <sys/mount.h>
 #include <sys/resourcevar.h>
 #include <sys/stat.h>
+
+#ifdef APPLE
+#include "ext2_apple.h"
+#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -66,7 +72,9 @@ ext2_bmap(ap)
 		struct vnode **a_vpp;
 		daddr_t *a_bnp;
 		int *a_runp;
+      #ifndef APPLE
 		int *a_runb;
+      #endif
 	} */ *ap;
 {
 	int32_t blkno;
@@ -82,7 +90,11 @@ ext2_bmap(ap)
 		return (0);
 
 	error = ext2_bmaparray(ap->a_vp, ap->a_bn, &blkno,
+   #ifndef APPLE
 	    ap->a_runp, ap->a_runb);
+   #else
+      ap->a_runp, NULL);
+   #endif
 	*ap->a_bnp = blkno;
 	return (error);
 }
@@ -127,7 +139,11 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	devvp = ump->um_devvp;
 
 	if (runp) {
+      #ifndef APPLE
 		maxrun = mp->mnt_iosize_max / mp->mnt_stat.f_iosize - 1;
+      #else
+      maxrun = 1; /* / XXX mp->mnt_stat.f_iosize / mp->mnt_stat.f_iosize - 1 */
+      #endif
 		*runp = 0;
 	}
 
@@ -185,17 +201,30 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			bqrelse(bp);
 
 		ap->in_exists = 1;
-		bp = getblk(vp, metalbn, mp->mnt_stat.f_iosize, 0, 0);
+		bp = getblk(vp, metalbn, mp->mnt_stat.f_iosize, 0, 0
+      #ifdef APPLE
+      , BLK_READ
+      #endif
+      );
 		if ((bp->b_flags & B_CACHE) == 0) {
 #ifdef DIAGNOSTIC
 			if (!daddr)
 				panic("ufs_bmaparray: indirect block not in cache");
 #endif
 			bp->b_blkno = blkptrtodb(ump, daddr);
+         #ifndef APPLE
 			bp->b_iocmd = BIO_READ;
+         #endif
 			bp->b_flags &= ~B_INVAL;
+         #ifndef APPLE
 			bp->b_ioflags &= ~BIO_ERROR;
+         #else
+         bp->b_flags &= ~B_ERROR;
+         #endif
+         #ifndef APPLE
 			vfs_busy_pages(bp, 0);
+         #endif
+         /* XXX - Do we need a equiv call for Darwin (upl_ something). */
 			BUF_STRATEGY(bp);
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
 			error = bufwait(bp);
@@ -224,7 +253,8 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	}
 	if (bp)
 		bqrelse(bp);
-
+   
+   #ifndef APPLE
 	/*
 	 * Since this is FFS independent code, we are out of scope for the
 	 * definitions of BLK_NOCOPY and BLK_SNAP, but we do know that they
@@ -236,6 +266,9 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		*bnp = -1;
 		return (0);
 	}
+   #endif
+   /* XXX Something to do for Darwin? */
+   
 	*bnp = blkptrtodb(ump, daddr);
 	if (*bnp == 0) {
 		*bnp = -1;
