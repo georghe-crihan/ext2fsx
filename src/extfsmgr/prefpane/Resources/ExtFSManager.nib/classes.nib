@@ -10,6 +10,7 @@
             CLASS = ExtFSManager; 
             LANGUAGE = ObjC; 
             OUTLETS = {
+                "_copyrightText" = id; 
                 "_diskIconView" = id; 
                 "_dontAutomountBox" = id; 
                 "_ejectButton" = id; 
