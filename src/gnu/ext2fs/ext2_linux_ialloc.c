@@ -506,7 +506,7 @@ repeat:
 #ifdef unused
 static unsigned long ext2_count_free_inodes (struct mount * mp)
 {
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
         struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	struct ext2_super_block * es;
 	unsigned long desc_count, bitmap_count, x;

@@ -309,7 +309,7 @@ int ext2_new_block (struct mount * mp, unsigned long goal,
 	struct ext2_group_desc * gdp;
 	struct ext2_super_block * es = sb->s_es;
 
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
 	static int goal_hits = 0, goal_attempts = 0;
 #endif
 	if (!sb) {
@@ -330,7 +330,7 @@ repeat:
 	gdp = get_group_desc (mp, i, &bh2);
 	if (gdp->bg_free_blocks_count > 0) {
 		j = ((goal - le32_to_cpu(es->s_first_data_block)) % EXT2_BLOCKS_PER_GROUP(sb));
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
 		if (j)
 			goal_attempts++;
 #endif
@@ -344,7 +344,7 @@ repeat:
 		ext2_debug ("ext2_new_block: goal is at %d:%d.\n", i, j); 
 
 		if (!ext2_test_bit(j, (u_long*)bh->b_data)) {
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
 			goal_hits++;
 			ext2_debug ("ext2_new_block: goal bit allocated.\n");
 #endif
@@ -532,8 +532,10 @@ got_block:
 		return 0;
 	}
 
+#if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
 	ext2_debug ("ext2_new_block: allocating block %d. "
 		    "Goal hits %d of %d.\n", j, goal_hits, goal_attempts);
+#endif
 
 	gdp->bg_free_blocks_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count) - 1);
 	mark_buffer_dirty(bh2);
@@ -550,7 +552,7 @@ got_block:
 static unsigned long ext2_count_free_blocks (struct mount * mp)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
 	struct ext2_super_block * es;
 	unsigned long desc_count, bitmap_count, x;
 	int bitmap_nr;

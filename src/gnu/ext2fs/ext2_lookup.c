@@ -183,7 +183,7 @@ ext2_readdir(ap)
 	if (count <= 0)
 		count += DIRBLKSIZ;
 
-#ifdef EXT2FS_DEBUG
+#if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
 	printf("ext2_readdir: uio_offset = %lld, uio_resid = %d, count = %d\n", 
 	    uio->uio_offset, uio->uio_resid, count);
 #endif
