@@ -58,6 +58,18 @@ static const char rcsid[] =
 
 #include "mntopts.h"
 
+#ifdef APPLE
+#include "ext2_apple.h"
+
+/* Equiv. to ufs_args */
+struct ext2_args {
+	char	*fspec;			/* block special device to mount */
+	struct	export_args export;	/* network export information */
+};
+
+#define __dead2
+#endif
+
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,
 	MOPT_FORCE,
@@ -73,7 +85,11 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	struct iovec iov[6];
+	#ifndef APPLE
+   struct iovec iov[6];
+   #else
+   struct ext2_args args;
+   #endif
 	int ch, mntflags;
 	char *fs_name, *options, *fspec, mntpath[MAXPATHLEN];
 
@@ -104,6 +120,7 @@ main(argc, argv)
 	(void)checkpath(fs_name, mntpath);
 	(void)rmslashes(fspec, fspec);
 
+#ifndef APPLE
 	iov[0].iov_base = "fstype";
 	iov[0].iov_len = sizeof("fstype");
 	iov[1].iov_base = "ext2fs";
@@ -118,6 +135,11 @@ main(argc, argv)
 	iov[5].iov_len = strlen(fspec) + 1;
 	if (nmount(iov, 6, mntflags) < 0)
 		err(EX_OSERR, "%s", fspec);
+#else
+   args.fspec = fspec;
+   if (mount(EXT2FS_NAME, mntpath, mntflags, NULL) < 0)
+		err(EX_OSERR, "%s on %s", args.fspec, mntpath);
+#endif
 	exit(0);
 }
 
