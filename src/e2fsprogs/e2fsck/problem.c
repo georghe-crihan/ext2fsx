@@ -309,6 +309,11 @@ static const struct e2fsck_problem problem_table[] = {
 	     "Clearing fields beyond the V1 @j @S...\n\n"),
 	  PROMPT_NONE, 0 },
 
+	/* Backup journal inode blocks */
+	{ PR_0_BACKUP_JNL,
+	  N_("Backing up @j @i @b information.\n\n"),
+	  PROMPT_NONE, 0 },
+
 	/* Pass 1 errors */
 	
 	/* Pass 1: Checking inodes, blocks, and sizes */
@@ -417,15 +422,14 @@ static const struct e2fsck_problem problem_table[] = {
 
 	/* Bad block used as bad block indirect block */	  
 	{ PR_1_BBINODE_BAD_METABLOCK,
-	  N_("Bad @b %b used as bad @b indirect @b?!?\n"),
-	  PROMPT_NONE, PR_AFTER_CODE, PR_1_BBINODE_BAD_METABLOCK_PROMPT },
+	  N_("Bad @b %b used as bad @b @i indirect @b.  "),
+	  PROMPT_CLEAR, PR_LATCH_BBLOCK },
 
 	/* Inconsistency can't be fixed prompt */	  
 	{ PR_1_BBINODE_BAD_METABLOCK_PROMPT,
-	  N_("\nThis inconsistency can not be fixed with e2fsck; to fix it, use\n"
-	  """dumpe2fs -b"" to dump out the bad @b "
-	  "list and ""e2fsck -L filename""\n"
-	  "to read it back in again.\n"),
+	  N_("\nThe bad @b @i has probably been corrupted.  You probably\n"
+	     "should stop now and run ""e2fsck -c"" to scan for bad blocks\n"
+	     "in the @f.\n"),
 	  PROMPT_CONTINUE, PR_PREEN_NOMSG },
 
 	/* Bad primary block */
@@ -698,6 +702,12 @@ static const struct e2fsck_problem problem_table[] = {
 	  N_("@h %i has a tree depth (%N) which is too big\n"),
 	  PROMPT_CLEAR_HTREE, PR_PREEN_OK },
 		  
+	/* Bad block has indirect block that conflicts with filesystem block */
+	{ PR_1_BB_FS_BLOCK,
+	  N_("Bad @b @i has an indirect @b (%b) that conflicts with\n"
+	     "@f metadata.  "),
+	  PROMPT_CLEAR, PR_LATCH_BBLOCK },
+		  
 	/* Pass 1b errors */
 
 	/* Pass 1B: Rescan for duplicate/bad blocks */
@@ -714,12 +724,12 @@ static const struct e2fsck_problem problem_table[] = {
 	/* Duplicate/bad block(s) in inode */
 	{ PR_1B_DUP_BLOCK,	  
 	  " %b",
-	  PROMPT_NONE, PR_LATCH_DBLOCK },
+	  PROMPT_NONE, PR_LATCH_DBLOCK | PR_PREEN_NOHDR },
 
 	/* Duplicate/bad block(s) end */
 	{ PR_1B_DUP_BLOCK_END,
 	  "\n",
-	  PROMPT_NONE, 0 },
+	  PROMPT_NONE, PR_PREEN_NOHDR },
 		  
 	/* Error while scanning inodes */
 	{ PR_1B_ISCAN_ERROR,
@@ -1430,7 +1440,7 @@ static struct latch_descr pr_latch_info[] = {
 	{ -1, 0, 0 },
 };
 
-static const struct e2fsck_problem *find_problem(int code)
+static const struct e2fsck_problem *find_problem(problem_t code)
 {
 	int 	i;
 
@@ -1548,7 +1558,8 @@ int fix_problem(e2fsck_t ctx, problem_t code, struct problem_context *pctx)
 			printf("%s: ", ctx->device_name ?
 			       ctx->device_name : ctx->filesystem_name);
 		}
-		print_e2fsck_message(ctx, _(message), pctx, 1);
+		if (*message)
+			print_e2fsck_message(ctx, _(message), pctx, 1);
 	}
 	if (!(ptr->flags & PR_PREEN_OK) && (ptr->prompt != PROMPT_NONE))
 		preenhalt(ctx);

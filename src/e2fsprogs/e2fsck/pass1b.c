@@ -32,6 +32,14 @@
 #include <errno.h>
 #endif
 
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
+/* Needed for architectures where sizeof(int) != sizeof(void *) */
+#define INT_TO_VOIDPTR(val)  ((void *)(intptr_t)(val))
+#define VOIDPTR_TO_INT(ptr)  ((int)(intptr_t)(ptr))
+
 #include <et/com_err.h>
 #include "e2fsck.h"
 
@@ -91,10 +99,10 @@ static ext2fs_inode_bitmap inode_dup_map;
 
 static int dict_int_cmp(const void *a, const void *b)
 {
-	int	ia, ib;
+	intptr_t	ia, ib;
 
-	ia = (int) a;
-	ib = (int) b;
+	ia = (intptr_t)a;
+	ib = (intptr_t)b;
 
 	return (ia-ib);
 }
@@ -111,7 +119,7 @@ static void add_dupe(e2fsck_t ctx, ext2_ino_t ino, blk_t blk,
 	struct block_el		*blk_el;
 	struct inode_el 	*ino_el;
 
-	n = dict_lookup(&blk_dict, (void *) blk);
+	n = dict_lookup(&blk_dict, INT_TO_VOIDPTR(blk));
 	if (n)
 		db = (struct dup_block *) dnode_get(n);
 	else {
@@ -119,7 +127,7 @@ static void add_dupe(e2fsck_t ctx, ext2_ino_t ino, blk_t blk,
 			 sizeof(struct dup_block), "duplicate block header");
 		db->num_bad = 0;
 		db->inode_list = 0;
-		dict_alloc_insert(&blk_dict, (void *) blk, db);
+		dict_alloc_insert(&blk_dict, INT_TO_VOIDPTR(blk), db);
 	}
 	ino_el = (struct inode_el *) e2fsck_allocate_memory(ctx,
 			 sizeof(struct inode_el), "inode element");
@@ -128,7 +136,7 @@ static void add_dupe(e2fsck_t ctx, ext2_ino_t ino, blk_t blk,
 	db->inode_list = ino_el;
 	db->num_bad++;
 
-	n = dict_lookup(&ino_dict, (void *) ino);
+	n = dict_lookup(&ino_dict, INT_TO_VOIDPTR(ino));
 	if (n)
 		di = (struct dup_inode *) dnode_get(n);
 	else {
@@ -138,7 +146,7 @@ static void add_dupe(e2fsck_t ctx, ext2_ino_t ino, blk_t blk,
 		di->num_dupblocks = 0;
 		di->block_list = 0;
 		di->inode = *inode;
-		dict_alloc_insert(&ino_dict, (void *) ino, di);
+		dict_alloc_insert(&ino_dict, INT_TO_VOIDPTR(ino), di);
 	}
 	blk_el = (struct block_el *) e2fsck_allocate_memory(ctx,
 			 sizeof(struct block_el), "block element");
@@ -151,7 +159,8 @@ static void add_dupe(e2fsck_t ctx, ext2_ino_t ino, blk_t blk,
 /*
  * Free a duplicate inode record
  */
-static void inode_dnode_free(dnode_t *node, void *context)
+static void inode_dnode_free(dnode_t *node, 
+			     void *context EXT2FS_ATTR((unused)))
 {
 	struct dup_inode	*di;
 	struct block_el		*p, *next;
@@ -167,7 +176,8 @@ static void inode_dnode_free(dnode_t *node, void *context)
 /*
  * Free a duplicate block record
  */
-static void block_dnode_free(dnode_t *node, void *context)
+static void block_dnode_free(dnode_t *node, 
+			     void *context EXT2FS_ATTR((unused)))
 {
 	struct dup_block	*db;
 	struct inode_el		*p, *next;
@@ -238,7 +248,8 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 	
 	clear_problem_context(&pctx);
 	
-	fix_problem(ctx, PR_1B_PASS_HEADER, &pctx);
+	if (!(ctx->options & E2F_OPT_PREEN))
+		fix_problem(ctx, PR_1B_PASS_HEADER, &pctx);
 	pctx.errcode = ext2fs_open_inode_scan(fs, ctx->inode_buffer_blocks,
 					      &scan);
 	if (pctx.errcode) {
@@ -290,11 +301,11 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 	e2fsck_use_inode_shortcuts(ctx, 0);
 }
 
-static int process_pass1b_block(ext2_filsys fs,
+static int process_pass1b_block(ext2_filsys fs EXT2FS_ATTR((unused)),
 				blk_t	*block_nr,
-				e2_blkcnt_t blockcnt,
-				blk_t ref_blk, 
-				int ref_offset, 			 
+				e2_blkcnt_t blockcnt EXT2FS_ATTR((unused)),
+				blk_t ref_blk EXT2FS_ATTR((unused)), 
+				int ref_offset EXT2FS_ATTR((unused)),
 				void *priv_data)
 {
 	struct process_block_struct *p;
@@ -334,8 +345,10 @@ struct search_dir_struct {
 
 static int search_dirent_proc(ext2_ino_t dir, int entry,
 			      struct ext2_dir_entry *dirent,
-			      int offset, int blocksize,
-			      char *buf, void *priv_data)
+			      int offset EXT2FS_ATTR((unused)), 
+			      int blocksize EXT2FS_ATTR((unused)),
+			      char *buf EXT2FS_ATTR((unused)), 
+			      void *priv_data)
 {
 	struct search_dir_struct *sd;
 	struct dup_inode	*p;
@@ -351,7 +364,7 @@ static int search_dirent_proc(ext2_ino_t dir, int entry,
 	    !ext2fs_test_inode_bitmap(inode_dup_map, dirent->inode))
 		return 0;
 
-	n = dict_lookup(&ino_dict, (void *) dirent->inode);
+	n = dict_lookup(&ino_dict, INT_TO_VOIDPTR(dirent->inode));
 	if (!n)
 		return 0;
 	p = (struct dup_inode *) dnode_get(n);
@@ -370,7 +383,8 @@ static void pass1c(e2fsck_t ctx, char *block_buf)
 
 	clear_problem_context(&pctx);
 
-	fix_problem(ctx, PR_1C_PASS_HEADER, &pctx);
+	if (!(ctx->options & E2F_OPT_PREEN))
+		fix_problem(ctx, PR_1C_PASS_HEADER, &pctx);
 
 	/*
 	 * Search through all directories to translate inodes to names
@@ -400,7 +414,8 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 	
 	clear_problem_context(&pctx);
 	
-	fix_problem(ctx, PR_1D_PASS_HEADER, &pctx);
+	if (!(ctx->options & E2F_OPT_PREEN))
+		fix_problem(ctx, PR_1D_PASS_HEADER, &pctx);
 	e2fsck_read_bitmaps(ctx);
 
 	pctx.num = dup_inode_count; /* dict_count(&ino_dict); */
@@ -412,7 +427,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 		p = (struct dup_inode *) dnode_get(n);
 		shared_len = 0;
 		file_ok = 1;
-		ino = (ext2_ino_t) dnode_getkey(n);
+		ino = (ext2_ino_t)VOIDPTR_TO_INT(dnode_getkey(n));
 		if (ino == EXT2_BAD_INO)
 			continue;
 
@@ -423,7 +438,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 		 * get the list of inodes, and merge them together.
 		 */
 		for (s = p->block_list; s; s = s->next) {
-			m = dict_lookup(&blk_dict, (void *) s->block);
+			m = dict_lookup(&blk_dict, INT_TO_VOIDPTR(s->block));
 			if (!m)
 				continue; /* Should never happen... */
 			q = (struct dup_block *) dnode_get(m);
@@ -468,7 +483,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 			fix_problem(ctx, PR_1D_SHARE_METADATA, &pctx);
 		
 		for (i = 0; i < shared_len; i++) {
-			m = dict_lookup(&ino_dict, (void *) shared[i]);
+			m = dict_lookup(&ino_dict, INT_TO_VOIDPTR(shared[i]));
 			if (!m)
 				continue; /* should never happen */
 			t = (struct dup_inode *) dnode_get(m);
@@ -496,7 +511,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 		else
 			ext2fs_unmark_valid(fs);
 	}
-	ext2fs_free_mem((void **) &shared);
+	ext2fs_free_mem(&shared);
 }
 
 /*
@@ -513,9 +528,9 @@ static void decrement_badcount(e2fsck_t ctx, blk_t block, struct dup_block *p)
 
 static int delete_file_block(ext2_filsys fs,
 			     blk_t	*block_nr,
-			     e2_blkcnt_t blockcnt,
-			     blk_t ref_block,
-			     int ref_offset, 
+			     e2_blkcnt_t blockcnt EXT2FS_ATTR((unused)),
+			     blk_t ref_block EXT2FS_ATTR((unused)),
+			     int ref_offset EXT2FS_ATTR((unused)),
 			     void *priv_data)
 {
 	struct process_block_struct *pb;
@@ -530,7 +545,7 @@ static int delete_file_block(ext2_filsys fs,
 		return 0;
 
 	if (ext2fs_test_block_bitmap(ctx->block_dup_map, *block_nr)) {
-		n = dict_lookup(&blk_dict, (void *) *block_nr);
+		n = dict_lookup(&blk_dict, INT_TO_VOIDPTR(*block_nr));
 		if (n) {
 			p = (struct dup_block *) dnode_get(n);
 			decrement_badcount(ctx, *block_nr, p);
@@ -615,8 +630,8 @@ struct clone_struct {
 static int clone_file_block(ext2_filsys fs,
 			    blk_t	*block_nr,
 			    e2_blkcnt_t blockcnt,
-			    blk_t ref_block,
-			    int ref_offset, 
+			    blk_t ref_block EXT2FS_ATTR((unused)),
+			    int ref_offset EXT2FS_ATTR((unused)),
 			    void *priv_data)
 {
 	struct dup_block *p;
@@ -632,7 +647,7 @@ static int clone_file_block(ext2_filsys fs,
 		return 0;
 
 	if (ext2fs_test_block_bitmap(ctx->block_dup_map, *block_nr)) {
-		n = dict_lookup(&blk_dict, (void *) *block_nr);
+		n = dict_lookup(&blk_dict, INT_TO_VOIDPTR(*block_nr));
 		if (n) {
 			p = (struct dup_block *) dnode_get(n);
 			retval = ext2fs_new_block(fs, 0, ctx->block_found_map,
@@ -696,7 +711,7 @@ static int clone_file(e2fsck_t ctx, ext2_ino_t ino,
 	cs.errcode = 0;
 	cs.dir = 0;
 	cs.ctx = ctx;
-	retval = ext2fs_get_mem(fs->blocksize, (void **) &cs.buf);
+	retval = ext2fs_get_mem(fs->blocksize, &cs.buf);
 	if (retval)
 		return retval;
 
@@ -732,12 +747,12 @@ static int clone_file(e2fsck_t ctx, ext2_ino_t ino,
 		 * which refered to that EA block, and modify
 		 * them to point to the new EA block.
 		 */
-		n = dict_lookup(&blk_dict, (void *) blk);
+		n = dict_lookup(&blk_dict, INT_TO_VOIDPTR(blk));
 		db = (struct dup_block *) dnode_get(n);
 		for (ino_el = db->inode_list; ino_el; ino_el = ino_el->next) {
 			if (ino_el->inode == ino)
 				continue;
-			n = dict_lookup(&ino_dict, (void *) ino_el->inode);
+			n = dict_lookup(&ino_dict, INT_TO_VOIDPTR(ino_el->inode));
 			di = (struct dup_inode *) dnode_get(n);
 			if (di->inode.i_file_acl == blk) {
 				di->inode.i_file_acl = dp->inode.i_file_acl;
@@ -749,7 +764,7 @@ static int clone_file(e2fsck_t ctx, ext2_ino_t ino,
 	}
 	retval = 0;
 errout:
-	ext2fs_free_mem((void **) &cs.buf);
+	ext2fs_free_mem(&cs.buf);
 	return retval;
 }
 
@@ -761,7 +776,7 @@ static int check_if_fs_block(e2fsck_t ctx, blk_t test_block)
 {
 	ext2_filsys fs = ctx->fs;
 	blk_t	block;
-	int	i;
+	dgrp_t	i;
 	
 	block = fs->super->s_first_data_block;
 	for (i = 0; i < fs->group_desc_count; i++) {

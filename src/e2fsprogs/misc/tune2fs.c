@@ -25,6 +25,8 @@
  * 94/03/06	- Added the checks interval from Uwe Ohse (uwe@tirka.gun.de)
  */
 
+#define _XOPEN_SOURCE /* for inclusion of strptime() */
+#define _BSD_SOURCE /* for inclusion of strcasecmp() */
 #include <fcntl.h>
 #include <grp.h>
 #ifdef HAVE_GETOPT_H
@@ -154,7 +156,7 @@ static void remove_journal_device(ext2_filsys fs)
 	jsb = (journal_superblock_t *) buf;
 	if ((jsb->s_header.h_magic != (unsigned) ntohl(JFS_MAGIC_NUMBER)) ||
 	    (jsb->s_header.h_blocktype != (unsigned) ntohl(JFS_SUPERBLOCK_V2))) {
-		fprintf(stderr, _("Journal superblock not found!\n"));
+		fputs(_("Journal superblock not found!\n"), stderr);
 		goto no_valid_journal;
 	}
 
@@ -166,8 +168,8 @@ static void remove_journal_device(ext2_filsys fs)
 			break;
 	}
 	if (i >= nr_users) {
-		fprintf(stderr,
-			_("Filesystem's UUID not found on journal device.\n"));
+		fputs(_("Filesystem's UUID not found on journal device.\n"), 
+		      stderr);
 		commit_remove_journal = 1;
 		goto no_valid_journal;
 	}
@@ -187,19 +189,20 @@ static void remove_journal_device(ext2_filsys fs)
 
 no_valid_journal:
 	if (commit_remove_journal == 0) {
-		fprintf(stderr, _("Journal NOT removed\n"));
+		fputs(_("Journal NOT removed\n"), stderr);
 		exit(1);
 	}
 	fs->super->s_journal_dev = 0;
 	uuid_clear(fs->super->s_journal_uuid);
 	ext2fs_mark_super_dirty(fs);
-	printf(_("Journal removed\n"));
+	fputs(_("Journal removed\n"), stdout);
 	free(journal_path);
 }
 
 /* Helper function for remove_journal_inode */
 static int release_blocks_proc(ext2_filsys fs, blk_t *blocknr,
-			       int blockcnt, void *private)
+			       int blockcnt EXT2FS_ATTR((unused)), 
+			       void *private EXT2FS_ATTR((unused)))
 {
 	blk_t	block;
 	int	group;
@@ -305,19 +308,17 @@ static void update_feature_set(ext2_filsys fs, char *features)
 	if (old_journal && !journal) {
 		if ((mount_flags & EXT2_MF_MOUNTED) &&
 		    !(mount_flags & EXT2_MF_READONLY)) {
-			fprintf(stderr,
-				_("The has_journal flag may only be "
-				  "cleared when the filesystem is\n"
-				  "unmounted or mounted "
-				  "read-only.\n"));
+			fputs(_("The has_journal flag may only be "
+				"cleared when the filesystem is\n"
+				"unmounted or mounted "
+				"read-only.\n"), stderr);
 			exit(1);
 		}
 		if (sb->s_feature_incompat &
 		    EXT3_FEATURE_INCOMPAT_RECOVER) {
-			fprintf(stderr,
-				_("The needs_recovery flag is set.  "
-				  "Please run e2fsck before clearing\n"
-				  "the has_journal flag.\n"));
+			fputs(_("The needs_recovery flag is set.  "
+				"Please run e2fsck before clearing\n"
+				"the has_journal flag.\n"), stderr);
 			exit(1);
 		}
 		if (sb->s_journal_inum) {
@@ -369,7 +370,7 @@ static void add_journal(ext2_filsys fs)
 
 	if (fs->super->s_feature_compat &
 	    EXT3_FEATURE_COMPAT_HAS_JOURNAL) {
-		fprintf(stderr, _("The filesystem already has a journal.\n"));
+		fputs(_("The filesystem already has a journal.\n"), stderr);
 		goto err;
 	}
 	if (journal_device) {
@@ -402,9 +403,9 @@ static void add_journal(ext2_filsys fs)
 				 journal_device);
 			goto err;
 		}
-		printf(_("done\n"));
+		fputs(_("done\n"), stdout);
 	} else if (journal_size) {
-		printf(_("Creating journal inode: "));
+		fputs(_("Creating journal inode: "), stdout);
 		fflush(stdout);
 		journal_blocks = figure_journal_size(journal_size, fs);
 
@@ -416,7 +417,7 @@ static void add_journal(ext2_filsys fs)
 				_("\n\twhile trying to create journal file"));
 			exit(1);
 		} else
-			printf(_("done\n"));
+			fputs(_("done\n"), stdout);
 		/*
 		 * If the filesystem wasn't mounted, we need to force
 		 * the block group descriptors out.
@@ -437,10 +438,15 @@ err:
 static void parse_e2label_options(int argc, char ** argv)
 {
 	if ((argc < 2) || (argc > 3)) {
-		fprintf(stderr, _("Usage: e2label device [newlabel]\n"));
+		fputs(_("Usage: e2label device [newlabel]\n"), stderr);
 		exit(1);
 	}
 	device_name = blkid_get_devname(NULL, argv[1], NULL);
+	if (!device_name) {
+		com_err("e2label", 0, _("Unable to resolve '%s'"), 
+			argv[1]);
+		exit(1);
+	}
 	if (argc == 3) {
 		open_flag = EXT2_FLAG_RW | EXT2_FLAG_JOURNAL_DEV_OK;
 		L_flag = 1;
@@ -691,6 +697,11 @@ static void parse_tune2fs_options(int argc, char **argv)
 	if (!open_flag && !l_flag)
 		usage();
 	device_name = blkid_get_devname(NULL, argv[optind], NULL);
+	if (!device_name) {
+		com_err("tune2fs", 0, _("Unable to resolve '%s'"), 
+			argv[optind]);
+		exit(1);
+	}
 }
 
 void do_findfs(int argc, char **argv)
@@ -704,7 +715,7 @@ void do_findfs(int argc, char **argv)
 	}
 	dev = blkid_get_devname(NULL, argv[1], NULL);
 	if (!dev) {
-		fprintf(stderr, "Filesystem matching %s not found\n", 
+		com_err("findfs", 0, _("Unable to resolve '%s'"), 
 			argv[1]);
 		exit(1);
 	}
@@ -804,7 +815,7 @@ int main (int argc, char ** argv)
 	if (r_flag) {
 		if (reserved_blocks >= sb->s_blocks_count) {
 			com_err (program_name, 0,
-				 _("reserved blocks count is too big (%ul)"),
+				 _("reserved blocks count is too big (%lu)"),
 				 reserved_blocks);
 			exit (1);
 		}
@@ -816,8 +827,8 @@ int main (int argc, char ** argv)
 	if (s_flag == 1) {
 		if (sb->s_feature_ro_compat &
 		    EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER)
-			fprintf(stderr, _("\nThe filesystem already"
-				" has sparse superblocks.\n"));
+			fputs(_("\nThe filesystem already has sparse "
+				"superblocks.\n"), stderr);
 		else {
 			sb->s_feature_ro_compat |=
 				EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER;
@@ -830,8 +841,8 @@ int main (int argc, char ** argv)
 	if (s_flag == 0) {
 		if (!(sb->s_feature_ro_compat &
 		      EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER))
-			fprintf(stderr, _("\nThe filesystem already"
-				" has sparse superblocks disabled.\n"));
+			fputs(_("\nThe filesystem already has sparse "
+				"superblocks disabled.\n"), stderr);
 		else {
 			sb->s_feature_ro_compat &=
 				~EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER;
@@ -855,8 +866,8 @@ int main (int argc, char ** argv)
 	}
 	if (L_flag) {
 		if (strlen(new_label) > sizeof(sb->s_volume_name))
-			fprintf(stderr, _("Warning: label too "
-				"long, truncating.\n"));
+			fputs(_("Warning: label too long, truncating.\n"), 
+			      stderr);
 		memset(sb->s_volume_name, 0, sizeof(sb->s_volume_name));
 		strncpy(sb->s_volume_name, new_label,
 			sizeof(sb->s_volume_name));

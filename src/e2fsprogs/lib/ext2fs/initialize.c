@@ -66,20 +66,18 @@ errcode_t ext2fs_initialize(const char *name, int flags,
 	errcode_t	retval;
 	struct ext2_super_block *super;
 	int		frags_per_block;
-	int		rem;
-	int		overhead = 0;
+	unsigned int	rem;
+	unsigned int	overhead = 0;
 	blk_t		group_block;
-	int		ipg;
-	int		i, j;
+	unsigned int	ipg;
+	dgrp_t		i;
 	blk_t		numblocks;
 	char		*buf;
-	int		meta_bg_size, meta_bg, has_super, old_desc_blocks;
 
 	if (!param || !param->s_blocks_count)
 		return EXT2_ET_INVALID_ARGUMENT;
 	
-	retval = ext2fs_get_mem(sizeof(struct struct_ext2_filsys),
-				(void **) &fs);
+	retval = ext2fs_get_mem(sizeof(struct struct_ext2_filsys), &fs);
 	if (retval)
 		return retval;
 	
@@ -94,12 +92,12 @@ errcode_t ext2fs_initialize(const char *name, int flags,
 	if (retval)
 		goto cleanup;
 	fs->io->app_data = fs;
-	retval = ext2fs_get_mem(strlen(name)+1, (void **) &fs->device_name);
+	retval = ext2fs_get_mem(strlen(name)+1, &fs->device_name);
 	if (retval)
 		goto cleanup;
 
 	strcpy(fs->device_name, name);
-	retval = ext2fs_get_mem(SUPERBLOCK_SIZE, (void **) &super);
+	retval = ext2fs_get_mem(SUPERBLOCK_SIZE, &super);
 	if (retval)
 		goto cleanup;
 	fs->super = super;
@@ -207,7 +205,7 @@ retry:
 			return EXT2_ET_TOO_MANY_INODES;
 	}
 
-	if (ipg > EXT2_MAX_INODES_PER_GROUP(super))
+	if (ipg > (unsigned) EXT2_MAX_INODES_PER_GROUP(super))
 		ipg = EXT2_MAX_INODES_PER_GROUP(super);
 
 	super->s_inodes_per_group = ipg;
@@ -264,8 +262,8 @@ retry:
 	 * necessary data structures.  If not, we need to get rid of
 	 * it.
 	 */
-	rem = (int) ((super->s_blocks_count - super->s_first_data_block) %
-		     super->s_blocks_per_group);
+	rem = ((super->s_blocks_count - super->s_first_data_block) %
+	       super->s_blocks_per_group);
 	if ((fs->group_desc_count == 1) && rem && (rem < overhead))
 		return EXT2_ET_TOOSMALL;
 	if (rem && (rem < overhead+50)) {
@@ -279,8 +277,7 @@ retry:
 	 * count.
 	 */
 
-	retval = ext2fs_get_mem(strlen(fs->device_name) + 80,
-				(void **) &buf);
+	retval = ext2fs_get_mem(strlen(fs->device_name) + 80, &buf);
 	if (retval)
 		goto cleanup;
 	
@@ -294,10 +291,10 @@ retry:
 	if (retval)
 		goto cleanup;
 
-	ext2fs_free_mem((void **) &buf);
+	ext2fs_free_mem(&buf);
 
 	retval = ext2fs_get_mem((size_t) fs->desc_blocks * fs->blocksize,
-				(void **) &fs->group_desc);
+				&fs->group_desc);
 	if (retval)
 		goto cleanup;
 
@@ -312,53 +309,9 @@ retry:
 	 */
 	group_block = super->s_first_data_block;
 	super->s_free_blocks_count = 0;
-	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
-		old_desc_blocks = fs->super->s_first_meta_bg;
-	else
-		old_desc_blocks = fs->desc_blocks;
 	for (i = 0; i < fs->group_desc_count; i++) {
-		if (i == fs->group_desc_count-1) {
-			numblocks = (fs->super->s_blocks_count -
-				     fs->super->s_first_data_block) %
-					     fs->super->s_blocks_per_group;
-			if (!numblocks)
-				numblocks = fs->super->s_blocks_per_group;
-		} else
-			numblocks = fs->super->s_blocks_per_group;
+		numblocks = ext2fs_reserve_super_and_bgd(fs, i, fs->block_map);
 
-		has_super = ext2fs_bg_has_super(fs, i);
-
-		if (has_super) {
-			ext2fs_mark_block_bitmap(fs->block_map, group_block);
-			numblocks--;
-		}
-		meta_bg_size = (fs->blocksize /
-				sizeof (struct ext2_group_desc));
-		meta_bg = i / meta_bg_size;
-
-		if (!(fs->super->s_feature_incompat &
-		      EXT2_FEATURE_INCOMPAT_META_BG) ||
-		    (meta_bg < fs->super->s_first_meta_bg)) {
-			if (has_super) {
-				for (j=0; j < old_desc_blocks; j++)
-					ext2fs_mark_block_bitmap(fs->block_map,
-							 group_block + j + 1);
-				numblocks -= old_desc_blocks;
-			}
-		} else {
-			if (has_super)
-				has_super = 1;
-			if (((i % meta_bg_size) == 0) ||
-			    ((i % meta_bg_size) == 1) ||
-			    ((i % meta_bg_size) == (meta_bg_size-1))) {
-				ext2fs_mark_block_bitmap(fs->block_map,
-					 group_block + has_super);
-				numblocks--;
-			}
-		}
-		
-		numblocks -= 2 + fs->inode_blocks_per_group;
-		
 		super->s_free_blocks_count += numblocks;
 		fs->group_desc[i].bg_free_blocks_count = numblocks;
 		fs->group_desc[i].bg_free_inodes_count =

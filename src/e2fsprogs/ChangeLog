@@ -1,3 +1,25 @@
+2004-02-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.35
+
+2004-02-21  Matthias Andree <matthias.andree@gmx.de>
+
+	* configure.in: Add -mieee to CFLAGS if we're using GCC and the CPU is
+		an Alpha.
+
+2003-12-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsprogs.spec.in: Add filefrag program to the RPM spec file.
+
+2003-11-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* MCONFIG.in: Make the gcc-wall print more warnings to catch
+		signed vs. unsigned problems.
+
+2003-08-01  Philipp Thomas <pthomas@suse.de>
+
+	* configure.in: Add tests for inttypes.h and intptr_t.
+
 2003-07-25  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.34

@@ -32,7 +32,8 @@
  *
  * Should have a special policy for directories.
  */
-errcode_t ext2fs_new_inode(ext2_filsys fs, ext2_ino_t dir, int mode,
+errcode_t ext2fs_new_inode(ext2_filsys fs, ext2_ino_t dir, 
+			   int mode EXT2FS_ATTR((unused)),
 			   ext2fs_inode_bitmap map, ext2_ino_t *ret)
 {
 	ext2_ino_t	dir_group = 0;
@@ -110,7 +111,7 @@ errcode_t ext2fs_alloc_block(ext2_filsys fs, blk_t goal,
 	char		*buf = 0;
 
 	if (!block_buf) {
-		retval = ext2fs_get_mem(fs->blocksize, (void **) &buf);
+		retval = ext2fs_get_mem(fs->blocksize, &buf);
 		if (retval)
 			return retval;
 		block_buf = buf;
@@ -137,7 +138,7 @@ errcode_t ext2fs_alloc_block(ext2_filsys fs, blk_t goal,
 
 fail:
 	if (buf)
-		ext2fs_free_mem((void **) &buf);
+		ext2fs_free_mem(&buf);
 	return retval;
 }
 

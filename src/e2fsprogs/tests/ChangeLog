@@ -1,3 +1,58 @@
+2004-02-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.35
+
+2004-01-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_selinux: Add test case which tests SE Linux generated symlinks
+		that contain extended attribute data.
+
+2003-12-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_lpf2: New test case to validate reconnecting a directory after
+		creating /lost+found.
+
+2003-09-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* m_meta_bg: New test case to test the meta block group feature.
+
+	* m_raid_opt: New test case to test raid striping
+
+	* run_e2fsck, run_mke2fs, filter_dumpe2fs: Add dumpe2fs output to
+		the test output for comparison.  Add support for
+		compressed expect scripts.
+
+2003-09-01  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_dup_de: Remove spurious rm error messages when htree is
+		enabled
+
+	* run_e2fsck, run_mke2fs: Add new support for mke2fs test cases.
+
+	* m_dasd_bs, m_large_file, m_no_opt, m_std: New test cases
+		exercising mke2fs.
+
+2003-08-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_bad_local_jnl, f_badorphan, f_h_badroot, f_h_reindex,
+		f_special_ea: Update tests to reflect that e2fsck will
+		backup the journal inode.
+
+	* f_journal: Change test to include a backed up journal location
+		in the superblock, and then corrupt the inode table so the
+		journal inode is trashed.  Make sure e2fsck can recover
+		from it.
+
+2003-08-01  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_salveage_dir: Remove HTREE flag from the test image's
+		superblock.  (It is not needed).
+
+	* f_h_reindex: Skip this test of the htree is not enabled
+
+	* f_dup_de: If htree is not enabled, clear the htree flag, and use
+		alternate expect scripts for the test.
+
 2003-07-25  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.34

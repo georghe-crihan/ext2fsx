@@ -1,3 +1,84 @@
+2004-02-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.35
+
+2004-02-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2fs.h (ext2fs_resize_mem): Fix C++ problem.  (Addresses Red
+		Hat Bugzilla #112448; thanks Thomas Woerner from Red Hat.)
+
+2004-02-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* namei.c (follow_link): Correctly deal with symlinks that have
+		extended attribute information.  (Addresses Debian Bug
+		#232328)
+
+2004-01-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2_fs.h: Reserve an extra 4 bytes for the journal backup,
+		which we're using due to a typo in the e2fsck code.  (Oops)
+
+	* swapfs.c (ext2fs_swap_inode): Fix byte swap bug which causes SE
+		Linux created symlinks with mandatory attributes to fail
+		to be properly handled on big endian systems.  (Addresses
+		Debian Bug #228723).
+		(ext2fs_swap_super): Byte swap some new fields in the
+		superblock, including the journal backup fields.
+
+2003-12-02  Theodore Ts'o  <tytso@mit.edu>
+
+	* alloc.c, bb_inode.c, bitops.c, block.c, check_desc.c, closefs.c,
+		dir_iterate.c, dirblock.c, expanddir.c, ext2fs.h,
+		get_pathname.c, icount.c, imager.c, initalize.c, inode.c,
+		lookup.c, openfs.c, read_bb.c, read_bb_file.c,
+		rw_bitmaps.c, unix_io.c, unlink.c, write_bb_file.c: Fix
+		gcc -Wall complaints.  Mainly marking variables as being
+		unsued, and catching signed vs. unsigned comparisons.
+
+2003-09-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* closefs.c (ext2fs_super_and_bgd_loc): New function which
+		centralizes the calculation of the superblock and block
+		group descriptors.
+		(ext2fs_flush): Use ext2fs_super_and_bgd_lock to figure
+		out where to write the superblock and block group
+		descriptors.
+
+	* alloc_sb.c (ext2fs_reserve_super_and_bgd): New function which
+		reserves space in the block bitmap using
+		ext2fs_super_and_bgd_loc.
+
+	* initialize.c (ext2fs_initialize): Use
+		ext2fs_reserve_super_and_bgd to initialize the block bitmap.
+
+2003-08-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* inode_io.c (ext2fs_inode_io_intern2), ext2fs.h: Add new function
+		allows the caller to pass in the inode data structure.
+
+	* fileio.c (ext2fs_file_open2), ext2fs.h: Add new function which
+		allows the caller to pass in the inode to be used in the
+		file I/O.
+
+	* ext2_fs.h: Add a backup of the location of the journal inode
+		blocks to the superblock.
+
+	* mkjournal.c (write_journal_inode): Save the location of the
+		journal inode to the backup location in the superblock.
+
+2003-08-01  Philipp Thomas <pthomas@suse.de>
+
+	* alloc.c, badblocks.c, bb_inode.c, bitmaps.c, block.c, bmap.c,
+		bmove.c, brel_ma.c, closefs.c, dblist.c, dblist_dir.c,
+		dir_iterate.c, dirblock.c, dupfs.c, expanddir.c, ext2fs.h,
+		ext_attr.c, fileio.c, freefs.c, get_pathname.c, icount.c,
+		initialize.c, inode.c, inode_io.c, irel_ma.c, mkdir.c,
+		mkjournal.c, namei.c, newdir.c, openfs.c, rs_bitmap.c,
+		rw_bitmaps.c, test_io.c, unix_io.c: ext2fs_getmem(),
+		ext2fs_free_mem(), and ext2fs_resize_mem() all now take a
+		'void *' instead of a 'void **' in order to avoid pointer
+		aliasing problems with GCC 3.x.
+
 2003-07-25  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.34

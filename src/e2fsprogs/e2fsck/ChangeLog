@@ -1,3 +1,162 @@
+2004-02-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.35
+
+2004-02-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (main, PRS), e2fsck.8.in: Add a new -k option which keeps
+		the existing badblocks list when using the -c option.
+		(Addresses Debian bug #229103)
+
+2004-02-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (PROFILED_LIBS, PROFILED_DEPLIBS): Fix reference to
+		libblkid so that the build will work with --enable-profile
+		(Addresses Sourceforge bug #811408)
+
+2004-02-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.c (e2fsck_run): Clear the SETJMP_OK flag when returning
+		so we don't double longjump into an invalid stack frame.
+		(Thanks to Matthias Andree for providing this fix.)
+
+2004-01-31  Theodore Ts'o  <tytso@mit.edu>
+
+	* problem.c (fix_problem): Don't call print_e2fsck_message if the
+		message is empty; otherwise, the NLS substitution will
+		print the .po header, which is Just Wrong.
+
+2004-01-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass2.c (deallocate_inode_block): Check to make sure the block
+		number is invalid before deallocating it, to avoid core
+		dumping e2fsck.
+
+2003-12-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass3.c (check_directory): When reconnecting a directory, we may
+		need to create a lost+found directory.  This may
+		invalidate our pointer to the directory information, so we
+		must look it up again after calling
+		e2fsck_reconnect_file().  (Addresses Debian bug #219640).
+
+2003-12-10  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.h (E2F_FLAG_RESTARTED): Assign a unique flag bitfield to
+		E2F_FLAG_RESTARTED.  This fixes a bug where if the user
+		specifies an alternate superblock, and the journal needs
+		to be replayed, e2fsck would erroneously assume that
+		journal had been run already without clearing the
+		NEEDS_RECOVERY flag, and bomb out with an error.
+
+2003-12-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c, dict.c, ea_refcount.c, ehandler.c, journal.c,
+		pass1.c, pass1b.c, pass2.c, pass3.c, pass5.c, problem.c,
+		rehash.c, super.c, swapfs.c, unix.c, util.c, e2fsck.h: Fix
+		gcc -Wall nitpicks.
+
+	* recovery.c, jfs_user.h: Sync recovery.c with latest 2.5 kernel
+		version.
+
+2003-12-02  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (main): When testing a disk using e2fsck -c, use the list
+		of new bad blocks to replace the current list of bad
+		blocks.  This way "e2fsck -c" can be used to recover from
+		a corrupted bad block inode.
+
+	* badblocks.c (test_disk): Remove the test_disk() file; e2fsck
+		will just call read_bad_blocks_file() directly with the
+		file parameter set to NULL.
+
+2003-09-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (is_on_batt, check_if_skip): If running on battery, then
+		give an extra grace period before actually forcing a
+		check.  That way the laptop will be biased to waiting
+		until we are on AC power before doing the filesystem
+		check.  (Addresses Debian bug #205177)
+
+2003-09-13  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (check_if_skip): If the number of mounts until the next
+		forced filesystem check is 5 or less, mention this to the
+		user.  (Addresses Debian bug #157194)
+
+	* pass1.c (e2fsck_pass1), problem.h (PR_1_BB_FS_BLOCK), 
+	  problem.c (PR_1_BB_FS_BLOCK, PR_1_BBINODE_BAD_METABLOCK_PROMPT): 
+		Fix up the handling of corrupted indirect blocks in the 
+		bad block.  We now correctly handle the case where there
+		is an overlap between a block group descriptor or
+		a superblock and a bad block indirect block.  In the case
+		where the indirect block is corrupted, we now suggest
+		"e2fsck -c".
+	
+2003-09-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (PRS): Check the returned name from blkid_get_devname and
+		print an error if the requested LABEL/UUID does not exist.
+	
+2003-09-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass1.c (mark_table_blocks): Use the new function
+		ext2fs_reserve_super_and_bgd to calculate the blocks to be
+		reserved.
+
+2003-08-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* util.c (get_backup_sb): Check to make sure the context is passed
+		in non-NULL before trying to dereference it.  Otherwise we
+		might core dump when called to expand %S in a problem
+		description.
+
+	* e2fsck.8.in: Adjust description line so that apropos
+		"ext2" or "ext3" will find the man page.  (Addresses
+		Debian Bug #206845)
+
+2003-08-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* journal.c (e2fsck_move_ext3_journal): When moving the journal or
+		backing up the journal inode, make sure it gets written to
+		all the superblocks.
+
+2003-08-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* journal.c (e2fsck_move_ext3_journal): If the superblock's backup
+		journal information is not set, copy the journal inode
+		information to the superblock.
+		(e2fsck_get_journal): If the journal inode is corrupted,
+		synthesize one from the backup information in the
+		superblock.
+
+	* problem.c, problem.h (PR_0_BACKUP_JNL): Add new problem code
+		which is used when we make a backup of the journal inode.
+
+2003-08-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.h, unix.c (PRS, e2fsck_clear_progbar, 
+		e2fsck_simple_progress): Don't print the ^A and ^B
+		characters which bracket the progress bar when the e2fsck
+		program is talking directly to a tty, but only when it is
+		being piped to another program.  (Addresses Debian bug
+		#204137)
+	* unix.c: Move some initialized variables to the BSS segment to 
+		shrink the size of the e2fsck executable.
+
+2003-08-01  Philipp Thomas <pthomas@suse.de>
+
+	* Include inttypes.h if present.  New macros INT_TO_VOIDPTR and
+		VOIDPTR_TO_INT.  Use them throughout for int<->void *
+		casts to fix 64-bit warnings.
+
+	* dirinfo.c, dx_dirinfo.c, e2fsck.c, ea_refcount.c, journal.c,
+		message.c, pass1.c, pass1b.c, pass2.c, pass3.c, pass4.c,
+		pass5.c, super.c, swapfs.c: ext2fs_getmem(),
+		ext2fs_free_mem(), and ext2fs_resize_mem() all now take a
+		'void *' instead of a 'void **' in order to avoid pointer
+		aliasing problems with GCC 3.x.
+
 2003-07-25  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.34
