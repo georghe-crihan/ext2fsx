@@ -85,6 +85,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <machine/spl.h>
 #include <sys/disk.h>
 #include <sys/syslog.h>
+#include <sys/sysctl.h>
 
 #define mntvnode_mtx mntvnode_slock
 /* XXX Redefining mtx_* */
@@ -1537,11 +1538,81 @@ vfs_stdquotactl(mp, cmd, uid, arg, p)
 	return EOPNOTSUPP;
 }
 
+__private_extern__ int dirchk;
+
 static int
 ext2_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
 	   size_t newlen, struct proc *p)
 {
-   ext2_trace_return(ENOTSUP);
+	int error = 0, intval;
+	
+#ifdef DARWIN7
+	struct sysctl_req *req;
+	struct vfsidctl vc;
+	struct mount *mp;
+	struct nfsmount *nmp;
+	struct vfsquery vq;
+	
+	/*
+		* All names at this level are terminal.
+		*/
+	if(namelen > 1)
+		return ENOTDIR;	/* overloaded */
+	
+	/* common code for "new style" VFS_CTL sysctl, get the mount. */
+	switch (name[0]) {
+	case VFS_CTL_TIMEO:
+	case VFS_CTL_QUERY:
+		req = oldp;
+		error = SYSCTL_IN(req, &vc, sizeof(vc));
+		if (error)
+			return (error);
+		mp = vfs_getvfs(&vc.vc_fsid);
+		if (mp == NULL)
+			return (ENOENT);
+		nmp = VFSTONFS(mp);
+		if (nmp == NULL)
+			return (ENOENT);
+		bzero(&vq, sizeof(vq));
+		VCTLTOREQ(&vc, req);
+	}
+#endif /* DARWIN7 */
+
+	switch (name[0]) {
+		case EXT2_SYSCTL_INT_DIRCHECK:
+			if (!oldp && !newp) {
+				*oldlenp = sizeof(dirchk);
+				return (0);
+			}
+			if (oldp && *oldlenp < sizeof(dirchk)) {
+				*oldlenp = sizeof(dirchk);
+				return (ENOMEM);
+			}
+			if (oldp) {
+				*oldlenp = sizeof(dirchk);
+				error = copyout(&dirchk, oldp, sizeof(dirchk));
+				if (error)
+					return (error);
+			}
+			
+			if (newp && newlen != sizeof(int))
+				return (EINVAL);
+			if (newp) {
+				error = copyin(newp, &intval, sizeof(dirchk));
+				if (!error) {
+					if (1 == intval || 0 == intval)
+						dirchk = intval;
+					else
+						error = EINVAL;
+				}
+			}
+			return (error);
+			
+		default:
+			return (ENOTSUP);
+	}
+
+	return (error);
 }
 
 extern int vfs_opv_numops; /* kernel */
@@ -1623,9 +1694,17 @@ __private_extern__ struct vnodeopv_desc ext2fs_vnodeop_opv_desc;
 __private_extern__ struct vnodeopv_desc ext2fs_specop_opv_desc;
 __private_extern__ struct vnodeopv_desc ext2fs_fifoop_opv_desc;
 
+extern struct sysctl_oid sysctl__vfs_e2fs;
+extern struct sysctl_oid sysctl__vfs_e2fs_dircheck;
+static struct sysctl_oid* e2sysctl_list[] = {
+	&sysctl__vfs_e2fs,
+	&sysctl__vfs_e2fs_dircheck,
+	(struct sysctl_oid *)0
+};
+
 kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
    struct vfsconf	*vfsConf = NULL;
-   int funnelState;
+   int funnelState, i;
    kern_return_t kret;
    
    /* Register our module */
@@ -1657,6 +1736,13 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
       printf ("ext2fs_start: Failed to register with kernel, error = %d\n", kret);
    }
    #endif
+	
+	/* This is required for vfs_sysctl() to call our handler. */
+	sysctl__vfs_e2fs.oid_number = vfsConf->vfc_typenum;
+	/* Register our sysctl's */
+	for (i=0; e2sysctl_list[i]; ++i) {
+		sysctl_register_oid(e2sysctl_list[i]);
+	};
 
 funnel_release:
 	if (vfsConf)
@@ -1671,7 +1757,7 @@ funnel_release:
 }
 
 kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
-   int funnelState;
+   int funnelState, i;
    struct vfsconf *vc;
    
    funnelState = thread_funnel_set(kernel_flock, TRUE);
@@ -1695,6 +1781,13 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
    }
 
 	/* Deregister with the kernel */
+	
+	/* sysctl's first */
+	for (i=0; e2sysctl_list[i]; ++i) ; /* Get Count */
+	for (--i; i >= 0; --i) { /* Work backwords */
+		assert(NULL != e2sysctl_list[i]);
+		sysctl_unregister_oid(e2sysctl_list[i]);
+	};
    
    vfsconf_del(EXT2FS_NAME);
 	FREE(*ext2fs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
