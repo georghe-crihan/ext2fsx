@@ -85,9 +85,11 @@ ext2_ei2i(ei, ip)
 	ip->i_atime = le32_to_cpu(ei->i_atime);
 	ip->i_mtime = le32_to_cpu(ei->i_mtime);
 	ip->i_ctime = le32_to_cpu(ei->i_ctime);
+   /* copy of on disk flags -- not currently modified */
+   ip->i_e2flags = le32_to_cpu(ei->i_flags);
 	ip->i_flags = 0;
-	ip->i_flags |= (le32_to_cpu(ei->i_flags) & EXT2_APPEND_FL) ? APPEND : 0;
-	ip->i_flags |= (le32_to_cpu(ei->i_flags) & EXT2_IMMUTABLE_FL) ? IMMUTABLE : 0;
+	ip->i_flags |= (ip->i_e2flags & EXT2_APPEND_FL) ? APPEND : 0;
+	ip->i_flags |= (ip->i_e2flags & EXT2_IMMUTABLE_FL) ? IMMUTABLE : 0;
 	ip->i_blocks = le32_to_cpu(ei->i_blocks);
 	ip->i_gen = le32_to_cpu(ei->i_generation);
 	ip->i_uid = (u_int32_t)le16_to_cpu(ei->i_uid);
@@ -142,9 +144,20 @@ ext2_i2ei(ip, ei)
 	ei->i_mtime = cpu_to_le32(ip->i_mtime);
 	ei->i_ctime = cpu_to_le32(ip->i_ctime);
 	/*ei->i_flags = ip->i_flags;*/
-	ei->i_flags = 0;
-	ei->i_flags |= cpu_to_le32((ip->i_flags & APPEND) ? EXT2_APPEND_FL: 0);
-	ei->i_flags |= cpu_to_le32((ip->i_flags & IMMUTABLE) ? EXT2_IMMUTABLE_FL: 0);
+	/* ei->i_flags = 0; -- BDB - use flags originally read from disk */
+   
+   if (ip->i_flags & APPEND)
+      ip->i_e2flags |= EXT2_APPEND_FL;
+   else
+      ip->i_e2flags &= ~EXT2_APPEND_FL;
+   
+   if (ip->i_flags & IMMUTABLE)
+      ip->i_e2flags |= EXT2_IMMUTABLE_FL;
+   else
+      ip->i_e2flags &= ~EXT2_IMMUTABLE_FL;
+   
+   ei->i_flags = cpu_to_le32(ip->i_e2flags);
+   
 	ei->i_blocks = cpu_to_le32(ip->i_blocks);
 	ei->i_generation = cpu_to_le32(ip->i_gen);
 	ei->i_uid = cpu_to_le32(ip->i_uid);
