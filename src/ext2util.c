@@ -124,7 +124,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #define NOSUID_OPT			"nosuid"
 #define DEV_OPT				"dev"
 #define NODEV_OPT			"nodev"
-#define LABEL_LENGTH		16
 
 #define FS_LABEL_COMMAND "/usr/local/sbin/e2label"
 
@@ -181,7 +180,7 @@ static void mklabel(u_int8_t *dest, const char *src);
 #endif
 
 int ret = 0;
-char	diskLabel[LABEL_LENGTH + 1];
+char	diskLabel[EXT2_VOL_LABEL_LENGTH + 1];
 
 
 void usage()
@@ -386,9 +385,9 @@ oklabel(const char *src)
 {
     int c, i;
 
-    for (i = 0, c = 0; i <= LABEL_LENGTH; i++) {
+    for (i = 0, c = 0; i <= EXT2_VOL_LABEL_LENGTH; i++) {
         c = (u_char)*src++;
-        if (c < ' ' + !i || strchr("\"*/:;<=>?[\\]|", c))
+        if (c < ' ' + !i || strchr(EXT2_VOL_LABEL_INVAL_CHARS, c))
             break;
     }
     return i && !c;
@@ -403,7 +402,7 @@ mklabel(u_int8_t *dest, const char *src)
 {
     int c, i;
 
-    for (i = 0; i < LABEL_LENGTH; i++) {
+    for (i = 0; i < EXT2_VOL_LABEL_LENGTH; i++) {
 	c = *src ? toupper(*src++) : ' ';
 	*dest++ = !i && c == '\xe5' ? 5 : c;
     }
@@ -554,8 +553,8 @@ static void fs_set_label_file(char *labelPtr)
 {
     int 			fd;
     unsigned char	filename[MAXPATHLEN];
-    unsigned char	label[LABEL_LENGTH],
-        			labelUTF8[LABEL_LENGTH*3],
+    unsigned char	label[EXT2_VOL_LABEL_LENGTH],
+        			labelUTF8[EXT2_VOL_LABEL_LENGTH*3],
         			*tempPtr;
     off_t			offset;
     CFStringRef 	cfstr;
@@ -570,9 +569,9 @@ static void fs_set_label_file(char *labelPtr)
 
     if((labelPtr[0] != '\0') && oklabel(labelPtr)) {
         /* Remove any trailing white space*/
-        labelPtr[LABEL_LENGTH] = '\0';
-        tempPtr = &labelPtr[LABEL_LENGTH - 1];
-        offset = LABEL_LENGTH;
+        labelPtr[EXT2_VOL_LABEL_LENGTH] = '\0';
+        tempPtr = &labelPtr[EXT2_VOL_LABEL_LENGTH - 1];
+        offset = EXT2_VOL_LABEL_LENGTH;
         while(((*tempPtr == '\0')||(*tempPtr == ' ')) && (offset--)) {
             if(*tempPtr == ' ') {
                 *tempPtr = '\0';
@@ -590,12 +589,12 @@ static void fs_set_label_file(char *labelPtr)
         }
 
         if(labelPtr[0] == '\0') {
-            strncpy(label, UNKNOWN_LABEL, LABEL_LENGTH);
+            strncpy(label, UNKNOWN_LABEL, EXT2_VOL_LABEL_LENGTH);
         } else
-            strncpy(label, labelPtr, LABEL_LENGTH);
+            strncpy(label, labelPtr, EXT2_VOL_LABEL_LENGTH);
 
     } else {
-        strncpy(label, UNKNOWN_LABEL, LABEL_LENGTH);
+        strncpy(label, UNKNOWN_LABEL, EXT2_VOL_LABEL_LENGTH);
     }
 
 #if	D2U_LOWER_CASE
@@ -642,7 +641,7 @@ static int fs_probe(char *devpath, int removable, int writable)
    struct ext2_super_block *sbp;
    int fd;
    
-   bzero(diskLabel, LABEL_LENGTH+1);
+   bzero(diskLabel, EXT2_VOL_LABEL_LENGTH+1);
 
    buf = malloc(4096);
    if (!buf)
@@ -666,7 +665,7 @@ static int fs_probe(char *devpath, int removable, int writable)
    
    /* Get the volume name */
    if (0 != sbp->s_volume_name[0])
-      bcopy(sbp->s_volume_name, diskLabel, LABEL_LENGTH);
+      bcopy(sbp->s_volume_name, diskLabel, EXT2_VOL_LABEL_LENGTH);
    
    fs_set_label_file(diskLabel);
 
