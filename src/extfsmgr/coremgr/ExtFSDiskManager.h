@@ -26,6 +26,7 @@
 /*!
 @header ExtFS Disk Manager
 ExtFS Disk Manager allows client applications to control disks, and be notified of disk events (mount, unmount, etc).
+The Framework is thread safe.
 */
 #import <Cocoa/Cocoa.h>
 #import <ExtFSDiskManager/ExtFSMedia.h>
