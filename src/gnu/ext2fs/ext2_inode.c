@@ -53,15 +53,19 @@
 #ifndef APPLE
 #include <vm/vm.h>
 #include <vm/vm_extern.h>
+
+/* Darwin (APPLE) flags for operation type in getblk() */
+#define	BLK_READ	0	/* buffer for read */
+#define	BLK_WRITE	0	/* buffer for write */
+#define	BLK_PAGEIN	0	/* buffer for pagein */
+#define	BLK_PAGEOUT	0	/* buffer for pageout */
+#define	BLK_META	0	/* buffer for metadata */
 #else
 #include <sys/namei.h> /* cache_purge() */
 #include <sys/ubc.h>
 #include <sys/trace.h>
-#endif
-
-#ifdef APPLE
 #include "ext2_apple.h"
-#endif
+#endif /* !APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -494,11 +498,7 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	 * explicitly instead of letting bread do everything for us.
 	 */
 	vp = ITOV(ip);
-	bp = getblk(vp, lbn, (int)fs->s_blocksize, 0, 0
-   #ifdef APPLE
-   , BLK_META
-   #endif
-   );
+	bp = getblk(vp, lbn, (int)fs->s_blocksize, 0, 0, BLK_META);
 	if (bp->b_flags & (B_DONE | B_DELWRI)) {
    #ifdef APPLE
    trace(TR_BREADHIT, pack(vp, fs->fs_bsize), lbn);

@@ -57,6 +57,13 @@
 #include <sys/stat.h>
 #ifndef APPLE
 #include <sys/mutex.h>
+
+/* Darwin (APPLE) flags for operation type in getblk() */
+#define	BLK_READ	0	/* buffer for read */
+#define	BLK_WRITE	0	/* buffer for write */
+#define	BLK_PAGEIN	0	/* buffer for pagein */
+#define	BLK_PAGEOUT	0	/* buffer for pageout */
+#define	BLK_META	0	/* buffer for metadata */
 #else
 #include <machine/spl.h>
 #include <sys/disk.h>
@@ -73,7 +80,7 @@ static int vn_isdisk(struct vnode *, int *);
 #include <ufs/ufs/ufsmount.h>
 
 typedef struct ufs_args ext2_args;
-#endif
+#endif /* !APPLE */
 
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/inode.h>
@@ -1504,11 +1511,7 @@ ext2_sbupdate(mp, waitfor)
 /*
 printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 */
-	bp = getblk(mp->um_devvp, SBLOCK, fs->s_blocksize, 0, 0
-   #ifdef APPLE
-   ,BLK_META
-   #endif
-   );
+	bp = getblk(mp->um_devvp, SBLOCK, fs->s_blocksize, 0, 0, BLK_META);
 	bcopy((caddr_t)es, (bp->b_data+SBOFF), (u_int)sizeof(struct ext2_super_block));
 	if (waitfor == MNT_WAIT)
 		error = bwrite(bp);

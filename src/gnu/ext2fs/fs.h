@@ -153,7 +153,8 @@ extern u_char *fragtbl[];
 #define  unlock_super(devvp) 	VOP_UNLOCK(devvp, 0, curthread)
 
 #ifdef APPLE
-#define BUF_LOCK(b,l)
+/* Buffer, Lock, InterLock */
+#define BUF_LOCK(b,l,il)
 #endif
 
 /*
@@ -174,7 +175,7 @@ extern u_char *fragtbl[];
 	s = splbio(); \
 	flags = (bp)->b_flags; \
 	(bp)->b_flags &= ~(B_DIRTY | B_LOCKED); \
-	BUF_LOCK(bp, LK_EXCLUSIVE); \
+	BUF_LOCK(bp, LK_EXCLUSIVE, NULL); \
 	bremfree(bp); \
 	splx(s); \
 	if (flags & B_DIRTY) \

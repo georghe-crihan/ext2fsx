@@ -100,20 +100,19 @@
 #include <vm/vnode_pager.h>
 
 #include <fs/fifofs/fifo.h>
-#endif /* APPLE */
+#endif /* !APPLE */
 
 #include <sys/signalvar.h>
 #include <ufs/ufs/dir.h>
 
 #ifdef APPLE
-#include <machine/spl.h>
 #include <vfs/vfs_support.h>
 
 #define vfs_timestamp nanotime
 
 #include <xnu/bsd/miscfs/fifofs/fifo.h>
 #include "ext2_apple.h"
-#endif
+#endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -181,7 +180,7 @@ static int ext2fs_truncate (struct vop_truncate_args *);
 #define vfs_cache_lookup cache_lookup
 
 extern int (**fifo_vnodeop_p)(void *); /* From kernel */
-#endif
+#endif /* APPLE */
 
 #ifndef APPLE
 #define __private_extern__ static
@@ -358,7 +357,7 @@ __private_extern__ struct vnodeopv_desc ext2fs_fifoop_opv_desc =
 	VNODEOP_SET(ext2fs_vnodeop_opv_desc);
 	VNODEOP_SET(ext2fs_specop_opv_desc);
 	VNODEOP_SET(ext2fs_fifoop_opv_desc);
-#endif
+#endif /* !APPLE */
 
 #include <gnu/ext2fs/ext2_readwrite.c>
 
@@ -945,87 +944,22 @@ ext2_fsync(ap)
 		struct thread *a_td;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
-	struct buf *bp;
-	struct buf *nbp;
-	int s;
-   
    ext2_trace_enter();
-
-	/* 
-	 * XXX why is all this fs specific?
-	 */
 
 #ifdef APPLE
    /*
 	 * Write out any clusters.
 	 */
-	cluster_push(vp);
+	cluster_push(ap->a_vp);
 #endif
 
 	/*
 	 * Flush all dirty buffers associated with a vnode.
 	 */
-	ext2_discard_prealloc(VTOI(vp));
+	ext2_discard_prealloc(VTOI(ap->a_vp));
+   
+   vop_stdfsync(ap);
 
-loop:
-	VI_LOCK(vp);
-	s = splbio();
-   #ifndef APPLE
-	for (bp = TAILQ_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
-		nbp = TAILQ_NEXT(bp, b_vnbufs);
-   #else
-   for (bp = LIST_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
-		nbp = LIST_NEXT(bp, b_vnbufs);
-   #endif /* APPLE */
-		VI_UNLOCK(vp);
-      #ifndef APPLE
-		if (BUF_LOCK(bp, LK_EXCLUSIVE | LK_NOWAIT)) {
-			VI_LOCK(vp);
-			continue;
-		}
-      #else
-      if ((bp->b_flags & B_BUSY)) {
-         VI_LOCK(vp);
-         continue;
-      }
-      #endif
-		if ((bp->b_flags & B_DELWRI) == 0)
-			panic("ext2_fsync: not dirty");
-		bremfree(bp);
-      #ifdef APPLE
-      bp->b_flags |= B_BUSY;
-      #endif
-		splx(s);
-		/*
-		 * Wait for I/O associated with indirect blocks to complete,
-		 * since there is no way to quickly wait for them below.
-		 */
-		if (bp->b_vp == vp || ap->a_waitfor == MNT_NOWAIT)
-			(void) bawrite(bp);
-		else
-			(void) bwrite(bp);
-		goto loop;
-	}
-	if (ap->a_waitfor == MNT_WAIT) {
-		while (vp->v_numoutput) {
-         vp->v_iflag |= VI_BWAIT;
-			msleep(&vp->v_numoutput, VI_MTX(vp), 
-			    PRIBIO + 1, "e2fsyn", 0);
-		}
-#if DIAGNOSTIC
-      #ifndef APPLE
-		if (!TAILQ_EMPTY(&vp->v_dirtyblkhd)) {
-      #else
-      if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
-      #endif
-			vprint("ext2_fsync: dirty", vp);
-			goto loop;
-		}
-#endif
-	}
-	VI_UNLOCK(vp);
-	splx(s);
 	return (ext2_update(ap->a_vp, ap->a_waitfor == MNT_WAIT));
 }
 
@@ -2035,7 +1969,7 @@ ext2_print(ap)
 	struct vnode *vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 
-	printf("ino %lu, on dev %s (%d, %d)", (u_long)ip->i_number,
+	printf("\tino %lu, on dev %s (%d, %d)", (u_long)ip->i_number,
 	    devtoname(ip->i_dev), major(ip->i_dev), minor(ip->i_dev));
 	#ifndef APPLE
    if (vp->v_type == VFIFO)

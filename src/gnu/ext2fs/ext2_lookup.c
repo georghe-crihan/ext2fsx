@@ -232,8 +232,7 @@ ext2_readdir(ap)
 					dp = (struct ext2_dir_entry_2 *)
 					    ((char *)dp + le16_to_cpu(dp->rec_len)); 
 					error = 
-					  uiomove((caddr_t)&dstdp,
-						  dstdp.d_reclen, uio);
+					  uiomove((caddr_t)&dstdp, dstdp.d_reclen, uio);
 					if (!error)
 						ncookies++;
 				} else

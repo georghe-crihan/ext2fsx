@@ -60,7 +60,7 @@
 #elif __ppc__
 #include <gnu/ext2fs/ppc-bitops.h>
 #else
-#error please provide bit operation functions
+#error Provide a bitops.h file, please!
 #endif
 
 /* this is supposed to mark a buffer dirty on ready for delayed writing
