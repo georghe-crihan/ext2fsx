@@ -46,7 +46,9 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_vnops.c,v 1.73 2002/09/25 02:34:56 jeff Exp $
  */
 
+#ifndef APPLE
 #include "opt_suiddir.h"
+#endif
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -54,7 +56,9 @@
 #include <sys/kernel.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+#ifndef APPLE
 #include <sys/bio.h>
+#endif
 #include <sys/buf.h>
 #include <sys/proc.h>
 #include <sys/mount.h>
@@ -63,18 +67,31 @@
 #include <sys/vnode.h>
 #include <sys/namei.h>
 #include <sys/lockf.h>
+#ifndef APPLE
 #include <sys/event.h>
+#endif
 #include <sys/conf.h>
 #include <sys/file.h>
 
+#ifndef APPLE
 #include <vm/vm.h>
 #include <vm/vm_extern.h>
 #include <vm/vnode_pager.h>
 
 #include <fs/fifofs/fifo.h>
+#endif /* APPLE */
 
 #include <sys/signalvar.h>
 #include <ufs/ufs/dir.h>
+
+#ifdef APPLE
+#include <machine/spl.h>
+#include <vfs/vfs_support.h>
+
+#define vfs_timestamp nanotime
+
+#include "ext2_apple.h"
+#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -94,7 +111,9 @@ static int ext2_close(struct vop_close_args *);
 static int ext2_create(struct vop_create_args *);
 static int ext2_fsync(struct vop_fsync_args *);
 static int ext2_getattr(struct vop_getattr_args *);
+#ifndef APPLE
 static int ext2_kqfilter(struct vop_kqfilter_args *ap);
+#endif
 static int ext2_link(struct vop_link_args *);
 static int ext2_mkdir(struct vop_mkdir_args *);
 static int ext2_mknod(struct vop_mknod_args *);
@@ -111,16 +130,32 @@ static int ext2_strategy(struct vop_strategy_args *);
 static int ext2_symlink(struct vop_symlink_args *);
 static int ext2_write(struct vop_write_args *);
 static int ext2fifo_close(struct vop_close_args *);
+#ifndef APPLE
 static int ext2fifo_kqfilter(struct vop_kqfilter_args *);
+#endif
 static int ext2fifo_read(struct vop_read_args *);
 static int ext2fifo_write(struct vop_write_args *);
 static int ext2spec_close(struct vop_close_args *);
 static int ext2spec_read(struct vop_read_args *);
 static int ext2spec_write(struct vop_write_args *);
+#ifndef APPLE
 static int filt_ext2read(struct knote *kn, long hint);
 static int filt_ext2write(struct knote *kn, long hint);
 static int filt_ext2vnode(struct knote *kn, long hint);
 static void filt_ext2detach(struct knote *kn);
+#endif
+
+#ifdef APPLE
+#define vop_defaultop vn_default_error
+#define vop_stdislocked nop_islocked
+#define vop_stdlock nop_lock
+#define vop_stdunlock nop_unlock
+
+#define spec_vnoperate vn_default_error
+#define fifo_vnoperate vn_default_error
+
+#define vfs_cache_lookup cache_lookup
+#endif
 
 /* Global vfs data structures for ext2. */
 vop_t **ext2_vnodeop_p;
@@ -134,7 +169,9 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_create_desc,		(vop_t *) ext2_create },
 	{ &vop_fsync_desc,		(vop_t *) ext2_fsync },
 	{ &vop_getattr_desc,		(vop_t *) ext2_getattr },
+   #ifndef APPLE
 	{ &vop_getwritemount_desc,	(vop_t *) vop_stdgetwritemount },
+   #endif
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
 	{ &vop_islocked_desc,		(vop_t *) vop_stdislocked },
 	{ &vop_link_desc,		(vop_t *) ext2_link },
@@ -144,8 +181,10 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_mknod_desc,		(vop_t *) ext2_mknod },
 	{ &vop_open_desc,		(vop_t *) ext2_open },
 	{ &vop_pathconf_desc,		(vop_t *) ext2_pathconf },
+   #ifndef APPLE
 	{ &vop_poll_desc,		(vop_t *) vop_stdpoll },
 	{ &vop_kqfilter_desc,		(vop_t *) ext2_kqfilter },
+   #endif
 	{ &vop_print_desc,		(vop_t *) ext2_print },
 	{ &vop_read_desc,		(vop_t *) ext2_read },
 	{ &vop_readdir_desc,		(vop_t *) ext2_readdir },
@@ -195,7 +234,9 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 	{ &vop_getattr_desc,		(vop_t *) ext2_getattr },
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
 	{ &vop_islocked_desc,		(vop_t *) vop_stdislocked },
+   #ifndef APPLE
 	{ &vop_kqfilter_desc,		(vop_t *) ext2fifo_kqfilter },
+   #endif
 	{ &vop_lock_desc,		(vop_t *) vop_stdlock },
 	{ &vop_print_desc,		(vop_t *) ext2_print },
 	{ &vop_read_desc,		(vop_t *) ext2fifo_read },
@@ -208,9 +249,11 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 static struct vnodeopv_desc ext2fs_fifoop_opv_desc =
 	{ &ext2_fifoop_p, ext2_fifoop_entries };
 
+#ifndef APPLE
 	VNODEOP_SET(ext2fs_vnodeop_opv_desc);
 	VNODEOP_SET(ext2fs_specop_opv_desc);
 	VNODEOP_SET(ext2fs_fifoop_opv_desc);
+#endif
 
 #include <gnu/ext2fs/ext2_readwrite.c>
 
@@ -340,7 +383,9 @@ ext2_close(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
+   #ifndef APPLE
 	struct mount *mp;
+   #endif
 
 	VI_LOCK(vp);
 	if (vp->v_usecount > 1) {
@@ -359,9 +404,13 @@ ext2_close(ap)
 		 * repeating the vrele operation.
 		 */
 		if (vp->v_type == VREG && VTOI(vp)->i_nlink == 0) {
-			(void) vn_start_write(vp, &mp, V_WAIT);
+			#ifndef APPLE
+         (void) vn_start_write(vp, &mp, V_WAIT);
+         #endif
 			vrele(vp);
+         #ifndef APPLE
 			vn_finished_write(mp);
+         #endif
 			return (EAGAIN);
 		}
 	}
@@ -404,8 +453,17 @@ ext2_access(ap)
 	if ((mode & VWRITE) && (ip->i_flags & (IMMUTABLE | SF_SNAPSHOT)))
 		return (EPERM);
 
-	error = vaccess(vp->v_type, ip->i_mode, ip->i_uid, ip->i_gid,
-	    ap->a_mode, ap->a_cred, NULL);
+	error = vaccess(
+       #ifndef APPLE
+       vp->v_type,
+       #endif
+       ip->i_mode, ip->i_uid, ip->i_gid,
+	    ap->a_mode, ap->a_cred
+       #ifndef APPLE
+       , NULL);
+       #else
+       );
+       #endif
 	return (error);
 }
 
@@ -443,7 +501,12 @@ ext2_getattr(ap)
 	vap->va_flags = ip->i_flags;
 	vap->va_gen = ip->i_gen;
 	vap->va_blocksize = vp->v_mount->mnt_stat.f_iosize;
-	vap->va_bytes = dbtob((u_quad_t)ip->i_blocks);
+	vap->va_bytes =
+   #ifndef APPLE
+   dbtob((u_quad_t)ip->i_blocks);
+   #else
+   dbtob((u_quad_t)ip->i_blocks, DEV_BSIZE);
+   #endif
 	vap->va_type = IFTOVT(ip->i_mode);
 	vap->va_filerev = ip->i_modrev;
 	return (0);
@@ -480,12 +543,15 @@ ext2_setattr(ap)
 	if (vap->va_flags != VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
 			return (EROFS);
-		/*
+		#ifndef APPLE
+      /*
 		 * Callers may only modify the file flags on objects they
 		 * have VADMIN rights for.
 		 */
 		if ((error = VOP_ACCESS(vp, VADMIN, cred, td)))
 			return (error);
+      #endif /* APPLE */
+      
 		/*
 		 * Unprivileged processes and privileged processes in
 		 * jail() are not permitted to unset system flags, or
@@ -493,11 +559,19 @@ ext2_setattr(ap)
 		 * Privileged non-jail processes may not modify system flags
 		 * if securelevel > 0 and any existing system flags are set.
 		 */
+      #ifndef APPLE
 		if (!suser_cred(cred, PRISON_ROOT)) {
+      #else
+      if (!suser(cred, &td->p_acflag)) {
+      #endif
 			if (ip->i_flags
 			    & (SF_NOUNLINK | SF_IMMUTABLE | SF_APPEND)) {
-				error = securelevel_gt(cred, 0);
+				#ifndef APPLE
+            error = securelevel_gt(cred, 0);
 				if (error)
+            #else
+            error = EPERM;
+            #endif
 					return (error);
 			}
 			ip->i_flags = vap->va_flags;
@@ -556,7 +630,11 @@ ext2_setattr(ap)
 		 * If times is non-NULL, ... The caller must be the owner of
 		 * the file or be the super-user.
 		 */
+      #ifndef APPLE
 		if ((error = VOP_ACCESS(vp, VADMIN, cred, td)) &&
+      #else
+      if (
+      #endif
 		    ((vap->va_vaflags & VA_UTIMES_NULL) == 0 ||
 		    (error = VOP_ACCESS(vp, VWRITE, cred, td))))
 			return (error);
@@ -583,7 +661,9 @@ ext2_setattr(ap)
 			return (EROFS);
 		error = ext2_chmod(vp, (int)vap->va_mode, cred, td);
 	}
+   #ifndef APPLE
 	VN_KNOTE(vp, NOTE_ATTRIB);
+   #endif
 	return (error);
 }
 
@@ -599,8 +679,11 @@ ext2_chmod(vp, mode, cred, td)
 	struct thread *td;
 {
 	struct inode *ip = VTOI(vp);
+   #ifndef APPLE
 	int error;
+   #endif
 
+   #ifndef APPLE
 	/*
 	 * To modify the permissions on a file, must possess VADMIN
 	 * for that file.
@@ -613,6 +696,9 @@ ext2_chmod(vp, mode, cred, td)
 	 * process is not a member of.
 	 */
 	if (suser_cred(cred, PRISON_ROOT)) {
+   #else
+   if (suser(cred, &td->p_acflag)) {
+   #endif /* APPLE */
 		if (vp->v_type != VDIR && (mode & S_ISTXT))
 			return (EFTYPE);
 		if (!groupmember(ip->i_gid, cred) && (mode & ISGID))
@@ -645,12 +731,14 @@ ext2_chown(vp, uid, gid, cred, td)
 		uid = ip->i_uid;
 	if (gid == (gid_t)VNOVAL)
 		gid = ip->i_gid;
-	/*
+	#ifndef APPLE
+   /*
 	 * To modify the ownership of a file, must possess VADMIN
 	 * for that file.
 	 */
 	if ((error = VOP_ACCESS(vp, VADMIN, cred, td)))
 		return (error);
+   #endif
 	/*
 	 * To change the owner of a file, or change the group of a file
 	 * to a group of which we are not a member, the caller must
@@ -658,14 +746,23 @@ ext2_chown(vp, uid, gid, cred, td)
 	 */
 	if ((uid != ip->i_uid || 
 	    (gid != ip->i_gid && !groupmember(gid, cred))) &&
+       #ifndef APPLE
 	    (error = suser_cred(cred, PRISON_ROOT)))
+       #else
+       (error = suser(cred, &td->p_acflag)))
+       #endif
 		return (error);
 	ogid = ip->i_gid;
 	ouid = ip->i_uid;
 	ip->i_gid = gid;
 	ip->i_uid = uid;
 	ip->i_flag |= IN_CHANGE;
-	if (suser_cred(cred, PRISON_ROOT) && (ouid != uid || ogid != gid))
+   #ifndef APPLE
+	if (suser_cred(cred, PRISON_ROOT)
+   #else
+   if (suser(cred, &td->p_acflag)
+   #endif
+   && (ouid != uid || ogid != gid))
 		ip->i_mode &= ~(ISUID | ISGID);
 	return (0);
 }
@@ -700,13 +797,20 @@ ext2_fsync(ap)
 loop:
 	VI_LOCK(vp);
 	s = splbio();
+   #ifndef APPLE
 	for (bp = TAILQ_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
 		nbp = TAILQ_NEXT(bp, b_vnbufs);
+   #else
+   for (bp = LIST_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
+		nbp = LIST_NEXT(bp, b_vnbufs);
+   #endif /* APPLE */
 		VI_UNLOCK(vp);
+      #ifndef APPLE
 		if (BUF_LOCK(bp, LK_EXCLUSIVE | LK_NOWAIT)) {
 			VI_LOCK(vp);
 			continue;
 		}
+      #endif
 		if ((bp->b_flags & B_DELWRI) == 0)
 			panic("ext2_fsync: not dirty");
 		bremfree(bp);
@@ -723,12 +827,21 @@ loop:
 	}
 	if (ap->a_waitfor == MNT_WAIT) {
 		while (vp->v_numoutput) {
-			vp->v_iflag |= VI_BWAIT;
+			#ifndef APPLE
+         vp->v_iflag |= VI_BWAIT;
 			msleep(&vp->v_numoutput, VI_MTX(vp), 
 			    PRIBIO + 1, "e2fsyn", 0);
+         #else
+         tsleep(&vp->v_numoutput,
+			    PRIBIO + 1, "e2fsyn", 0);
+         #endif /* APPLE */
 		}
 #if DIAGNOSTIC
+      #ifndef APPLE
 		if (!TAILQ_EMPTY(&vp->v_dirtyblkhd)) {
+      #else
+      if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
+      #endif
 			vprint("ext2_fsync: dirty", vp);
 			goto loop;
 		}
@@ -780,7 +893,13 @@ ext2_mknod(ap)
 	(*vpp)->v_type = VNON;
 	ino = ip->i_number;	/* Save this before vgone() invalidates ip. */
 	vgone(*vpp);
+   #ifndef APPLE
 	error = VFS_VGET(ap->a_dvp->v_mount, ino, LK_EXCLUSIVE, vpp);
+   #else
+   error = VFS_VGET(ap->a_dvp->v_mount, (void*)ino, vpp);
+   if (!error)
+      vn_lock(*vpp, LK_EXCLUSIVE|LK_RETRY, current_proc());
+   #endif
 	if (error) {
 		*vpp = NULL;
 		return (error);
@@ -1506,12 +1625,19 @@ ext2_readlink(ap)
 int
 ext2_strategy(ap)
 	struct vop_strategy_args /* {
-		struct vnode *a_vp;
+		#ifndef APPLE
+      struct vnode *a_vp;
+      #endif
 		struct buf *a_bp;
 	} */ *ap;
 {
 	struct buf *bp = ap->a_bp;
-	struct vnode *vp = ap->a_vp;
+	struct vnode *vp =
+   #ifndef APPLE
+   ap->a_vp;
+   #else
+   bp->b_vp;
+   #endif
 	struct inode *ip;
 	int32_t blkno;
 	int error;
@@ -1524,7 +1650,11 @@ ext2_strategy(ap)
 		bp->b_blkno = blkno;
 		if (error) {
 			bp->b_error = error;
+         #ifndef APPLE
 			bp->b_ioflags |= BIO_ERROR;
+         #else
+         bp->b_flags |= B_ERROR;
+         #endif
 			bufdone(bp);
 			return (error);
 		}
@@ -1537,7 +1667,12 @@ ext2_strategy(ap)
 	}
 	vp = ip->i_devvp;
 	bp->b_dev = vp->v_rdev;
+   #ifndef APPLE
 	VOP_STRATEGY(vp, bp);
+   #else
+   bp->b_vp = vp;
+   VOP_STRATEGY(bp);
+   #endif
 	return (0);
 }
 
@@ -1555,8 +1690,10 @@ ext2_print(ap)
 
 	printf("ino %lu, on dev %s (%d, %d)", (u_long)ip->i_number,
 	    devtoname(ip->i_dev), major(ip->i_dev), minor(ip->i_dev));
-	if (vp->v_type == VFIFO)
+	#ifndef APPLE
+   if (vp->v_type == VFIFO)
 		fifo_printinfo(vp);
+   #endif
 	printf("\n");
 	return (0);
 }
@@ -1712,6 +1849,7 @@ ext2fifo_close(ap)
 	return (VOCALL(fifo_vnodeop_p, VOFFSET(vop_close), ap));
 }
 
+#ifndef APPLE
 /*
  * Kqfilter wrapper for fifos.
  *
@@ -1728,6 +1866,7 @@ ext2fifo_kqfilter(ap)
 		error = ext2_kqfilter(ap);
 	return (error);
 }
+#endif
 
 /*
  * Return POSIX pathconf information applicable to ext2 filesystems.
@@ -1816,7 +1955,11 @@ ext2_vinit(mntp, specops, fifoops, vpp)
 
 	}
 	if (ip->i_number == ROOTINO)
+      #ifndef APPLE
 		vp->v_vflag |= VV_ROOT;
+      #else
+      vp->v_flag |= VROOT;
+      #endif
 	/*
 	 * Initialize modrev times
 	 */
@@ -1883,7 +2026,11 @@ ext2_makeinode(mode, dvp, vpp, cnp)
 	tvp->v_type = IFTOVT(mode);	/* Rest init'd in getnewvnode(). */
 	ip->i_nlink = 1;
 	if ((ip->i_mode & ISGID) && !groupmember(ip->i_gid, cnp->cn_cred) &&
+      #ifndef APPLE
 	    suser_cred(cnp->cn_cred, PRISON_ROOT))
+      #else
+       suser(cnp->cn_cred, &cnp->cn_proc->p_acflag))
+      #endif
 		ip->i_mode &= ~ISGID;
 
 	if (cnp->cn_flags & ISWHITEOUT)
@@ -1913,6 +2060,7 @@ bad:
 	return (error);
 }
 
+#ifndef APPLE
 static struct filterops ext2read_filtops = 
 	{ 1, NULL, filt_ext2detach, filt_ext2read };
 static struct filterops ext2write_filtops = 
@@ -2015,3 +2163,4 @@ filt_ext2vnode(struct knote *kn, long hint)
 	}
 	return (kn->kn_fflags != 0);
 }
+#endif /* APPLE */
