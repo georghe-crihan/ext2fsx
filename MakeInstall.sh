@@ -43,7 +43,7 @@ if [ ! -d "${BUILD}" ]; then
 	exit 1
 fi
 
-SYMS="${BUILD}/.symbols.tgz"
+SYMS="${BUILD}/.symbols.tar"
 
 usage() {
 	echo "Usage: $0 [options] 'version string'"
@@ -76,6 +76,7 @@ touch ${BUILDLOG}
 mkdir -p "${INSTALL}/System/Library/Extensions"
 mkdir -p "${INSTALL}/System/Library/Filesystems"
 mkdir -p "${INSTALL}/Library/PreferencePanes"
+mkdir -p "${INSTALL}/Library/Frameworks"
 mkdir "${INSTALL}/sbin"
 mkdir -p "${INSTALL}/usr/share/man/man8"
 mkdir -p "${INSTALL}/usr/local/lib"
@@ -139,6 +140,10 @@ cp -p "${BUILD}/fsck_ext2" "${INSTALL}/sbin"
 cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
 cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
 
+#frameworks
+echo "Installing frameworks..."
+cp -pR "${BUILD}/ExtFSDiskManager.framework" "${INSTALL}/Library/Frameworks/"
+
 echo "Installing kernel driver(s)..."
 PANK="${BUILD}/ext2fs_panther.kext"
 JAGK="${BUILD}/ext2fs_jag.kext"
@@ -197,28 +202,36 @@ cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSP
 
 # strip for prod build
 if [ "${DBG}" == "" ]; then
-	echo "Stripping driver symbols..."
 	# make archive of full symbols
-	cd "${INSTALL}/System/Library/Extensions"
+	cd "${INSTALL}"
 	if [ -f "${SYMS}" ]; then
 		rm "${SYMS}"
 	fi
-	tar -czf "${SYMS}" .
+	tar -cf "${SYMS}" ./System/Library/Extensions
+	tar -rf "${SYMS}" ./Library/Frameworks/ExtFSDiskManager.framework
+	
+	echo "Stripping driver symbols..."
+	cd "./System/Library/Extensions"
 	for i in `ls -Fd *.kext`
 	do
 		strip -S "${i}${KMOD}"
 	done
+	
+	echo "Stripping frameworks..."
+	strip -x "${INSTALL}/Library/Frameworks/ExtFSDiskManager.framework/Versions/Current/ExtFSDiskManager"
+	
 	cd "${EXT2BUILD}"
 fi
 
 # set perms
 echo "Setting permissions..."
 chmod -R go-w "${INSTALL}"
-chmod 775 "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes"
+chmod 775 "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes" "${INSTALL}/Library/Frameworks"
 chmod -R u-w "${INSTALL}"/sbin/* "${INSTALL}"/usr/local/bin/* "${INSTALL}"/usr/local/sbin/* \
 "${INSTALL}"/usr/local/lib/*
 sudo chown -R root:wheel "${INSTALL}"
-sudo chgrp -R admin "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes"
+sudo chgrp admin "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes" \
+"${INSTALL}/Library/Frameworks"
 
 echo "Build done."
 
@@ -275,7 +288,8 @@ cp -p "${EXT2DIR}/Ext2Uninstall.command" "${VOL}"
 chmod 555 "${VOL}/Ext2Uninstall.command"
 
 if [ -f "${SYMS}" ]; then
-	cp "${SYMS}" "${VOL}"
+	cp "${SYMS}" "${VOL}/"
+	gzip -9 "${VOL}/"`basename "${SYMS}"`
 	rm "${SYMS}"
 fi
 
