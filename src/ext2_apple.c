@@ -53,6 +53,7 @@
 
 #include "ext2_apple.h"
 
+#if 0
 /* Cribbed from FreeBSD kern/kern_prot.c */
 /*
  * Check if gid is a member of the group set.
@@ -70,4 +71,84 @@ groupmember(gid, cred)
 		if (*gp == gid)
 			return (1);
 	return (0);
+}
+#endif
+
+/* Cribbed from FreeBSD kern/vfs_subr.c */
+/* This will cause the KEXT to break if/when the kernel proper defines this routine. */
+/*
+ * Common filesystem object access control check routine.  Accepts a
+ * vnode's type, "mode", uid and gid, requested access mode, credentials,
+ * and optional call-by-reference privused argument allowing vaccess()
+ * to indicate to the caller whether privilege was used to satisfy the
+ * request (obsoleted).  Returns 0 on success, or an errno on failure.
+ */
+int
+vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
+	mode_t file_mode;
+	uid_t file_uid;
+	gid_t file_gid;
+	mode_t acc_mode;
+	struct ucred *cred;
+{
+	mode_t dac_granted;
+
+	/*
+	 * Look for a normal, non-privileged way to access the file/directory
+	 * as requested.  If it exists, go with that.
+	 */
+
+	dac_granted = 0;
+
+	/* Check the owner. */
+	if (cred->cr_uid == file_uid) {
+		if (file_mode & S_IXUSR)
+			dac_granted |= VEXEC;
+		if (file_mode & S_IRUSR)
+			dac_granted |= VREAD;
+		if (file_mode & S_IWUSR)
+			dac_granted |= (VWRITE);
+
+		if ((acc_mode & dac_granted) == acc_mode)
+			return (0);
+
+		goto privcheck;
+	}
+
+	/* Otherwise, check the groups (first match) */
+	if (groupmember(file_gid, cred)) {
+		if (file_mode & S_IXGRP)
+			dac_granted |= VEXEC;
+		if (file_mode & S_IRGRP)
+			dac_granted |= VREAD;
+		if (file_mode & S_IWGRP)
+			dac_granted |= (VWRITE);
+
+		if ((acc_mode & dac_granted) == acc_mode)
+			return (0);
+
+		goto privcheck;
+	}
+
+	/* Otherwise, check everyone else. */
+	if (file_mode & S_IXOTH)
+		dac_granted |= VEXEC;
+	if (file_mode & S_IROTH)
+		dac_granted |= VREAD;
+	if (file_mode & S_IWOTH)
+		dac_granted |= (VWRITE);
+	if ((acc_mode & dac_granted) == acc_mode)
+		return (0);
+
+privcheck:
+   #if 0
+	if (!suser_cred(cred, PRISON_ROOT)) {
+		/* XXX audit: privilege used */
+		if (privused != NULL)
+			*privused = 1;
+		return (0);
+	}
+   #endif
+
+	return (EACCES);
 }
