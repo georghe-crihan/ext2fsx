@@ -39,6 +39,7 @@ There should only be one instance of this class.
 {
 @private
    id _media;
+   id _pending;
 }
 
 /*!
@@ -172,6 +173,13 @@ a human-readable description of the error suitable for display
 to a user.
 */
 extern NSString *ExtMediaKeyOpFailureErrorString;
+/*!
+@const ExtMediaKeyOpFailureMsgString
+@abstract Key for ExtFSMediaNotificationOpFailure to access
+a human-readable message describing further details about an
+error code. This key may not be available for all errors.
+*/
+extern NSString *ExtMediaKeyOpFailureMsgString;
 
 /*!
 @function FSNameFromType
