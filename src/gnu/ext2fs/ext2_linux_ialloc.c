@@ -220,7 +220,7 @@ void ext2_free_inode (struct inode * inode)
 		return;
 	}
 
-	ext2_debug ("freeing inode %lu\n", inode->i_number);
+	ext2_debug ("freeing inode %lu\n", (unsigned long)inode->i_number);
 
 	sb = inode->i_e2fs;
 	lock_super (DEVVP(inode));
@@ -235,11 +235,7 @@ void ext2_free_inode (struct inode * inode)
 	bit = (inode->i_number - 1) % EXT2_INODES_PER_GROUP(sb);
 	bitmap_nr = load_inode_bitmap (ITOV(inode)->v_mount, block_group);
 	bh = sb->s_inode_bitmap[bitmap_nr];
-   #ifndef APPLE
-	if (!clear_bit (bit, bh->b_data))
-   #else
-   if (!test_and_clear_bit (bit, bh->b_data))
-   #endif
+   if (!ext2_clear_bit (bit, bh->b_data))
 		printf ( "ext2_free_inode:"
 		      "bit already cleared for inode %lu",
 		      (unsigned long)inode->i_number);
@@ -350,7 +346,7 @@ repeat:
 		if (!gdp) {
 			for (j = 0; j < sb->s_groups_count; j++) {
 				tmp = get_group_desc(ITOV(dir)->v_mount,j,&bh2);
-				if (le16_to_cpu(tmp->bg_free_inodes_count) &&
+				if (tmp->bg_free_inodes_count &&
 					le16_to_cpu(tmp->bg_free_inodes_count) >= avefreei) {
 					if (!gdp || 
 					    (le16_to_cpu(tmp->bg_free_blocks_count) >
@@ -411,14 +407,10 @@ repeat:
 	}
 	bitmap_nr = load_inode_bitmap (ITOV(dir)->v_mount, i);
 	bh = sb->s_inode_bitmap[bitmap_nr];
-	if ((j = find_first_zero_bit ((unsigned long *) bh->b_data,
+	if ((j = ext2_find_first_zero_bit ((unsigned long *) bh->b_data,
 				      EXT2_INODES_PER_GROUP(sb))) <
 	    EXT2_INODES_PER_GROUP(sb)) {
-      #ifndef APPLE
-		if (set_bit (j, bh->b_data)) {
-      #else
-      if (test_and_set_bit (j, bh->b_data)) {
-      #endif
+      if (ext2_set_bit (j, bh->b_data)) {
 			printf ( "ext2_new_inode:"
 				      "bit already set for inode %d", j);
 			goto repeat;
