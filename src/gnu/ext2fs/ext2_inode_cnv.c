@@ -21,6 +21,32 @@
  *      Utah $Hdr$
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_inode_cnv.c,v 1.12 2002/05/16 19:07:59 iedowse Exp $
  */
+/*
+* Large file, 32 bit UID/GID, and Big Endian support.
+*
+* Copyright 2003 Brian Bergstrand.
+*
+* Redistribution and use in source and binary forms, with or without modification, 
+* are permitted provided that the following conditions are met:
+*
+* 1.	Redistributions of source code must retain the above copyright notice, this list of
+*     conditions and the following disclaimer.
+* 2.	Redistributions in binary form must reproduce the above copyright notice, this list of
+*     conditions and the following disclaimer in the documentation and/or other materials provided
+*     with the distribution.
+* 3.	The name of the author may not be used to endorse or promote products derived from this
+*     software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+* AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE
+* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+* OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+* THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+*/
 
 /*
  * routines to convert on disk ext2 inodes into inodes and back
@@ -30,14 +56,18 @@
 #include <sys/lock.h>
 #include <sys/stat.h>
 #include <sys/vnode.h>
+#include <sys/syslog.h>
 
 #ifdef APPLE
 #include "ext2_apple.h"
 #endif
 
+#include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_fs.h>
+#include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/ext2_extern.h>
+#include <gnu/ext2fs/ext2_mount.h>
 #include <ext2_byteorder.h>
 
 void
@@ -50,9 +80,9 @@ ext2_print_inode( in )
 	printf( /* "Inode: %5d" */
 		" Type: %10s Mode: 0x%o Flags: 0x%x  Version: %d\n",
 		"n/a", in->i_mode, in->i_flags, in->i_gen);
-	printf( "User: %5lu Group: %5lu  Size: %lu\n",
+	printf( "User: %5lu Group: %5lu  Size: %qu\n",
 		(unsigned long)in->i_uid, (unsigned long)in->i_gid,
-		(unsigned long)in->i_size);
+		in->i_size);
 	printf( "Links: %3d Blockcount: %d\n",
 		in->i_nlink, in->i_blocks);
 	printf( "ctime: 0x%x", in->i_ctime);
@@ -98,7 +128,9 @@ ext2_ei2i(ei, ip)
 		ip->i_uid |= le16_to_cpu(ei->i_uid_high) << 16;
 		ip->i_gid |= le16_to_cpu(ei->i_gid_high) << 16;
 	/*}*/
-	/* XXX use memcpy */
+   if (S_ISREG(ip->i_mode))
+      ip->i_size |= ((u_int64_t)le32_to_cpu(ei->i_size_high)) << 32;
+   /* TBD: Otherwise, setup the dir acl */
    
    #if BYTE_ORDER == BIG_ENDIAN
    /* We don't want to swap the block addr's for a short symlink because
@@ -182,6 +214,31 @@ ext2_i2ei(ip, ei)
 		raw_inode->i_uid_high = 0;
 		raw_inode->i_gid_high = 0;
 	}*/
+   if (S_ISREG(ip->i_mode)) {
+      ei->i_size_high = cpu_to_le32(ip->i_size >> 32);
+      if (ip->i_size > 0x7fffffffULL) {
+         struct ext2_sb_info *sb = ip->i_e2fs;
+         if (!EXT2_HAS_RO_COMPAT_FEATURE(sb,
+            EXT2_FEATURE_RO_COMPAT_LARGE_FILE) ||
+            EXT2_SB(sb)->s_es->s_rev_level == cpu_to_le32(EXT2_GOOD_OLD_REV)) {
+            /* First large file, add the flag to the superblock. */
+            lock_super (VFSTOEXT2(ip->i_vnode->v_mount)->um_devvp);
+            
+            if (EXT2_SB(sb)->s_es->s_rev_level == cpu_to_le32(EXT2_GOOD_OLD_REV)) {
+               log(LOG_WARNING,
+                  "ext2: updating to rev %d because of new feature flag, "
+                  "running e2fsck is recommended", EXT2_DYNAMIC_REV);
+               sb->s_es->s_first_ino = cpu_to_le32(EXT2_GOOD_OLD_FIRST_INO);
+               sb->s_es->s_inode_size = cpu_to_le16(EXT2_GOOD_OLD_INODE_SIZE);
+               sb->s_es->s_rev_level = cpu_to_le32(EXT2_DYNAMIC_REV);
+            }
+            
+            EXT2_SET_RO_COMPAT_FEATURE(sb, EXT2_FEATURE_RO_COMPAT_LARGE_FILE);
+            sb->s_dirt = 1;
+            unlock_super (VFSTOEXT2(ip->i_vnode->v_mount)->um_devvp);
+         }
+      }
+   }
    
    #if BYTE_ORDER == BIG_ENDIAN
    /* We don't want to swap the block addr's for a short symlink because
