@@ -300,7 +300,8 @@ ext2_cmap(ap)
    ext2_trace_enter();
 
 	if (blkoff(fs, ap->a_foffset)) {
-		panic("ext2_cmap; allocation requested inside a block");
+		panic("ext2_cmap: allocation requested inside a block (inode=%d, offset=%d)",
+         ip->i_number, ap->a_foffset);
 	}
 
 	bn = (daddr_t)lblkno(fs, ap->a_foffset);
