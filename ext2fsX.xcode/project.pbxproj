@@ -24,7 +24,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-DOSX -DEXT_KNOTE -DDEBUG -DEXT2FS_DEBUG=1 -DDIAGNOSTIC -DDX_DEBUG";
+				OTHER_CFLAGS = "\U0001-DOSX -DEXT_KNOTE -DDEBUG -DEXT2FS_DEBUG=1 -DDIAGNOSTIC -DDX_DEBUG -DEXT2FS_TRACE";
 				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
@@ -95,8 +95,10 @@
 				D3FCC55A041C72E000A80164,
 				D387FCA90595632700C31A93,
 				D31F7D360569E3E700A80164,
-				D3660BF90643ED20009810C9,
 				D3D4AF220579135600A80164,
+				D38A5F0706711DDB00E9E666,
+				D3660BF90643ED20009810C9,
+				D38226D306697F7000AD3D37,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -139,7 +141,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.1;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -177,11 +179,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -319,6 +321,8 @@
 				D3D4AF230579135600A80164,
 				D387FCAA0595632700C31A93,
 				D3660BFA0643ED20009810C9,
+				D38226D406697F7000AD3D37,
+				D38A5F0806711DDB00E9E666,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -908,6 +912,7 @@
 				D3660BF60643ED20009810C9,
 				D3660BF70643ED20009810C9,
 				D3660BF80643ED20009810C9,
+				D382282D066998F600AD3D37,
 			);
 			buildRules = (
 			);
@@ -933,6 +938,7 @@
 				WARNING_CFLAGS = "-Wmost";
 			};
 			dependencies = (
+				D38228140669985C00AD3D37,
 			);
 			isa = PBXNativeTarget;
 			name = ExtFSDiskManager;
@@ -1165,6 +1171,7 @@
 		};
 		D367265B057D3E9600A80164 = {
 			children = (
+				D38A5F3606711F7E00E9E666,
 				D3A9B805058283EC00B93FC7,
 				D367265C057D3ECB00A80164,
 				D3D4AF1B0579126E00A80164,
@@ -1188,6 +1195,7 @@
 				D38220C20667035500AD3D37,
 				D38220580666B05800AD3D37,
 				D38222C30667BE5200AD3D37,
+				D38226E70669806200AD3D37,
 				D3660C680643F85B009810C9,
 				D36725FE057BB78100A80164,
 				D36725BA057A6F0700A80164,
@@ -1436,6 +1444,118 @@
 			settings = {
 			};
 		};
+		D38226D006697F7000AD3D37 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38226D106697F7000AD3D37 = {
+			buildActionMask = 2147483647;
+			files = (
+				D38226F20669809A00AD3D37,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38226D206697F7000AD3D37 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38226D306697F7000AD3D37 = {
+			buildPhases = (
+				D38226D006697F7000AD3D37,
+				D38226D106697F7000AD3D37,
+				D38226D206697F7000AD3D37,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-framework Foundation";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = efsprobe;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = efsprobe;
+			productName = efsprobe;
+			productReference = D38226D406697F7000AD3D37;
+			productType = "com.apple.product-type.tool";
+		};
+		D38226D406697F7000AD3D37 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = efsprobe;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		D38226E70669806200AD3D37 = {
+			children = (
+				D38226F10669809A00AD3D37,
+			);
+			isa = PBXGroup;
+			name = efsprobe;
+			path = src/extfsmgr/efsprobe;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		D38226F10669809A00AD3D37 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			path = efsprobe.m;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38226F20669809A00AD3D37 = {
+			fileRef = D38226F10669809A00AD3D37;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38228130669985C00AD3D37 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = D38226D306697F7000AD3D37;
+			remoteInfo = efsprobe;
+		};
+		D38228140669985C00AD3D37 = {
+			isa = PBXTargetDependency;
+			target = D38226D306697F7000AD3D37;
+			targetProxy = D38228130669985C00AD3D37;
+		};
+		D382282D066998F600AD3D37 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				D38228FC066A861F00AD3D37,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38228FC066A861F00AD3D37 = {
+			fileRef = D38226D406697F7000AD3D37;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		D387FC9E059558B700C31A93 = {
 			children = (
 				D387FC9F059558E400C31A93,
@@ -1538,6 +1658,243 @@
 		};
 		D387FCAC0595636400C31A93 = {
 			fileRef = D387FC9F059558E400C31A93;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A5F0306711DDB00E9E666 = {
+			buildActionMask = 2147483647;
+			files = (
+				D38A5F4D0671230B00E9E666,
+				D38A5FC10671262A00E9E666,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38A5F0406711DDB00E9E666 = {
+			buildActionMask = 2147483647;
+			files = (
+				D38A5F4306711FDA00E9E666,
+				D38A5F47067122DE00E9E666,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38A5F0506711DDB00E9E666 = {
+			buildActionMask = 2147483647;
+			files = (
+				D38A5F4E0671230B00E9E666,
+				D38A5F540671233300E9E666,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38A5F0606711DDB00E9E666 = {
+			buildActionMask = 2147483647;
+			files = (
+				D38A5F1F06711E5200E9E666,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38A5F0706711DDB00E9E666 = {
+			buildPhases = (
+				D38A5F0306711DDB00E9E666,
+				D38A5F0406711DDB00E9E666,
+				D38A5F0506711DDB00E9E666,
+				D38A5F0606711DDB00E9E666,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = build/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INFOPLIST_FILE = "src/extfsmgr/efssmartd/Resources/efssmartd-Info.plist";
+				INSTALL_PATH = "$(USER_APPS_DIR)";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-framework Foundation -framework AppKit";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = efssmartd;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = efssmartd;
+			productName = efssmartd;
+			productReference = D38A5F0806711DDB00E9E666;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>efssmartd</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.MySoftwareCompany.efssmartd</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string></string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>
+";
+			productType = "com.apple.product-type.application";
+		};
+		D38A5F0806711DDB00E9E666 = {
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = efssmartd.app;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		D38A5F1F06711E5200E9E666 = {
+			fileRef = D3660BFA0643ED20009810C9;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A5F3606711F7E00E9E666 = {
+			children = (
+				D38A5F530671233300E9E666,
+				D38A5F4B0671230B00E9E666,
+				D38A5F4C0671230B00E9E666,
+				D38A5F4106711FDA00E9E666,
+			);
+			isa = PBXGroup;
+			path = efssmartd;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A5F4106711FDA00E9E666 = {
+			children = (
+				D38A5F4206711FDA00E9E666,
+				D38A5F46067122DE00E9E666,
+			);
+			isa = PBXGroup;
+			path = Resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A5F4206711FDA00E9E666 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			path = "efssmartd-Info.plist";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A5F4306711FDA00E9E666 = {
+			fileRef = D38A5F4206711FDA00E9E666;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A5F46067122DE00E9E666 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.nib;
+			path = SMARTAlert.nib;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A5F47067122DE00E9E666 = {
+			fileRef = D38A5F46067122DE00E9E666;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A5F4B0671230B00E9E666 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = SMARTAlertController.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A5F4C0671230B00E9E666 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			path = SMARTAlertController.m;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A5F4D0671230B00E9E666 = {
+			fileRef = D38A5F4B0671230B00E9E666;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A5F4E0671230B00E9E666 = {
+			fileRef = D38A5F4C0671230B00E9E666;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A5F530671233300E9E666 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			path = efssmartd.m;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D38A5F540671233300E9E666 = {
+			fileRef = D38A5F530671233300E9E666;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A5FC10671262A00E9E666 = {
+			fileRef = D3A9B805058283EC00B93FC7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D38A60E4067146C800E9E666 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = D38A5F0706711DDB00E9E666;
+			remoteInfo = efssmartd;
+		};
+		D38A60E5067146C800E9E666 = {
+			isa = PBXTargetDependency;
+			target = D38A5F0706711DDB00E9E666;
+			targetProxy = D38A60E4067146C800E9E666;
+		};
+		D38A60E80671470F00E9E666 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				D38A60EB0671473100E9E666,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38A60EB0671473100E9E666 = {
+			fileRef = D38A5F0806711DDB00E9E666;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -2211,6 +2568,7 @@
 				D3D4AF1F0579135600A80164,
 				D3D4AF200579135600A80164,
 				D3D4AF210579135600A80164,
+				D38A60E80671470F00E9E666,
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -2226,6 +2584,7 @@
 				WRAPPER_EXTENSION = prefPane;
 			};
 			dependencies = (
+				D38A60E5067146C800E9E666,
 			);
 			isa = PBXBundleTarget;
 			name = extprefpane;
