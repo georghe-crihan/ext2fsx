@@ -400,6 +400,13 @@ data = [data stringByAppendingString:@"\n"]; \
          EFSIOTransportNameFromType([media transportType]));
    }
    
+   if ([media isWholeDisk] && efsIOTransportTypeATA == [media transportBus]) {
+      NSDictionary *smartInfo =
+         [[ExtFSMediaController mediaController] SMARTStatusDescription:[media SMARTStatus]];
+      ExtInfoInsert(ExtLocalizedString(@"S.M.A.R.T. Status", ""),
+         [smartInfo objectForKey:ExtFSMediaKeySMARTStatusDescription]);
+   }
+   
    ExtInfoInsert(ExtLocalizedString(@"Ejectable", ""),
       ([media isEjectable] ? e_yes : e_no));
    

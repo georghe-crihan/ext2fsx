@@ -123,6 +123,18 @@ int threadID = 0;
    printf ("**** Media '%s' unmounted ***\n", BSDNAMESTR([notification object]));
 }
 
+- (void)volSMARTStatus:(NSNotification*)notification
+{
+	NSDictionary *info = [notification userInfo];
+	NSLog (@"**** Media '%@' ****\n\tS.M.A.R.T. status: %@, '%@' severity: %@, '%@'\n",
+		[notification object],
+		[info objectForKey:ExtFSMediaKeySMARTStatus],
+		[info objectForKey:ExtFSMediaKeySMARTStatusDescription],
+		[info objectForKey:ExtFSMediaKeySMARTStatusSeverity],
+		[info objectForKey:ExtFSMediaKeySMARTStatusSeverityDescription]
+		);
+}
+
 #define MINDOZE 130 // About 1 cycle on a Quicksilver G4
 //#define MAXDOZE 500000000 // 1/2 second
 #define MAXDOZE  1000000 // 1/100 second
@@ -143,6 +155,7 @@ int threadID = 0;
 		nanosleep(&rqt, &rmt);
 	#endif
 	} while(1);
+	[NSThread exit];
 }
 
 @end
@@ -185,7 +198,13 @@ int main(int argc, const char *argv[])
             selector:@selector(volUnmount:)
             name:ExtFSMediaNotificationUnmounted
             object:nil];
-   [ld performSelector:@selector(list:) withObject:mc afterDelay:2.0];
+   [[NSNotificationCenter defaultCenter] addObserver:ld
+            selector:@selector(volSMARTStatus:)
+            name:ExtFSMediaNotificationSMARTStatus
+            object:nil];
+   //[ld performSelector:@selector(list:) withObject:mc afterDelay:2.0];
+   
+   [mc monitorSMARTStatusWithPollInterval:EXTFS_DEFAULT_SMART_POLL flags:efsSMARTEventVerified];
    
    printf ("Creating %d threads...\n", threads);
    for (; threads > 0; --threads)

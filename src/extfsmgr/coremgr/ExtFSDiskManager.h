@@ -31,3 +31,4 @@ The Framework is thread safe.
 #import <Cocoa/Cocoa.h>
 #import <ExtFSDiskManager/ExtFSMedia.h>
 #import <ExtFSDiskManager/ExtFSMediaController.h>
+#import <ExtFSDiskManager/ExtFSMediaSMART.h>
