@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -46,6 +46,8 @@
    
    IBOutlet id _startupProgress;
    IBOutlet id _startupText;
+   
+   IBOutlet id _opProgress;
    
    id _volData, _curSelection;
    BOOL _infoButtonAlt;
