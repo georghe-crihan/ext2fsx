@@ -52,8 +52,8 @@ struct vnode;
 
 int	ext2_alloc(struct inode *,
 	    int32_t, int32_t, int, struct ucred *, int32_t *);
-int	ext2_balloc(struct inode *,
-	    int32_t, int, struct ucred *, struct buf **, int);
+int	ext2_balloc2(struct inode *,
+	    int32_t, int, struct ucred *, struct buf **, int, int *);
 int	ext2_blkatoff(struct vnode *, off_t, char **, struct buf **);
 void	ext2_blkfree(struct inode *, int32_t, long);
 int32_t	ext2_blkpref(struct inode *, int32_t, int, int32_t *, int32_t);
@@ -112,5 +112,12 @@ void	mark_buffer_dirty(struct buf *bh);
 extern vop_t **ext2_vnodeop_p;
 extern vop_t **ext2_specop_p;
 extern vop_t **ext2_fifoop_p;
+
+/* Compatibility wrapper for ext2_balloc2 */
+static __inline__ int ext2_balloc(struct inode *ip,
+	    int32_t bn, int size, struct ucred *cred, struct buf **bpp, int flags)
+{
+   return (ext2_balloc2(ip, bn, size, cred, bpp, flags, NULL));
+}
 
 #endif /* !_SYS_GNU_EXT2FS_EXT2_EXTERN_H_ */
