@@ -164,7 +164,7 @@ ext2_pageout(ap)
 	off_t local_offset;
 	int resid, blkoffset;
 	size_t xsize/*, lsize*/;
-	daddr_t lbn;
+	ext2_daddr_t lbn;
 	int save_error =0, save_size=0;
 	vm_offset_t lupl_offset;
 	int nocommit = flags & UPL_NOCOMMIT;
@@ -277,13 +277,12 @@ ext2_cmap(ap)
 	} */ *ap;
 {
 	struct vnode * vp = ap->a_vp;
-	int32_t *bnp = ap->a_bpn;
+	daddr_t *bnp = ap->a_bpn;
 	size_t *runp = ap->a_run;
 	size_t size = ap->a_size;
-	daddr_t bn;
+	ext2_daddr_t bn, daddr = 0;
 	int nblks;
 	register struct inode *ip;
-	int32_t daddr = 0;
 	int devBlockSize;
 	FS *fs;
 	int retsize=0;
@@ -299,10 +298,10 @@ ext2_cmap(ap)
 	}
     error = 0;
 
-	bn = (daddr_t)lblkno(fs, ap->a_foffset);
+	bn = (ext2_daddr_t)lblkno(fs, ap->a_foffset);
     devBlockSize = fs->s_d_blocksize;
 
-	ext2_trace("inode=%u, lbn=%u, off=%qu, size=%u\n", ip->i_number, bn, ap->a_foffset, size);
+	ext2_trace("inode=%u, lbn=%d, off=%qu, size=%u\n", ip->i_number, bn, ap->a_foffset, size);
     
     if (size % devBlockSize) {
 		panic("ext2_cmap: size is not multiple of device block size\n");
@@ -315,7 +314,7 @@ ext2_cmap(ap)
 	retsize = nblks * EXT2_BLOCK_SIZE(fs);
 
 	if (bnp)
-		*bnp = daddr;
+		*bnp = (daddr_t)daddr;
 
 	if (ap->a_poff) 
 		*(int *)ap->a_poff = 0;
