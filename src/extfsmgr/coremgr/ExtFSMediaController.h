@@ -89,6 +89,9 @@ disk and each partition on a disk.
 /*!
 @method mount:on:
 @abstract Mount media on specified directory.
+@discussion It is possible for this method to return success,
+before the mount has completed. If the mount fails later, a
+ExtFSMediaNotificationOpFailure notification will be sent.
 @param media Media to mount.
 @param on A string containing the absolute path to the directory the media should be mounted on.
 @result 0 if successful or an error code (possibly from Disk Arbitration).
