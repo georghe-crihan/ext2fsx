@@ -4,7 +4,12 @@
 \margl1440\margr1440\vieww9000\viewh9000\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.0d2\
+\f0\fs24 \cf0 1.0d3\
+Fixed d2 read problems. The indirect block addresses were not being byte swapped.\
+Fixed 30 second mount delay problem. This was due to some errant debug code.\
+extfs.util now responds to -k to return the volume's UUID.\
+\
+1.0d2\
 First release that actually works. d1 was basically useless.\
 \
 1.0d1\
