@@ -123,7 +123,7 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 	if (cred == NOCRED)
 		panic("ext2_alloc: missing credential");
 #endif /* DIAGNOSTIC */
-	if (size == fs->s_blocksize && le32_to_cpu(fs->s_es->s_free_blocks_count) == 0)
+	if (size == fs->s_blocksize && fs->s_es->s_free_blocks_count == 0)
 		goto nospace;
 	if (cred->cr_uid != 0 && 
 		le32_to_cpu(fs->s_es->s_free_blocks_count) < le32_to_cpu(fs->s_es->s_r_blocks_count))
@@ -146,7 +146,7 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
                             ++alloc_hits, ++alloc_attempts); */
 
 		/* Linux gets, clears, and releases the buffer at this
-		   point - we don't have to that; we leave it to the caller
+		   point - we don't have to do that; we leave it to the caller
 		 */
         } else {
                 ext2_discard_prealloc (ip);
@@ -317,7 +317,7 @@ return ENOSPC;
 		if (i == ssize)
 			bap = ebap;
 #if DIAGNOSTIC
-		if (buflist->bs_children[i]->b_blkno != fsbtodb(fs, *bap))
+		if (buflist->bs_children[i]->b_blkno != fsbtodb(fs, cpu_to_le32(*bap)))
 			panic("ext2_reallocblks: alloc mismatch");
 #endif
 		*bap++ = cpu_to_le32(blkno);
@@ -393,7 +393,7 @@ ext2_valloc(pvp, mode, cred, vpp)
 	*vpp = NULL;
 	pip = VTOI(pvp);
 	fs = pip->i_e2fs;
-	if (le32_to_cpu(fs->s_es->s_free_inodes_count) == 0)
+	if (fs->s_es->s_free_inodes_count == 0)
 		goto noinodes;
 
 	/* call the Linux routine - it returns the inode number only */
@@ -469,17 +469,37 @@ ext2_blkpref(ip, lbn, indx, bap, blocknr)
 	/* if the next block is actually what we thought it is,
 	   then set the goal to what we thought it should be
 	*/
-	if(ip->i_next_alloc_block == lbn)
+	if(ip->i_next_alloc_block && ip->i_next_alloc_block == lbn)
 		return ip->i_next_alloc_goal;
 
 	/* now check whether we were provided with an array that basically
 	   tells us previous blocks to which we want to stay closeby
 	*/
-	if(bap) 
-                for (tmp = indx - 1; tmp >= 0; tmp--) 
-			if (le32_to_cpu(bap[tmp])) 
-				return le32_to_cpu(bap[tmp]);
-
+	if(bap) {
+      for (tmp = indx - 1; tmp >= 0; tmp--) {
+         if (bap[tmp]) 
+      #if BYTE_ORDER == BIG_ENDIAN
+         /* --BDB--
+          * Block addrs in the inode are stored in cpu order, but
+          * indirect addrs are in LE order. So here, we have to
+          * find out which we are dealing with.
+          *
+          * It may be better to keep all addrs in LE order
+          * (like Linux), but I wanted to avoid byte swaps
+          * (which cause load/stores) as much as possible.
+          */
+         {
+            if (bap == &ip->i_db[0] || bap == &ip->i_ib[0])
+               return (bap[tmp]);
+            else
+               return le32_to_cpu(bap[tmp]);
+         }
+      #else
+				return bap[tmp];
+      #endif
+      }
+   }
+   
 	/* else let's fall back to the blocknr, or, if there is none,
 	   follow the rule that a block should be allocated near its inode
 	*/
@@ -492,7 +512,7 @@ ext2_blkpref(ip, lbn, indx, bap, blocknr)
 /*
  * Free a block or fragment.
  *
- * pass on to the Linux code
+ * pass it on to the Linux code
  */
 void
 ext2_blkfree(ip, bno, size)
