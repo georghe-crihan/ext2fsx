@@ -157,21 +157,6 @@ int e2fsck_pass1_check_device_inode(ext2_filsys fs, struct ext2_inode *inode)
 	return 1;
 }
 
-#ifndef HAVE_STRNLEN
-/*
- * Incredibly, libc5 doesn't appear to have strnlen.  So we have to
- * provide our own.
- */
-static int strnlen(const char * s, int count)
-{
-	const char *cp = s;
-
-	while (count-- && *cp)
-		cp++;
-	return cp - s;
-}
-#endif
-
 /*
  * Check to make sure a symlink inode is real.  Returns 1 if the symlink
  * checks out, 0 if not.
@@ -1318,7 +1303,7 @@ static void check_blocks(e2fsck_t ctx, struct problem_context *pctx,
 				bad_size = 2;
 		}
 	} else {
-		size = inode->i_size | ((__u64) inode->i_size_high << 32);
+		size = EXT2_I_SIZE(inode);
 		if ((pb.last_block >= 0) &&
 		    (size < pb.last_block * fs->blocksize))
 			bad_size = 3;

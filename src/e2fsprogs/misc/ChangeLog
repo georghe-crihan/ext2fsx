@@ -1,3 +1,141 @@
+2003-04-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.33
+
+2003-04-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (uuidgen): Avoid linking lsattr and chattr against
+		libext2fs, and avoid linking blkid against any of the ext2
+		libraries.
+
+2003-04-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (fsck): Fsck does not need to linked against the
+		ext2 libraries anymore.
+
+2003-04-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c (main): Put stdout and stderr into non-buffered mode to
+		avoid cosmetic problems when running fsck under logsave.
+
+	* mke2fs.c (PRS): Avoid printing the version banner for mke2fs if
+		the -q option is specified.  (Addresses Debian bug #172716) 
+
+	* logsave.c: Add support for the -a option (only partially
+		implemented previously).  Always log the command-line and
+		start and stop time to the log file.  Add support for the
+		-s option, which skips text bracketed between control-A
+		and control-B characters.
+
+2003-04-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* logsave.c: New program which saves the output of a command in a
+		log file, even if the containing directory hasn't been
+		mounted yet (in which case the it saves the output in
+		memory until it can write out the logfile).
+
+2003-04-11  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS): If the argument to -b is negative, treat it as a
+		minimum blocksize.  (Feature requested by EVMS developers
+		for mainframe DASD's that do not support 1k blocksizes.)
+
+	* mke2fs.8.in: Document the -g option.  (Addresses Debian bug #188318)
+
+	* mke2fs.c (PRS): Fix bug where mke2fs was incorrectly checking
+		the argument to the -g option, if the default block size
+		is used.  (Addresses Debian bug #188319)
+
+	* tune2fs.8.in, mke2fs.8.in: Document the dir_index filesystem
+		feature which can be used with the -O option.
+
+2003-04-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c (parse_fstab_line, interpret_type, fsck_device, ignore,
+		main): Don't evaluate the filesystem type when loading the
+		fstab file, since that might cause fsck to hang trying to
+		read from a floppy disk.  (Addresses Debian bug #187812)
+		Add tmpfs and devpts to filesystems that should be
+		ignored, and add jfs, reseirfs, and xfs as filesystems
+		types where we should complain if we can't find the fsck
+		program for that filesystem type.
+
+2003-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (bb_output): Flush output to the badblocks
+		output file as bad blocks are discovered.
+
+2003-03-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* chattr.1.in: Clarified the description of the 't' (no tail) 
+		attribute.  (Addresses Debian bug #185945)
+
+2003-03-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c: And #ifdef protection around #include of malloc.h
+
+2003-03-13  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2image.c (write_raw_image_file): Include blocks from slow
+		symbolic links in the raw image file.
+
+2003-03-06    <tytso@mit.edu>
+
+	* tune2fs.c (parse_tune2fs_options, parse_e2label_options): Allow
+		the device name to be specified using LABEL=xxx or
+		UUID=xxx, since we're including the blkid library anyway.
+		(Addresses Debian bugs #166048, #179671)
+
+	* tune2fs.8.in, chattr.1.in: Minor man page fixes (Addresses
+		Debian bugs #175233, #175113, and #170497)
+
+2003-03-06  Theodore Tso  <tytso@mit.edu>
+
+	* Makefile.in (DEPLIBS_BLKID): Use DEPLIBUUID, not LIBUUID to
+		avoid depending on -lsocket on Solaris.
+
+2003-03-01  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c, util.c, tune2fs.c, Makefile.in: Use the blkid library
+		instead of the specialized functions in
+		get-device-by-label.c and fstype.c.
+
+	* base_device.c (base_device): Take a const char* as an argument.
+
+	* blkid.c: Remove deprecated -d option,
+
+2003-02-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c: Update to reflect renaming of blkid_get_devname() to
+		blkid_get_dev(), and blkid_get_token() to
+		blkid_get_devname().
+
+2003-01-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.8.in: Fix grammar nit.
+
+2003-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c (main): Modify blkid to use the new libblkid public
+		interfaces.
+
+2003-01-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Integrate in new blkid library.
+
+2003-01-22  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c (parse_fstab_line, parse_escape): Add support for
+		backslash escaping in /etc/fstab.  (i.e., so that \040
+		will work.)
+
+2002-11-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS): Don't enable the dir_index feature by default;
+		the ext2 code on 2.4 kernels (but not 2.2 kernels, and not
+		the 2.4 ext3 code) accidentally had the backwards
+		compatibility support for dir_indexing removed.
+
 2002-11-09  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.32

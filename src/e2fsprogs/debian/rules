@@ -35,6 +35,8 @@ SS_VERSION = $(shell grep ELF_VERSION lib/ss/Makefile.in | cut '-d ' -f3)
 SS_SOVERSION = $(shell grep ELF_SO_VERSION lib/ss/Makefile.in | cut '-d ' -f3)
 UUID_VERSION = $(shell grep ELF_VERSION lib/uuid/Makefile.in | cut '-d ' -f3)
 UUID_SOVERSION = $(shell grep ELF_SO_VERSION lib/uuid/Makefile.in | cut '-d ' -f3)
+BLKID_VERSION = $(shell grep ELF_VERSION lib/blkid/Makefile.in | cut '-d ' -f3)
+BLKID_SOVERSION = $(shell grep ELF_SO_VERSION lib/blkid/Makefile.in | cut '-d ' -f3)
 EXT2FS_SOVERSION = $(shell grep ELF_SO_VERSION lib/ext2fs/Makefile.in | cut '-d ' -f3)
 E2P_SOVERSION = $(shell grep ELF_SO_VERSION lib/e2p/Makefile.in | cut '-d ' -f3)
 
@@ -45,6 +47,7 @@ debdir=${topdir}/debian
 tmpdir=${debdir}/tmp
 bfdir=${debdir}/e2fsprogs-bf
 udebdir=${debdir}/e2fsprogs-udeb
+blkidudebdir=${debdir}/libblkid1-udeb
 maindir=${debdir}/e2fsprogs
 stdbuilddir=${debdir}/BUILD-STD
 bfbuilddir=${debdir}/BUILD-BF
@@ -55,6 +58,9 @@ mandir=${tmpdir}${MANDIR}
 
 UDEB_NAME = $(package)-udeb_$(MAIN_VERSION)_$(DEB_HOST_ARCH).udeb
 UDEB_PRIORITY = $(shell grep '^Package: e2fsprogs-udeb' debian/control -A 10 | grep ^Priority: | cut -d ' ' -f 2)
+
+BLKID_UDEB_NAME = libblkid1-udeb_$(MAIN_VERSION)_$(DEB_HOST_ARCH).udeb
+BLKID_UDEB_PRIORITY = $(shell grep '^Package: libblkid1-udeb' debian/control -A 10 | grep ^Priority: | cut -d ' ' -f 2)
 
 SUBPACKAGES_DIRS = tmp e2fslibs-dev comerr-dev ss-dev
 
@@ -209,11 +215,13 @@ install-std: build
 	make -C ${stdbuilddir} install-libs DESTDIR=${tmpdir} LDCONFIG=true
 
   # remove FSIM for now.
-	rm ${tmpdir}/lib/evms/libe2fsim.1.1.1.so
+	-rm ${tmpdir}/lib/evms/libe2fsim.*.so
 
   # statically-linked fsck
 	${INSTALL_PROGRAM} ${stdbuilddir}/e2fsck/e2fsck.static ${tmpdir}/sbin
 	ln -s e2fsck.8.gz ${mandir}/man8/e2fsck.static.8.gz
+
+	ln -s et/com_err.h ${tmpdir}/usr/include
 
 	dh_movefiles
 	test -z `find ${tmpdir} -type f`
@@ -238,7 +246,7 @@ install-bf: build
 	cd ${bfdir}/usr/bin && rm -f uuidgen
 
   # remove FSIM for now.
-	rm ${bfdir}/lib/evms/libe2fsim.1.1.1.so
+	-rm ${bfdir}/lib/evms/libe2fsim.*.so
 
 install-udeb: install-bf
 	dh_testdir
@@ -253,6 +261,8 @@ install-udeb: install-bf
 	cp -a ${bfdir}/sbin/e2fsck ${udebdir}/sbin/
 	ln -s e2fsck ${udebdir}/sbin/fsck.ext2
 	ln -s e2fsck ${udebdir}/sbin/fsck.ext3
+	mkdir -p ${blkidudebdir}/lib
+	mv ${udebdir}/lib/libblkid.* ${blkidudebdir}/lib
 
 binary-indep: 
   # no arch-independant debs.
@@ -261,10 +271,6 @@ binary-arch: DH_OPTIONS= -a
 binary-arch: install install-udeb
 	dh_testdir
 	dh_testroot
-
-  # remove obsolete maint-scripts provided by 1.26 upstream
-	cd debian && rm -f comerr-dev.postinst e2fslibs-dev.postinst \
-		e2fsprogs.postinst e2fsprogs.shlibs e2fsprogs.shlibs.in
 
   # lintian overrides
 	for i in $$(cd debian && echo *.lintian-overrides); do \
@@ -296,15 +302,24 @@ binary-arch: install install-udeb
 	mkdir -p ${debdir}/ss-dev/usr/share/doc/libss${SS_SOVERSION}
 	ln -sf libss${SS_SOVERSION} ${debdir}/ss-dev/usr/share/doc/ss-dev
 
+	mkdir -p ${debdir}/libblkid${BLKID_SOVERSION}/usr/share/doc/libblkid${BLKID_SOVERSION}
+	mkdir -p ${debdir}/libblkid-dev/usr/share/doc
+	ln -sf libblkid${BLKID_SOVERSION} ${debdir}/libblkid-dev/usr/share/doc/libblkid-dev
+
 	for i in libcomerr${COMERR_SOVERSION} libss${SS_SOVERSION}; do \
 	  install -m 644 debian/$$i.copyright \
 	    ${maindir}/usr/share/doc/$$i/copyright ; \
 	done
 
-	dh_installdocs -Ne2fsprogs-udeb
+	install -m 644 debian/libblkid.copyright \
+		${debdir}/libblkid${BLKID_SOVERSION}/usr/share/doc/libblkid${BLKID_SOVERSION}/copyright
+
+	dh_installdocs -Ne2fsprogs-udeb -Nlibblkid1-udeb
 
 	install -m 644 debian/e2fsprogs.copyright \
 	  ${bfdir}/usr/share/doc/e2fsprogs-bf/copyright
+
+  # libblkid is under the the LGPL
 
   # HTML docs
 	install -d ${debdir}/e2fslibs-dev/usr/share/doc/e2fslibs-dev/html-info/
@@ -327,7 +342,7 @@ binary-arch: install install-udeb
 
 	dh_undocumented
 
-	DH_OPTIONS= dh_installchangelogs -pe2fsprogs -pe2fsprogs-bf ChangeLog
+	DH_OPTIONS= dh_installchangelogs -pe2fsprogs -pe2fsprogs-bf -plibblkid${BLKID_SOVERSION} ChangeLog
 
 	for i in libcomerr${COMERR_SOVERSION} libss${SS_SOVERSION} ; do \
 	  mkdir -p ${maindir}/usr/share/doc/$$i ; \
@@ -343,6 +358,7 @@ binary-arch: install install-udeb
 	echo "libcdev:Depends=${LIBC-DEV}" > debian/comerr-dev.substvars
 	echo "libcdev:Depends=${LIBC-DEV}" > debian/ss-dev.substvars
 	echo "libcdev:Depends=${LIBC-DEV}" > debian/uuid-dev.substvars
+	echo "libcdev:Depends=${LIBC-DEV}" > debian/blkid-dev.substvars
 	echo "libcdev:Depends=${LIBC-DEV}" > debian/e2fslibs-dev.substvars
 
 # Call this mostly to get the maintainer-script snippets
@@ -360,24 +376,34 @@ binary-arch: install install-udeb
 	echo "libss ${SS_SOVERSION} libss${SS_SOVERSION}" \
 		>> debian/e2fsprogs/DEBIAN/shlibs
 
+	dh_makeshlibs -plibblkid${BLKID_SOVERSION}
+
 	dh_installdeb
 	dh_shlibdeps -l${stdbuilddir}/lib
 
-	dh_gencontrol -Ncomerr-dev -Nss-dev -Nuuid-dev -Ne2fsprogs-udeb
+	dh_gencontrol -Ncomerr-dev -Nss-dev -Nuuid-dev -Ne2fsprogs-udeb -Nlibblkid1-udeb
 	DH_OPTIONS= dh_gencontrol -pcomerr-dev \
 	  -u '-v${COMERR_VERSION}-${MAIN_VERSION}'
 	DH_OPTIONS= dh_gencontrol -pss-dev \
 	  -u '-v${SS_VERSION}-${MAIN_VERSION}'
 	DH_OPTIONS= dh_gencontrol -puuid-dev \
 	  -u '-v${UUID_VERSION}-${MAIN_VERSION}'
+	DH_OPTIONS= dh_gencontrol -plibblkid-dev \
+	  -u '-v${MAIN_VERSION}'
+	DH_OPTIONS= dh_gencontrol -plibblkid${BLKID_SOVERSION} \
+	  -u '-v${MAIN_VERSION}'
 
-	dh_md5sums -Ne2fsprogs-udeb
-	dh_builddeb -Ne2fsprogs-udeb
+	dh_md5sums -Ne2fsprogs-udeb -Nlibblkid1-udeb
+	dh_builddeb -Ne2fsprogs-udeb -Nlibblkid1-udeb
 
 	# udeb stuff
 	dh_gencontrol	-pe2fsprogs-udeb -- -fdebian/files~
 	dpkg-distaddfile $(UDEB_NAME) debian-installer $(UDEB_PRIORITY)
 	dh_builddeb -pe2fsprogs-udeb --filename=$(UDEB_NAME)
+
+	dh_gencontrol	-plibblkid1-udeb -- -fdebian/files~
+	dpkg-distaddfile $(BLKID_UDEB_NAME) debian-installer $(BLKID_UDEB_PRIORITY)
+	dh_builddeb -plibblkid1-udeb --filename=$(BLKID_UDEB_NAME)
 
 binary: binary-indep binary-arch
 

@@ -33,8 +33,12 @@ extern int optind;
 #ifdef HAVE_MNTENT_H
 #include <mntent.h>
 #endif
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
+#endif
+#ifdef HAVE_MALLOC_H
 #include <malloc.h>
+#endif
 
 #include "et/com_err.h"
 #include "e2fsck.h"
@@ -70,7 +74,7 @@ static void usage(e2fsck_t ctx)
 		" -p                   Automatic repair (no questions)\n"
 		" -n                   Make no changes to the filesystem\n"
 		" -y                   Assume \"yes\" to all questions\n"
-		" -c                   Check for bad blocks\n"
+		" -c                   Check for bad blocks and add them to the badblock list\n"
 		" -f                   Force checking even if filesystem is marked clean\n"));
 	fprintf(stderr, _(""
 		" -v                   Be verbose\n"
@@ -324,20 +328,80 @@ extern void e2fsck_clear_progbar(e2fsck_t ctx)
 	if (!(ctx->flags & E2F_FLAG_PROG_BAR))
 		return;
 	
-	printf("%s\r", spaces + (sizeof(spaces) - 80));
+	printf("\001%s\r\002", spaces + (sizeof(spaces) - 80));
+	fflush(stdout);
 	ctx->flags &= ~E2F_FLAG_PROG_BAR;
+}
+
+int e2fsck_simple_progress(e2fsck_t ctx, const char *label, float percent,
+			   unsigned int dpynum)
+{
+	static const char spinner[] = "\\|/-";
+	int	i;
+	int	tick;
+	struct timeval	tv;
+	int dpywidth;
+
+	if (ctx->flags & E2F_FLAG_PROG_SUPPRESS)
+		return 0;
+
+	/*
+	 * Calculate the new progress position.  If the
+	 * percentage hasn't changed, then we skip out right
+	 * away. 
+	 */
+	if (ctx->progress_last_percent == (int) 10 * percent)
+		return 0;
+	ctx->progress_last_percent = (int) 10 * percent;
+
+	/*
+	 * If we've already updated the spinner once within
+	 * the last 1/8th of a second, no point doing it
+	 * again.
+	 */
+	gettimeofday(&tv, NULL);
+	tick = (tv.tv_sec << 3) + (tv.tv_usec / (1000000 / 8));
+	if ((tick == ctx->progress_last_time) &&
+	    (percent != 0.0) && (percent != 100.0))
+		return 0;
+	ctx->progress_last_time = tick;
+
+	/*
+	 * Advance the spinner, and note that the progress bar
+	 * will be on the screen
+	 */
+	ctx->progress_pos = (ctx->progress_pos+1) & 3;
+	ctx->flags |= E2F_FLAG_PROG_BAR;
+
+	dpywidth = 66 - strlen(label);
+	dpywidth = 8 * (dpywidth / 8);
+	if (dpynum)
+		dpywidth -= 8;
+
+	i = ((percent * dpywidth) + 50) / 100;
+	printf("\001%s: |%s%s", label, bar + (sizeof(bar) - (i+1)),
+	       spaces + (sizeof(spaces) - (dpywidth - i + 1)));
+	if (percent == 100.0)
+		fputc('|', stdout);
+	else
+		fputc(spinner[ctx->progress_pos & 3], stdout);
+	if (dpynum)
+		printf(" %4.1f%%  %u\r\002", percent, dpynum);
+	else
+		printf(" %4.1f%%   \r\002", percent);
+	
+	if (percent == 100.0)
+		e2fsck_clear_progbar(ctx);
+	fflush(stdout);
+
+	return 0;
 }
 
 static int e2fsck_update_progress(e2fsck_t ctx, int pass,
 				  unsigned long cur, unsigned long max)
 {
-	static const char spinner[] = "\\|/-";
 	char buf[80];
-	int	i;
 	float percent;
-	int	tick;
-	struct timeval	tv;
-	static int dpywidth = 0;
 
 	if (pass == 0)
 		return 0;
@@ -346,53 +410,9 @@ static int e2fsck_update_progress(e2fsck_t ctx, int pass,
 		sprintf(buf, "%d %lu %lu\n", pass, cur, max);
 		write(ctx->progress_fd, buf, strlen(buf));
 	} else {
-		if (ctx->flags & E2F_FLAG_PROG_SUPPRESS)
-			return 0;
-		if (dpywidth == 0) {
-			dpywidth = 66 - strlen(ctx->device_name);
-			dpywidth = 8 * (dpywidth / 8);
-		}
-		/*
-		 * Calculate the new progress position.  If the
-		 * percentage hasn't changed, then we skip out right
-		 * away. 
-		 */
 		percent = calc_percent(&e2fsck_tbl, pass, cur, max);
-		if (ctx->progress_last_percent == (int) 10 * percent)
-			return 0;
-		ctx->progress_last_percent = (int) 10 * percent;
-
-		/*
-		 * If we've already updated the spinner once within
-		 * the last 1/8th of a second, no point doing it
-		 * again.
-		 */
-		gettimeofday(&tv, NULL);
-		tick = (tv.tv_sec << 3) + (tv.tv_usec / (1000000 / 8));
-		if ((tick == ctx->progress_last_time) &&
-		    (cur != max) && (cur != 0))
-			return 0;
-		ctx->progress_last_time = tick;
-
-		/*
-		 * Advance the spinner, and note that the progress bar
-		 * will be on the screen
-		 */
-		ctx->progress_pos = (ctx->progress_pos+1) & 3;
-		ctx->flags |= E2F_FLAG_PROG_BAR;
-		
-		i = ((percent * dpywidth) + 50) / 100;
-		printf("%s: |%s%s", ctx->device_name,
-		       bar + (sizeof(bar) - (i+1)),
-		       spaces + (sizeof(spaces) - (dpywidth - i + 1)));
-		if (percent == 100.0)
-			fputc('|', stdout);
-		else
-			fputc(spinner[ctx->progress_pos & 3], stdout);
-		printf(" %4.1f%%   \r", percent);
-		if (percent == 100.0)
-			e2fsck_clear_progbar(ctx);
-		fflush(stdout);
+		e2fsck_simple_progress(ctx, ctx->device_name,
+				       percent, 0);
 	}
 	return 0;
 }
@@ -454,17 +474,10 @@ static void signal_cancel(int sig)
 static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 {
 	char	*buf, *token, *next, *p, *arg;
-	int	len, ea_ver;
+	int	ea_ver;
 	int	extended_usage = 0;
 
-	len = strlen(opts);
-	buf = malloc(len+1);
-	if (!buf) {
-		fprintf(stderr, _("Couldn't allocate memory to parse "
-			"extended options!\n"));
-		exit(1);
-	}
-	strcpy(buf, opts);
+	buf = string_copy(ctx, opts, 0);
 	for (token = buf; token && *token; token = next) {
 		p = strchr(token, ',');
 		next = 0;
@@ -525,9 +538,10 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 
 	*ret_ctx = ctx;
 
-	setbuf(stdout, NULL);
-	setbuf(stderr, NULL);
+	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+	setvbuf(stderr, NULL, _IONBF, BUFSIZ);
 	initialize_ext2_error_table();
+	blkid_get_cache(&ctx->blkid, NULL);
 	
 	if (argc && *argv)
 		ctx->program_name = *argv;
@@ -560,16 +574,22 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			break;
 		case 'p':
 		case 'a':
+			if (ctx->options & (E2F_OPT_YES|E2F_OPT_NO)) {
+			conflict_opt:
+				fatal_error(ctx, 
+	_("Only one the options -p/-a, -n or -y may be specified."));
+			}
 			ctx->options |= E2F_OPT_PREEN;
-			ctx->options &= ~(E2F_OPT_YES|E2F_OPT_NO);
 			break;
 		case 'n':
+			if (ctx->options & (E2F_OPT_YES|E2F_OPT_PREEN))
+				goto conflict_opt;
 			ctx->options |= E2F_OPT_NO;
-			ctx->options &= ~(E2F_OPT_YES|E2F_OPT_PREEN);
 			break;
 		case 'y':
+			if (ctx->options & (E2F_OPT_PREEN|E2F_OPT_NO))
+				goto conflict_opt;
 			ctx->options |= E2F_OPT_YES;
-			ctx->options &= ~(E2F_OPT_PREEN|E2F_OPT_NO);
 			break;
 		case 't':
 #ifdef RESOURCE_TRACK
@@ -601,7 +621,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			ctx->inode_buffer_blocks = atoi(optarg);
 			break;
 		case 'j':
-			ctx->journal_name = optarg;
+			ctx->journal_name = string_copy(ctx, optarg, 0);
 			break;
 		case 'P':
 			ctx->process_inode_size = atoi(optarg);
@@ -609,11 +629,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 		case 'L':
 			replace_bad_blocks++;
 		case 'l':
-			bad_blocks_file = (char *) malloc(strlen(optarg)+1);
-			if (!bad_blocks_file)
-				fatal_error(ctx,
-					    "Couldn't malloc bad_blocks_file");
-			strcpy(bad_blocks_file, optarg);
+			bad_blocks_file = string_copy(ctx, optarg, 0);
 			break;
 		case 'd':
 			ctx->options |= E2F_OPT_DEBUG;
@@ -662,7 +678,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	if ((ctx->options & E2F_OPT_NO) && !bad_blocks_file &&
 	    !cflag && !swapfs && !(ctx->options & E2F_OPT_COMPRESS_DIRS))
 		ctx->options |= E2F_OPT_READONLY;
-	ctx->filesystem_name = argv[optind];
+	ctx->filesystem_name = blkid_get_devname(ctx->blkid, argv[optind], 0);
 	if (extended_opts)
 		parse_extended_opts(ctx, extended_opts);
 	
@@ -788,7 +804,7 @@ int main (int argc, char *argv[])
 #endif
 
 	if (!(ctx->options & E2F_OPT_PREEN) || show_version_only)
-		fprintf (stderr, "e2fsck %s (%s)\n", my_ver_string,
+		fprintf(stderr, "e2fsck %s (%s)\n", my_ver_string,
 			 my_ver_date);
 
 	if (show_version_only) {
@@ -894,13 +910,8 @@ restart:
 	 */
 	if (ctx->device_name == 0 &&
 	    (sb->s_volume_name[0] != 0)) {
-		char *cp = malloc(sizeof(sb->s_volume_name)+1);
-		if (cp) {
-			strncpy(cp, sb->s_volume_name,
-				sizeof(sb->s_volume_name));
-			cp[sizeof(sb->s_volume_name)] = 0;
-			ctx->device_name = cp;
-		}
+		ctx->device_name = string_copy(ctx, sb->s_volume_name,
+					       sizeof(sb->s_volume_name));
 	}
 	if (ctx->device_name == 0)
 		ctx->device_name = ctx->filesystem_name;
@@ -927,6 +938,17 @@ restart:
 				 "check.\n"));
 			io_channel_flush(ctx->fs->io);
 		} else {
+			if (ctx->flags & E2F_FLAG_RESTARTED) {
+				/*
+				 * Whoops, we attempted to run the
+				 * journal twice.  This should never
+				 * happen, unless the hardware or
+				 * device driver is being bogus.
+				 */
+				com_err(ctx->program_name, 0,
+					_("unable to set superblock flags on %s\n"), ctx->device_name);
+				fatal_error(ctx, 0);
+			}
 			retval = e2fsck_run_ext3_journal(ctx);
 			if (retval) {
 				com_err(ctx->program_name, retval,
@@ -936,6 +958,7 @@ restart:
 			}
 			ext2fs_close(ctx->fs);
 			ctx->fs = 0;
+			ctx->flags |= E2F_FLAG_RESTARTED;
 			goto restart;
 		}
 	}
@@ -1094,6 +1117,8 @@ restart:
 	
 	ext2fs_close(fs);
 	ctx->fs = NULL;
+	free(ctx->filesystem_name);
+	free(ctx->journal_name);
 	e2fsck_free_context(ctx);
 	
 #ifdef RESOURCE_TRACK

@@ -8,6 +8,7 @@ VPATH = @srcdir@
 top_builddir = ..
 my_dir = debugfs
 INSTALL = @INSTALL@
+DLOPEN_LIB = @DLOPEN_LIB@
 
 @MCONFIG@
 
@@ -24,8 +25,9 @@ SRCS= debug_cmds.c $(srcdir)/debugfs.c $(srcdir)/util.c $(srcdir)/ls.c \
 	$(srcdir)/dump.c $(srcdir)/setsuper.c ${srcdir}/logdump.c \
 	$(srcdir)/htree.c
 
-LIBS= $(LIBEXT2FS) $(LIBE2P) $(LIBSS) $(LIBCOM_ERR)  $(LIBUUID)
-DEPLIBS= $(LIBEXT2FS) $(LIBE2P) $(LIBSS) $(LIBCOM_ERR)  $(DEPLIBUUID)
+LIBS= $(LIBEXT2FS) $(LIBE2P) $(LIBSS) $(LIBCOM_ERR) $(LIBBLKID) \
+	$(LIBUUID) $(DLOPEN_LIB)
+DEPLIBS= $(LIBEXT2FS) $(LIBE2P) $(LIBSS) $(LIBCOM_ERR) $(LIBBLKID) $(DEPLIBUUID)
 
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $< -o $@
@@ -79,7 +81,7 @@ distclean: clean
 # the Makefile.in file
 #
 debug_cmds.o: debug_cmds.c $(top_srcdir)/lib/ss/ss.h \
- $(top_builddir)/lib/ss/ss_err.h
+ $(top_builddir)/lib/ss/ss_err.h $(top_srcdir)/lib/et/com_err.h
 debugfs.o: $(srcdir)/debugfs.c $(top_srcdir)/lib/et/com_err.h \
  $(top_srcdir)/lib/ss/ss.h $(top_builddir)/lib/ss/ss_err.h \
  $(srcdir)/debugfs.h $(top_srcdir)/lib/ext2fs/ext2_fs.h \
@@ -126,7 +128,8 @@ logdump.o: $(srcdir)/logdump.c $(srcdir)/debugfs.h \
  $(top_srcdir)/lib/ext2fs/ext2_fs.h $(top_builddir)/lib/ext2fs/ext2_types.h \
  $(top_srcdir)/lib/ext2fs/ext2fs.h $(top_srcdir)/lib/et/com_err.h \
  $(top_srcdir)/lib/ext2fs/ext2_io.h $(top_builddir)/lib/ext2fs/ext2_err.h \
- $(top_srcdir)/lib/ext2fs/bitops.h $(srcdir)/jfs_user.h \
+ $(top_srcdir)/lib/ext2fs/bitops.h $(top_srcdir)/lib/blkid/blkid.h \
+ $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/jfs_user.h \
  $(top_srcdir)/lib/ext2fs/kernel-jbd.h $(top_srcdir)/lib/ext2fs/jfs_compat.h \
  $(top_srcdir)/lib/ext2fs/kernel-list.h $(top_srcdir)/lib/uuid/uuid.h
 htree.o: $(srcdir)/htree.c $(srcdir)/debugfs.h \

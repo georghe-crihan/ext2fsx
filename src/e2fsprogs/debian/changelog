@@ -1,3 +1,94 @@
+e2fsprogs (1.33-1) unstable; urgency=low
+
+  * New upstream version (Closes: #189687)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Mon, 21 Apr 2003 13:49:52 -0400
+
+e2fsprogs (1.32+1.33-WIP-2003.04.14-1) unstable; urgency=low
+
+  * New upstream version
+     - Add new utility program, logsave, to capture the output of fsck
+       during the boot sequence
+  * Add support for the -a and -s options to logsave.
+  * Change e2fsck to bracket its progress bar output with ctrl-A and ctrl-B
+    characters, so that logsave -s can omit writing the progress bar output
+    to the log file.
+  * Avoid printing the version banner for mke2fs if the -q option is 
+    specified.  (Closes: #172716)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Wed, 16 Apr 2003 15:27:20 -0400
+
+e2fsprogs (1.32+1.33-WIP-2003.03.30-3) unstable; urgency=low
+
+  * Provide /usr/include/com_err.h, which was previously provided by the
+    libkrb5-dev package
+  * Change the sectoin of com_err-dev, ss-dev, uuid-dev, libblkid-dev,
+    e2fslibs-dev to libdevel
+  * Add libblkid1-udeb package for the Debian Installer.
+  * Use the SS_READLINE_PATH environment variable to control the search
+    for a suitable readine library.
+  * Fix bug in mke2fs, which was was incorrectly checking the argument
+    to the -g option if the default block size is used.  (Closes: #188319)
+  * Update man pages.  (Closes: #188318)
+  * Mke2fs can be given a minimum block size by passing in a negative
+    number to the -b option.
+  * Update to standards 3.5.9
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sat, 12 Apr 2003 02:52:17 -0400
+
+e2fsprogs (1.32+1.33-WIP-2003.03.30-2) unstable; urgency=low
+
+  * Fix XFS superblock definition.  Add support to extract UUID and
+    labels for JFS and ROMFS.
+  * Make the random number generator more paranoid about potentially buggy
+    /dev/random devices.
+  * The badblocks program now flushes its output as it discovers bad blocks.
+  * Imported bug fixes to EVMS driver from the EVMS 2.0 tree.  Fixed a 
+    few potential hangs, and eliminated a file descriptor leak.
+  * E2fsck now updates the global free block and inode counters from
+    the block group specific counters quietly.  This is needed for an
+    experimental kernel patch which improves SMP scalability by not 
+    locking the entire filesystem during block or inode allocation; if
+    the filesystem is not unmoutned cleanly, the global counts may not
+    be accurate.
+  * Fix a bug in fsck which can cause it to hang trying to access the
+    floppy disk if there the floppy drive has filesystem type of
+    'auto'.  (Closes: #187812)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sun,  6 Apr 2003 23:13:50 -0400
+
+e2fsprogs (1.32+1.33-WIP-2003.03.30-1) unstable; urgency=low
+
+  * Change compile_et to generate header files that use <et/com_err.h>
+    instead of <com_err.h>, so the current version of the header file 
+    is used.  Remove legacy K&R, varargs, and pre-POSIX signal support.
+  * Fix (one more time!) Apple Darwin port in blkid/getsize.c
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sun, 30 Mar 2003 23:34:55 -0500
+
+e2fsprogs (1.32+1.33-WIP-2003.03.25-1) unstable; urgency=low
+
+  * New maintainer
+  * New upstream release (Closes: #176814, #174766, #166048, #179671,
+    #173612, #175233, #175113, #170497, #185945)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sun, 16 Mar 2003 18:05:08 -0500
+
+e2fsprogs (1.32-2) unstable; urgency=high
+
+  * Applied upstream patch to fix htree problems, and to deactivate it by
+    default in mke2fs (Closes: #181615, #179043)
+  * Be sure removal of libe2fsim doesn't fail, as it's not built on hurd
+    (Closes: #164117).
+
+ -- Yann Dirson <dirson@debian.org>  Fri, 21 Feb 2003 00:21:44 +0100
+
+e2fsprogs (1.32-1) unstable; urgency=low
+
+  * New upstream release (Closes: #167108).
+
+ -- Yann Dirson <dirson@debian.org>  Tue, 19 Nov 2002 00:18:09 +0100
+
 e2fsprogs (1.29+1.30-WIP-0930-2) unstable; urgency=low
 
   * Made mkinitrd script to skip commented-out lines (Closes: #163251).

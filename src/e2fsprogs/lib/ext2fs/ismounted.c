@@ -129,9 +129,11 @@ static errcode_t check_mntent_file(const char *mtab_file, const char *file,
 #endif /* __GNU__ */
 	*mount_flags = EXT2_MF_MOUNTED;
 	
+#ifdef MNTOPT_RO
 	/* Check to see if the ro option is set */
 	if (hasmntopt(mnt, MNTOPT_RO))
 		*mount_flags |= EXT2_MF_READONLY;
+#endif
 
 	if (mtpt)
 		strncpy(mtpt, mnt->mnt_dir, mtlen);
@@ -296,7 +298,9 @@ errcode_t ext2fs_check_mount_point(const char *device, int *mount_flags,
 #ifdef HAVE_GETMNTINFO
 	return check_getmntinfo(device, mount_flags, mtpt, mtlen);
 #else
+#ifdef __GNUC__
 #warning "Can't use getmntent or getmntinfo to check for mounted filesystems!"
+#endif
 	*mount_flags = 0;
 	return 0;
 #endif /* HAVE_GETMNTINFO */

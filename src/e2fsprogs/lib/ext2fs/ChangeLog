@@ -1,3 +1,93 @@
+2003-04-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.33
+
+2003-04-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use DYLD_LIBRAY_PATH so that "make check" works on
+		Darwin systems when building with shared libraries.
+
+2003-04-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix_io.c: Use __CYGWIN__ instead of CYGWIN.
+
+2003-04-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsize.c: Add Cygwin/Windows version of ext2fs_get_device_size()
+
+2003-04-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix_io.c (raw_read_blk): Add Cygwin support (the Windows block
+		device only accepts sector aligned read requests.
+
+	* ismounted.c (check_mntent_file): Deal with OS's that don't
+		define MNTOPT_RO.
+
+	* imager.c: If the OS doesn't define ssize_t, typedef it to int.
+
+2003-04-11  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2_fs.h (EXT2_FEATURE_RO_COMPAT_BTREE_DIR): Comment out unused
+		feature flag
+
+2003-03-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use the compile_et --build-tree option.
+
+2003-03-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsize.c: Add support for Apple Darwin's ioctl to get the hard
+		disk size.
+
+	* badblocks.c (ext2fs_u32_list_count), ext2fs.h: Add new function
+		which returns the number of entries in the list.
+
+2003-03-10  Theodore Ts'o  <tytso@mit.edu>
+
+	* fileio.c (ext2fs_file_lseek): Fix bug added when adding 64-bit
+		support; avoid null dereference when ret_pos is NULL.
+
+2003-03-06  Theodore Tso  <tytso@mit.edu>
+
+	* ext2_types.h.in: Don't redefine types if other e2fsprogs
+		*_types.h files have been included already.
+
+	* kernel-jbd.h: Use C99 variadic cpp macros if not using GCC.
+		(Older GCC's don't support the C99 variadic macros.)
+
+	* flushb.c (ext2fs_sync_device), 
+	ismounted.c (ext2fs_check_mount_point): Avoid GCC extension: 
+	#warning not supported by Solaris suncc
+
+	* ext2_ext_attr.h: Avoid GCC extension: 0 length arrays in
+		structure definition.  Not needed for now in 
+		ext2_ext_attr_entry.
+
+2003-01-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* dirhash.c: Fix gcc -Wall nits.
+
+2003-01-22  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix_io.c (unix_write_blk): Fix up GCC -Wall nits.
+
+2003-01-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* fileio.c (ext2fs_file_read, ext2_file_lseek,
+		ext2_file_get_size): Add 64-bit support.
+
+	* ext2fs.h (EXT2_I_SIZE): Add macro which caluates a 64bit size
+		from i_size and i_size_high.
+
+2003-01-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* initialize.c (ext2fs_initialize): If the user specifies a really
+		large number of inodes, then reduce the number of blocks
+		per group until we find a workable set of filesystem
+		parameters.
+
+	* ext2_err.et.in (EXT2_ET_TOO_MANY_INODES): Add new error code.
+
 2002-11-09  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.32

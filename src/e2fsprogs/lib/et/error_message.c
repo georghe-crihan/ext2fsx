@@ -17,6 +17,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include "com_err.h"
@@ -28,12 +29,7 @@ static char buffer[25];
 struct et_list * _et_list = (struct et_list *) NULL;
 
 
-#ifdef __STDC__
 const char * error_message (errcode_t code)
-#else
-const char * error_message (code)
-	errcode_t	code;
-#endif
 {
     int offset;
     struct et_list *et;
@@ -85,4 +81,59 @@ oops:
     *cp++ = '0' + offset;
     *cp = '\0';
     return(buffer);
+}
+
+/*
+ * New interface provided by krb5's com_err library
+ */
+errcode_t add_error_table(const struct error_table * et)
+{
+	struct et_list *el = _et_list;
+
+	while (el) {
+		if (el->table->base == et->base)
+			return EEXIST;
+		el = el->next;
+	}
+
+	if (!(el = (struct et_list *) malloc(sizeof(struct et_list))))
+		return ENOMEM;
+
+	el->table = et;
+	el->next = _et_list;
+	_et_list = el;
+
+	return 0;
+}
+
+/*
+ * New interface provided by krb5's com_err library
+ */
+errcode_t remove_error_table(const struct error_table * et)
+{
+	struct et_list *el = _et_list;
+	struct et_list *el2 = 0;
+
+	while (el) {
+		if (el->table->base == et->base) {
+			if (el2)	/* Not the beginning of the list */
+				el2->next = el->next;
+			else
+				_et_list = el->next;
+			(void) free(el);
+			return 0;
+		}
+		el2 = el;
+		el = el->next;
+	}
+	return ENOENT;
+}
+
+/*
+ * Variant of the interface provided by Heimdal's com_err library
+ */
+void
+add_to_error_table(struct et_list *new_table)
+{
+	add_error_table(new_table->table);
 }

@@ -22,6 +22,10 @@ mke2fs \- create an ext2/3 filesystem
 .I fragment-size
 ]
 [
+.B \-g
+.I blocks-per-group
+]
+[
 .B \-i
 .I bytes-per-inode
 ]
@@ -138,10 +142,17 @@ option was specified.
 Specify the size of blocks in bytes.  Valid block size vales are 1024, 
 2048 and 4096 bytes per block.  If omitted,
 .B mke2fs
-block-size is determined by the file system size and the expected usage
-of the filesystem (see the
+block-size is hueristically determined by the file system size and
+the expected usage of the filesystem (see the
 .B \-T
-option).
+option).  If 
+.I block-size
+is negative, then mke2fs will use hueristics to determine the
+appropriate block size, with the constraint that the block size will be
+at least 
+.I block-size
+bytes.  This is useful for certain hardware devices which require that
+the blocksize be a multiple of 2k.
 .TP
 .B \-c
 Check the device for bad blocks before creating the file system.  If
@@ -156,6 +167,18 @@ Force
 .B mke2fs
 to run, even if the specified device is not a 
 block special device, or appears to be mounted.
+.TP
+.BI \-g " blocks-per-group"
+Specify the number of blocks in a block group.  There is generally no
+reason the user to ever set this parameter, as the default is optimal
+for the filesystem.  (For administrators who are creating
+filesystems on RAID arrays, it is preferable to use the
+.I stride
+RAID parameter as part of the
+.B \-R
+option rather than manipulating the number of blocks per group.)  
+This option is generally used by developers who
+are developing test cases.  
 .TP
 .BI \-i " bytes-per-inode"
 Specify the bytes/inode ratio. 
@@ -300,9 +323,8 @@ is run on a system which can support them.
 The following filesystem options are supported:
 .RS 1.2i
 .TP
-.B sparse_super
-Create a filesystem with fewer superblock backup copies
-(saves space on large filesystems).
+.B dir_index
+Use hashed b-trees to speed up lookups in large directories.
 .TP
 .B filetype
 Store file type information in directory entries.
@@ -319,6 +341,10 @@ option).
 @JDEV@.I external-journal
 @JDEV@must be created with the same
 @JDEV@block size as the filesystems that will be using it.
+.TP
+.B sparse_super
+Create a filesystem with fewer superblock backup copies
+(saves space on large filesystems).
 .RE
 .TP
 .B \-q

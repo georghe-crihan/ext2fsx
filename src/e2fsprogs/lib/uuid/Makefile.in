@@ -84,11 +84,14 @@ BSDLIB_INSTALL_DIR = $(root_libdir)
 
 all:: tst_uuid uuid_time $(SMANPAGES)
 
+$(top_builddir)/lib/uuid/uuid_types.h: $(srcdir)/uuid_types.h.in $(top_builddir)/config.status
+	cd $(top_builddir); CONFIG_FILES=$(my_dir)/uuid_types.h ./config.status
+
 tst_uuid.o: $(srcdir)/tst_uuid.c
 	$(CC) $(ALL_CFLAGS) -c $(srcdir)/tst_uuid.c -o tst_uuid.o
 
-tst_uuid: tst_uuid.o $(DEPLIBUUID)
-	$(CC) $(ALL_LDFLAGS) -o tst_uuid tst_uuid.o $(OBJS)
+tst_uuid: tst_uuid.o $(DEPSTATIC_LIBUUID)
+	$(CC) $(ALL_LDFLAGS) -o tst_uuid tst_uuid.o $(STATIC_LIBUUID)
 
 uuid_time: $(srcdir)/uuid_time.c $(DEPLIBUUID)
 	$(CC) $(ALL_CFLAGS) -DDEBUG -o uuid_time $(srcdir)/uuid_time.c \
@@ -131,6 +134,7 @@ install:: all installdirs
 	-$(RANLIB) $(DESTDIR)$(libdir)/libuuid.a
 	$(CHMOD) $(LIBMODE) $(DESTDIR)$(libdir)/libuuid.a
 	$(INSTALL_DATA) $(srcdir)/uuid.h $(DESTDIR)$(includedir)/uuid/uuid.h
+	$(INSTALL_DATA) uuid_types.h $(DESTDIR)$(includedir)/uuid/uuid_types.h
 	for i in $(SMANPAGES); do \
 		$(RM) -f $(DESTDIR)$(man3dir)/$$i.gz; \
 		$(INSTALL_DATA) $$i $(DESTDIR)$(man3dir)/$$i; \
@@ -152,7 +156,7 @@ clean::
 	$(RM) -f ../libuuid.a ../libuuid_p.a tst_uuid uuid_time $(SMANPAGES)
 
 check:: tst_uuid
-	LD_LIBRARY_PATH=$(LIB) ./tst_uuid
+	LD_LIBRARY_PATH=$(LIB) DYLD_LIBRARY_PATH=$(LIB) ./tst_uuid
 
 mostlyclean:: clean
 distclean:: clean
@@ -163,6 +167,7 @@ distclean:: clean
 #
 ../../lib/libuuid.a: libuuid.a
 ../../lib/libuuid.so: image
+../../lib/libuuid.dylib: image
 
 # +++ Dependency line eater +++
 # 
@@ -170,22 +175,22 @@ distclean:: clean
 # the Makefile.in file
 #
 clear.o: $(srcdir)/clear.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 compare.o: $(srcdir)/compare.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 copy.o: $(srcdir)/copy.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 gen_uuid.o: $(srcdir)/gen_uuid.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 isnull.o: $(srcdir)/isnull.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 pack.o: $(srcdir)/pack.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 parse.o: $(srcdir)/parse.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 unpack.o: $(srcdir)/unpack.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 unparse.o: $(srcdir)/unparse.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h
 uuid_time.o: $(srcdir)/uuid_time.c $(srcdir)/uuidP.h \
- $(top_builddir)/lib/ext2fs/ext2_types.h $(srcdir)/uuid.h
+ $(top_builddir)/lib/uuid/uuid_types.h $(srcdir)/uuid.h

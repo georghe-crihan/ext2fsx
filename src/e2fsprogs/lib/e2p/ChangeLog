@@ -1,3 +1,33 @@
+2003-04-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.33
+
+2003-04-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* fgetflags.c (fgetflags), fsetflags.c (fsetflags): Remove unused
+		and useless close(fd).
+
+	* hashstr.c (e2p_hash2string): Remove unused variables.
+
+	* iod.c: Fix gcc -Wall warnings by including stdlib.h.
+
+2003-04-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* iod.c (iterate_on_dir): Support systems that don't have d_reclen
+		in struct dirent.
+
+2003-04-11  Theodore Ts'o  <tytso@mit.edu>
+
+	* feature.c: Remove support for EXT2_FEATURE_RO_COMPAT_BTREE_DIR,
+		since it's not actually used, and may confuse people who
+		are looking for EXT2_FEATURE_COMPAT_DIR_INDEX, which is in
+		use.
+
+2003-03-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* ls.c (list_super2): Display the superblock fields even if the
+		journal or the dir index feature is not enabled.
+
 2002-11-09  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.32
