@@ -226,6 +226,8 @@ enum {
 {
    NSDictionary *fsTypes;
    NSNumber *fstype;
+   NSString *tmp;
+   ExtFSType ftype;
    BOOL hasJournal, isJournaled;
    
    if (!stat) {
@@ -263,15 +265,20 @@ enum {
       nil];
    
    fstype = [fsTypes objectForKey:NSSTR(stat->f_fstypename)];
-   ewlock(e_lock);
+   ftype = fsTypeUnknown;
    if (fstype)
-      e_fsType = [fstype intValue];
+      ftype = [fstype intValue];
    else
-      e_fsType = fsTypeUnknown;
-   
+      NSLog(@"ExtFS: Unknown filesystem '%@'.\n", fstype);
    [fsTypes release];
+   tmp = [[NSString alloc] initWithCString:stat->f_mntonname];
+   
+   ewlock(e_lock);
+   e_fsType = ftype;
    
    e_attributeFlags |= kfsMounted;
+   // CD-Audio needs the following
+   e_attributeFlags &= ~kfsNoMount;
    if (stat->f_flags & MNT_RDONLY)
       e_attributeFlags &= ~kfsWritable;
    
@@ -282,8 +289,10 @@ enum {
    e_blockCount = stat->f_blocks;
    e_blockAvail = stat->f_bavail;
    [e_where release];
-   e_where = [[NSString alloc] initWithCString:stat->f_mntonname];
+   e_where = tmp;
    eulock(e_lock);
+   
+   tmp = nil;
    
    (void)[self fsInfo];
    hasJournal = [self hasJournal];

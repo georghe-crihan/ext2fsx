@@ -937,3 +937,17 @@ emicon_exit:
 }
 
 @end
+
+@implementation ExtFSMedia (ExtFSMediaLockMgr)
+
+- (void)lock:(BOOL)exclusive
+{
+    exclusive ? ewlock(e_lock) : erlock(e_lock);
+}
+
+- (void)unlock
+{
+    eulock(e_lock);
+}
+
+@end

@@ -36,6 +36,7 @@
 @constant efsSMARTInvalidTransport Invalid transport error; S.M.A.R.T. is only supported by ATA.
 @constant efsSMARTOSError An operating system error occurred trying to query the S.M.A.R.T. status.
 @constant efsSMARTVerified No S.M.A.R.T. errors detected.
+@constant efsSMARTTestInProgress The disk's S.M.A.R.T. test is currently in progress.
 @constant efsSMARTTestAbort The last/current S.M.A.R.T. test was aborted by the kernel.
 @constant efsSMARTTestInterrupted The last/current S.M.A.R.T. test was interrupted.
 @constant efsSMARTTestFatal A fatal error was detected.
@@ -43,20 +44,19 @@
 @constant efsSMARTTestElectricFail A disk electrical failure was detected.
 @constant efsSMARTTestServoFail A disk motor failure was detected.
 @constant efsSMARTTestReadFail A disk read failure was detected.
-@constant efsSMARTTestInProgress The disk's S.M.A.R.T. test is currently in progress.
 */
 typedef enum {
     efsSMARTInvalidTransport = -2,
     efsSMARTOSError          = -1,
     efsSMARTVerified         = 0,
-    efsSMARTTestAbort        = 1,
-    efsSMARTTestInterrupted  = 2,
-    efsSMARTTestFatal        = 3,
-    efsSMARTTestUnknownFail  = 4,
-    efsSMARTTestElectricFail = 5,
-    efsSMARTTestServoFail    = 6,
-    efsSMARTTestReadFail     = 7,
-    efsSMARTTestInProgress   = 8,
+    efsSMARTTestInProgress   = 1,
+    efsSMARTTestAbort        = 2,
+    efsSMARTTestInterrupted  = 3,
+    efsSMARTTestFatal        = 20,
+    efsSMARTTestUnknownFail  = 21,
+    efsSMARTTestElectricFail = 22,
+    efsSMARTTestServoFail    = 23,
+    efsSMARTTestReadFail     = 24,
     efsSMARTStatusMax
 }ExtFSMARTStatus;
 

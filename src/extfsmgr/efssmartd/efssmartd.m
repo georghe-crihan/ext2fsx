@@ -38,8 +38,8 @@
 - (void)volSMARTStatus:(NSNotification*)notification
 {
     NSDictionary *info = [notification userInfo];
-    
-    if ([[info objectForKey:ExtFSMediaKeySMARTStatus] intValue] > efsSMARTVerified)  {
+    int status = [[info objectForKey:ExtFSMediaKeySMARTStatus] intValue];
+    if (status > efsSMARTVerified && status != efsSMARTTestInProgress)  {
         SMARTAlertController *win = 
         [[SMARTAlertController alloc] initWithMedia:[notification object]
            status:info];

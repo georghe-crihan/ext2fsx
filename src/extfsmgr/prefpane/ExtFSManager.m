@@ -47,7 +47,11 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #define EXT_TOOLBAR_ICON_TYPE @"icns"	
 
+// Object property support
 #define EXT_OBJ_PROPERTY_RESTORE_ACTIONS @"Restore"
+#define EXT_OBJ_PROPERTY_TITLE_COLOR @"TitleColor"
+
+static NSMutableDictionary* MediaProps(ExtFSMedia *m);
 
 static void ExtSwapButtonState(id button, BOOL swapImage);
 static id ExtMakeInfoTitle(NSString *title);
@@ -964,6 +968,8 @@ info_alt_switch:
 
 - (id)outlineView:(NSOutlineView *)outlineView child:(int)index ofItem:(id)item
 {
+   NSArray *children;
+   
 #ifdef TRACE
    NSLog(@"ExtFSM: outline get child at index %d for %@", index, item);
 #endif
@@ -971,10 +977,11 @@ info_alt_switch:
       return ([e_volData objectAtIndex:index]);
    }
    
-   if (index < [item childCount])
-      return ([[item children] objectAtIndex:index]);
+   children = [item children];
+   if (index < [children count])
+      return ([children objectAtIndex:index]);
    
-   NSLog(@"ExtFSM: -%s- index is outside of range for object %@\n", item);
+   NSLog(@"ExtFSM: index is outside of range for object %@\n", item);
    return (nil);
 }
 
@@ -1035,12 +1042,23 @@ info_alt_switch:
     }
     
     if ([e_volData containsObject:item]) {
-        // Root disks get a bold name
+        // Root disks get a bold name, and are colored red for SMART failures.
+        NSMutableDictionary *d = MediaProps(item);
+        NSColor *color;
+        
+        if (nil == (color = [d objectForKey:EXT_OBJ_PROPERTY_TITLE_COLOR])) {
+            if ([item SMARTStatus] >= efsSMARTTestFatal)
+                color = [NSColor redColor];
+            else
+                color = [NSColor blackColor];
+            [d setObject:color forKey:EXT_OBJ_PROPERTY_TITLE_COLOR];
+        }
         value = [[NSAttributedString alloc] initWithString:name attributes:
                     [NSDictionary dictionaryWithObjectsAndKeys:
                         [[NSFontManager sharedFontManager] convertFont:
                             [cell font] toHaveTrait:NSBoldFontMask],
-                        NSFontAttributeName, nil]];
+                        NSFontAttributeName,
+                        color, NSForegroundColorAttributeName, nil]];
         [cell setAttributedStringValue:value];
         [value release];
     } else {
@@ -1059,6 +1077,18 @@ info_alt_switch:
 }
 
 @end
+
+static NSMutableDictionary* MediaProps(ExtFSMedia *m)
+{
+    NSMutableDictionary *d = [m representedObject];
+    
+    if (nil == d) {
+        d = [[NSMutableDictionary alloc] init];
+        [m setRepresentedObject:d];
+        [d release];
+    }
+    return (d);
+}
 
 static void ExtSwapButtonState(id button, BOOL swapImage)
 {
@@ -1104,14 +1134,9 @@ static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
 
 static void AddRestoreAction(ExtFSMedia *m, id key, id val)
 {
-    NSMutableDictionary *objd = [m representedObject];
+    NSMutableDictionary *objd = MediaProps(m);
     NSMutableArray *actions;
     
-    if (nil == objd) {
-        objd = [[NSMutableDictionary alloc] init];
-        [m setRepresentedObject:objd];
-        [objd release];
-    }
     actions = [objd objectForKey:EXT_OBJ_PROPERTY_RESTORE_ACTIONS];
     if (nil == actions) {
         actions = [[NSMutableArray alloc] init];

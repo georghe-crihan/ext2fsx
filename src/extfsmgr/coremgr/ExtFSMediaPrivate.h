@@ -82,3 +82,35 @@ withObject:args waitUntilDone:NO]; \
 
 #define efsIOTransportTypeMask 0x00000007
 #define efsIOTransportBusMask  0xFFFFFFF8
+
+/*!
+@enum ExtFSMediaFlags
+@abstract ExtFSMedia internal bit flags.
+@discussion These flags should not be used by ExtFSMedia clients.
+@constant kfsDiskArb Media is managed by Disk Arb.
+@constant kfsMounted Media is mounted.
+@constant kfsWritable Media or filesystem is writable.
+@constant kfsEjectable Media is ejectable.
+@constant kfsWholeDisk Media represents a whole disk.
+@constant kfsLeafDisk Media contains no partititions.
+@constant kfsCDROM Media is a CD.
+@constant kfsDVDROM Media is a DVD.
+@constant kfsGetAttrlist Filesystem supports getattrlist() sys call.
+@constant kfsIconNotFound No icon found for the media.
+@constant kfsNoMount Media cannot be mounted (partition map, driver partition, etc).
+@constant kfsPermsEnabled Filesystem permissions are in effect.
+*/
+enum {
+   kfsDiskArb		= (1<<0), /* Mount/unmount with Disk Arb */
+   kfsMounted		= (1<<1),
+   kfsWritable		= (1<<2),
+   kfsEjectable	    = (1<<3),
+   kfsWholeDisk	    = (1<<4),
+   kfsLeafDisk		= (1<<5),
+   kfsCDROM			= (1<<6),
+   kfsDVDROM		= (1<<7),
+   kfsGetAttrlist	= (1<<9),  /* getattrlist supported */
+   kfsIconNotFound	= (1<<10),
+   kfsNoMount		= (1<<11),
+   kfsPermsEnabled  = (1<<12)
+};
