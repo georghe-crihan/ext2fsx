@@ -102,8 +102,6 @@ main(argc, argv)
 	int ch, mntflags;
 	char *fs_name, *fspec, mntpath[MAXPATHLEN];
    
-   sleep(30);
-   
 	mntflags = 0;
 	while ((ch = getopt(argc, argv, "o:")) != -1)
 		switch (ch) {
