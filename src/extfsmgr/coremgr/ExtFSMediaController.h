@@ -201,28 +201,28 @@ error code. This key may not be available for all errors.
 extern NSString * const ExtMediaKeyOpFailureMsgString;
 
 /*!
-@function FSNameFromType
+@function EFSNameFromType
 @abstract Converts a filesystem type id to a C string
 containing the filesystem name.
 @param type A valid ExtFSType id.
 @result Filesystem name or nil, if the type is invalid.
 */
-const char* FSNameFromType(int type);
+const char* EFSNameFromType(int type);
 /*!
-@function NSFSNameFromType
+@function EFSNSNameFromType
 @abstract Converts a filesystem type id to a NSString
 containing the filesystem name.
 @param type A valid ExtFSType id.
 @result Filesystem name or nil, if the type is invalid.
 */
-NSString* NSFSNameFromType(int type);
+NSString* EFSNSNameFromType(int type);
 
 /*!
-@function NSFSPrettyNameFromType
+@function EFSNSPrettyNameFromType
 @abstract Converts a filesystem type id to a NSString
 containing the filesystem name in a suitable format for display
 to a user.
 @param type A valid ExtFSType id.
 @result Filesystem name or nil, if the type is invalid.
 */
-NSString* NSFSPrettyNameFromType(int type);
+NSString* EFSNSPrettyNameFromType(int type);
