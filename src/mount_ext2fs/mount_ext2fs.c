@@ -80,8 +80,13 @@ struct mntopt mopts[] = {
 	{ NULL }
 };
 
+/* Special flag to include ExtFSManager prefs */
+#define EXT2_MNT_AMOUNT 0x80000000
+#define EXT2_MOPT_AMOUNT { "amount", 0, EXT2_MNT_AMOUNT, 0 }
+
 struct mntopt e2_mopts[] = {
    EXT2_MOPT_INDEX,
+   EXT2_MOPT_AMOUNT,
    { NULL }
 };
 
@@ -112,7 +117,6 @@ main(argc, argv)
          getmntopts(optarg, e2_mopts, &e2_mntflags, 0);
          break;
       case 'x':
-         /* Special flag to include ExtFSManager prefs */
          x = 1;
          break;
       case '?':
@@ -138,10 +142,21 @@ main(argc, argv)
    (void)checkpath(fs_name, mntpath);
    (void)rmslashes(fspec, fspec);
    
-   if (x) {
+   /* XXX -- diskarbitrationd does not respect the FSMountArguments fs bundle
+      key, so the 'amount' options is never passed to us. Therefore, we have
+      to default to processing the extmgr prefs and rely on the user
+      passing '-x' to disable processing. A bug report has been filed with
+      Apple (#3502935) to have diskarbitrationd "fixed", but even if that
+      happens, we still can't change this default because older OS versions
+      will not contain the fix. */
+   if (!x)
+      e2_mntflags |= EXT2_MNT_AMOUNT;
+   
+   if (e2_mntflags & EXT2_MNT_AMOUNT) {
+      e2_mntflags &= ~EXT2_MNT_AMOUNT;
       extmgr_mntopts(fspec, &mntflags, &e2_mntflags, &x);
       if (x) {
-         errno = ENOENT;
+         errno = ECANCELED;
          err(EX_SOFTWARE, "canceled automount on %s on %s", fspec, mntpath);
       }
    }
