@@ -1,4 +1,5 @@
 #!/bin/sh
+# $Id$
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
@@ -14,16 +15,6 @@ fi
 
 cd "${SRCROOT}/src/e2fsprogs"
 
-#The patches are now in CVS
-#if [ ! -f ./.e2patchdone ]; then
-#	patch -p1 < ../../e2diff.txt
-#	if [ $? -ne 0 ]; then
-#		echo "patch failed!"
-#		exit $?
-#	fi
-#	touch ./.e2patchdone
-#fi
-
 E2VER=`sed -n -e "s/^.*E2FSPROGS_VERSION[^0-9]*\([0-9]*\.[0-9]*\).*$/\1/p" ./version.h`
 
 if [ -f ./.e2configdone ]; then
@@ -36,8 +27,10 @@ if [ -f ./.e2configdone ]; then
 fi
 
 if [ ! -f ./.e2configdone ]; then
+# Panther has libiconv, but Jag doesn't
+# --with-libiconv-prefix=/usr 
 	./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
---without-libintl-prefix --disable-fsck --enable-bsd-shlibs \
+--without-libintl-prefix --without-libiconv-prefix --disable-fsck --enable-bsd-shlibs \
 --with-ccopts="-DAPPLE_DARWIN=1 -DHAVE_EXT2_IOCTLS=1 -DSYS_fsctl=242 -pipe -traditional-cpp"
 	if [ $? -ne 0 ]; then
 		echo "configure failed!"
