@@ -295,6 +295,9 @@ WRITE(ap)
       fboff = 0;
       fblk = 0;
       loopcount = 0;
+      /* There's no need for this, since we can't get here with rsd == 0, but the compiler
+        is not smart enough to figure this out and warns of possible badness. */
+      xfersize = 0;
    
       for (error = 0; rsd > 0;) {
          blkalloc = 0;
