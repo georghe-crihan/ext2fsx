@@ -15,11 +15,9 @@ exit 1
 fi
 fi
 
-sudo rm -rf /System/Library/Extensions/ext2fs.kext
-sudo rm -rf /System/Library/Filesystems/ext2.fs
-sudo rm -rf /Library/PreferencePanes/ExtFSManager.prefPane
-sudo rm /sbin/mount_ext2
-sudo rm /usr/share/man/man8/mount_ext2.8
+sudo rm -rf /System/Library/Extensions/ext2fs.kext /System/Library/Filesystems/ext2.fs \
+/Library/PreferencePanes/ExtFSManager.prefPane
+sudo rm /sbin/mount_ext2 /usr/share/man/man8/mount_ext2.8
 
 #e2fsprogs, e2undel
 sudo rm /sbin/fsck_ext2 /sbin/newfs_ext2
@@ -35,12 +33,19 @@ sudo rm ./badblocks ./debugfs ./dumpe2fs ./e2fsck ./e2image ./e2label ./findfs .
 ./e2undel
 cd ../share/doc
 sudo rm E2FSPROGS_COPYRIGHT E2UNDEL_README
-cd ../man/man1
-sudo rm ./chattr.1 ./lsattr.1 ./uuidgen.1
-cd ../man8
-sudo rm ./badblocks.8 ./debugfs.8 ./dumpe2fs.8 ./e2fsck.8 ./e2image.8 ./e2label.8 ./findfs.8 \
+
+MAN1="./chattr.1 ./lsattr.1 ./uuidgen.1"
+MAN8="./badblocks.8 ./debugfs.8 ./dumpe2fs.8 ./e2fsck.8 ./e2image.8 ./e2label.8 ./findfs.8 \
 ./fsck_ext2.8 ./newfs_ext2.8 ./blkid.8 ./fsck.ext2.8 ./fsck.ext3.8 ./mke2fs.8 ./mkfs.ext* \
-./mklost+found.8 ./resize2fs.8 ./tune2fs.8 ./logsave.8
+./mklost+found.8 ./resize2fs.8 ./tune2fs.8 ./logsave.8"
+cd /usr/local/share/man/man1
+sudo rm ${MAN1}
+cd ../man8
+sudo rm ${MAN8}
+cd /usr/local/man/man1
+sudo rm ${MAN1}
+cd ../man8
+sudo rm ${MAN8}
 
 #Rebuild the kext cache
 if [ -f /System/Library/Extensions.kextcache ]; then
