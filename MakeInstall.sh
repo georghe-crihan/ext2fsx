@@ -208,7 +208,8 @@ if [ "${DBG}" == "" ]; then
 		rm "${SYMS}"
 	fi
 	tar -cf "${SYMS}" ./System/Library/Extensions
-	tar -rf "${SYMS}" ./Library/Frameworks/ExtFSDiskManager.framework
+	tar -rf "${SYMS}" ./Library/Frameworks/ExtFSDiskManager.framework \
+./Library/PreferencePanes/ExtFSManager.prefPane/Contents/Resources/efssmartd.app
 	
 	echo "Stripping driver symbols..."
 	cd "./System/Library/Extensions"
@@ -219,6 +220,10 @@ if [ "${DBG}" == "" ]; then
 	
 	echo "Stripping frameworks..."
 	strip -x "${INSTALL}/Library/Frameworks/ExtFSDiskManager.framework/Versions/Current/ExtFSDiskManager"
+	
+	echo "Stripping applications..."
+	strip "${INSTALL}/Library/PreferencePanes/ExtFSManager.prefPane/Contents/Resources/efssmartd.app/Contents/MacOS/efssmartd" \
+"${INSTALL}/Library/Frameworks/ExtFSDiskManager.framework/Resources/efsprobe"
 	
 	cd "${EXT2BUILD}"
 fi
