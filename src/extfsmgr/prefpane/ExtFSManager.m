@@ -356,13 +356,28 @@ data = [data stringByAppendingString:@"\n"]; \
 [_infoText insertText:line]; \
 } while(0)
 
+#define ExtFmtInt(i) \
+[intFmt stringForObjectValue:[NSNumber numberWithUnsignedLong:(i)]]
+#define ExtFmtQuad(q) \
+[intFmt stringForObjectValue:[NSNumber numberWithUnsignedLongLong:(q)]]
+#define ExtFmtFloat(f) \
+[floatFmt stringForObjectValue:[NSNumber numberWithDouble:(f)]]
+
 - (void)generateInfo:(ExtFSMedia*)media
 {
    NSString *data;
    NSMutableAttributedString *line;
+   NSNumberFormatter *floatFmt, *intFmt;
    double size;
    short i;
    BOOL mounted;
+   
+   intFmt = [[NSNumberFormatter alloc] init];
+   [intFmt setFormat:@",0"];
+   [intFmt setLocalizesFormat:YES];
+   floatFmt = [[NSNumberFormatter alloc] init];
+   [floatFmt setFormat:@",0.00"];
+   [floatFmt setLocalizesFormat:YES];
    
    mounted = [media isMounted];
    
@@ -422,28 +437,28 @@ data = [data stringByAppendingString:@"\n"]; \
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
       data = _monikers[i];
-      data = [NSString stringWithFormat:@"%.2lf %@ (%qu %@)",
-         size, data, [media size], _bytes];
+      data = [NSString stringWithFormat:@"%@ %@ (%@ %@)",
+         ExtFmtFloat(size), data, ExtFmtQuad([media size]), _bytes];
       ExtInfoInsert(ExtLocalizedString(@"Size", ""), data);
       
       size = [media availableSize];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
       data = _monikers[i];
-      data = [NSString stringWithFormat:@"%.2lf %@ (%qu %@)",
-         size, data, [media availableSize], _bytes];
+      data = [NSString stringWithFormat:@"%@ %@ (%@ %@)",
+         ExtFmtFloat(size), data, ExtFmtQuad([media availableSize]), _bytes];
       ExtInfoInsert(ExtLocalizedString(@"Available Space", ""), data);
       
-      data = [NSString stringWithFormat:@"%lu %@", [media blockSize], _bytes];
+      data = [NSString stringWithFormat:@"%@ %@", ExtFmtInt([media blockSize]), _bytes];
       ExtInfoInsert(ExtLocalizedString(@"Block Size", ""), data);
       
-      data = [NSString stringWithFormat:@"%qu", [media blockCount]];
+      data = [NSString stringWithFormat:@"%@", ExtFmtQuad([media blockCount])];
       ExtInfoInsert(ExtLocalizedString(@"Number of Blocks", ""), data);
       
-      data = [NSString stringWithFormat:@"%qu", [media fileCount]];
+      data = [NSString stringWithFormat:@"%@", ExtFmtQuad([media fileCount])];
       ExtInfoInsert(ExtLocalizedString(@"Number of Files", ""), data);
       
-      data = [NSString stringWithFormat:@"%qu", [media dirCount]];
+      data = [NSString stringWithFormat:@"%@", ExtFmtQuad([media dirCount])];
       ExtInfoInsert(ExtLocalizedString(@"Number of Directories", ""), data);
       
       if ([media isExtFS]) {
@@ -465,11 +480,11 @@ data = [data stringByAppendingString:@"\n"]; \
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
       data = _monikers[i];
-      data = [NSString stringWithFormat:@"%.2lf %@ (%qu %@)",
-         size, data, [media size], _bytes];
+      data = [NSString stringWithFormat:@"%@ %@ (%@ %@)",
+         ExtFmtFloat(size), data, ExtFmtQuad([media size]), _bytes];
       ExtInfoInsert(ExtLocalizedString(@"Device Size", ""), data);
       
-      data = [NSString stringWithFormat:@"%lu %@", [media blockSize], _bytes];
+      data = [NSString stringWithFormat:@"%@ %@", ExtFmtInt([media blockSize]), _bytes];
       ExtInfoInsert(ExtLocalizedString(@"Device Block Size", ""), data);
    }
    
@@ -477,7 +492,14 @@ data = [data stringByAppendingString:@"\n"]; \
    [_infoText scrollRangeToVisible:NSMakeRange(0,0)]; 
    
    [_infoText setEditable:NO];
+   [intFmt release];
+   [floatFmt release];
 }
+
+#undef ExtInfoInsert
+#undef ExtFmtInt
+#undef ExtFmtQuad
+#undef ExtFmtFloat
 
 - (void)setOptionState:(ExtFSMedia*)media
 {
