@@ -1730,60 +1730,61 @@ ext2_strategy(ap)
 	int32_t blkno;
 	int error;
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	ip = VTOI(vp);
-   if ( !(bp->b_flags & B_VECTORLIST)) {
-	if (vp->v_type == VBLK || vp->v_type == VCHR)
-		panic("ext2_strategy: spec");
-   
-   if (bp->b_flags & B_PAGELIST) {
-      /*
-         * If we have a page list associated with this bp,
-         * then go through cluster_bp since it knows how to 
-         * deal with a page request that might span non-
-         * contiguous physical blocks on the disk...
-         */
-#if 1
-      if (bp->b_blkno == bp->b_lblkno) {
-         error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
-         bp->b_blkno = blkno;
-         if (error) {
-            bp->b_error = error;
-            bp->b_ioflags |= BIO_ERROR;
-            bufdone(bp);
-            ext2_trace_return(error);
-         }
-      }
-#endif      
-      error = cluster_bp(bp);
-      vp = ip->i_devvp;
-      bp->b_dev = vp->v_rdev;
+    if ( !(bp->b_flags & B_VECTORLIST)) {
+        if (vp->v_type == VBLK || vp->v_type == VCHR)
+            panic("ext2_strategy: spec");
+       
+        if (bp->b_flags & B_PAGELIST) {
+          /*
+             * If we have a page list associated with this bp,
+             * then go through cluster_bp since it knows how to 
+             * deal with a page request that might span non-
+             * contiguous physical blocks on the disk...
+             */
+    #if 1
+          if (bp->b_blkno == bp->b_lblkno) {
+             error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
+             bp->b_blkno = blkno;
+             if (error) {
+                bp->b_error = error;
+                bp->b_ioflags |= BIO_ERROR;
+                bufdone(bp);
+                ext2_trace_return(error);
+             }
+          }
+    #endif      
+          error = cluster_bp(bp);
+          vp = ip->i_devvp;
+          bp->b_dev = vp->v_rdev;
 
-      ext2_trace_return(error);
-   }
-   
-	if (bp->b_blkno == bp->b_lblkno) {
-		error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
-		bp->b_blkno = blkno;
-		if (error) {
-			bp->b_error = error;
-			bp->b_ioflags |= BIO_ERROR;
-			bufdone(bp);
-			ext2_trace_return(error);
-		}
-		if ((long)bp->b_blkno == -1)
-			vfs_bio_clrbuf(bp);
-	}
-	if ((long)bp->b_blkno == -1) {
-		bufdone(bp);
-		return (0);
-	}
-   } /* B_VECTORLIST */
+          ext2_trace_return(error);
+        }
+       
+        if (bp->b_blkno == bp->b_lblkno) {
+            error = ext2_bmaparray(vp, bp->b_lblkno, &blkno, NULL, NULL);
+            bp->b_blkno = blkno;
+            if (error) {
+                bp->b_error = error;
+                bp->b_ioflags |= BIO_ERROR;
+                bufdone(bp);
+                ext2_trace_return(error);
+            }
+            if ((long)bp->b_blkno == -1)
+                vfs_bio_clrbuf(bp);
+        }
+        if ((long)bp->b_blkno == -1) {
+            bufdone(bp);
+            return (0);
+        }
+    } /* B_VECTORLIST */
    
 	vp = ip->i_devvp;
-   bp->b_dev = vp->v_rdev;
-   ext2_trace_return(VOCALL (vp->v_op, VOFFSET(vop_strategy), ap));
+    bp->b_dev = vp->v_rdev;
+    VOCALL (vp->v_op, VOFFSET(vop_strategy), ap);
+    return (0);
 }
 
 /*
