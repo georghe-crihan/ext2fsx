@@ -14,16 +14,19 @@ fi
 copydir() {
 	for i in ${1}
 	do
-		#echo ${2}/`basename $i`
-		if [ ! -d $i ]; then
-			if [ ! -e ${2}/`basename $i` ]; then
-				sudo cp $i ${2}/
+		TARGET=${2}/`basename $i`
+		#echo ${TARGET}
+		if [ ! -d "$i" ]; then
+			if [ ! -e "${TARGET}" ]; then
+				echo "Copying ${TARGET}"
+				sudo cp "$i" "${2}/"
 			fi
 		else
-			if [ ! -d ${2}/`basename $i` ]; then
-				sudo cp -R $i ${2}/
+			if [ ! -d "${TARGET}" ]; then
+				echo "Copying ${TARGET}"
+				sudo cp -R $i "${2}/"
 			else 
-				copydir "`ls -d $i/* | grep -v CVS`" ${2}/`basename $i`
+				copydir "`ls -d $i/* | grep -v CVS`" "${TARGET}"
 			fi
 		fi
 		
@@ -47,6 +50,12 @@ copydir "`ls -d ${KERNH}/* | grep -v CVS`" ${SYS_KERNF}/Headers
 find ${SYS_KERNF}/Headers/ -type d | xargs sudo chmod go+rx
 find ${SYS_KERNF}/Headers/ -type f | xargs sudo chmod go+r
 
+#build and install disklib
+cd ./src/depend/disklib
+make
+sudo make install
+cd ../../../
+
 #perms
 
 chmod u+x ./MakeInstall.sh ./Resources/post* ./Resources/pre* ./e2fsprogsbuild.sh
@@ -61,7 +70,9 @@ fi
 
 cd ./gnu/ext2fs
 
+if [ ! -e ext3_fs.h ]; then
 ln ext2_fs.h ext3_fs.h
+fi
 
 exit 0
 
