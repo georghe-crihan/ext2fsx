@@ -34,9 +34,6 @@ static const char vwhatid[] __attribute__ ((unused)) =
 
 #include <sys/param.h>
 #include <sys/systm.h>
-#ifndef APPLE
-#include <sys/bio.h>
-#endif
 #include <sys/buf.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
@@ -45,8 +42,6 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #include <machine/spl.h>
 
 #include "ext2_apple.h"
-#else
-#define meta_bread bread
 #endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>

@@ -51,9 +51,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/namei.h>
-#ifndef APPLE
-#include <sys/bio.h>
-#endif
 #include <sys/buf.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
@@ -623,12 +620,7 @@ found:
 			*vpp = vdp;
 			return (0);
 		}
-      #ifndef APPLE
-		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
-		    &tdp)) != 0)
-      #else
       if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
-      #endif
 			ext2_trace_return(error);
 		/*
 		 * If directory is "sticky", then user must own
@@ -665,12 +657,7 @@ found:
 		 */
 		if (dp->i_number == dp->i_ino)
 			ext2_trace_return(EISDIR);
-      #ifndef APPLE
-		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
-		    &tdp)) != 0)
-      #else
       if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
-      #endif
 			ext2_trace_return(error);
 		*vpp = tdp;
 		cnp->cn_flags |= SAVENAME;
@@ -701,12 +688,7 @@ found:
 	pdp = vdp;
 	if (flags & ISDOTDOT) {
 		VOP_UNLOCK(pdp, 0, td);	/* race to get the inode */
-      #ifndef APPLE
-		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
-		    &tdp)) != 0)
-      #else
       if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
-      #endif
       {
 			vn_lock(pdp, LK_EXCLUSIVE | LK_RETRY, td);
 			ext2_trace_return(error);
@@ -721,12 +703,7 @@ found:
 		VREF(vdp);	/* we want ourself, ie "." */
 		*vpp = vdp;
 	} else {
-      #ifndef APPLE
-		if ((error = VFS_VGET(vdp->v_mount, dp->i_ino, LK_EXCLUSIVE,
-		    &tdp)) != 0)
-      #else
       if ((error = VFS_VGET(vdp->v_mount, (void*)dp->i_ino, &tdp)) != 0)
-      #endif
 			ext2_trace_return(error);
 		if (!lockparent || !(flags & ISLASTCN))
 			VOP_UNLOCK(pdp, 0, td);
@@ -1045,11 +1022,7 @@ ext2_dirempty(ip, parentino, cred)
 	for (off = 0; off < ip->i_size; off += le16_to_cpu(dp->rec_len)) {
 		error = vn_rdwr(UIO_READ, ITOV(ip), (caddr_t)dp, MINDIRSIZ,
 		    off, UIO_SYSSPACE, IO_NODELOCKED | IO_NOMACCHECK, cred,
-          #ifndef APPLE
-		    NOCRED, &count, (struct thread *)0);
-          #else
           &count, (struct proc *)0);
-          #endif
 		/*
 		 * Since we read MINDIRSIZ, residual must
 		 * be 0 unless we're at end of file.
@@ -1115,12 +1088,7 @@ ext2_checkpath(source, target, cred)
 		error = vn_rdwr(UIO_READ, vp, (caddr_t)&dirbuf,
 			sizeof (struct dirtemplate), (off_t)0, UIO_SYSSPACE,
 			IO_NODELOCKED | IO_NOMACCHECK, cred, 
-         #ifndef APPLE
-         NOCRED, (int *)0,
-         #else
-         (int *)0,
-         #endif
-			(struct thread *)0);
+         (int *)0, (struct thread *)0);
 		if (error != 0)
 			break;
 		namlen = dirbuf.dotdot_type;	/* like ufs little-endian */
@@ -1138,12 +1106,7 @@ ext2_checkpath(source, target, cred)
 		if (dotdot_ino == rootino)
 			break;
 		vput(vp);
-      #ifndef APPLE
-		if ((error = VFS_VGET(vp->v_mount, dotdot_ino,
-          LK_EXCLUSIVE, &vp)) != 0)
-      #else
       if ((error = VFS_VGET(vp->v_mount, (void*)dotdot_ino, &vp)) != 0)
-      #endif
 		{
 			vp = NULL;
 			break;

@@ -33,6 +33,9 @@
  *	@(#)ufs_ihash.c	8.7 (Berkeley) 5/17/95
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_ihash.c,v 1.36 2002/10/14 03:20:34 mckusick Exp $
  */
+ 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -65,9 +68,7 @@ static MALLOC_DEFINE(M_EXT2IHASH, "EXT2 ihash", "EXT2 Inode hash tables");
 static LIST_HEAD(ihashhead, inode) *ihashtbl;
 static u_long	ihash;		/* size of hash table - 1 */
 #define	INOHASH(device, inum)	(&ihashtbl[(minor(device) + (inum)) & ihash])
-#ifndef APPLE
-static struct mtx ext2_ihash_mtx;
-#else
+
 /* XXX - Redefining mtx_*  -- We have to use a spinlock on Darwin*/
 #undef mtx_lock
 #undef mtx_unlock
@@ -76,7 +77,6 @@ static struct mtx ext2_ihash_mtx;
 #define mtx_unlock(l) simple_unlock(l)
 #define mtx_destroy(l)
 static struct slock ext2_ihash_mtx;
-#endif
 
 /*
  * Initialize inode hash table.
@@ -87,11 +87,7 @@ ext2_ihashinit()
 
 	KASSERT(ihashtbl == NULL, ("ext2_ihashinit called twice"));
 	ihashtbl = hashinit(desiredvnodes, M_EXT2IHASH, &ihash);
-   #ifndef APPLE
-	mtx_init(&ext2_ihash_mtx, "ext2 ihash", NULL, MTX_DEF);
-   #else
    simple_lock_init(&ext2_ihash_mtx);
-   #endif
 }
 
 /*
@@ -149,11 +145,7 @@ loop:
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash) {
 		if (inum == ip->i_number && dev == ip->i_dev) {
 			vp = ITOV(ip);
-			#ifndef APPLE
-         mtx_lock(&vp->v_interlock);
-         #else
          simple_lock(&vp->v_interlock);
-         #endif
 			mtx_unlock(&ext2_ihash_mtx);
 			error = vget(vp, flags | LK_INTERLOCK, td);
 			if (error == ENOENT)

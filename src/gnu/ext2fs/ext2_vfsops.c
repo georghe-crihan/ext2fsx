@@ -74,24 +74,13 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/kernel.h>
 #include <sys/vnode.h>
 #include <sys/mount.h>
-#ifndef APPLE
-#include <sys/bio.h>
-#endif
 #include <sys/buf.h>
 #include <sys/conf.h>
 #include <sys/fcntl.h>
 #include <sys/malloc.h>
 #include <sys/stat.h>
-#ifndef APPLE
-#include <sys/mutex.h>
 
-/* Darwin (APPLE) flags for operation type in getblk() */
-#define	BLK_READ	0	/* buffer for read */
-#define	BLK_WRITE	0	/* buffer for write */
-#define	BLK_PAGEIN	0	/* buffer for pagein */
-#define	BLK_PAGEOUT	0	/* buffer for pageout */
-#define	BLK_META	0	/* buffer for metadata */
-#else
+#ifdef APPLE
 #include <string.h>
 #include <machine/spl.h>
 #include <sys/disk.h>
@@ -112,7 +101,7 @@ static int vn_isdisk(struct vnode *, int *);
 #define KERNEL
 
 typedef struct ufs_args ext2_args;
-#endif /* !APPLE */
+#endif /* APPLE */
 
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/inode.h>
@@ -123,20 +112,12 @@ typedef struct ufs_args ext2_args;
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <ext2_byteorder.h>
 
-#ifndef APPLE
-static int ext2_fhtovp(struct mount *, struct fid *, struct vnode **);
-#else
 static int ext2_fhtovp(struct mount *, struct fid *, struct mbuf *, struct vnode **,
          int *, struct ucred **);
-#endif
 static int ext2_flushfiles(struct mount *mp, int flags, struct thread *td);
 static int ext2_init(struct vfsconf *);
-#ifndef APPLE
-static int ext2_mount(struct mount *, struct nameidata *, struct thread *);
-#else
 static int ext2_mount(struct mount *, char *, caddr_t, struct nameidata *,
          struct proc *);
-#endif /* APPLE */
 static int ext2_mountfs(struct vnode *, struct mount *, struct thread *);
 static int ext2_reload(struct mount *mountp, struct ucred *cred,
 			struct thread *td);
@@ -146,11 +127,7 @@ static int ext2_statfs(struct mount *, struct statfs *, struct thread *);
 static int ext2_sync(struct mount *, int, struct ucred *, struct thread *);
 static int ext2_uninit(struct vfsconf *);
 static int ext2_unmount(struct mount *, int, struct thread *);
-#ifndef APPLE
-static int ext2_vget(struct mount *, ino_t, int, struct vnode **);
-#else
 static int ext2_vget(struct mount *, void *, struct vnode **);
-#endif /* APPLE */
 static int ext2_vptofh(struct vnode *, struct fid *);
 
 #ifdef APPLE
@@ -180,11 +157,7 @@ static MALLOC_DEFINE(M_EXT2MNT, "EXT2 mount", "EXT2 mount structure");
 #endif /* APPLE */
 
 static struct vfsops ext2fs_vfsops = {
-	#ifndef APPLE
-   NULL,
-   #else
    ext2_mount,
-   #endif
    vfs_stdstart,
 	ext2_unmount,
 	ext2_root,		/* root inode via vget */
@@ -193,28 +166,13 @@ static struct vfsops ext2fs_vfsops = {
 	ext2_sync,
 	ext2_vget,
 	ext2_fhtovp,
-   #ifndef APPLE
-	vfs_stdcheckexp,
-   #endif
 	ext2_vptofh,
 	ext2_init,
-   #ifndef APPLE
-	ext2_uninit,
-	vfs_stdextattrctl,
-	ext2_mount,
-   #else
    ext2_sysctl
-   #endif
 };
 
-#ifndef APPLE
-VFS_SET(ext2fs_vfsops, ext2fs, 0);
-#define bsd_malloc malloc
-#define bsd_free free
-#else
 #define bsd_malloc _MALLOC
 #define bsd_free FREE
-#endif /* APPLE */
 
 static int ext2fs_inode_hash_lock;
 
@@ -287,52 +245,23 @@ ext2_mountroot()
  * mount system call
  */
 static int
-#ifndef APPLE
-ext2_mount(mp, ndp, td)
-#else
 ext2_mount(mp, path, data, ndp, td)
-#endif /* APPLE */
 	struct mount *mp;
-   #ifdef APPLE
    char *path;
    caddr_t data;
-   #endif
 	struct nameidata *ndp;
 	struct thread *td;
 {
    struct export_args *export;
-	#ifndef APPLE
-   struct vfsoptlist *opts;
-   #endif
 	struct vnode *devvp;
 	struct ext2mount *ump = 0;
 	struct ext2_sb_info *fs;
-	#ifndef APPLE
-   char *path;
-   #else
    ext2_args args;
-   #endif
    char *fspec;
 	size_t size;
 	int error, flags;
-   #ifndef APPLE
-   int len;
-   #endif
 	mode_t accessmode;
-
-   #ifndef APPLE
-	opts = mp->mnt_optnew;
-
-	vfs_getopt(opts, "fspath", (void **)&path, NULL);
-	/* Double-check the length of path.. */
-	if (strlen(path) >= MAXMNTLEN - 1)
-		ext2_trace_return(ENAMETOOLONG);
-
-	fspec = NULL;
-	error = vfs_getopt(opts, "from", (void **)&fspec, &len);
-	if (!error && fspec[len - 1] != '\0')
-		ext2_trace_return(EINVAL);
-   #else
+   
    if ((error = copyin(data, (caddr_t)&args, sizeof (ext2_args))) != 0)
 		ext2_trace_return(error);
    
@@ -344,7 +273,6 @@ ext2_mount(mp, path, data, ndp, td)
 	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
    
    fspec = mp->mnt_stat.f_mntfromname;
-   #endif /* APPLE */
 
 	/*
 	 * If updating, check whether changing from read-only to
@@ -382,11 +310,7 @@ ext2_mount(mp, path, data, ndp, td)
 			 * If upgrade to read-write by non-root, then verify
 			 * that user has necessary permissions on the device.
 			 */
-         #ifndef APPLE
-			if (suser(td)) {
-         #else
          if (suser(td->p_ucred, &td->p_acflag)) {
-         #endif /* APPLE */
 				vn_lock(devvp, LK_EXCLUSIVE | LK_RETRY, td);
 				if ((error = VOP_ACCESS(devvp, VREAD | VWRITE,
 				    td->td_ucred, td)) != 0) {
@@ -400,11 +324,11 @@ ext2_mount(mp, path, data, ndp, td)
 			    (le16_to_cpu(fs->s_es->s_state) & EXT2_ERROR_FS)) {
 				if (mp->mnt_flag & MNT_FORCE) {
 					printf(
-"WARNING: %s was not properly dismounted\n",
+"EXT2 WARNING: %s was not properly dismounted\n",
 					    fs->fs_fsmnt);
 				} else {
 					printf(
-"WARNING: R/W mount of %s denied.  Filesystem is not clean - run fsck\n",
+"EXT2 WARNING: R/W mount of %s denied.  Filesystem is not clean - run fsck\n",
 					    fs->fs_fsmnt);
 					ext2_trace_return(EPERM);
 				}
@@ -415,14 +339,6 @@ ext2_mount(mp, path, data, ndp, td)
 			fs->s_rd_only = 0;
 		}
 		if (fspec == NULL) {
-         #ifndef APPLE
-			error = vfs_getopt(opts, "export", (void **)&export,
-			    &len);
-			if (error || len != sizeof(struct export_args))
-				ext2_trace_return(EINVAL);
-				/* Process export requests. */
-			ext2_trace_return(vfs_export(mp, export));
-         #else
          #if 0
          struct export_args apple_exp;
          struct netexport apple_netexp;
@@ -430,7 +346,6 @@ ext2_mount(mp, path, data, ndp, td)
          ext2_trace_return(vfs_export(mp, &apple_netexp, export));
          #endif
          ext2_trace_return(EINVAL);
-         #endif
 		}
 	}
 	/*
@@ -456,11 +371,7 @@ ext2_mount(mp, path, data, ndp, td)
 	 * If mount by non-root, then verify that user has necessary
 	 * permissions on the device.
 	 */
-   #ifndef APPLE
-   if (suser(td)) {
-   #else
    if (suser(td->p_ucred, &td->p_acflag)) {
-   #endif /* APPLE */
 		accessmode = VREAD;
 		if ((mp->mnt_flag & MNT_RDONLY) == 0)
 			accessmode |= VWRITE;
@@ -474,11 +385,7 @@ ext2_mount(mp, path, data, ndp, td)
    
    /* This is used by ext2_mountfs to set the last mount point in the superblock. */
    size = 0;
-   #ifdef APPLE
    (void) copyinstr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
-   #else
-   (void) copystr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
-   #endif
    #ifdef DEBUG
    if (size < 2)
       log(LOG_WARNING, "ext2fs: mount path looks to be invalid\n");
@@ -504,19 +411,10 @@ ext2_mount(mp, path, data, ndp, td)
 	 * Note that this strncpy() is ok because of a check at the start
 	 * of ext2_mount().
 	 */
-   #ifndef APPLE
-	strncpy(fs->fs_fsmnt, path, MAXMNTLEN);
-   fs->fs_fsmnt[MAXMNTLEN - 1] = '\0';
-   #else
    bcopy((caddr_t)mp->mnt_stat.f_mntonname, (caddr_t)fs->fs_fsmnt,
 	    sizeof(fs->fs_fsmnt) - 1);
    fs->fs_fsmnt[sizeof(fs->fs_fsmnt) - 1] = '\0';
-   #endif /* APPLE */
-   #ifndef APPLE
-	(void)copystr(fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, &size);
-	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
-   #endif
-
+   
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
 	return (0);
 }
@@ -620,11 +518,9 @@ static int compute_sb_data(devvp, es, fs)
     int db_count, error;
     int i, j;
     int logic_sb_block = 1;	/* XXX for now */
-    #ifdef APPLE
     int devBlockSize=0;
     
     VOP_DEVBLOCKSIZE(devvp, &devBlockSize);
-    #endif
 
 #if 1
 #define V(v)  
@@ -742,9 +638,7 @@ ext2_reload(mountp, cred, td)
 	struct ext2_super_block * es;
 	struct ext2_sb_info *fs;
 	int error;
-   #ifdef APPLE
    int devBlockSize=0;
-   #endif
 
 	if ((mountp->mnt_flag & MNT_RDONLY) == 0)
 		ext2_trace_return(EINVAL);
@@ -758,10 +652,9 @@ ext2_reload(mountp, cred, td)
 	 * Step 2: re-read superblock from disk.
 	 * constants have been adjusted for ext2
 	 */
-   #ifdef APPLE
    /* Get the current block size */
    VOP_DEVBLOCKSIZE(devvp, &devBlockSize);
-   #endif
+   
 	if ((error = meta_bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		ext2_trace_return(error);
 	es = (struct ext2_super_block *)(bp->b_data+SBOFF);
@@ -784,20 +677,12 @@ ext2_reload(mountp, cred, td)
 
 loop:
 	mtx_lock(&mntvnode_mtx);
-   #ifndef APPLE
-	for (vp = TAILQ_FIRST(&mountp->mnt_nvnodelist); vp != NULL; vp = nvp) {
-   #else
    for (vp = LIST_FIRST(&mountp->mnt_vnodelist); vp != NULL; vp = nvp) {
-   #endif
 		if (vp->v_mount != mountp) {
 			mtx_unlock(&mntvnode_mtx);
 			goto loop;
 		}
-      #ifndef APPLE
-		nvp = TAILQ_NEXT(vp, v_nmntvnodes);
-      #else
       nvp = LIST_NEXT(vp, v_mntvnodes);
-      #endif
 		mtx_unlock(&mntvnode_mtx);
 		/*
 		 * Step 4: invalidate all inactive vnodes.
@@ -807,11 +692,7 @@ loop:
 		/*
 		 * Step 5: invalidate all cached file data.
 		 */
-		#ifndef APPLE
-      mtx_lock (&vp->v_interlock);
-      #else
       simple_lock (&vp->v_interlock);
-      #endif
 		if (vget(vp, LK_EXCLUSIVE | LK_INTERLOCK, td)) {
 			goto loop;
 		}
@@ -855,9 +736,7 @@ ext2_mountfs(devvp, mp, td)
 	dev_t dev = (dev_t)devvp->v_rdev;
 	int error;
 	int ronly;
-   #ifdef APPLE
    int devBlockSize=0;
-   #endif
    
    getmicrotime(&tv); /* Curent time */
 
@@ -884,14 +763,7 @@ ext2_mountfs(devvp, mp, td)
 	VOP_UNLOCK(devvp, 0, td);
 	if (error)
 		ext2_trace_return(error);
-   #ifndef APPLE
-	if (devvp->v_rdev->si_iosize_max != 0)
-		mp->mnt_iosize_max = devvp->v_rdev->si_iosize_max;
-	if (mp->mnt_iosize_max > MAXPHYS)
-		mp->mnt_iosize_max = MAXPHYS;
-   #endif
    
-   #ifdef APPLE
    /* Set the block size to 512. Things just seem to royally screw 
       up otherwise.
     */
@@ -911,13 +783,12 @@ ext2_mountfs(devvp, mp, td)
 	}
    
    /* VOP_DEVBLOCKSIZE(devvp, &devBlockSize); */
-   #endif
    
 	bp = NULL;
 	ump = NULL;
 	if ((error = meta_bread(devvp, SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		goto out;
-   #if defined(DIAGNOSTIC) && defined(APPLE)
+   #if defined(DIAGNOSTIC)
    printf("ext2fs: first two sb words (%lX, %lX) -- sb=%u, sb size=%u\n",
       *(u_long*)(bp->b_data+SBOFF), *(u_long*)(bp->b_data+(SBOFF+4)),
       SBLOCK, SBSIZE);
@@ -948,7 +819,6 @@ ext2_mountfs(devvp, mp, td)
 		printf ("EXT2-fs WARNING: checktime reached, "
 			"running fsck is recommended\n");
    
-#ifdef APPLE
    /* UFS does this, so I assume we have the same shortcoming. */
    /*
 	 * Buffer cache does not handle multiple pages in a buf when
@@ -964,7 +834,6 @@ ext2_mountfs(devvp, mp, td)
       error = ENOTSUP;
       goto out;
    }
-#endif
    
 	ump = bsd_malloc(sizeof *ump, M_EXT2MNT, M_WAITOK);
 	bzero((caddr_t)ump, sizeof *ump);
@@ -997,12 +866,7 @@ ext2_mountfs(devvp, mp, td)
          cpu_to_le16(le16_to_cpu(fs->s_es->s_state) & ~EXT2_VALID_FS);	/* set fs invalid */
 	}
 	mp->mnt_data = (qaddr_t)ump;
-   #ifndef APPLE
-	mp->mnt_stat.f_fsid.val[0] = dev2udev(dev);
-	mp->mnt_stat.f_fsid.val[1] = mp->mnt_vfc->vfc_typenum;
-   #else
    vfs_getnewfsid(mp);
-   #endif
 	mp->mnt_maxsymlinklen = EXT2_MAXSYMLINKLEN;
 	mp->mnt_flag |= MNT_LOCAL;
 	ump->um_mountp = mp;
@@ -1014,11 +878,7 @@ ext2_mountfs(devvp, mp, td)
 	ump->um_nindir = EXT2_ADDR_PER_BLOCK(fs);
 	ump->um_bptrtodb = le32_to_cpu(fs->s_es->s_log_block_size) + 1;
 	ump->um_seqinc = EXT2_FRAGS_PER_BLOCK(fs);
-   #ifndef APPLE
-	devvp->v_rdev->si_mountpoint = mp;
-   #else
    devvp->v_specflags |= SI_MOUNTEDON;
-   #endif
    
    fs->s_es->s_mtime = cpu_to_le32(tv.tv_sec);
    if (!(int16_t)fs->s_es->s_max_mnt_count)
@@ -1090,11 +950,7 @@ ext2_unmount(mp, mntflags, td)
                 if (fs->s_block_bitmap[i])
 			ULCK_BUF(fs->s_block_bitmap[i])
    
-   #ifndef APPLE
-	ump->um_devvp->v_rdev->si_mountpoint = NULL;
-   #else
    ump->um_devvp->v_specflags &= ~SI_MOUNTEDON;
-   #endif
 	error = VOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE,
 		NOCRED, td);
 	vrele(ump->um_devvp);
@@ -1116,11 +972,9 @@ ext2_flushfiles(mp, flags, td)
 	struct thread *td;
 {
 	int error;
-
-#ifdef APPLE
+   
    error = vflush(mp, NULLVP, SKIPSWAP|flags);
-#endif
-	error = vflush(mp, 0, flags);
+	error = vflush(mp, NULLVP, flags);
 	ext2_trace_return(error);
 }
 
@@ -1198,9 +1052,7 @@ ext2_sync(mp, waitfor, cred, td)
 	struct ext2mount *ump = VFSTOEXT2(mp);
 	struct ext2_sb_info *fs;
 	int error, allerror = 0;
-   #ifdef APPLE
    int didhold;
-   #endif
 
 	fs = ump->um_e2fs;
 	if (fs->s_dirt != 0 && fs->s_rd_only != 0) {		/* XXX */
@@ -1212,33 +1064,21 @@ ext2_sync(mp, waitfor, cred, td)
 	 */
 	mtx_lock(&mntvnode_mtx);
 loop:
-   #ifndef APPLE
-	for (vp = TAILQ_FIRST(&mp->mnt_nvnodelist); vp != NULL; vp = nvp) {
-   #else
    for (vp = LIST_FIRST(&mp->mnt_vnodelist); vp != NULL; vp = nvp) {
-   #endif
 		/*
 		 * If the vnode that we are about to sync is no longer
 		 * associated with this mount point, start over.
 		 */
 		if (vp->v_mount != mp)
 			goto loop;
-      #ifndef APPLE
-		nvp = TAILQ_NEXT(vp, v_nmntvnodes);
-      #else
       nvp = LIST_NEXT(vp, v_mntvnodes);
-      #endif
 		mtx_unlock(&mntvnode_mtx);
 		VI_LOCK(vp);
 		ip = VTOI(vp);
 		if (vp->v_type == VNON ||
 		    ((ip->i_flag &
 		    (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
-          #ifndef APPLE
-		    (TAILQ_EMPTY(&vp->v_dirtyblkhd) || waitfor == MNT_LAZY))) {
-          #else
           LIST_EMPTY(&vp->v_dirtyblkhd))) {
-          #endif
 			VI_UNLOCK(vp);
 			mtx_lock(&mntvnode_mtx);
 			continue;
@@ -1250,16 +1090,13 @@ loop:
 				goto loop;
 			continue;
 		}
-      #ifdef APPLE
+      
       didhold = ubc_hold(vp);
-      #endif
 		if ((error = VOP_FSYNC(vp, cred, waitfor, td)) != 0)
 			allerror = error;
 		VOP_UNLOCK(vp, 0, td);
-      #ifdef APPLE
       if (didhold)
          ubc_rele(vp);
-      #endif
 		vrele(vp);
 		mtx_lock(&mntvnode_mtx);
 	}
@@ -1267,7 +1104,7 @@ loop:
 	/*
 	 * Force stale file system control information to be flushed.
 	 */
-   #ifndef APPLE
+   #if 0
 	if (waitfor != MNT_LAZY)
    #endif
    {
@@ -1295,18 +1132,9 @@ loop:
  * done by the calling routine.
  */
 static int
-#ifndef APPLE
-ext2_vget(mp, ino, flags, vpp)
-#else
 ext2_vget(mp, inop, vpp)
-#endif /* APPLE */
 	struct mount *mp;
-   #ifndef APPLE
-	ino_t ino;
-	int flags;
-   #else
    void *inop;
-   #endif
 	struct vnode **vpp;
 {
 	struct ext2_sb_info *fs;
@@ -1317,7 +1145,6 @@ ext2_vget(mp, inop, vpp)
 	dev_t dev;
 	int i, error;
 	int used_blocks;
-   #ifdef APPLE
    int flags = LK_EXCLUSIVE;
    ino_t ino = (ino_t)inop;
    
@@ -1326,7 +1153,6 @@ ext2_vget(mp, inop, vpp)
 		*vpp = NULL;
 		ext2_trace_return(EPERM);
 	}
-   #endif
 
 	ump = VFSTOEXT2(mp);
 	dev = ump->um_dev;
@@ -1375,10 +1201,9 @@ restart:
 	ip->i_e2fs = fs = ump->um_e2fs;
 	ip->i_dev = dev;
 	ip->i_number = ino;
-   #ifdef APPLE
    /* Init our private lock */
    lockinit(&ip->i_lock, PINOD, "ext2 inode", 0, 0);
-   #endif
+   
 	/*
 	 * Put it onto its hash chain and lock it so that other requests for
 	 * this inode will block if they arrive while we are sleeping waiting
@@ -1454,11 +1279,9 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 			ip->i_flag |= IN_MODIFIED;
 	}
    
-   #ifdef APPLE
    /* Setup UBC info. */
    if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
       ubc_info_init(vp);
-   #endif
    
 	*vpp = vp;
 	return (0);
@@ -1475,21 +1298,13 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
  *   those rights via. exflagsp and credanonp
  */
 static int
-#ifndef APPLE
-ext2_fhtovp(mp, fhp, vpp)
-#else
 ext2_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
-#endif /* APPLE */
 	struct mount *mp;
 	struct fid *fhp;
-   #ifdef APPLE
    struct mbuf *nam;
-   #endif
 	struct vnode **vpp;
-   #ifdef APPLE
    int *exflagsp;
    struct ucred **credanonp;
-   #endif
 {
 	struct inode *ip;
 	struct ufid *ufhp;
@@ -1503,11 +1318,7 @@ ext2_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
 	    ufhp->ufid_ino > fs->s_groups_count * le32_to_cpu(fs->s_es->s_inodes_per_group))
 		ext2_trace_return(ESTALE);
    
-   #ifndef APPLE
-	error = VFS_VGET(mp, ufhp->ufid_ino, LK_EXCLUSIVE, &nvp);
-   #else
    error = VFS_VGET(mp, (void*)ufhp->ufid_ino, &nvp);
-   #endif / * APPLE */
 	if (error) {
 		*vpp = NULLVP;
 		ext2_trace_return(error);
@@ -1555,11 +1366,9 @@ ext2_sbupdate(mp, waitfor)
 	struct ext2_super_block *es = fs->s_es;
 	struct buf *bp;
 	int error = 0;
-   #ifdef APPLE
    int devBlockSize=0;
    
    VOP_DEVBLOCKSIZE(mp->um_devvp, &devBlockSize);
-   #endif
 /*
 printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 */
@@ -1589,12 +1398,8 @@ ext2_root(mp, vpp)
 {
 	struct vnode *nvp;
 	int error;
-
-	#ifndef APPLE
-	error = VFS_VGET(mp, (ino_t)ROOTINO, LK_EXCLUSIVE, &nvp);
-   #else
+   
    error = VFS_VGET(mp, (void*)ROOTINO, &nvp);
-   #endif / * APPLE */
 	if (error)
 		ext2_trace_return(error);
 	*vpp = nvp;
@@ -1616,9 +1421,6 @@ ext2_uninit(struct vfsconf *vfsp)
 	ext2_ihashuninit();
 	return (0);
 }
-
-
-#ifdef APPLE
 
 /*
  * Check if vnode represents a disk device
@@ -1841,5 +1643,3 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
    ext2_uninit(NULL);
    ext2_trace_return(KERN_SUCCESS);
 }
-
-#endif /* APPLE */

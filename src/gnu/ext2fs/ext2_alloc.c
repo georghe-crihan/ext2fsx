@@ -39,6 +39,9 @@
  *	@(#)ffs_alloc.c	8.8 (Berkeley) 2/21/94
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_alloc.c,v 1.37 2002/05/18 21:33:07 iedowse Exp $
  */
+ 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -108,9 +111,7 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 {
 	struct ext2_sb_info *fs;
 	int32_t bno;
-   #ifdef APPLE
    int devBlockSize=0;
-   #endif
 	
 	*bnp = 0;
 	fs = ip->i_e2fs;
@@ -170,12 +171,9 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 		ip->i_next_alloc_block = lbn;
 		ip->i_next_alloc_goal = bno;
       
-      #ifndef APPLE
-		ip->i_blocks += btodb(size);
-      #else
       VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
       ip->i_blocks += btodb(size, devBlockSize);
-      #endif
+      
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 		*bnp = bno;
 		return (0);
@@ -401,11 +399,9 @@ ext2_valloc(pvp, mode, cred, vpp)
 
 	if (ino == 0)
 		goto noinodes;
-   #ifndef APPLE
-	error = VFS_VGET(pvp->v_mount, ino, LK_EXCLUSIVE, vpp);
-   #else
+   
    error = VFS_VGET(pvp->v_mount, (void*)ino, vpp);
-   #endif / * APPLE */
+   
 	if (error) {
 		ext2_vfree(pvp, ino, mode);
 		return (error);

@@ -39,11 +39,11 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_bmap.c,v 1.53 2003/01/03 06:32:14 phk Exp $
  */
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 #include <sys/systm.h>
-#ifndef APPLE
-#include <sys/bio.h>
-#endif
 #include <sys/buf.h>
 #include <sys/proc.h>
 #include <sys/vnode.h>
@@ -54,13 +54,6 @@
 #ifdef APPLE
 #include <sys/trace.h>
 #include "ext2_apple.h"
-#else
-/* Darwin (APPLE) flags for operation type in getblk() */
-#define	BLK_READ	0	/* buffer for read */
-#define	BLK_WRITE	0	/* buffer for write */
-#define	BLK_PAGEIN	0	/* buffer for pagein */
-#define	BLK_PAGEOUT	0	/* buffer for pageout */
-#define	BLK_META	0	/* buffer for metadata */
 #endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
@@ -82,9 +75,6 @@ ext2_bmap(ap)
 		struct vnode **a_vpp;
 		daddr_t *a_bnp;
 		int *a_runp;
-      #ifndef APPLE
-		int *a_runb;
-      #endif
 	} */ *ap;
 {
 	int32_t blkno;
@@ -101,12 +91,7 @@ ext2_bmap(ap)
    
    ext2_trace_enter();
 
-	error = ext2_bmaparray(ap->a_vp, ap->a_bn, &blkno,
-   #ifndef APPLE
-	    ap->a_runp, ap->a_runb);
-   #else
-      ap->a_runp, NULL);
-   #endif
+	error = ext2_bmaparray(ap->a_vp, ap->a_bn, &blkno, ap->a_runp, NULL);
 	*ap->a_bnp = blkno;
 	return (error);
 }
@@ -211,35 +196,21 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		ap->in_exists = 1;
 		bp = getblk(vp, metalbn, mp->mnt_stat.f_iosize, 0, 0, BLK_META);
 
-#ifdef APPLE
       if (bp->b_flags & (B_DONE | B_DELWRI)) {
 			trace(TR_BREADHIT, pack(vp, mp->mnt_stat.f_iosize), metalbn);
 		}
-#else
-		if ((bp->b_flags & B_CACHE) == 0) {
-#endif
+
 #ifdef DIAGNOSTIC
-#ifdef APPLE
-else
-#endif
+      else
 			if (!daddr)
 				panic("ext2_bmaparray: indirect block not in cache");
 #endif
-#ifdef APPLE
       else {
          trace(TR_BREADMISS, pack(vp, mp->mnt_stat.f_iosize), metalbn);
-#endif
+         
 			bp->b_blkno = blkptrtodb(ump, daddr);
-         #ifndef APPLE
-			bp->b_iocmd = BIO_READ;
-			bp->b_flags &= ~B_INVAL;
-			bp->b_ioflags &= ~BIO_ERROR;
-			vfs_busy_pages(bp, 0);
-         VOP_STRATEGY(bp->b_vp, bp);
-         #else
          bp->b_flags |= B_READ;
 			VOP_STRATEGY(bp);
-         #endif
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
 			error = bufwait(bp);
 			if (error) {
@@ -267,21 +238,6 @@ else
 	}
 	if (bp)
 		bqrelse(bp);
-   
-   /* APPLE: This code is for BSD soft updates. Safe to ignore on Darwin. */
-   #ifndef APPLE
-	/*
-	 * Since this is FFS independent code, we are out of scope for the
-	 * definitions of BLK_NOCOPY and BLK_SNAP, but we do know that they
-	 * will fall in the range 1..um_seqinc, so we use that test and
-	 * return a request for a zeroed out buffer if attempts are made
-	 * to read a BLK_NOCOPY or BLK_SNAP block.
-	 */
-	if ((ip->i_flags & SF_SNAPSHOT) && daddr > 0 && daddr < ump->um_seqinc){
-		*bnp = -1;
-		return (0);
-	}
-   #endif
    
 	*bnp = blkptrtodb(ump, daddr);
 	if (*bnp == 0) {

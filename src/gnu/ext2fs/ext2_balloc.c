@@ -40,11 +40,11 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_balloc.c,v 1.17 2002/05/18 19:12:38 iedowse Exp $
  */
 
+static const char whatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
+
 #include <sys/param.h>
 #include <sys/systm.h>
-#ifndef APPLE
-#include <sys/bio.h>
-#endif
 #include <sys/buf.h>
 #include <sys/lock.h>
 #include <sys/ucred.h>
@@ -52,17 +52,6 @@
 
 #ifdef APPLE
 #include "ext2_apple.h"
-#else
-#define B_NOBUFF 0
-
-/* Darwin (APPLE) flags for operation type in getblk() */
-#define	BLK_READ	0	/* buffer for read */
-#define	BLK_WRITE	0	/* buffer for write */
-#define	BLK_PAGEIN	0	/* buffer for pagein */
-#define	BLK_PAGEOUT	0	/* buffer for pageout */
-#define	BLK_META	0	/* buffer for metadata */
-
-#define meta_bread bread
 #endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>

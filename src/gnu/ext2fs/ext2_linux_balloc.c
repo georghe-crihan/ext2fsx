@@ -44,8 +44,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <machine/spl.h>
 
 #include "ext2_apple.h"
-#else
-#define meta_bread bread
 #endif /* APPLE */
 
 #include <ext2_byteorder.h>

@@ -387,8 +387,13 @@ struct ext2_inode {
 
 #define clear_opt(o, opt)		o &= ~EXT2_MOUNT_##opt
 #define set_opt(o, opt)			o |= EXT2_MOUNT_##opt
+#ifdef __KERNEL__
 #define test_opt(sb, opt)		((sb)->u.ext2_sb.s_mount_opt & \
 					 EXT2_MOUNT_##opt)
+#else
+#define test_opt(sb, opt)		((sb)->s_mount_opt & EXT2_MOUNT_##opt)
+#endif
+
 /*
  * Maximal mount counts between two filesystem checks
  */
