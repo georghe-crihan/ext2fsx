@@ -320,7 +320,7 @@ ext2_ioctl(ap)
    int err = 0, super;
    u_int32_t flags, oldflags;
    
-   super = suser(ap->a_cred, &ap->a_p->p_acflag);
+   super = (0 == suser(ap->a_cred, &ap->a_p->p_acflag));
    
    switch (ap->a_command) {
       case IOCBASECMD(EXT2_IOC_GETFLAGS):
@@ -332,7 +332,7 @@ ext2_ioctl(ap)
          if (ip->i_e2fs->s_rd_only)
             return (EROFS);
          
-         if (ap->a_cred->cr_uid != ip->i_uid || !super)
+         if (ap->a_cred->cr_uid != ip->i_uid && !super)
             return (EACCES);
          
          bcopy(ap->a_data, &flags, sizeof(u_int32_t));
@@ -342,11 +342,21 @@ ext2_ioctl(ap)
             
          oldflags = ip->i_e2flags;
          
-         /* APPEND, IMMUTABLE can only be unset when the kernel is
-            not protected -- and then only by root */
+         /* Update e2flags incase someone went through chflags and the
+          inode has not been sync'd to disk yet. */
+         if (ip->i_flags & APPEND)
+            oldflags |= EXT2_APPEND_FL;
+         
+         if (ip->i_flags & IMMUTABLE)
+            oldflags |= EXT2_IMMUTABLE_FL;
+         
+         /* Root owned files marked APPEND||IMMUTABLE can only be unset
+            when the kernel is not protected. */
          if ((flags ^ oldflags) & (EXT2_APPEND_FL | EXT2_IMMUTABLE_FL)) {
-            err = EPERM;
-            if (super)
+            if (!super && (oldflags & (EXT2_APPEND_FL | EXT2_IMMUTABLE_FL)))
+               err = EPERM;
+            if (super && (oldflags & (EXT2_APPEND_FL | EXT2_IMMUTABLE_FL)) &&
+                  ip->i_uid == 0)
                err = securelevel_gt(ap->a_cred, 0);
             if (err)
                return(err);
@@ -368,14 +378,14 @@ ext2_ioctl(ap)
          
          /* Update the BSD flags */
          if (ip->i_e2flags & EXT2_APPEND_FL)
-            ip->i_flags |= APPEND;
+            ip->i_flags |= super ? APPEND : UF_APPEND;
          else
-            ip->i_flags &= ~APPEND;
+            ip->i_flags &= ~(super ? APPEND : UF_APPEND);
          
          if (ip->i_e2flags & EXT2_IMMUTABLE_FL)
-            ip->i_flags |= IMMUTABLE;
+            ip->i_flags |= super ? IMMUTABLE : UF_IMMUTABLE;
          else
-            ip->i_flags &= ~IMMUTABLE;
+            ip->i_flags &= ~(super ? IMMUTABLE : UF_IMMUTABLE);
          
          err = ext2_update(ap->a_vp, 0);
       break;
@@ -385,7 +395,7 @@ ext2_ioctl(ap)
       break;
       
       case IOCBASECMD(EXT2_IOC_SETVERSION):
-         if (ap->a_cred->cr_uid != ip->i_uid || !super)
+         if (ap->a_cred->cr_uid != ip->i_uid && !super)
             err = EACCES;
          break;
          err = ENOTSUP;
