@@ -98,7 +98,7 @@ static inline struct page * rb_insert_page_cache(struct inode * inode,
 #include <linux/kernel.h>
 #include <linux/stddef.h>
 #endif
-#ifdef APPLE
+#if defined(APPLE) && defined(KERNEL)
 #include <sys/systm.h>
 #endif
 
