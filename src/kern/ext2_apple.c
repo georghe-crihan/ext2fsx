@@ -180,22 +180,21 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
     struct vnode *vp = ap->a_vp;
 	struct buf *bp;
 	struct buf *nbp;
-	int s;
+	int s, retry = 0;
    
-   loop:
+    loop:
 	VI_LOCK(vp);
 	s = splbio();
     for (bp = LIST_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
 		nbp = LIST_NEXT(bp, b_vnbufs);
-		VI_UNLOCK(vp);
-      if ((bp->b_flags & B_BUSY)) {
-         VI_LOCK(vp);
-         continue;
-      }
+        if ((bp->b_flags & B_BUSY)) {
+           continue;
+        }
+        VI_UNLOCK(vp);
 		if ((bp->b_flags & B_DELWRI) == 0)
 			panic("vop_stdfsync: not dirty");
 		bremfree(bp);
-      bp->b_flags |= B_BUSY;
+        bp->b_flags |= B_BUSY;
 		splx(s);
 		/*
 		 * Wait for I/O associated with indirect blocks to complete,
@@ -209,19 +208,26 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
 	}
 	if (ap->a_waitfor == MNT_WAIT) {
 		while (vp->v_numoutput) {
-         vp->v_iflag |= VI_BWAIT;
-			msleep(&vp->v_numoutput, VI_MTX(vp), 
+            vp->v_iflag |= VI_BWAIT;
+			(void)msleep(&vp->v_numoutput, VI_MTX(vp), 
 			    PRIBIO + 1, "e2fsyn", 0);
 		}
-#if DIAGNOSTIC
-      if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
-			vprint("ext2_fsync: dirty", vp);
+        if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
+			if (retry++ > 10) {
+                vprint("ext2_fsync: dirty", vp);
+                splx(s);
+                /* Requests are not being queued, yield some time. */
+                (void)msleep(&vp->v_numoutput, VI_MTX(vp), 
+                    PRIBIO + 1, "e2fsyn", hz/10);
+                retry = 0;
+            } else {
+                splx(s);
+            }
 			goto loop;
 		}
-#endif
 	}
+    splx(s);
 	VI_UNLOCK(vp);
-	splx(s);
    
     return (0);
 }
@@ -422,6 +428,25 @@ ext2_ioctl(ap)
    nop_ioctl(ap);
    return (err);
 }
+
+#ifdef EXT2FS_DEBUG
+
+__private_extern__
+void print_clusters(struct vnode *vp, char *msg)
+{
+    struct inode *ip = VTOI(vp);
+    if (vp->v_clen) {
+        printf("EXT2-fs DEBUG %s: inode=%d, dirty=%d, clusters(%d)={%u,%u},{%u,%u},{%u,%u},{%u,%u}\n",
+            msg, ip->i_number,(0 != (vp->v_flag & VHASDIRTY)), vp->v_clen,
+            vp->v_clusters[0], vp->v_clusters[1], vp->v_clusters[2], vp->v_clusters[3]);
+    } else {
+        printf("EXT2-fs DEBUG %s: inode=%d, dirty=%d, no clusters\n",
+            msg, ip->i_number, (0 != (vp->v_flag & VHASDIRTY)));
+    }
+    logwakeup();
+}
+
+#endif
 
 #if 0 //DIAGNOSTIC
 /*
