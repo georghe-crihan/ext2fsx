@@ -133,13 +133,19 @@ if [ ! -d "${VOL}" ]; then
 	exit 1
 fi
 
-EXT2DIR=`dirname $0`
+if [ -z "${EXT2BUILD}" ]; then
+	EXT2DIR=`pwd`
+else
+	EXT2DIR="${EXT2BUILD}"
+fi
 
-open "${EXT2DIR}/ExtFS.pmsp"
+echo "${EXT2DIR}", "${EXT2BUILD}"
 
-echo "Build the package on the volume $VOL"
-echo "Press any key when the package is done"
-read blah
+echo "Building Package..."
+PKGMKR=/Developer/Applications/PackageMaker.app/Contents/MacOS/PackageMaker
+"${PKGMKR}" -build -p "${VOL}/Ext2FS.pkg" -f "${EXT2DIR}/build/install" \
+-r "${EXT2DIR}/Resources" -i "${EXT2DIR}/pkginfo/Info.plist" \
+-d "${EXT2DIR}/pkginfo/Description.plist"
 
 echo "Copying files..."
 
