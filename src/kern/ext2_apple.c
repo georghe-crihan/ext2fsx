@@ -65,8 +65,11 @@
 #include <sys/vnode.h>
 #include <vfs/vfs_support.h>
 
-#include <gnu/ext2fs/inode.h>
 #include "ext2_apple.h"
+#ifdef EXT2FS_DEBUG
+#include <gnu/ext2fs/ext2_fs.h>
+#endif
+#include <gnu/ext2fs/inode.h>
 
 #if 0
 /* Cribbed from FreeBSD kern/kern_prot.c */
@@ -90,7 +93,9 @@ groupmember(gid, cred)
 #endif
 
 /* Cribbed from FreeBSD kern/vfs_subr.c */
-/* This will cause the KEXT to break if/when the kernel proper defines this routine. */
+/* This will cause the KEXT to break if/when the kernel proper defines this routine.
+ * (It's declared in <sys/vnode.h>, but is not actually in the 6.x kernels.)
+ */
 /*
  * Common filesystem object access control check routine.  Accepts a
  * vnode's type, "mode", uid and gid, requested access mode, credentials,
@@ -107,6 +112,12 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 	struct ucred *cred;
 {
 	mode_t dac_granted;
+   struct proc *p = curproc;
+   /*
+    * root always gets access
+    */
+   if (0 == suser(cred, p ? &p->p_acflag : NULL))
+      return (0);
 
 	/*
 	 * Look for a normal, non-privileged way to access the file/directory
@@ -126,8 +137,6 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 
 		if ((acc_mode & dac_granted) == acc_mode)
 			return (0);
-
-		goto privcheck;
 	}
 
 	/* Otherwise, check the groups (first match) */
@@ -141,8 +150,6 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 
 		if ((acc_mode & dac_granted) == acc_mode)
 			return (0);
-
-		goto privcheck;
 	}
 
 	/* Otherwise, check everyone else. */
@@ -154,16 +161,6 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 		dac_granted |= (VWRITE);
 	if ((acc_mode & dac_granted) == acc_mode)
 		return (0);
-
-privcheck:
-   #if 0
-	if (!suser_cred(cred, PRISON_ROOT)) {
-		/* XXX audit: privilege used */
-		if (privused != NULL)
-			*privused = 1;
-		return (0);
-	}
-   #endif
 
 	return (EACCES);
 }
@@ -210,6 +207,12 @@ ext2_lock(ap)
 
 	if (VTOI(vp) == (struct inode *) NULL)
 		panic ("ext2_lock: null node");
+   
+   ext2_debug("locking inode %lu for pid %ld -- cur pid:%ld, cur ex: %d, cur shr: %d, cur wait:%d\n",
+      (unsigned long)VTOI(vp)->i_number, (long)ap->a_p->p_pid, 
+      (long)VTOI(vp)->i_lock.lk_lockholder, VTOI(vp)->i_lock.lk_exclusivecount,
+      VTOI(vp)->i_lock.lk_sharecount, VTOI(vp)->i_lock.lk_waitcount);
+   
 	return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags, &vp->v_interlock,ap->a_p));
 }
 
@@ -225,6 +228,8 @@ ext2_unlock(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
+   
+   ext2_debug("unlocking inode %lu\n", (unsigned long)VTOI(vp)->i_number);
 
 	return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags | LK_RELEASE, &vp->v_interlock,ap->a_p));
 }
