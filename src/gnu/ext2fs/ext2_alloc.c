@@ -201,6 +201,13 @@ nospace:
  * the previous block allocation will be used.
  */
 
+#ifdef __APPLE__
+/* Note: This routine is unused in UBC cluster I/O */
+#ifdef FANCY_REALLOC
+#undef FANCY_REALLOC
+#endif
+#endif
+
 #ifdef FANCY_REALLOC
 #include <sys/sysctl.h>
 static int doasyncfree = 1;
@@ -266,7 +273,7 @@ return ENOSPC;
 		soff = start_lbn;
 	} else {
 		idp = &start_ap[start_lvl - 1];
-		if (bread(vp, idp->in_lbn, (int)fs->s_blocksize, NOCRED, &sbp)) {
+		if (meta_bread(vp, idp->in_lbn, (int)fs->s_blocksize, NOCRED, &sbp)) {
 			brelse(sbp);
 			return (ENOSPC);
 		}
@@ -288,7 +295,7 @@ return ENOSPC;
 			panic("ext2_reallocblk: start == end");
 #endif
 		ssize = len - (idp->in_off + 1);
-		if (bread(vp, idp->in_lbn, (int)fs->s_blocksize, NOCRED, &ebp))
+		if (meta_bread(vp, idp->in_lbn, (int)fs->s_blocksize, NOCRED, &ebp))
 			goto fail;
 		ebap = (int32_t *)ebp->b_data;
 	}
@@ -313,7 +320,7 @@ return ENOSPC;
 		if (buflist->bs_children[i]->b_blkno != fsbtodb(fs, *bap))
 			panic("ext2_reallocblks: alloc mismatch");
 #endif
-		*bap++ = blkno;
+		*bap++ = cpu_to_le32(blkno);
 	}
 	/*
 	 * Next we must write out the modified inode and indirect blocks.
@@ -470,8 +477,8 @@ ext2_blkpref(ip, lbn, indx, bap, blocknr)
 	*/
 	if(bap) 
                 for (tmp = indx - 1; tmp >= 0; tmp--) 
-			if (bap[tmp]) 
-				return bap[tmp];
+			if (le32_to_cpu(bap[tmp])) 
+				return le32_to_cpu(bap[tmp]);
 
 	/* else let's fall back to the blocknr, or, if there is none,
 	   follow the rule that a block should be allocated near its inode

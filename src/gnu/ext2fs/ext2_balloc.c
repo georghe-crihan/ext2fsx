@@ -232,14 +232,14 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 	 * Fetch through the indirect blocks, allocating as necessary.
 	 */
 	for (i = 1;;) {
-		error = bread(vp,
+		error = meta_bread(vp,
 		    indirs[i].in_lbn, (int)fs->s_blocksize, NOCRED, &bp);
 		if (error) {
 			brelse(bp);
 			return (error);
 		}
 		bap = (int32_t *)bp->b_data;
-		nb = bap[indirs[i].in_off];
+		nb = le32_to_cpu(bap[indirs[i].in_off]);
 		if (i == num)
 			break;
 		i += 1;
@@ -282,7 +282,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			brelse(bp);
 			return (error);
 		}
-		bap[indirs[i - 1].in_off] = nb;
+		bap[indirs[i - 1].in_off] = cpu_to_le32(nb);
 		/*
 		 * If required, write synchronously, otherwise use
 		 * delayed write.
@@ -313,7 +313,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		nbp->b_blkno = fsbtodb(fs, nb);
 		if (flags & B_CLRBUF)
 			vfs_bio_clrbuf(nbp);
-		bap[indirs[i].in_off] = nb;
+		bap[indirs[i].in_off] = cpu_to_le32(nb);
       if (blk_alloc)
          *blk_alloc = fs->s_blocksize;
 		/*

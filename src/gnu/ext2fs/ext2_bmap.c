@@ -58,6 +58,8 @@
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/ext2_extern.h>
+#include <gnu/ext2fs/ext2_fs.h> /* For linux type defines. */
+#include <ext2_byteorder.h>
 
 /*
  * Bmap converts a the logical block number of a file to its physical block
@@ -215,9 +217,6 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			bp->b_ioflags &= ~BIO_ERROR;
          #ifndef APPLE
 			vfs_busy_pages(bp, 0);
-         #endif
-         /* XXX - Do we need a equiv call for Darwin (upl_ something). */
-         #ifndef APPLE
          VOP_STRATEGY(bp->b_vp, bp);
          #else
          bp->b_flags |= B_READ;
@@ -231,13 +230,13 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			}
 		}
 
-		daddr = ((int32_t *)bp->b_data)[ap->in_off];
+		daddr = le32_to_cpu(((int32_t *)bp->b_data)[ap->in_off]);
 		if (num == 1 && daddr && runp) {
 			for (bn = ap->in_off + 1;
 			    bn < MNINDIR(ump) && *runp < maxrun &&
 			    is_sequential(ump,
-			    ((int32_t *)bp->b_data)[bn - 1],
-			    ((int32_t *)bp->b_data)[bn]);
+			    le32_to_cpu(((int32_t *)bp->b_data)[bn - 1]),
+			    le32_to_cpu(((int32_t *)bp->b_data)[bn]));
 			    ++bn, ++*runp);
 			bn = ap->in_off;
 			if (runb && bn) {

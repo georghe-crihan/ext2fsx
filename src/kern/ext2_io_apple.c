@@ -482,7 +482,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			goto fail;
 		}
 		bap = (int32_t *)bp->b_data;
-		nb = bap[indirs[i].in_off];
+		nb = le32_to_cpu(bap[indirs[i].in_off]);
 
 		if (i == num)
 			break;
@@ -512,7 +512,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			goto fail;
 		}
 
-		bap[indirs[i - 1].in_off] = nb;
+		bap[indirs[i - 1].in_off] = cpu_to_le32(nb);
 
 		/*
 		 * If required, write synchronously, otherwise use
@@ -537,7 +537,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 		nb = newb;
 		*allocblk++ = nb;
 
-		bap[indirs[i].in_off] = nb;
+		bap[indirs[i].in_off] = cpu_to_le32(nb);
 
 		/*
 		 * If required, write synchronously, otherwise use

@@ -484,13 +484,16 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	vp = ITOV(ip);
 	bp = getblk(vp, lbn, (int)fs->s_blocksize, 0, 0
    #ifdef APPLE
-   , BLK_CLREAD
+   , BLK_META
    #endif
    );
 	if (bp->b_flags & (B_DONE | B_DELWRI)) {
 	} else {
       #ifndef APPLE
 		bp->b_iocmd = BIO_READ;
+      #else
+      current_proc()->p_stats->p_ru.ru_inblock++;	/* pay for read */
+		bp->b_flags |= B_READ;
       #endif
 		if (bp->b_bcount > bp->b_bufsize)
 			panic("ext2_indirtrunc: bad buffer size");
@@ -499,7 +502,6 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 		vfs_busy_pages(bp, 0);
 		VOP_STRATEGY(vp, bp);
       #else
-      /* XXX Some equiv call to vfs_busy_pages needed? (upl_ something?) */
       VOP_STRATEGY(bp);
       #endif
 		error = bufwait(bp);
@@ -527,7 +529,7 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	 */
 	for (i = NINDIR(fs) - 1, nlbn = lbn + 1 - i * factor; i > last;
 	    i--, nlbn += factor) {
-		nb = bap[i];
+		nb = le32_to_cpu(bap[i]);
 		if (nb == 0)
 			continue;
 		if (level > SINGLE) {
@@ -545,7 +547,7 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	 */
 	if (level > SINGLE && lastbn >= 0) {
 		last = lastbn % factor;
-		nb = bap[i];
+		nb = le32_to_cpu(bap[i]);
 		if (nb != 0) {
 			if ((error = ext2_indirtrunc(ip, nlbn, fsbtodb(fs, nb),
 			    last, level - 1, &blkcount)) != 0)
