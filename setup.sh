@@ -14,11 +14,12 @@ echo "# WARNING:                                                         "
 echo "#------------------------------------------------------------------"
 echo "# This script will attempt to install necessary header files into  "
 echo "# your established Kernel frameworks directory.  This will require "
-ecoh "# Administrator or ROOT privlidges.                                "
+echo "# Administrator or ROOT privlidges.                                "
+echo "# This is your chance to stop before any changes occur.            "
 echo "###################################################################"
-echo "Do you wish to continue (y/n)? [y] "
+echo "Do you wish to continue (y/n)? [n] "
 read OKAY
-OKAY=${OKAY:-y}
+OKAY=${OKAY:-n}
 
 if test $OKAY = "n" -o $OKAY = "N"; then
 echo "Exiting setup script... "
@@ -47,13 +48,15 @@ copydir() {
 		#echo ${TARGET}
 		if [ ! -d "$i" ]; then
 			if [ ! -e "${TARGET}" ]; then
-				echo "Copying ${TARGET}"
+				echo -n "Copying ${TARGET}..."
 				sudo cp "$i" "${2}/"
+                echo "done"
 			fi
 		else
 			if [ ! -d "${TARGET}" ]; then
-				echo "Copying ${TARGET}"
+				echo -n "Copying ${TARGET}..."
 				sudo cp -R $i "${2}/"
+                echo "done"
 			else 
 				copydir "`ls -d $i/* | grep -v CVS`" "${TARGET}"
 			fi
@@ -66,9 +69,11 @@ copydir() {
 # copy missing kernel headers
 SYS_KERNF=/System/Library/Frameworks/Kernel.framework
 echo -N "Determining missing kernel headers path... "
+# future work this might be better served by a switch statement
 if [ ${SYSVER} -eq 6 ]; then
     KERNH=./src/depend/jaguar/kern/Headers
 else 
+# the assumption is this is a Panther based install
     KERNH=./src/depend/panther/kern/Headers
 fi
 echo $KERNH
@@ -90,11 +95,13 @@ find ${SYS_KERNF}/Headers/ -type f | xargs sudo chmod go+r
 echo "done"
 
 #build and install disklib
+echo ""
 echo "###################################################################"
 echo "#                                                                  "
 echo "# Starting to build and install the disklib library                "
 echo "#                                                                  "
 echo "###################################################################"
+echo ""
 cd ./src/depend/disklib
 make
 sudo make install
