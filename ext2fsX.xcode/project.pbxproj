@@ -387,6 +387,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D3A9B8140582E25500B93FC7,
+				D32E761E05FD2919002928A8,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -439,6 +440,7 @@
 				D30B791004059A6B00A80164,
 				D3A9B8150582E26500B93FC7,
 				D3A9B8130582E25500B93FC7,
+				D32E761D05FD2919002928A8,
 			);
 			isa = PBXGroup;
 			name = mount_ext2fs;
@@ -709,6 +711,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 089C1673FE841209C02AAC07;
 			remoteInfo = ext2_kext;
+		};
+		D32E761D05FD2919002928A8 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		D32E761E05FD2919002928A8 = {
+			fileRef = D32E761D05FD2919002928A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		D3360E46058AF97E004AF361 = {
 			buildRules = (
@@ -1938,11 +1954,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.0.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2</string>
+	<string>1.0.3</string>
 	<key>NSMainNibFile</key>
 	<string>ExtFSManager</string>
 	<key>NSPrefPaneIconFile</key>

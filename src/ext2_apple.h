@@ -43,11 +43,16 @@ int ext2_vol_label_len(char *label) {
 struct ext2_args {
 	char	*fspec;			/* block special device to mount */
    unsigned long e2_mnt_flags; /* Ext2 specific mount flags */
+    uid_t   e2_uid; /* Only active when MNT_UNKNOWNPERMISSIONS is set */
+    gid_t   e2_gid; /* ditto */
 	struct	export_args export;	/* network export information */
 };
 
 #define EXT2_MNT_INDEX 0x00000001
 #define EXT2_MOPT_INDEX { "index", 0, EXT2_MNT_INDEX, 0 }
+
+#define UNKNOWNUID ((uid_t)99)
+#define UNKNOWNGID ((gid_t)99)
 
 #ifdef KERNEL
 
@@ -98,8 +103,6 @@ __private_extern__ void ext2_checkdirsize(struct vnode *dvp);
 /* Set to 1 to enable inode/block bitmap caching -- currently, this will
 cause a panic situation when the filesystem is stressed. */
 #define EXT2_SB_BITMAP_CACHE 0
-
-#define UNKNOWNUID ((uid_t)99)
 
 /* Process stuff */
 #define curproc (current_proc())

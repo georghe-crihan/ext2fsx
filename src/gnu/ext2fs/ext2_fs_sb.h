@@ -83,6 +83,8 @@ struct ext2_sb_info {
    quad_t s_dircount; /* In core count of all directories */
    int32_t s_d_blocksize; /* block size of underlying device */
    mutex_t *s_lock; /* lock to protect access to in core sb */
+   uid_t s_uid_noperm; /* used when mounted w/o permissions in effect */
+   gid_t s_gid_noperm; /* ditto */
 
 	char    fs_fsmnt[MAXMNTLEN];            /* name mounted on */
 };

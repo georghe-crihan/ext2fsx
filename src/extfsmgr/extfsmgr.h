@@ -63,6 +63,12 @@ for the media should be ignored by mount_ext2fs.
 */
 #define EXT_PREF_KEY_NOAUTO @"Ignore Automount"
 /*!
+@defined EXT_PREF_KEY_NOPERMS
+@abstract Dictionary key to determine if media should be mounted sans
+permissions.
+*/
+#define EXT_PREF_KEY_NOPERMS @"Ignore Permissions"
+/*!
 @defined EXT_PREF_KEY_DIRINDEX
 @abstract Dictionary key to determine if media should be mounted with the
 indexed directories option. This is only valid for Ext2/Ext3 filesystems.
@@ -76,6 +82,7 @@ indexed directories option. This is only valid for Ext2/Ext3 filesystems.
 
 #define EXT_PREF_KEY_RDONLY CFSTR("Read Only")
 #define EXT_PREF_KEY_NOAUTO CFSTR("Ignore Automount")
+#define EXT_PREF_KEY_NOPERMS CFSTR("Ignore Permissions")
 #define EXT_PREF_KEY_DIRINDEX CFSTR("Index Directories")
 #endif
 

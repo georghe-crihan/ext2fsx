@@ -1,3 +1,27 @@
+/*
+* Copyright 2003-2004 Brian Bergstrand.
+*
+* Redistribution and use in source and binary forms, with or without modification, 
+* are permitted provided that the following conditions are met:
+*
+* 1.	Redistributions of source code must retain the above copyright notice, this list of
+*     conditions and the following disclaimer.
+* 2.	Redistributions in binary form must reproduce the above copyright notice, this list of
+*     conditions and the following disclaimer in the documentation and/or other materials provided
+*     with the distribution.
+* 3.	The name of the author may not be used to endorse or promote products derived from this
+*     software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+* AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE
+* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+* OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+* THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+*/
 /*-
  * Copyright (c) 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -31,25 +55,8 @@
  * SUCH DAMAGE.
  */
 
-
-#ifndef lint
-static char copyright[] __attribute__ ((unused)) =
-"@(#) Copyright (c) 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef notnow //lint
-/*
-static char sccsid[] = "@(#)mount_lfs.c	8.3 (Berkeley) 3/27/94";
-*/
-static const char rcsid[] __attribute__ ((unused)) =
-  "$FreeBSD: src/sbin/mount_ext2fs/mount_ext2fs.c,v 1.15 2002/08/13 16:06:14 mux Exp $";
-#endif /* not lint */
-
-#if defined(APPLE) && !defined(lint)
 static const char whatid[] __attribute__ ((unused)) =
 "@(#)Revision: $Revision$ Built: " __DATE__ __TIME__;
-#endif
 
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -61,6 +68,9 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SystemConfiguration.h>
 
 #include "mntopts.h"
 
@@ -103,6 +113,7 @@ main(argc, argv)
    int argc;
    char *argv[];
 {
+   SCDynamicStoreRef dynStoreRef;
    struct ext2_args args;
    int ch, mntflags, e2_mntflags, x=0;
    char *fs_name, *fspec, mntpath[MAXPATHLEN];
@@ -145,7 +156,7 @@ main(argc, argv)
    (void)rmslashes(fspec, fspec);
    
    /* XXX -- diskarbitrationd does not respect the FSMountArguments fs bundle
-      key, so the 'amount' options is never passed to us. Therefore, we have
+      key, so the 'amount' option is never passed to us. Therefore, we have
       to default to processing the extmgr prefs and rely on the user
       passing '-x' to disable processing. A bug report has been filed with
       Apple (#3502935) to have diskarbitrationd "fixed", but even if that
@@ -163,6 +174,27 @@ main(argc, argv)
       }
    }
    
+    dynStoreRef = SCDynamicStoreCreate (kCFAllocatorDefault, EXT_PREF_ID, NULL, NULL);
+   
+    /* Setup uid/gid for ignore perms */
+    if (mntflags & MNT_UNKNOWNPERMISSIONS) {
+        CFStringRef consoleUser;
+        
+        /* If dynStoreRef happens to be NULL for some reason, a temp session will be created */
+        consoleUser = SCDynamicStoreCopyConsoleUser (dynStoreRef, &args.e2_uid, &args.e2_gid);
+        if (consoleUser) {
+            /* Somebody is on the console */
+            CFRelease(consoleUser);
+        } else {
+            /* No user logged in */
+            args.e2_uid = UNKNOWNUID;
+            args.e2_gid = UNKNOWNGID;
+        }
+    }
+    
+    if (dynStoreRef)
+        CFRelease(dynStoreRef);
+   
    args.fspec = fspec;
    args.e2_mnt_flags = e2_mntflags;
    args.export.ex_root = 0;
@@ -170,9 +202,6 @@ main(argc, argv)
       args.export.ex_flags = MNT_EXRDONLY;
    else
       args.export.ex_flags = 0;
-   
-   /* Force NODEV. */
-   /* mntflags |= MNT_NODEV; */
    
    if (checkLoadable()) {		/* Is it already loaded? */
       if (load_kmod())		/* Load it in */

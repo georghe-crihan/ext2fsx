@@ -43,7 +43,7 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #define EXT_TOOLBAR_ICON_TYPE @"icns"	
 
-static inline void ExtSwapButtonState(id button, BOOL swapImage)
+static void ExtSwapButtonState(id button, BOOL swapImage)
 {
    NSString *title;
    NSImage *image;
@@ -61,7 +61,7 @@ static inline void ExtSwapButtonState(id button, BOOL swapImage)
    }
 }
 
-static inline id ExtMakeInfoTitle(NSString *title)
+static id ExtMakeInfoTitle(NSString *title)
 {
    NSMutableAttributedString *str;
    str = [[NSMutableAttributedString alloc] initWithString:
@@ -84,6 +84,21 @@ static NSString *_monikers[] =
 //bytes  2^10,     2^20,     2^30,     2^40,     2^50,     2^60,    2^70,     2^80
 
 static NSDictionary *_fsPrettyNames;
+
+static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
+{
+    NSString *uuid;
+    NSMutableDictionary *dict;
+    
+    uuid = [media uuidString];
+    dict = [_prefMedia objectForKey:uuid];
+    if (!dict) {
+        dict = [NSMutableDictionary dictionary];
+        [_prefMedia setObject:dict forKey:uuid];
+    }
+    [dict setObject:val forKey:key];
+    _prefsChanged = YES;
+}
 
 @implementation ExtFSManager : NSPreferencePane
 
@@ -454,19 +469,23 @@ data = [data stringByAppendingString:@"\n"]; \
    dict = [_prefMedia objectForKey:[media uuidString]];
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_DIRINDEX];
-   state = ([media hasIndexedDirs] || [boolVal boolValue] ? NSOnState : NSOffState);
+   state = ([media hasIndexedDirs] || (boolVal && [boolVal boolValue]) ? NSOnState : NSOffState);
    [_indexedDirsBox setState:state];
    if (NSOnState == state || mediaRO)
       [_indexedDirsBox setEnabled:NO];
    else
       [_indexedDirsBox setEnabled:YES];
-      
+   
    if (!dict)
       return;
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_NOAUTO];
    state = ([boolVal boolValue] ? NSOnState : NSOffState);
    [_dontAutomountBox setState:state];
+   
+   boolVal = [dict objectForKey:EXT_PREF_KEY_NOPERMS];
+   state = ([boolVal boolValue] ? NSOnState : NSOffState);
+   [_ignorePermsBox setState:state];
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_RDONLY];
    state = ([boolVal boolValue] || mediaRO ? NSOnState : NSOffState);
@@ -522,70 +541,48 @@ data = [data stringByAppendingString:@"\n"]; \
 - (IBAction)click_readOnly:(id)sender
 {
    NSNumber *boolVal;
-   NSString *uuid;
-   NSMutableDictionary *dict;
    
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFS: readonly clicked.\n");
 #endif
    
-   uuid = [_curSelection uuidString];
-   dict = [_prefMedia objectForKey:uuid];
-   if (!dict) {
-      dict = [NSMutableDictionary dictionary];
-      [_prefMedia setObject:dict forKey:uuid];
-   }
-   
    boolVal = [NSNumber numberWithBool:
       (NSOnState == [_mountReadOnlyBox state] ? YES : NO)];
-   [dict setObject:boolVal forKey:EXT_PREF_KEY_RDONLY];
-   _prefsChanged = YES;
+   ExtSetPrefVal(_curSelection, EXT_PREF_KEY_RDONLY, boolVal);
 }
 
 - (IBAction)click_automount:(id)sender
 {
    NSNumber *boolVal;
-   NSString *uuid;
-   NSMutableDictionary *dict;
    
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFS: automount clicked.\n");
 #endif
-   
-   uuid = [_curSelection uuidString];
-   dict = [_prefMedia objectForKey:uuid];
-   if (!dict) {
-      dict = [NSMutableDictionary dictionary];
-      [_prefMedia setObject:dict forKey:uuid];
-   }
-   
+
    boolVal = [NSNumber numberWithBool:
       (NSOnState == [_dontAutomountBox state] ? YES : NO)];
-   [dict setObject:boolVal forKey:EXT_PREF_KEY_NOAUTO];
-   _prefsChanged = YES;
+   ExtSetPrefVal(_curSelection, EXT_PREF_KEY_NOAUTO, boolVal);
+}
+
+- (IBAction)click_ignorePerms:(id)sender
+{
+    NSNumber *boolVal;
+    
+    boolVal = [NSNumber numberWithBool:
+       (NSOnState == [_ignorePermsBox state] ? YES : NO)];
+    ExtSetPrefVal(_curSelection, EXT_PREF_KEY_NOPERMS, boolVal);
 }
 
 - (IBAction)click_indexedDirs:(id)sender
 {
    NSNumber *boolVal;
-   NSString *uuid;
-   NSMutableDictionary *dict;
-   
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFS: indexed dirs clicked.\n");
 #endif
-   
-   uuid = [_curSelection uuidString];
-   dict = [_prefMedia objectForKey:uuid];
-   if (!dict) {
-      dict = [NSMutableDictionary dictionary];
-      [_prefMedia setObject:dict forKey:uuid];
-   }
-   
+
    boolVal = [NSNumber numberWithBool:
       (NSOnState == [_indexedDirsBox state] ? YES : NO)];
-   [dict setObject:boolVal forKey:EXT_PREF_KEY_DIRINDEX];
-   _prefsChanged = YES;
+   ExtSetPrefVal(_curSelection, EXT_PREF_KEY_DIRINDEX, boolVal);
 }
 
 - (void)doMount:(id)sender
@@ -796,6 +793,8 @@ info_alt_switch:
       ExtLocalizedString(@"Mount Read Only", "")];
    [_dontAutomountBox setTitle:
       ExtLocalizedString(@"Don't Automount", "")];
+   [_ignorePermsBox setTitle:
+      ExtLocalizedString(@"Ignore Permissions", "")]; 
    [_indexedDirsBox setTitle:
       ExtLocalizedString(@"Enable Indexed Directories", "")];
    

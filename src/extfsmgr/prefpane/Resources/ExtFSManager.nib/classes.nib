@@ -1,13 +1,19 @@
 {
     IBClasses = (
         {
-            ACTIONS = {"click_automount" = id; "click_indexedDirs" = id; "click_readOnly" = id; }; 
+            ACTIONS = {
+                "click_automount" = id; 
+                "click_ignorePerms" = id; 
+                "click_indexedDirs" = id; 
+                "click_readOnly" = id; 
+            }; 
             CLASS = ExtFSManager; 
             LANGUAGE = ObjC; 
             OUTLETS = {
                 "_diskIconView" = id; 
                 "_dontAutomountBox" = id; 
                 "_ejectButton" = id; 
+                "_ignorePermsBox" = id; 
                 "_indexedDirsBox" = id; 
                 "_infoButton" = id; 
                 "_infoText" = id; 

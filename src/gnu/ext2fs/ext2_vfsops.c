@@ -411,6 +411,14 @@ ext2_mount(mp, path, data, ndp, td)
 	// size is from copyinstr() above
 	bzero(fs->fs_fsmnt + size, MAXMNTLEN - size);
 	fs->s_mount_opt = args.e2_mnt_flags;
+	
+	if ((mp->mnt_flag & MNT_UNKNOWNPERMISSIONS)
+		 && 0 == (mp->mnt_flag & MNT_ROOTFS) && args.e2_uid > 0) {
+		fs->s_uid_noperm = args.e2_uid;
+		fs->s_gid_noperm = args.e2_gid;
+	} else {
+		mp->mnt_flag &= ~MNT_UNKNOWNPERMISSIONS;
+	}
    
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
 	return (0);
@@ -1464,11 +1472,19 @@ ext2_root(mp, vpp)
 	struct vnode **vpp;
 {
 	struct vnode *nvp;
+	struct inode *ip;
 	int error;
    
+	*vpp = NULL;
    error = VFS_VGET(mp, (void*)ROOTINO, &nvp);
 	if (error)
 		ext2_trace_return(error);
+	ip = VTOI(nvp);
+	if (!S_ISDIR(ip->i_mode) || !ip->i_blocks || !ip->i_size) {
+		log(LOG_WARNING, "EXT2-fs: root inode is corrupt, please run fsck.\n");
+		vput(nvp);
+		return (EINVAL);
+	}
 	*vpp = nvp;
 	return (0);
 }

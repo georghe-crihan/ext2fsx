@@ -564,7 +564,14 @@ ext2_access(ap)
 
 	error = vaccess(ip->i_mode, ip->i_uid, ip->i_gid,
 	    ap->a_mode, ap->a_cred);
-	ext2_trace_return(error);
+	
+    /* If mounting w/o perms, then allow anything except root access. */
+    if (error && (vp->v_mount->mnt_flag & MNT_UNKNOWNPERMISSIONS)) {
+        if (ip->i_uid > 0)
+            error = 0;
+    }
+    
+    ext2_trace_return(error);
 }
 
 static int
@@ -677,7 +684,7 @@ ext2_setattr(ap)
 	if (ip->i_flags & (IMMUTABLE | APPEND))
 		ext2_trace_return(EPERM);
 	/*
-	 * Go through the fields and update iff not VNOVAL.
+	 * Go through the fields and update if not VNOVAL.
 	 */
 	if (vap->va_uid != (uid_t)VNOVAL || vap->va_gid != (gid_t)VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
@@ -761,12 +768,17 @@ ext2_chmod(vp, mode, cred, td)
 	struct thread *td;
 {
 	struct inode *ip = VTOI(vp);
-	int error;
+	int error, super;
    
    ext2_trace_enter();
    
-   if (cred->cr_uid != ip->i_uid &&
-       (error = suser(cred, &td->p_acflag)))
+    super = (error = suser(cred, &td->p_acflag)) ? 0 : 1;
+    
+    if ((vp->v_mount->mnt_flag & MNT_UNKNOWNPERMISSIONS)
+         && !super)
+        return (0);
+   
+   if (cred->cr_uid != ip->i_uid && !super)
       ext2_trace_return(error);
    if (cred->cr_uid) {
 		if (vp->v_type != VDIR && (mode & S_ISTXT))
@@ -795,11 +807,17 @@ ext2_chown(vp, uid, gid, cred, td)
 	struct inode *ip = VTOI(vp);
 	uid_t ouid;
 	gid_t ogid;
-	int error = 0;
+	int error = 0, super;
    
    ext2_trace_enter();
 
-	if (uid == (uid_t)VNOVAL)
+	super = (error = suser(cred, &td->p_acflag)) ? 0 : 1;
+    
+    if ((vp->v_mount->mnt_flag & MNT_UNKNOWNPERMISSIONS)
+         && !super)
+        return (0);
+    
+    if (uid == (uid_t)VNOVAL)
 		uid = ip->i_uid;
 	if (gid == (gid_t)VNOVAL)
 		gid = ip->i_gid;
@@ -809,8 +827,7 @@ ext2_chown(vp, uid, gid, cred, td)
 	 * have privilege.
 	 */
 	if ((uid != ip->i_uid || 
-	    (gid != ip->i_gid && !groupmember(gid, cred))) &&
-       (error = suser(cred, &td->p_acflag)))
+	    (gid != ip->i_gid && !groupmember(gid, cred))) && !super)
 		ext2_trace_return(error);
 	ogid = ip->i_gid;
 	ouid = ip->i_uid;

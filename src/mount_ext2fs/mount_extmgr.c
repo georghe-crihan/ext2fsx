@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -66,6 +66,13 @@ void extmgr_mntopts (const char *device, int *mopts, int *eopts, int *nomount)
             if (boolVal && CFBooleanGetValue(boolVal)) {
                *mopts |= MNT_RDONLY;
             }
+            
+            boolVal = CFDictionaryGetValue(media, EXT_PREF_KEY_NOPERMS);
+            if (boolVal && CFBooleanGetValue(boolVal)) {
+               *mopts |= MNT_UNKNOWNPERMISSIONS;
+            }
+            
+            /* Ext2/3 specific */
             
             boolVal = CFDictionaryGetValue(media, EXT_PREF_KEY_DIRINDEX);
             if (boolVal && CFBooleanGetValue(boolVal)) {

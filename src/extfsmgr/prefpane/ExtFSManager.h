@@ -38,6 +38,7 @@
    
    IBOutlet id _mountReadOnlyBox;
    IBOutlet id _dontAutomountBox;
+   IBOutlet id _ignorePermsBox;
    IBOutlet id _indexedDirsBox;
    IBOutlet id _optionNoteText;
    
@@ -52,6 +53,7 @@
 
 - (IBAction)click_readOnly:(id)sender;
 - (IBAction)click_automount:(id)sender;
+- (IBAction)click_ignorePerms:(id)sender;
 - (IBAction)click_indexedDirs:(id)sender;
 
 - (void)doMount:(id)sender;
