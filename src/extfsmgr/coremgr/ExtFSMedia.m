@@ -430,6 +430,7 @@ exit:
    return (0 != (_attributeFlags & kfsDiskArb));
 }
 
+#if notyet
 - (void)setUsesDiskArb:(BOOL)diskarb
 {
    if (diskarb)
@@ -437,6 +438,7 @@ exit:
    else
       _attributeFlags &= ~kfsDiskArb;
 }
+#endif
 
 - (u_int64_t)size
 {
