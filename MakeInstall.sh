@@ -65,3 +65,7 @@ find "${INSTALL}" -name "CVS" -type d -exec rm -fr {} \;
 
 sudo chown -R root:wheel "${INSTALL}"
 sudo chmod -R go-w "${INSTALL}"
+sudo chmod -R u-w build/install/sbin/* 
+sudo chmod -R u-w build/install/usr/local/bin/*
+sudo chmod -R u-w build/install/usr/local/sbin/* 
+sudo chmod -R u-w build/install/usr/local/lib/*
