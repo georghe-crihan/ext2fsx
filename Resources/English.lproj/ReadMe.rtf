@@ -6,20 +6,13 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.1b1\
-2003/12/21
-\f0\b \
+\f1\b0 1.1\
+2004/02/01\
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
-Pre-Release Software
-\f1\b0 \
-\
-This is a pre-release version of the Ext2 Filesystem for Mac OS X. All kinds of nasty things can happen, including kernel panics, filesystem corruption, etc.. Please make note of this before continuing installation.\
-\
-Pre-release also means that the software is not as fast as it could be. This release contains debugging code (assertions, etc) and diagnostic logging that will be unnecessary in future releases.\
-\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b Donations
+\f0\b \cf0 Donations
 \f1\b0 \
 \
 If you are interested in making a donation, please vist my {\field{\*\fldinst{HYPERLINK "https://order.kagi.com/?VN"}}{\fldrslt \cf2 \ul \ulc2 Kagi Payment page}}. A minimum of US $10 is requested because of the fees Kagi charges. Please don\'d5t take this as a request for donations. Make a donation only if you want to, not because you feel you have to. Gifts from my {\field{\*\fldinst{HYPERLINK "http://www.amazon.com/exec/obidos/registry/1UV8OJ9VKS9VV/"}}{\fldrslt \cf2 \ul \ulc2 Amazon wish list}} are also appreciated.\
@@ -38,7 +31,7 @@ Mac OS X 10.2.0 or later.\
 \f0\b \cf0 ExtFS Manager
 \f1\b0 \
 \
-ExtFS Manager is an OS X Preference Pane for managing Ext disks. From this pane you can set mount options for any Ext volume. The current options are:\
+ExtFS Manager is an OS X Preference Pane for managing Ext2/3 disks. From this pane you can set mount options for any Ext volume. The current options are:\
 \
 Don't Automount -- The volume will not be mounted automatically (use 'mount_ext2 -x' to override).\
 \
@@ -51,8 +44,9 @@ Enable Indexed Directories -- See 'Supported Features' below.\
 \f1\b0  You must be an admin user and /Library/Preferences must be writable by the admin group or changes made to the options will have no effect.\
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b Using command line utilities
+\f0\b \cf0 Using command line utilities
 \f1\b0 \
 \
 The installation includes the full set of Ext2 command line utilities found in Linux; including newfs, fsck, debugfs, etc.. If you want to use these from Terminal, you may wish to add "/usr/local/bin" and "/usr/local/sbin" to your shell PATH variable for easy access. You may also wish to add "/usr/local/share/man" to your shell MANPATH variable for easy access to the man pages.\
@@ -76,8 +70,9 @@ Ext3 indexed directories are supported. Indexed directories are orders of magnit
 \
 Volumes will fail to auto-mount if they are corrupted. The auto-mounter funs fsck (in verification mode only) before mounting a volume and if fsck fails, the auto-mounter won't even try to mount the volume. If you are having problems with volumes not auto-mounting, try running fsck_ext2 on the device. After any volume errors have been corrected, you can get the auto-mounter to try mounting the device again by running 'disktool -r' from Terminal. Please note that the kernel will also fail to mount any filesystem R/W if it is not clean.
 \f0\b \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f1\b0 \
+\f1\b0 \cf0 \
 If you re-format an existing partition as Ext2, then that partition may fail to automount in the future. This is because re-formating does not change the partition type in the partition header of the disk. Automounter uses this type as a "hint" when trying to find the right filesystem utility to use. Unfortunately, the "hint" is actually literal; automounter will find an incorrect filesystem utility based on the partition type and when that utility fails the probe phase, automounter will return an error without trying other filesystem utilities. There is no known way to change a partition type without re-formating the entire disk. (Amendment:  Dan C. pointed out that pdisk can apparently alter the partition table without destroying other partitions. So you could drop a partition and replace it with a new type. I don't know if I trust this, so for now I'll leave this up to the intrepid user.)\
 \
 Renaming a volume in the Finder is only supported on 10.3.0 and later (not 10.2.x) . To change the name of a volume while running 10.2.x, you must use the Terminal program 'e2label'. Example (using a disk image):\
@@ -99,8 +94,9 @@ Boot/Root is not supported.\
 EXT3 journaling, extended attributes, and ACL's are not supported.\
 Quotas are not supported.\
 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b Reporting a Bug
+\f0\b \cf0 Reporting a Bug
 \f1\b0 \
 \
 Bug reports should be entered into the bug tracking system at\
@@ -121,4 +117,6 @@ If the problem is a kernel panic, please include a copy of the panic. Mac OS X 1
 \f1\b0 \
 \
 Thanks to Bandar Raffa <http://www.sadeem.net/tux.html> for the use of the Tux'n'Tosh icons.\
+\
+German Localization: S\'9aren Kuklau\
 }

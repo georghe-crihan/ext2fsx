@@ -4,7 +4,17 @@
 \margl1440\margr1440\vieww11160\viewh11700\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.1b1\
+\f0\fs24 \cf0 1.1\
+\
+ExtFS Manager (EFSM) includes a German localization. (Also, fixed some localization issues exposed by this.)\
+\
+EFSM now recognizes the CD Audio filesystem.\
+\
+Fixed a bug in EFSM that prevented multi-mode CD-ROM partitions from being detected correctly.\
+\
+Fixed a bug in EFSM that caused partitioned disks attached while EFSM was running to show up as having no partitions.\
+\
+1.1b1\
 The kernel driver now supports file system change notifications (KEvents) for Panther.\
 \
 Fixed a bug with indexed directories causing fsck to fail. This bug also caused indexed directories to fail on x86 Linux (and vice-versa). After upgrading (from previous 1.1 releases only), it is recommended that you run e2fsck -fy on the filesystem before using it to fix any possible problems created by this bug.\
