@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -109,10 +109,10 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 - (void)updateAttributesFromIOService:(io_service_t)service;
 - (void)setIsMounted:(struct statfs*)stat;
 - (NSDictionary*)iconDescription;
-/* Implemented in ExtFSMedia -- this just gets rid of the compiler warning. */
-- (int)fsInfo;
 - (void)addChild:(ExtFSMedia*)media;
 - (void)remChild:(ExtFSMedia*)media;
+/* Implemented in ExtFSMedia.m -- this just gets rid of the compiler warnings. */
+- (int)fsInfo;
 @end
 
 @implementation ExtFSMediaController : NSObject
@@ -497,6 +497,7 @@ exit:
       _blockCount = 0;
       _blockAvail = 0;
       _lastFSUpdate = 0;
+      _fsType = fsTypeUnknown;
       [_where release]; _where = nil;
       [_volName release]; _volName = nil;
       
