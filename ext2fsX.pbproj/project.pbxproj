@@ -425,12 +425,6 @@
 			path = src/newfs_ext2/newfs_ext2.c;
 			refType = 4;
 		};
-		D33C068A0418779900A80164 = {
-			fileRef = D33C06890418779900A80164;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		D33C068B0419F0F500A80164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -669,7 +663,6 @@
 			files = (
 				D3D485880405C3B900A80164,
 				D3D485890405C3BB00A80164,
-				D33C068A0418779900A80164,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -955,7 +948,6 @@
 				D3FCC559041C72E000A80164,
 			);
 			buildSettings = {
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
