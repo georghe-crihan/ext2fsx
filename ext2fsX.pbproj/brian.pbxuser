@@ -1,9 +1,9 @@
 // !$*UTF8*$!
 {
 	089C1669FE841209C02AAC07 = {
-		activeBuildStyle = 06AA1263FFB20DD611CA28AA;
+		activeBuildStyle = 06AA1262FFB20DD611CA28AA;
 		activeExecutable = D3FCC55C041C72E000A80164;
-		activeTarget = 089C1673FE841209C02AAC07;
+		activeTarget = D3D485850405AEF400A80164;
 		addToTargets = (
 			089C1673FE841209C02AAC07,
 		);
@@ -15,15 +15,16 @@
 			D3FCC55C041C72E000A80164,
 		);
 		perUserDictionary = {
-			PBXPerProjectTemplateStateSaveDate = 74895616;
+			PBXPerProjectTemplateStateSaveDate = 75247496;
 			PBXWorkspaceContents = (
 				{
 					LeftSlideOut = {
 						Split0 = {
 							Split0 = {
 								NavContent0 = {
-									bookmark = D3B018C30476D4CF00A80164;
+									bookmark = D3CCBDF4047C355100A80164;
 									history = (
+										D3B406F004210BB800A80164,
 										D3B406F304210BB800A80164,
 										D3B406F404210BB800A80164,
 										D3B406F604210BB800A80164,
@@ -34,27 +35,25 @@
 										D363E4DA04339EDD00A80164,
 										D363E4DB04339EDD00A80164,
 										D363E4E004339EDD00A80164,
+										D30A40A60448E35C00A80164,
 										D30A40A70448E35C00A80164,
+										D30A40A90448E35C00A80164,
+										D30A40AA0448E35C00A80164,
+										D30A40AC0448E35C00A80164,
 										D30A40AD0448E35C00A80164,
 										D30A40AE0448E35C00A80164,
 										D30A40AF0448E35C00A80164,
-										D3F5FE8004575AC200A80164,
+										D30A40B00448E35C00A80164,
 										D3F5FE8104575AC200A80164,
 										D3F5FE8204575AC200A80164,
 										D3A7DA7D0460AEC500A80164,
-										D3A7DA7F0460AEC500A80164,
-										D398982704648C9F00A80164,
-										D398982804648C9F00A80164,
-										D398982A04648C9F00A80164,
-										D398982B04648C9F00A80164,
-										D30EC9BF04648E6A00A80164,
-										D38BD0A1046B128F00A80164,
-										D376B1A604746EBC00A80164,
-										D376B1A804746EBC00A80164,
-										D376B1A904746EBC00A80164,
-										D3B018BF0476D4CF00A80164,
-										D3B018C00476D4CF00A80164,
-										D376B1A704746EBC00A80164,
+										D30943EC0476DFFB00A80164,
+										D30943ED0476DFFB00A80164,
+										D31B22FA047995AA00A80164,
+										D33737530479985800A80164,
+										D33737540479985800A80164,
+										D33737550479985800A80164,
+										D3CCBDF3047C355100A80164,
 									);
 									prevStack = (
 										D3B4070304210BB800A80164,
@@ -266,51 +265,20 @@
 										D3A7DA820460AEC500A80164,
 										D3A7DA830460AEC500A80164,
 										D3A7DA840460AEC500A80164,
-										D398982F04648C9F00A80164,
-										D398983004648C9F00A80164,
-										D398983104648C9F00A80164,
-										D398983204648C9F00A80164,
-										D398983304648C9F00A80164,
-										D398983404648C9F00A80164,
-										D398983504648C9F00A80164,
-										D398983604648C9F00A80164,
-										D398983704648C9F00A80164,
-										D398983804648C9F00A80164,
-										D398983904648C9F00A80164,
-										D398983A04648C9F00A80164,
-										D398983B04648C9F00A80164,
-										D398983C04648C9F00A80164,
-										D30EC9C204648E6A00A80164,
-										D30EC9C304648E6A00A80164,
-										D30EC9C404648E6A00A80164,
-										D30EC9C504648E6A00A80164,
-										D38BD0A2046B128F00A80164,
-										D376B1AB04746EBC00A80164,
-										D376B1AC04746EBC00A80164,
-										D376B1AD04746EBC00A80164,
-										D376B1AE04746EBC00A80164,
-										D376B1AF04746EBC00A80164,
-										D376B1B004746EBC00A80164,
-										D376B1B104746EBC00A80164,
-										D376B1B204746EBC00A80164,
-										D376B1B304746EBC00A80164,
-										D3B018C10476D4CF00A80164,
-										D3B018C20476D4CF00A80164,
+										D30943EF0476DFFB00A80164,
+										D30943F00476DFFB00A80164,
+										D30943F10476DFFB00A80164,
+										D31B22FC047995AA00A80164,
+										D31B22FD047995AA00A80164,
+										D33737570479985800A80164,
+										D33737580479985800A80164,
+										D33737590479985800A80164,
+										D337375A0479985800A80164,
 									);
 								};
-								NavContent1 = {
-									bookmark = D3B018C50476D4CF00A80164;
-									history = (
-										D3B018C40476D4CF00A80164,
-									);
-								};
-								NavCount = 2;
+								NavCount = 1;
 								NavGeometry0 = {
-									Frame = "{{0, 0}, {624, 480}}";
-									NavBarVisible = YES;
-								};
-								NavGeometry1 = {
-									Frame = "{{0, 489}, {624, 480}}";
+									Frame = "{{0, 0}, {693, 969}}";
 									NavBarVisible = YES;
 								};
 								NavSplitVertical = NO;
@@ -345,15 +313,15 @@
 				{
 					ContentSize = "{906, 1016}";
 					LeftSlideOut = {
-						ActiveTab = 0;
-						ActiveTabName = PBXGroupTreeModule;
+						ActiveTab = 3;
+						ActiveTabName = PBXTargetTreeModule;
 						Collapsed = NO;
 						Frame = "{{0, 23}, {906, 993}}";
 						Split0 = {
 							Collapsed = NO;
-							Frame = "{{282, 0}, {624, 993}}";
+							Frame = "{{213, 0}, {693, 993}}";
 							Split0 = {
-								Frame = "{{0, 24}, {624, 969}}";
+								Frame = "{{0, 24}, {693, 969}}";
 							};
 							SplitCount = 1;
 							Tab0 = {
@@ -419,12 +387,10 @@
 						Tab0 = {
 							Frame = "{{0, 0}, {258, 993}}";
 							GroupTreeTableConfiguration = (
-								SCMStatusColumn,
-								22,
 								TargetStatusColumn,
 								18,
 								MainColumn,
-								203,
+								225,
 							);
 						};
 						Tab1 = {
@@ -475,13 +441,23 @@
 					WindowLocation = "{16, 89}";
 				},
 			);
-			PBXWorkspaceStateSaveDate = 74895616;
+			PBXWorkspaceStateSaveDate = 75247496;
 		};
 		perUserProjectItems = {
+			D30943EC0476DFFB00A80164 = D30943EC0476DFFB00A80164;
+			D30943ED0476DFFB00A80164 = D30943ED0476DFFB00A80164;
+			D30943EF0476DFFB00A80164 = D30943EF0476DFFB00A80164;
+			D30943F00476DFFB00A80164 = D30943F00476DFFB00A80164;
+			D30943F10476DFFB00A80164 = D30943F10476DFFB00A80164;
+			D30A40A60448E35C00A80164 = D30A40A60448E35C00A80164;
 			D30A40A70448E35C00A80164 = D30A40A70448E35C00A80164;
+			D30A40A90448E35C00A80164 = D30A40A90448E35C00A80164;
+			D30A40AA0448E35C00A80164 = D30A40AA0448E35C00A80164;
+			D30A40AC0448E35C00A80164 = D30A40AC0448E35C00A80164;
 			D30A40AD0448E35C00A80164 = D30A40AD0448E35C00A80164;
 			D30A40AE0448E35C00A80164 = D30A40AE0448E35C00A80164;
 			D30A40AF0448E35C00A80164 = D30A40AF0448E35C00A80164;
+			D30A40B00448E35C00A80164 = D30A40B00448E35C00A80164;
 			D30A40B30448E35C00A80164 = D30A40B30448E35C00A80164;
 			D30A40B40448E35C00A80164 = D30A40B40448E35C00A80164;
 			D30A40B50448E35C00A80164 = D30A40B50448E35C00A80164;
@@ -507,11 +483,16 @@
 			D30A40C90448E35C00A80164 = D30A40C90448E35C00A80164;
 			D30A40CA0448E35C00A80164 = D30A40CA0448E35C00A80164;
 			D30A40CB0448E35C00A80164 = D30A40CB0448E35C00A80164;
-			D30EC9BF04648E6A00A80164 = D30EC9BF04648E6A00A80164;
-			D30EC9C204648E6A00A80164 = D30EC9C204648E6A00A80164;
-			D30EC9C304648E6A00A80164 = D30EC9C304648E6A00A80164;
-			D30EC9C404648E6A00A80164 = D30EC9C404648E6A00A80164;
-			D30EC9C504648E6A00A80164 = D30EC9C504648E6A00A80164;
+			D31B22FA047995AA00A80164 = D31B22FA047995AA00A80164;
+			D31B22FC047995AA00A80164 = D31B22FC047995AA00A80164;
+			D31B22FD047995AA00A80164 = D31B22FD047995AA00A80164;
+			D33737530479985800A80164 = D33737530479985800A80164;
+			D33737540479985800A80164 = D33737540479985800A80164;
+			D33737550479985800A80164 = D33737550479985800A80164;
+			D33737570479985800A80164 = D33737570479985800A80164;
+			D33737580479985800A80164 = D33737580479985800A80164;
+			D33737590479985800A80164 = D33737590479985800A80164;
+			D337375A0479985800A80164 = D337375A0479985800A80164;
 			D363E4DA04339EDD00A80164 = D363E4DA04339EDD00A80164;
 			D363E4DB04339EDD00A80164 = D363E4DB04339EDD00A80164;
 			D363E4E004339EDD00A80164 = D363E4E004339EDD00A80164;
@@ -527,54 +508,14 @@
 			D363E4EB04339EDD00A80164 = D363E4EB04339EDD00A80164;
 			D363E4EC04339EDD00A80164 = D363E4EC04339EDD00A80164;
 			D363E4ED04339EDD00A80164 = D363E4ED04339EDD00A80164;
-			D376B1A604746EBC00A80164 = D376B1A604746EBC00A80164;
-			D376B1A704746EBC00A80164 = D376B1A704746EBC00A80164;
-			D376B1A804746EBC00A80164 = D376B1A804746EBC00A80164;
-			D376B1A904746EBC00A80164 = D376B1A904746EBC00A80164;
-			D376B1AB04746EBC00A80164 = D376B1AB04746EBC00A80164;
-			D376B1AC04746EBC00A80164 = D376B1AC04746EBC00A80164;
-			D376B1AD04746EBC00A80164 = D376B1AD04746EBC00A80164;
-			D376B1AE04746EBC00A80164 = D376B1AE04746EBC00A80164;
-			D376B1AF04746EBC00A80164 = D376B1AF04746EBC00A80164;
-			D376B1B004746EBC00A80164 = D376B1B004746EBC00A80164;
-			D376B1B104746EBC00A80164 = D376B1B104746EBC00A80164;
-			D376B1B204746EBC00A80164 = D376B1B204746EBC00A80164;
-			D376B1B304746EBC00A80164 = D376B1B304746EBC00A80164;
-			D38BD0A1046B128F00A80164 = D38BD0A1046B128F00A80164;
-			D38BD0A2046B128F00A80164 = D38BD0A2046B128F00A80164;
-			D398982704648C9F00A80164 = D398982704648C9F00A80164;
-			D398982804648C9F00A80164 = D398982804648C9F00A80164;
-			D398982A04648C9F00A80164 = D398982A04648C9F00A80164;
-			D398982B04648C9F00A80164 = D398982B04648C9F00A80164;
-			D398982F04648C9F00A80164 = D398982F04648C9F00A80164;
-			D398983004648C9F00A80164 = D398983004648C9F00A80164;
-			D398983104648C9F00A80164 = D398983104648C9F00A80164;
-			D398983204648C9F00A80164 = D398983204648C9F00A80164;
-			D398983304648C9F00A80164 = D398983304648C9F00A80164;
-			D398983404648C9F00A80164 = D398983404648C9F00A80164;
-			D398983504648C9F00A80164 = D398983504648C9F00A80164;
-			D398983604648C9F00A80164 = D398983604648C9F00A80164;
-			D398983704648C9F00A80164 = D398983704648C9F00A80164;
-			D398983804648C9F00A80164 = D398983804648C9F00A80164;
-			D398983904648C9F00A80164 = D398983904648C9F00A80164;
-			D398983A04648C9F00A80164 = D398983A04648C9F00A80164;
-			D398983B04648C9F00A80164 = D398983B04648C9F00A80164;
-			D398983C04648C9F00A80164 = D398983C04648C9F00A80164;
 			D3A7DA7D0460AEC500A80164 = D3A7DA7D0460AEC500A80164;
-			D3A7DA7F0460AEC500A80164 = D3A7DA7F0460AEC500A80164;
 			D3A7DA810460AEC500A80164 = D3A7DA810460AEC500A80164;
 			D3A7DA820460AEC500A80164 = D3A7DA820460AEC500A80164;
 			D3A7DA830460AEC500A80164 = D3A7DA830460AEC500A80164;
 			D3A7DA840460AEC500A80164 = D3A7DA840460AEC500A80164;
 			D3AE6838042506C800A80164 = D3AE6838042506C800A80164;
 			D3AE6839042506C800A80164 = D3AE6839042506C800A80164;
-			D3B018BF0476D4CF00A80164 = D3B018BF0476D4CF00A80164;
-			D3B018C00476D4CF00A80164 = D3B018C00476D4CF00A80164;
-			D3B018C10476D4CF00A80164 = D3B018C10476D4CF00A80164;
-			D3B018C20476D4CF00A80164 = D3B018C20476D4CF00A80164;
-			D3B018C30476D4CF00A80164 = D3B018C30476D4CF00A80164;
-			D3B018C40476D4CF00A80164 = D3B018C40476D4CF00A80164;
-			D3B018C50476D4CF00A80164 = D3B018C50476D4CF00A80164;
+			D3B406F004210BB800A80164 = D3B406F004210BB800A80164;
 			D3B406F304210BB800A80164 = D3B406F304210BB800A80164;
 			D3B406F404210BB800A80164 = D3B406F404210BB800A80164;
 			D3B406F604210BB800A80164 = D3B406F604210BB800A80164;
@@ -744,7 +685,8 @@
 			D3B407A204210BB800A80164 = D3B407A204210BB800A80164;
 			D3B407A304210BB800A80164 = D3B407A304210BB800A80164;
 			D3B407A404210BB800A80164 = D3B407A404210BB800A80164;
-			D3F5FE8004575AC200A80164 = D3F5FE8004575AC200A80164;
+			D3CCBDF3047C355100A80164 = D3CCBDF3047C355100A80164;
+			D3CCBDF4047C355100A80164 = D3CCBDF4047C355100A80164;
 			D3F5FE8104575AC200A80164 = D3F5FE8104575AC200A80164;
 			D3F5FE8204575AC200A80164 = D3F5FE8204575AC200A80164;
 			D3F5FE8304575AC200A80164 = D3F5FE8304575AC200A80164;
@@ -761,6 +703,66 @@
 	089C1673FE841209C02AAC07 = {
 		activeExec = 0;
 	};
+	D30943EC0476DFFB00A80164 = {
+		fRef = D30B791004059A6B00A80164;
+		isa = PBXTextBookmark;
+		name = "mount_ext2fs.c: 174";
+		rLen = 0;
+		rLoc = 4910;
+		rType = 0;
+		vrLen = 2681;
+		vrLoc = 0;
+	};
+	D30943ED0476DFFB00A80164 = {
+		fRef = F53B86C10361275401A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vnops.c: 940";
+		rLen = 0;
+		rLoc = 28024;
+		rType = 0;
+		vrLen = 1236;
+		vrLoc = 29538;
+	};
+	D30943EF0476DFFB00A80164 = {
+		fRef = D30B791004059A6B00A80164;
+		isa = PBXTextBookmark;
+		name = "mount_ext2fs.c: 174";
+		rLen = 0;
+		rLoc = 4910;
+		rType = 0;
+		vrLen = 2681;
+		vrLoc = 0;
+	};
+	D30943F00476DFFB00A80164 = {
+		fRef = F53B86C10361275401A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vnops.c: 940";
+		rLen = 0;
+		rLoc = 28024;
+		rType = 0;
+		vrLen = 1236;
+		vrLoc = 29538;
+	};
+	D30943F10476DFFB00A80164 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 489";
+		rLen = 0;
+		rLoc = 15092;
+		rType = 0;
+		vrLen = 1665;
+		vrLoc = 13661;
+	};
+	D30A40A60448E35C00A80164 = {
+		fRef = D33C068B0419F0F500A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_lockf.c: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2513;
+		vrLoc = 1371;
+	};
 	D30A40A70448E35C00A80164 = {
 		fRef = D3D485870405C3B900A80164;
 		isa = PBXTextBookmark;
@@ -770,6 +772,36 @@
 		rType = 0;
 		vrLen = 1555;
 		vrLoc = 18710;
+	};
+	D30A40A90448E35C00A80164 = {
+		fRef = D3C06DAD040A137600A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_io_apple.c: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 3089;
+		vrLoc = 0;
+	};
+	D30A40AA0448E35C00A80164 = {
+		fRef = D3C06DAC040A137600A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_attrlist.c: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2937;
+		vrLoc = 0;
+	};
+	D30A40AC0448E35C00A80164 = {
+		fRef = D3D485770405AC0900A80164;
+		isa = PBXTextBookmark;
+		name = "kext_load.c: __VERSION__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2944;
+		vrLoc = 0;
 	};
 	D30A40AD0448E35C00A80164 = {
 		fRef = D33D91670405A28700A80164;
@@ -799,6 +831,16 @@
 		rLoc = 14912;
 		rType = 0;
 		vrLen = 3160;
+		vrLoc = 0;
+	};
+	D30A40B00448E35C00A80164 = {
+		fRef = D3B4645704099F8700A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_apple.h: 1";
+		rLen = 1423;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2858;
 		vrLoc = 0;
 	};
 	D30A40B30448E35C00A80164 = {
@@ -860,7 +902,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: 627";
 		rLen = 10;
-		rLoc = 16043;
+		rLoc = 15983;
 		rType = 0;
 		vrLen = 1891;
 		vrLoc = 16974;
@@ -952,7 +994,7 @@
 		rLen = 0;
 		rLoc = 0;
 		rType = 0;
-		vrLen = 1488;
+		vrLen = 1461;
 		vrLoc = 7546;
 	};
 	D30A40C30448E35C00A80164 = {
@@ -980,7 +1022,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.h: 124";
 		rLen = 0;
-		rLoc = 4439;
+		rLoc = 4373;
 		rType = 0;
 		vrLen = 1481;
 		vrLoc = 4880;
@@ -1010,7 +1052,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 466";
 		rLen = 0;
-		rLoc = 14848;
+		rLoc = 15422;
 		rType = 0;
 		vrLen = 2775;
 		vrLoc = 0;
@@ -1030,7 +1072,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 940";
 		rLen = 0;
-		rLoc = 28159;
+		rLoc = 28024;
 		rType = 0;
 		vrLen = 1298;
 		vrLoc = 27299;
@@ -1040,7 +1082,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: nvp";
 		rLen = 6;
-		rLoc = 44503;
+		rLoc = 44794;
 		rType = 0;
 		vrLen = 1867;
 		vrLoc = 46169;
@@ -1071,55 +1113,17 @@
 		sourceDirectories = (
 		);
 	};
-	D30EC9BF04648E6A00A80164 = {
-		fRef = D3B4645704099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.h: ext2_ioctl";
-		rLen = 0;
-		rLoc = 2805;
-		rType = 0;
-		vrLen = 2186;
-		vrLoc = 1811;
+	D31B22FA047995AA00A80164 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
 	};
-	D30EC9C204648E6A00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 310";
-		rLen = 0;
-		rLoc = 9163;
-		rType = 0;
-		vrLen = 1391;
-		vrLoc = 8654;
+	D31B22FC047995AA00A80164 = {
+		isa = PBXTargetBookmark;
+		trg = D3D485850405AEF400A80164;
 	};
-	D30EC9C304648E6A00A80164 = {
-		fRef = D3B4645704099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.h: ext2_ioctl";
-		rLen = 0;
-		rLoc = 2805;
-		rType = 0;
-		vrLen = 2186;
-		vrLoc = 1811;
-	};
-	D30EC9C404648E6A00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 310";
-		rLen = 0;
-		rLoc = 9163;
-		rType = 0;
-		vrLen = 1391;
-		vrLoc = 8654;
-	};
-	D30EC9C504648E6A00A80164 = {
-		fRef = F53B86C10361275401A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vnops.c: 355";
-		rLen = 0;
-		rLoc = 14471;
-		rType = 0;
-		vrLen = 2557;
-		vrLoc = 5068;
+	D31B22FD047995AA00A80164 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
 	};
 	D32215DA040C4E6E00A80164 = {
 		children = (
@@ -1133,10 +1137,74 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: 716";
 		rLen = 0;
-		rLoc = 18922;
+		rLoc = 18862;
 		rType = 0;
 		vrLen = 1507;
 		vrLoc = 16523;
+	};
+	D33737530479985800A80164 = {
+		fRef = D33C06890418779900A80164;
+		isa = PBXTextBookmark;
+		name = "newfs_ext2.c: __PTRDIFF_TYPE__";
+		rLen = 0;
+		rLoc = 189;
+		rType = 0;
+		vrLen = 1928;
+		vrLoc = 0;
+	};
+	D33737540479985800A80164 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 1617";
+		rLen = 9;
+		rLoc = 45824;
+		rType = 0;
+		vrLen = 602;
+		vrLoc = 45588;
+	};
+	D33737550479985800A80164 = {
+		fRef = D3B4645604099F8700A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_apple.c: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2205;
+		vrLoc = 2640;
+	};
+	D33737570479985800A80164 = {
+		isa = PBXTargetBookmark;
+		trg = D3D485850405AEF400A80164;
+	};
+	D33737580479985800A80164 = {
+		fRef = D33C06890418779900A80164;
+		isa = PBXTextBookmark;
+		name = "newfs_ext2.c: __PTRDIFF_TYPE__";
+		rLen = 0;
+		rLoc = 189;
+		rType = 0;
+		vrLen = 1928;
+		vrLoc = 0;
+	};
+	D33737590479985800A80164 = {
+		fRef = F5106D60035A69B701A80165;
+		isa = PBXTextBookmark;
+		name = "ext2_vfsops.c: 1617";
+		rLen = 9;
+		rLoc = 45824;
+		rType = 0;
+		vrLen = 602;
+		vrLoc = 45588;
+	};
+	D337375A0479985800A80164 = {
+		fRef = D3B4645604099F8700A80164;
+		isa = PBXTextBookmark;
+		name = "ext2_apple.c: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2205;
+		vrLoc = 2640;
 	};
 	D34AE6840417173400A80164 = {
 		activeExec = 0;
@@ -1164,7 +1232,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 466";
 		rLen = 0;
-		rLoc = 14848;
+		rLoc = 15422;
 		rType = 0;
 		vrLen = 1755;
 		vrLoc = 12295;
@@ -1243,306 +1311,6 @@
 		isa = PBXTargetBookmark;
 		trg = D3D4857D0405AE8E00A80164;
 	};
-	D376B1A604746EBC00A80164 = {
-		bstl = 06AA1263FFB20DD611CA28AA;
-		isa = PBXBuildStyleBookmark;
-	};
-	D376B1A704746EBC00A80164 = {
-		fRef = F5106D60035A69B701A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vfsops.c: 328";
-		rLen = 2;
-		rLoc = 10115;
-		rType = 0;
-		vrLen = 931;
-		vrLoc = 9323;
-	};
-	D376B1A804746EBC00A80164 = {
-		isa = PBXTargetBookmark;
-		trg = 089C1673FE841209C02AAC07;
-	};
-	D376B1A904746EBC00A80164 = {
-		fRef = D3C06DAD040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_io_apple.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2633;
-		vrLoc = 896;
-	};
-	D376B1AB04746EBC00A80164 = {
-		fRef = D3C06DAD040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_io_apple.c: 302";
-		rLen = 6;
-		rLoc = 8646;
-		rType = 0;
-		vrLen = 1339;
-		vrLoc = 8026;
-	};
-	D376B1AC04746EBC00A80164 = {
-		isa = PBXTargetBookmark;
-		trg = 089C1673FE841209C02AAC07;
-	};
-	D376B1AD04746EBC00A80164 = {
-		bstl = 06AA1263FFB20DD611CA28AA;
-		isa = PBXBuildStyleBookmark;
-	};
-	D376B1AE04746EBC00A80164 = {
-		fRef = F5106D60035A69B701A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vfsops.c: fs";
-		rLen = 26;
-		rLoc = 9715;
-		rType = 0;
-		vrLen = 925;
-		vrLoc = 9301;
-	};
-	D376B1AF04746EBC00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 320";
-		rLen = 42;
-		rLoc = 9337;
-		rType = 0;
-		vrLen = 1154;
-		vrLoc = 8877;
-	};
-	D376B1B004746EBC00A80164 = {
-		fRef = F5106D60035A69B701A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vfsops.c: 328";
-		rLen = 2;
-		rLoc = 10115;
-		rType = 0;
-		vrLen = 931;
-		vrLoc = 9323;
-	};
-	D376B1B104746EBC00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 69";
-		rLen = 0;
-		rLoc = 3531;
-		rType = 0;
-		vrLen = 2177;
-		vrLoc = 2640;
-	};
-	D376B1B204746EBC00A80164 = {
-		isa = PBXTargetBookmark;
-		trg = 089C1673FE841209C02AAC07;
-	};
-	D376B1B304746EBC00A80164 = {
-		fRef = D3C06DAD040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_io_apple.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2633;
-		vrLoc = 896;
-	};
-	D38BD0A1046B128F00A80164 = {
-		fRef = F53FE981035E84C201A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_inode_cnv.c: 108";
-		rLen = 0;
-		rLoc = 3736;
-		rType = 0;
-		vrLen = 2212;
-		vrLoc = 2885;
-	};
-	D38BD0A2046B128F00A80164 = {
-		fRef = F53FE981035E84C201A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_inode_cnv.c: 108";
-		rLen = 0;
-		rLoc = 3736;
-		rType = 0;
-		vrLen = 2212;
-		vrLoc = 2885;
-	};
-	D398982704648C9F00A80164 = {
-		fRef = D30B791004059A6B00A80164;
-		isa = PBXTextBookmark;
-		name = "mount_ext2fs.c: 174";
-		rLen = 0;
-		rLoc = 4910;
-		rType = 0;
-		vrLen = 1572;
-		vrLoc = 3338;
-	};
-	D398982804648C9F00A80164 = {
-		fRef = D3C06DAC040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_attrlist.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2089;
-		vrLoc = 2410;
-	};
-	D398982A04648C9F00A80164 = {
-		fRef = D3D485770405AC0900A80164;
-		isa = PBXTextBookmark;
-		name = "kext_load.c: __VERSION__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2944;
-		vrLoc = 0;
-	};
-	D398982B04648C9F00A80164 = {
-		fRef = D33C068B0419F0F500A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_lockf.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 3154;
-		vrLoc = 0;
-	};
-	D398982F04648C9F00A80164 = {
-		fRef = D30B791004059A6B00A80164;
-		isa = PBXTextBookmark;
-		name = "mount_ext2fs.c: 174";
-		rLen = 0;
-		rLoc = 4910;
-		rType = 0;
-		vrLen = 1572;
-		vrLoc = 3338;
-	};
-	D398983004648C9F00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 3507;
-		vrLoc = 0;
-	};
-	D398983104648C9F00A80164 = {
-		fRef = D3C06DAC040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_attrlist.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2089;
-		vrLoc = 2410;
-	};
-	D398983204648C9F00A80164 = {
-		fRef = D3C06DAD040A137600A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_io_apple.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2586;
-		vrLoc = 999;
-	};
-	D398983304648C9F00A80164 = {
-		fRef = D3D485770405AC0900A80164;
-		isa = PBXTextBookmark;
-		name = "kext_load.c: __VERSION__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2944;
-		vrLoc = 0;
-	};
-	D398983404648C9F00A80164 = {
-		fRef = D33C068B0419F0F500A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_lockf.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 3154;
-		vrLoc = 0;
-	};
-	D398983504648C9F00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 3507;
-		vrLoc = 0;
-	};
-	D398983604648C9F00A80164 = {
-		fRef = F53B86C10361275401A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vnops.c: 244";
-		rLen = 0;
-		rLoc = 9448;
-		rType = 0;
-		vrLen = 2991;
-		vrLoc = 7256;
-	};
-	D398983704648C9F00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 304";
-		rLen = 0;
-		rLoc = 9025;
-		rType = 0;
-		vrLen = 1251;
-		vrLoc = 8010;
-	};
-	D398983804648C9F00A80164 = {
-		fRef = D3B4645704099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.h: 59";
-		rLen = 0;
-		rLoc = 2805;
-		rType = 0;
-		vrLen = 2187;
-		vrLoc = 1811;
-	};
-	D398983904648C9F00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 320";
-		rLen = 20;
-		rLoc = 9412;
-		rType = 0;
-		vrLen = 1311;
-		vrLoc = 8295;
-	};
-	D398983A04648C9F00A80164 = {
-		fRef = F53B86C10361275401A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vnops.c: 734";
-		rLen = 6;
-		rLoc = 23074;
-		rType = 0;
-		vrLen = 1384;
-		vrLoc = 26644;
-	};
-	D398983B04648C9F00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 337";
-		rLen = 0;
-		rLoc = 9927;
-		rType = 0;
-		vrLen = 1407;
-		vrLoc = 8550;
-	};
-	D398983C04648C9F00A80164 = {
-		fRef = F53B86C10361275401A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vnops.c: 590";
-		rLen = 2;
-		rLoc = 19559;
-		rType = 0;
-		vrLen = 1202;
-		vrLoc = 18852;
-	};
 	D39ED63004060E7300A80164 = {
 		activeExec = 0;
 	};
@@ -1554,16 +1322,6 @@
 		rLoc = 274;
 		rType = 0;
 		vrLen = 385;
-		vrLoc = 0;
-	};
-	D3A7DA7F0460AEC500A80164 = {
-		fRef = D33C06890418779900A80164;
-		isa = PBXTextBookmark;
-		name = "newfs_ext2.c: 27";
-		rLen = 24;
-		rLoc = 1489;
-		rType = 0;
-		vrLen = 2284;
 		vrLoc = 0;
 	};
 	D3A7DA810460AEC500A80164 = {
@@ -1581,7 +1339,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1814";
 		rLen = 0;
-		rLoc = 50783;
+		rLoc = 50848;
 		rType = 0;
 		vrLen = 1608;
 		vrLoc = 5879;
@@ -1620,75 +1378,15 @@
 		vrLen = 1558;
 		vrLoc = 18607;
 	};
-	D3B018BF0476D4CF00A80164 = {
-		fRef = D3B4645604099F8700A80164;
+	D3B406F004210BB800A80164 = {
+		fRef = F53FE981035E84C201A80165;
 		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 69";
+		name = "ext2_inode_cnv.c: 106";
 		rLen = 0;
-		rLoc = 3531;
+		rLoc = 3656;
 		rType = 0;
-		vrLen = 1712;
-		vrLoc = 4482;
-	};
-	D3B018C00476D4CF00A80164 = {
-		fRef = F53B86C10361275401A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vnops.c: 355";
-		rLen = 0;
-		rLoc = 14471;
-		rType = 0;
-		vrLen = 2557;
-		vrLoc = 5068;
-	};
-	D3B018C10476D4CF00A80164 = {
-		fRef = D3B4645604099F8700A80164;
-		isa = PBXTextBookmark;
-		name = "ext2_apple.c: 69";
-		rLen = 0;
-		rLoc = 3531;
-		rType = 0;
-		vrLen = 1712;
-		vrLoc = 4482;
-	};
-	D3B018C20476D4CF00A80164 = {
-		fRef = F53B86C10361275401A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vnops.c: 355";
-		rLen = 0;
-		rLoc = 14471;
-		rType = 0;
-		vrLen = 2557;
-		vrLoc = 5068;
-	};
-	D3B018C30476D4CF00A80164 = {
-		fRef = F5106D60035A69B701A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vfsops.c: 338";
-		rLen = 9;
-		rLoc = 10388;
-		rType = 0;
-		vrLen = 846;
-		vrLoc = 9875;
-	};
-	D3B018C40476D4CF00A80164 = {
-		fRef = F5106D60035A69B701A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vfsops.c: 484";
-		rLen = 9;
-		rLoc = 14473;
-		rType = 0;
-		vrLen = 762;
-		vrLoc = 13692;
-	};
-	D3B018C50476D4CF00A80164 = {
-		fRef = F5106D60035A69B701A80165;
-		isa = PBXTextBookmark;
-		name = "ext2_vfsops.c: 483";
-		rLen = 0;
-		rLoc = 14462;
-		rType = 0;
-		vrLen = 859;
-		vrLoc = 14254;
+		vrLen = 2282;
+		vrLoc = 2274;
 	};
 	D3B406F304210BB800A80164 = {
 		fRef = F53FE97F035E7DB501A80165;
@@ -1765,7 +1463,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1528";
 		rLen = 0;
-		rLoc = 44916;
+		rLoc = 45207;
 		rType = 0;
 		vrLen = 1272;
 		vrLoc = 42522;
@@ -1775,7 +1473,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 1575";
 		rLen = 0;
-		rLoc = 42590;
+		rLoc = 42455;
 		rType = 0;
 		vrLen = 1755;
 		vrLoc = 44088;
@@ -1815,7 +1513,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 1575";
 		rLen = 0;
-		rLoc = 42590;
+		rLoc = 42455;
 		rType = 0;
 		vrLen = 1996;
 		vrLoc = 43563;
@@ -1825,7 +1523,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1528";
 		rLen = 0;
-		rLoc = 44916;
+		rLoc = 45207;
 		rType = 0;
 		vrLen = 1315;
 		vrLoc = 42441;
@@ -1915,7 +1613,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1140";
 		rLen = 9;
-		rLoc = 35279;
+		rLoc = 35570;
 		rType = 0;
 		vrLen = 1394;
 		vrLoc = 35925;
@@ -1925,7 +1623,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 1575";
 		rLen = 0;
-		rLoc = 42590;
+		rLoc = 42455;
 		rType = 0;
 		vrLen = 1805;
 		vrLoc = 41950;
@@ -1975,7 +1673,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1354";
 		rLen = 0;
-		rLoc = 40802;
+		rLoc = 41093;
 		rType = 0;
 		vrLen = 2298;
 		vrLoc = 37377;
@@ -1985,7 +1683,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 1575";
 		rLen = 0;
-		rLoc = 42590;
+		rLoc = 42455;
 		rType = 0;
 		vrLen = 1808;
 		vrLoc = 41884;
@@ -2175,7 +1873,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 443";
 		rLen = 0;
-		rLoc = 16535;
+		rLoc = 16400;
 		rType = 0;
 		vrLen = 1282;
 		vrLoc = 15343;
@@ -2205,7 +1903,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_inode_cnv.c: 105";
 		rLen = 7;
-		rLoc = 3619;
+		rLoc = 3539;
 		rType = 0;
 		vrLen = 2282;
 		vrLoc = 2274;
@@ -2215,7 +1913,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: fs";
 		rLen = 0;
-		rLoc = 15829;
+		rLoc = 15769;
 		rType = 0;
 		vrLen = 990;
 		vrLoc = 15340;
@@ -2245,7 +1943,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: fs";
 		rLen = 0;
-		rLoc = 15829;
+		rLoc = 15769;
 		rType = 0;
 		vrLen = 1116;
 		vrLoc = 15154;
@@ -2315,7 +2013,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: 642";
 		rLen = 40;
-		rLoc = 16274;
+		rLoc = 16214;
 		rType = 0;
 		vrLen = 1152;
 		vrLoc = 15551;
@@ -2395,7 +2093,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1022";
 		rLen = 0;
-		rLoc = 32090;
+		rLoc = 32381;
 		rType = 0;
 		vrLen = 1560;
 		vrLoc = 29837;
@@ -2425,7 +2123,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_inode_cnv.c: 105";
 		rLen = 7;
-		rLoc = 3619;
+		rLoc = 3539;
 		rType = 0;
 		vrLen = 2282;
 		vrLoc = 2274;
@@ -2455,7 +2153,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1022";
 		rLen = 0;
-		rLoc = 32090;
+		rLoc = 32381;
 		rType = 0;
 		vrLen = 1560;
 		vrLoc = 29837;
@@ -2525,7 +2223,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_inode_cnv.c: 106";
 		rLen = 0;
-		rLoc = 3736;
+		rLoc = 3656;
 		rType = 0;
 		vrLen = 2282;
 		vrLoc = 2274;
@@ -2557,7 +2255,7 @@
 		rLen = 0;
 		rLoc = 8900;
 		rType = 0;
-		vrLen = 771;
+		vrLen = 744;
 		vrLoc = 8263;
 	};
 	D3B4075304210BB800A80164 = {
@@ -2565,7 +2263,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 525";
 		rLen = 0;
-		rLoc = 18176;
+		rLoc = 18041;
 		rType = 0;
 		vrLen = 1571;
 		vrLoc = 17161;
@@ -2585,7 +2283,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 484";
 		rLen = 10;
-		rLoc = 17187;
+		rLoc = 17052;
 		rType = 0;
 		vrLen = 1568;
 		vrLoc = 16848;
@@ -2605,7 +2303,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 506";
 		rLen = 0;
-		rLoc = 17430;
+		rLoc = 17295;
 		rType = 0;
 		vrLen = 1402;
 		vrLoc = 16717;
@@ -2625,7 +2323,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 1951";
 		rLen = 0;
-		rLoc = 51472;
+		rLoc = 51337;
 		rType = 0;
 		vrLen = 1555;
 		vrLoc = 49738;
@@ -2655,7 +2353,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1116";
 		rLen = 8;
-		rLoc = 34410;
+		rLoc = 34701;
 		rType = 0;
 		vrLen = 1995;
 		vrLoc = 31784;
@@ -2695,7 +2393,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 1951";
 		rLen = 0;
-		rLoc = 51472;
+		rLoc = 51337;
 		rType = 0;
 		vrLen = 1544;
 		vrLoc = 49738;
@@ -2705,7 +2403,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 851";
 		rLen = 0;
-		rLoc = 26372;
+		rLoc = 26663;
 		rType = 0;
 		vrLen = 1990;
 		vrLoc = 24290;
@@ -2805,7 +2503,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: 359";
 		rLen = 0;
-		rLoc = 9838;
+		rLoc = 9778;
 		rType = 0;
 		vrLen = 1545;
 		vrLoc = 8927;
@@ -2825,7 +2523,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: 627";
 		rLen = 10;
-		rLoc = 16043;
+		rLoc = 15983;
 		rType = 0;
 		vrLen = 1011;
 		vrLoc = 15416;
@@ -2867,7 +2565,7 @@
 		rLen = 0;
 		rLoc = 8900;
 		rType = 0;
-		vrLen = 773;
+		vrLen = 746;
 		vrLoc = 8261;
 	};
 	D3B4077204210BB800A80164 = {
@@ -2875,7 +2573,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: 627";
 		rLen = 10;
-		rLoc = 16043;
+		rLoc = 15983;
 		rType = 0;
 		vrLen = 3089;
 		vrLoc = 0;
@@ -2925,7 +2623,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 939";
 		rLen = 10;
-		rLoc = 28171;
+		rLoc = 28036;
 		rType = 0;
 		vrLen = 1116;
 		vrLoc = 27486;
@@ -2945,7 +2643,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 2338";
 		rLen = 0;
-		rLoc = 58888;
+		rLoc = 58753;
 		rType = 0;
 		vrLen = 1202;
 		vrLoc = 57962;
@@ -2955,7 +2653,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_io_apple.c: 627";
 		rLen = 10;
-		rLoc = 16043;
+		rLoc = 15983;
 		rType = 0;
 		vrLen = 1602;
 		vrLoc = 6939;
@@ -2975,7 +2673,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 507";
 		rLen = 0;
-		rLoc = 17430;
+		rLoc = 17295;
 		rType = 0;
 		vrLen = 1618;
 		vrLoc = 17124;
@@ -2987,7 +2685,7 @@
 		rLen = 7;
 		rLoc = 6700;
 		rType = 0;
-		vrLen = 1095;
+		vrLen = 1068;
 		vrLoc = 7939;
 	};
 	D3B4077E04210BB800A80164 = {
@@ -2995,7 +2693,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 2461";
 		rLen = 14;
-		rLoc = 61577;
+		rLoc = 61442;
 		rType = 0;
 		vrLen = 1612;
 		vrLoc = 60058;
@@ -3005,7 +2703,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1407";
 		rLen = 0;
-		rLoc = 42261;
+		rLoc = 42552;
 		rType = 0;
 		vrLen = 1845;
 		vrLoc = 39182;
@@ -3015,7 +2713,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 484";
 		rLen = 10;
-		rLoc = 17187;
+		rLoc = 17052;
 		rType = 0;
 		vrLen = 1697;
 		vrLoc = 16917;
@@ -3027,7 +2725,7 @@
 		rLen = 7;
 		rLoc = 6700;
 		rType = 0;
-		vrLen = 1018;
+		vrLen = 991;
 		vrLoc = 8016;
 	};
 	D3B4078204210BB800A80164 = {
@@ -3035,7 +2733,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 484";
 		rLen = 10;
-		rLoc = 17187;
+		rLoc = 17052;
 		rType = 0;
 		vrLen = 1527;
 		vrLoc = 16842;
@@ -3045,9 +2743,9 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.c: 313";
 		rLen = 0;
-		rLoc = 10045;
+		rLoc = 9007;
 		rType = 0;
-		vrLen = 973;
+		vrLen = 946;
 		vrLoc = 8061;
 	};
 	D3B4078404210BB800A80164 = {
@@ -3055,7 +2753,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 501";
 		rLen = 0;
-		rLoc = 17430;
+		rLoc = 17295;
 		rType = 0;
 		vrLen = 1005;
 		vrLoc = 16842;
@@ -3065,7 +2763,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1407";
 		rLen = 0;
-		rLoc = 42264;
+		rLoc = 42555;
 		rType = 0;
 		vrLen = 1581;
 		vrLoc = 39857;
@@ -3075,7 +2773,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 501";
 		rLen = 0;
-		rLoc = 17430;
+		rLoc = 17295;
 		rType = 0;
 		vrLen = 1458;
 		vrLoc = 16623;
@@ -3085,9 +2783,9 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.c: 312";
 		rLen = 0;
-		rLoc = 10045;
+		rLoc = 9007;
 		rType = 0;
-		vrLen = 973;
+		vrLen = 946;
 		vrLoc = 8061;
 	};
 	D3B4078804210BB800A80164 = {
@@ -3095,7 +2793,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 499";
 		rLen = 0;
-		rLoc = 17430;
+		rLoc = 17295;
 		rType = 0;
 		vrLen = 1503;
 		vrLoc = 16844;
@@ -3105,9 +2803,9 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.c: 312";
 		rLen = 0;
-		rLoc = 10045;
+		rLoc = 9007;
 		rType = 0;
-		vrLen = 928;
+		vrLen = 901;
 		vrLoc = 8106;
 	};
 	D3B4078A04210BB800A80164 = {
@@ -3125,7 +2823,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 532";
 		rLen = 0;
-		rLoc = 18323;
+		rLoc = 18188;
 		rType = 0;
 		vrLen = 1446;
 		vrLoc = 16760;
@@ -3135,9 +2833,9 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.c: 312";
 		rLen = 0;
-		rLoc = 10045;
+		rLoc = 9007;
 		rType = 0;
-		vrLen = 953;
+		vrLen = 926;
 		vrLoc = 8081;
 	};
 	D3B4078D04210BB800A80164 = {
@@ -3145,7 +2843,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 499";
 		rLen = 0;
-		rLoc = 17444;
+		rLoc = 17309;
 		rType = 0;
 		vrLen = 1446;
 		vrLoc = 16760;
@@ -3165,7 +2863,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 351";
 		rLen = 0;
-		rLoc = 14381;
+		rLoc = 14291;
 		rType = 0;
 		vrLen = 2762;
 		vrLoc = 11922;
@@ -3185,7 +2883,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 940";
 		rLen = 0;
-		rLoc = 28159;
+		rLoc = 28024;
 		rType = 0;
 		vrLen = 1279;
 		vrLoc = 27295;
@@ -3195,9 +2893,9 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.c: 312";
 		rLen = 0;
-		rLoc = 10045;
+		rLoc = 9007;
 		rType = 0;
-		vrLen = 953;
+		vrLen = 926;
 		vrLoc = 8081;
 	};
 	D3B4079304210BB800A80164 = {
@@ -3205,7 +2903,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 1407";
 		rLen = 0;
-		rLoc = 42264;
+		rLoc = 42555;
 		rType = 0;
 		vrLen = 1553;
 		vrLoc = 39857;
@@ -3225,7 +2923,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 940";
 		rLen = 0;
-		rLoc = 28159;
+		rLoc = 28024;
 		rType = 0;
 		vrLen = 1298;
 		vrLoc = 27299;
@@ -3245,7 +2943,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: flags";
 		rLen = 0;
-		rLoc = 32562;
+		rLoc = 32853;
 		rType = 0;
 		vrLen = 1569;
 		vrLoc = 30309;
@@ -3255,7 +2953,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 940";
 		rLen = 0;
-		rLoc = 28159;
+		rLoc = 28024;
 		rType = 0;
 		vrLen = 1298;
 		vrLoc = 27299;
@@ -3345,7 +3043,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vfsops.c: 975";
 		rLen = 12;
-		rLoc = 30747;
+		rLoc = 31038;
 		rType = 0;
 		vrLen = 1821;
 		vrLoc = 20173;
@@ -3355,7 +3053,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.h: 165";
 		rLen = 9;
-		rLoc = 5345;
+		rLoc = 5279;
 		rType = 0;
 		vrLen = 1224;
 		vrLoc = 4592;
@@ -3375,10 +3073,46 @@
 		isa = PBXTextBookmark;
 		name = "ext2_apple.h: 63";
 		rLen = 0;
-		rLoc = 2874;
+		rLoc = 2808;
 		rType = 0;
 		vrLen = 2205;
 		vrLoc = 546;
+	};
+	D3CCBDF3047C355100A80164 = {
+		isa = PBXTargetBookmark;
+		trg = D3D485850405AEF400A80164;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {469, 233}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {185, 915}}";
+			TOCViewSelectedItems = (
+				PBXTargetSummarySettingsModule,
+			);
+		};
+	};
+	D3CCBDF4047C355100A80164 = {
+		isa = PBXTargetBookmark;
+		trg = D3D485850405AEF400A80164;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {469, 399}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {185, 915}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
 	};
 	D3D4857D0405AE8E00A80164 = {
 		activeExec = 0;
@@ -3419,10 +3153,6 @@
 	D3D485850405AEF400A80164 = {
 		activeExec = 0;
 	};
-	D3F5FE8004575AC200A80164 = {
-		isa = PBXTargetBookmark;
-		trg = D3D485850405AEF400A80164;
-	};
 	D3F5FE8104575AC200A80164 = {
 		fRef = D376F3C8040DF6C200A80164;
 		isa = PBXTextBookmark;
@@ -3448,7 +3178,7 @@
 		isa = PBXTextBookmark;
 		name = "ext2_vnops.c: 940";
 		rLen = 0;
-		rLoc = 28159;
+		rLoc = 28024;
 		rType = 0;
 		vrLen = 1161;
 		vrLoc = 29681;

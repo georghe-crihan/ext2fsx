@@ -4,7 +4,14 @@
 \margl1440\margr1440\vieww9000\viewh9000\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.0a1\
+\f0\fs24 \cf0 1.0a2\
+Fixed a nasty kernel panic on mount that I'm surprised more people didn't run into.\
+\
+The mount routine no longer releases the passed namei data. This is how UFS does things, so presumably this is released by the kernel mount routine.\
+\
+Added automount content hints for the following partition types: Apple_UNIX_SVR2, Ext3, and Linux_Ext2FS. This should allow more Ext2 partitions to automount. If you find any other Ext2 p-types please open a bug to have them added.\
+\
+1.0a1\
 Upgraded to e2fsprogs 1.33 (mke2fs, e2fsck, etc)\
 \
 Fixed a bug in the fs util that could cause a volume to mount as "UNKNOWN" instead of the actual volume name.\

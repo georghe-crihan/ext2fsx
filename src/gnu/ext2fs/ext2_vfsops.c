@@ -335,6 +335,7 @@ ext2_mount(mp, path, data, ndp, td)
    
    export = &args.export;
    
+   size = 0;
    (void) copyinstr(args.fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, 
 	    &size);
 	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
@@ -440,11 +441,6 @@ ext2_mount(mp, path, data, ndp, td)
 		return (error);
 	#ifndef APPLE
    NDFREE(ndp, NDF_ONLY_PNBUF);
-   #else
-   if (ndp->ni_cnd.cn_flags & HASBUF) {
-      _FREE_ZONE(ndp->ni_cnd.cn_pnbuf, ndp->ni_cnd.cn_pnlen, M_NAMEI);		
-		ndp->ni_cnd.cn_flags &= ~HASBUF;
-   }
    #endif /* APPLE */
 	devvp = ndp->ni_vp;
 
@@ -473,25 +469,20 @@ ext2_mount(mp, path, data, ndp, td)
 		VOP_UNLOCK(devvp, 0, td);
 	}
    
-   /*
-	 * Note that this strncpy() is ok because of a check at the start
-	 * of ext2_mount().
-	 */
-   #ifndef APPLE
-	strncpy(fs->fs_fsmnt, path, MAXMNTLEN);
-   fs->fs_fsmnt[MAXMNTLEN - 1] = '\0';
+   /* This is used by ext2_mountfs to set the last mount point in the superblock. */
+   size = 0;
+   #ifdef APPLE
+   (void) copyinstr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
    #else
-   (void) copyinstr(path, fs->fs_fsmnt, sizeof(fs->fs_fsmnt) - 1, &size);
-   bzero(fs->fs_fsmnt + size, sizeof(fs->fs_fsmnt) - size);
-   bcopy((caddr_t)fs->fs_fsmnt, (caddr_t)mp->mnt_stat.f_mntonname,
-	    MNAMELEN);
+   (void) copystr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
    #endif
-   #ifndef APPLE
-	(void)copystr(fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, &size);
-	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
+   #ifdef DEBUG
+   if (size < 2)
+      log(LOG_WARNING, "ext2fs: mount path looks to be invalid\n");
    #endif
-
-	if ((mp->mnt_flag & MNT_UPDATE) == 0) {
+   bzero(mp->mnt_stat.f_mntonname + size, MNAMELEN - size);
+   
+   if ((mp->mnt_flag & MNT_UPDATE) == 0) {
 		error = ext2_mountfs(devvp, mp, td);
 	} else {
 		if (devvp != ump->um_devvp)
@@ -503,8 +494,26 @@ ext2_mount(mp, path, data, ndp, td)
 		vrele(devvp);
 		return (error);
 	}
-	ump = VFSTOEXT2(mp);
+   /* ump is setup by ext2_mountfs */
+   ump = VFSTOEXT2(mp);
 	fs = ump->um_e2fs;
+   /*
+	 * Note that this strncpy() is ok because of a check at the start
+	 * of ext2_mount().
+	 */
+   #ifndef APPLE
+	strncpy(fs->fs_fsmnt, path, MAXMNTLEN);
+   fs->fs_fsmnt[MAXMNTLEN - 1] = '\0';
+   #else
+   bcopy((caddr_t)mp->mnt_stat.f_mntonname, (caddr_t)fs->fs_fsmnt,
+	    sizeof(fs->fs_fsmnt) - 1);
+   fs->fs_fsmnt[sizeof(fs->fs_fsmnt) - 1] = '\0';
+   #endif /* APPLE */
+   #ifndef APPLE
+	(void)copystr(fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, &size);
+	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
+   #endif
+
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
 	return (0);
 }
@@ -1609,33 +1618,17 @@ vn_isdisk(vp, errp)
 	struct vnode *vp;
 	int *errp;
 {
-	#if 0
-   struct cdevsw *cdevsw;
-   #endif
-
 	if (vp->v_type != VBLK) {
 		if (errp != NULL)
 			*errp = ENOTBLK;
 		return (0);
 	}
-	if (vp->v_rdev == NULL) {
+	if (vp->v_rdev == NULL || (major(vp->v_rdev) >= nblkdev)) {
 		if (errp != NULL)
 			*errp = ENXIO;
 		return (0);
 	}
-   #if 0
-	cdevsw = devsw(vp->v_rdev);
-	if (cdevsw == NULL) {
-		if (errp != NULL)
-			*errp = ENXIO;
-		return (0);
-	}
-	if (cdevsw->d_flags != D_DISK) {
-		if (errp != NULL)
-			*errp = ENOTBLK;
-		return (0);
-	}
-   #endif
+
 	if (errp != NULL)
 		*errp = 0;
 	return (1);

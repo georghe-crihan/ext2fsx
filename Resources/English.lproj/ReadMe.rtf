@@ -6,8 +6,8 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.0a1\
-2003/05/04
+\f1\b0 1.0a2\
+2003/05/21
 \f0\b \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
@@ -22,7 +22,7 @@ Pre-release also means that the software is not as fast as it could be. This rel
 \f0\b Important
 \f1\b0 \
 \
-If you are upgrading, you should make sure that all EXT2 disks are unmounted before continuing.\
+If you are upgrading, you should make sure that all Ext2 disks are unmounted before continuing.\
 \
 
 \f0\b Using command line utilities
@@ -40,7 +40,7 @@ Volumes may fail to auto-mount if they are corrupted. The auto-mounter funs fsck
 \f0\b \
 
 \f1\b0 \
-If you re-format an existing partition as Ext2, then that partition may fail to automount in the future. This is because re-formating does not change the partition type in the partition header of the disk. Automounter uses this type as a "hint" when trying to find the right filesystem utility to use. Unfortunately, the "hint" is actually literal; automounter will find an incorrect filesystem utility based on the partition type and when that utility fails the probe phase, automounter will return an error without trying other filesystem utilities. There is no known way to change a partition type without re-formating the entire disk.\
+If you re-format an existing partition as Ext2, then that partition may fail to automount in the future. This is because re-formating does not change the partition type in the partition header of the disk. Automounter uses this type as a "hint" when trying to find the right filesystem utility to use. Unfortunately, the "hint" is actually literal; automounter will find an incorrect filesystem utility based on the partition type and when that utility fails the probe phase, automounter will return an error without trying other filesystem utilities. There is no known way to change a partition type without re-formating the entire disk. (Amendment:  Dan C. pointed out that pdisk can apparently alter the partition table without destroying other partitions. So you could drop a partition and replace it with a new type. I don't know if I trust this, so for now I'll leave this up to the intrepid user.)\
 \
 Disk Copy disables the "Volume Name" field when the Ext2 format is selected. To change the name of a disk image volume, you must use the Terminal program 'e2label'. Example:\
 \

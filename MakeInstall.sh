@@ -2,6 +2,21 @@
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
+usage() {
+	echo "Usage: $0 [options] 'version string'"
+	echo "	-i Only build the disk image (using the current package repository)"
+	echo "	-h Show this message"
+	echo "	-p Only build the package repository"
+	echo "Note: -i and -p are mutually exclusive. If both are specified, then the last one takes precedence."
+	exit 1
+}
+
+VER=
+
+#################### BUILD PACKAGE REPOSITORY ###################
+
+build_package() {
+
 #src root
 if [ -z "${EXT2BUILD}" ]; then
 	echo "EXT2BUILD is not defined, using current directory"
@@ -86,3 +101,135 @@ sudo chmod -R u-w build/install/sbin/*
 sudo chmod -R u-w build/install/usr/local/bin/*
 sudo chmod -R u-w build/install/usr/local/sbin/* 
 sudo chmod -R u-w build/install/usr/local/lib/*
+
+}
+
+########################## DISK IMAGE CREATION ###########################
+
+build_image() {
+
+# Create the disk image
+echo "Creating disk image..."
+TMP="/tmp/Ext2FS_${VER}.dmg"
+IMAGE="${HOME}/Desktop/Ext2FS_${VER}.dmg"
+VNAME="Ext2 Filesystem ${VER}"
+VOL="/Volumes/${VNAME}"
+
+hdiutil create -megabytes 5 "${TMP}"
+DEVICE=`hdid -nomount "${TMP}" | grep Apple_HFS | cut -f1`
+/sbin/newfs_hfs -v "${VNAME}" ${DEVICE}
+hdiutil eject ${DEVICE}
+DEVICE=`hdid "${TMP}" | sed -n 1p | cut -f1`
+
+if [ ! -d "${VOL}" ]; then
+	echo "Volume failed to mount!"
+	exit 1
+fi
+
+EXT2DIR=`dirname $0`
+
+open "${EXT2DIR}/ExtFS.pmsp"
+
+echo "Build the package on the volume $VOL"
+echo "Press any key when the package is done"
+read blah
+
+echo "Copying files..."
+
+cp "${EXT2DIR}/Resources/English.lproj/ReadMe.rtf" "${VOL}"
+cp "${EXT2DIR}/Changes.rtf" "${VOL}"
+cp "${EXT2DIR}/Ext2Uninstall.command" "${VOL}"
+chmod 555 "${VOL}/Ext2Uninstall.command"
+
+echo "Finishing..."
+
+hdiutil eject ${DEVICE}
+
+#convert to compressed image
+hdiutil convert "${TMP}" -format UDCO -o "${IMAGE}"
+rm "${TMP}"
+
+echo "Gzip the image? [n]"
+read GZ
+
+case "${GZ}" in
+	"y" | "Y" )
+		gzip -9 "${IMAGE}"
+		IMAGE="${IMAGE}.gz"
+		break
+	;;
+	* )
+		break
+	;;
+esac
+
+md5 "${IMAGE}"
+
+}
+
+########################## MAIN ##############################
+
+if [ $# -eq 0 ]; then 
+	usage
+	exit 1
+fi
+
+#0 = build both, 1 = build image only, 2 = build package only
+WHAT=0
+
+#parse options
+while : ; do
+	case $# in 0) break ;; esac
+	
+	case "$1" in
+		-i )
+			WHAT=1
+			shift
+		;;
+		-h )
+			usage
+		;;
+		-p )
+			WHAT=2
+			shift
+		;;
+		-? | --* )
+			echo "Invalid option"
+			usage
+		;;
+		* )
+			#last arg is version string
+			VER="$1"
+			shift
+			break
+		;;
+	esac
+done
+
+#main
+if [ "${VER}" = "" ]; then
+	usage
+fi
+
+echo "Version number is: $VER"
+
+case "$WHAT" in
+	0 )
+		build_package
+		build_image
+		break
+	;;
+	1 )
+		build_image
+		break
+	;;
+	2 )
+		build_package
+		break
+	;;
+	* )
+		break
+	;;
+esac
+
+exit 0
