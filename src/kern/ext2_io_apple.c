@@ -88,7 +88,7 @@ static int ext2_blkalloc(register struct inode *, int32_t, int, struct ucred *, 
 
 /*
  * Vnode op for pagein.
- * Similar to ffs_read()
+ * Similar to ext2_read()
  */
 /* ARGSUSED */
 int
@@ -112,7 +112,7 @@ ext2_pagein(ap)
 	register struct inode *ip;
 	int error;
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	ip = VTOI(vp);
 
@@ -138,7 +138,7 @@ ext2_pagein(ap)
 
 /*
  * Vnode op for pageout.
- * Similar to ffs_write()
+ * Similar to ext2_write()
  * make sure the buf is not in hash queue when you return
  */
 int
@@ -174,7 +174,7 @@ ext2_pageout(ap)
 	int nocommit = flags & UPL_NOCOMMIT;
 	/*struct buf *bp;*/
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	ip = VTOI(vp);
 
@@ -184,7 +184,7 @@ ext2_pageout(ap)
 	if (UBCINFOMISSING(vp))
 		panic("ext2_pageout: No mapping: vp=%x", vp);
 
-        if (vp->v_mount->mnt_flag & MNT_RDONLY) {
+    if (vp->v_mount->mnt_flag & MNT_RDONLY) {
 		if (!nocommit)
   			ubc_upl_abort_range(pl, pl_offset, size, 
 				UPL_ABORT_FREE_ON_EMPTY);
@@ -193,8 +193,8 @@ ext2_pageout(ap)
 	fs = ip->I_FS;
 
 	if (f_offset < 0 || f_offset >= ip->i_size) {
-	        if (!nocommit)
-		        ubc_upl_abort_range(pl, pl_offset, size, 
+        if (!nocommit)
+            ubc_upl_abort_range(pl, pl_offset, size, 
 				UPL_ABORT_FREE_ON_EMPTY);
 		ext2_trace_return(EINVAL);
 	}
@@ -205,14 +205,14 @@ ext2_pageout(ap)
 	 * that we don't issue an I/O for
 	 */
 	if (f_offset + size > ip->i_size)
-	        xfer_size = ip->i_size - f_offset;
+        xfer_size = ip->i_size - f_offset;
 	else
-	        xfer_size = size;
+        xfer_size = size;
 
 	devBlockSize = fs->s_d_blocksize;
 
 	if (xfer_size & (PAGE_SIZE - 1)) {
-	        /* if not a multiple of page size
+        /* if not a multiple of page size
 		 * then round up to be a multiple
 		 * the physical disk block size
 		 */
@@ -233,7 +233,7 @@ ext2_pageout(ap)
 	for (error = 0; resid > 0;) {
 		lbn = lblkno(fs, local_offset);
 		blkoffset = blkoff(fs, local_offset);
-		xsize = fs->s_frag_size - blkoffset;
+		xsize = EXT2_BLOCK_SIZE(fs) - blkoffset;
 		if (resid < xsize)
 			xsize = resid;
 		/* Allocate block without reading into a buf */
@@ -252,11 +252,11 @@ ext2_pageout(ap)
 		xfer_size -= save_size;
 	}
 
-	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page(xfer_size), ip->i_size, devBlockSize, flags);
+	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page32(xfer_size), ip->i_size, devBlockSize, flags);
 
 	if(save_error) {
 		lupl_offset = size - save_size;
-		resid = round_page(save_size);
+		resid = round_page_32(save_size);
 		if (!nocommit)
 			ubc_upl_abort_range(pl, lupl_offset, resid,
 				UPL_ABORT_FREE_ON_EMPTY);
@@ -297,24 +297,24 @@ ext2_cmap(ap)
 	ip = VTOI(vp);
 	fs = ip->i_e2fs;
 	
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	if ((error = blkoff(fs, ap->a_foffset))) {
 		panic("ext2_cmap: allocation requested inside a block (possible filesystem corruption): "
          "qbmask=%qd, inode=%u, offset=%qd, blkoff=%d",
          fs->s_qbmask, ip->i_number, ap->a_foffset, error);
 	}
-   error = 0;
+    error = 0;
 
 	bn = (daddr_t)lblkno(fs, ap->a_foffset);
-   devBlockSize = fs->s_d_blocksize;
+    devBlockSize = fs->s_d_blocksize;
 
 	if (size % devBlockSize) {
 		panic("ext2_cmap: size is not multiple of device block size\n");
 	}
 
 	if ((error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks))) {
-			ext2_trace_return(error);
+        ext2_trace_return(error);
 	}
 
 	retsize = nblks * EXT2_BLOCK_SIZE(fs);
@@ -370,8 +370,8 @@ ext2_cmap(ap)
  * marked busy as it is being paged out. Also important to note that we are not
  * growing the file in pageouts. So ip->i_size  cannot increase by this call
  * due to the way UBC works.  
- * This code is derived from ffs_balloc and many cases of that are  dealt
- * in ffs_balloc are not applicable here 
+ * This code is derived from ext2_balloc and many cases of that are  dealt
+ * in ext2_balloc are not applicable here 
  * Do not call with B_CLRBUF flags as this should only be called only 
  * from pageouts
  */
@@ -394,7 +394,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 
 	fs = ip->i_e2fs;
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	if(size > EXT2_BLOCK_SIZE(fs))
 		panic("ext2_blkalloc: too large for allocation\n");
@@ -406,7 +406,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	 */
 	nb = lblkno(fs, ip->i_size);
 	if (nb < NDADDR && nb < lbn) {
-		panic("ext2_blkalloc():cannot extend file: i_size %d, lbn %d\n", ip->i_size, lbn);
+		panic("ext2_blkalloc(): cannot extend file: i_size %d, lbn %d\n", ip->i_size, lbn);
 	}
 	/*
 	 * The first NDADDR blocks are direct blocks
@@ -462,12 +462,12 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	allocblk = allociblk;
 	if (nb == 0) {
 #if 0
-		pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
+      pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
 #else
       pref = ext2_blkpref(ip, lbn, indirs[0].in_off +
          EXT2_NDIR_BLOCKS, &ip->i_db[0], 0);
 #endif
-	        if (error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs),
+        if (error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs),
 		    cred, &newb))
 			ext2_trace_return(error);
 		nb = newb;
@@ -509,7 +509,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 #if 0
 			pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
 #else
-         pref = ext2_blkpref(ip, lbn, indirs[i].in_off, bap, bp->b_lblkno);
+            pref = ext2_blkpref(ip, lbn, indirs[i].in_off, bap, bp->b_lblkno);
 #endif
 		if (error =
 		    ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb)) {
