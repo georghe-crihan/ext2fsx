@@ -100,7 +100,9 @@ main(argc, argv)
    int ch, mntflags, e2_mntflags, x=0;
    char *fs_name, *fspec, mntpath[MAXPATHLEN];
    
-   progname = argv[0];
+   progname = strrchr(argv[0], '/');
+   if (!progname)
+      progname = argv[0];
    
    mntflags = e2_mntflags = 0;
    while ((ch = getopt(argc, argv, "o:x")) != -1)
@@ -126,6 +128,9 @@ main(argc, argv)
    fspec = argv[0];	/* the name of the device file */
    fs_name = argv[1];	/* the mount point */
    
+   if (strlen(fs_name) >= MAXPATHLEN)
+      exit (EINVAL);
+   
    /*
       * Resolve the mountpoint with realpath(3) and remove unnecessary
       * slashes from the devicename if there are any.
@@ -135,8 +140,10 @@ main(argc, argv)
    
    if (x) {
       extmgr_mntopts(fspec, &mntflags, &e2_mntflags, &x);
-      if (x)
+      if (x) {
+         errno = ENOENT;
          err(EX_SOFTWARE, "canceled automount on %s on %s", fspec, mntpath);
+      }
    }
    
    args.fspec = fspec;
@@ -147,7 +154,7 @@ main(argc, argv)
    else
       args.export.ex_flags = 0;
    
-   /* Force NODEV for now. */
+   /* Force NODEV. */
    /* mntflags |= MNT_NODEV; */
    
    if (checkLoadable()) {		/* Is it already loaded? */
