@@ -25,6 +25,8 @@
 
 #import <PreferencePanes/PreferencePanes.h>
 
+@class ExtFSMedia;
+
 @interface ExtFSManager : NSPreferencePane
 {
    IBOutlet NSButton *_mountButton;
@@ -57,6 +59,8 @@
 - (void)doOptions:(id)sender;
 
 - (void)didUnselect;
+
+- (void)doMediaSelection:(ExtFSMedia*)media;
 
 /* Delegate stuff */
 - (int)outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item;

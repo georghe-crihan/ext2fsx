@@ -99,7 +99,7 @@ static BOOL _prefsChanged = NO;
    NSString *tmp;
    
    tmp = [(NSButtonCell*)[_mountButton cell] representedObject];
-   if ([media canMount]) {
+   if ([media canMount] && NO == [[media mountPoint] isEqualToString:@"/"]) {
       [_mountButton setEnabled:YES];
       if ([media isMounted]) {
          if ([tmp isEqualTo:EXT_TOOLBAR_ACTION_MOUNT]) {
@@ -190,7 +190,7 @@ _curSelection = nil; \
    NSLog(@"ExtFS: **** Media '%s' mounted ***\n", BSDNAMESTR(media));
 #endif
    if (media == _curSelection)
-      [self updateMountState:media];
+      [self doMediaSelection:media];
    [_vollist reloadItem:media];
 }
 
@@ -203,7 +203,7 @@ _curSelection = nil; \
    NSLog(@"ExtFS: **** Media '%s' unmounted ***\n", BSDNAMESTR([notification object]));
 #endif
    if (media == _curSelection)
-      [self updateMountState:media];
+      [self doMediaSelection:media];
    [_vollist reloadItem:media];
 }
 
@@ -728,6 +728,7 @@ info_alt_switch:
       [buttonCell setImageDimsWhenDisabled:YES];
       
       tmp = titles[i];
+      [buttonCell setRepresentedObject:tmp]; //Used for state
       
       /* Setup primaries */
       title = ExtLocalizedString(tmp, "Toolbar Item Title");
