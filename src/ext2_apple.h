@@ -127,6 +127,7 @@ do { \
 } while(0)
 
 __private_extern__ int vrefcnt(struct vnode *);
+__private_extern__ int vop_stdfsync(struct vop_fsync_args *);
 
 /* Separate flag fields in FreeBSD, only one in Darwin. */
 #define v_vflag v_flag
@@ -155,6 +156,9 @@ __private_extern__ int vrefcnt(struct vnode *);
 
 #define b_ioflags b_flags
 #define BIO_ERROR B_ERROR
+
+/* getblk flag */
+#define GB_LOCK_NOWAIT 0
 
 #define BUF_WRITE bwrite
 #define BUF_STRATEGY VOP_STRATEGY

@@ -64,6 +64,7 @@
 #include <sys/time.h>
 #include <sys/vnode.h>
 #include <vfs/vfs_support.h>
+#include <machine/spl.h>
 
 #include "ext2_apple.h"
 #ifdef EXT2FS_DEBUG
@@ -214,6 +215,75 @@ ext2_lock(ap)
       VTOI(vp)->i_lock.lk_sharecount, VTOI(vp)->i_lock.lk_waitcount);
    
 	return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags, &vp->v_interlock,ap->a_p));
+}
+
+__private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
+{
+   struct vnode *vp = ap->a_vp;
+	struct buf *bp;
+	struct buf *nbp;
+	int s;
+   
+   loop:
+	VI_LOCK(vp);
+	s = splbio();
+   #ifndef APPLE
+	for (bp = TAILQ_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
+		nbp = TAILQ_NEXT(bp, b_vnbufs);
+   #else
+   for (bp = LIST_FIRST(&vp->v_dirtyblkhd); bp; bp = nbp) {
+		nbp = LIST_NEXT(bp, b_vnbufs);
+   #endif /* APPLE */
+		VI_UNLOCK(vp);
+      #ifndef APPLE
+		if (BUF_LOCK(bp, LK_EXCLUSIVE | LK_NOWAIT)) {
+			VI_LOCK(vp);
+			continue;
+		}
+      #else
+      if ((bp->b_flags & B_BUSY)) {
+         VI_LOCK(vp);
+         continue;
+      }
+      #endif
+		if ((bp->b_flags & B_DELWRI) == 0)
+			panic("vop_stdfsync: not dirty");
+		bremfree(bp);
+      #ifdef APPLE
+      bp->b_flags |= B_BUSY;
+      #endif
+		splx(s);
+		/*
+		 * Wait for I/O associated with indirect blocks to complete,
+		 * since there is no way to quickly wait for them below.
+		 */
+		if (bp->b_vp == vp || ap->a_waitfor == MNT_NOWAIT)
+			(void) bawrite(bp);
+		else
+			(void) bwrite(bp);
+		goto loop;
+	}
+	if (ap->a_waitfor == MNT_WAIT) {
+		while (vp->v_numoutput) {
+         vp->v_iflag |= VI_BWAIT;
+			msleep(&vp->v_numoutput, VI_MTX(vp), 
+			    PRIBIO + 1, "e2fsyn", 0);
+		}
+#if DIAGNOSTIC
+      #ifndef APPLE
+		if (!TAILQ_EMPTY(&vp->v_dirtyblkhd)) {
+      #else
+      if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
+      #endif
+			vprint("ext2_fsync: dirty", vp);
+			goto loop;
+		}
+#endif
+	}
+	VI_UNLOCK(vp);
+	splx(s);
+   
+   return (0);
 }
 
 /*
