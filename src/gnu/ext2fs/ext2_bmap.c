@@ -89,10 +89,12 @@ ext2_bmap(ap)
 	if (ap->a_bnp == NULL)
 		return (0);
    
-   ext2_trace_enter();
+    ext2_trace_enter();
 
 	error = ext2_bmaparray(ap->a_vp, ap->a_bn, &blkno, ap->a_runp, NULL);
 	*ap->a_bnp = blkno;
+    ext2_trace("returning dblock: %d for lblock: %d in inode %u\n", blkno, ap->a_bn,
+        VTOI(ap->a_vp)->i_number);
 	return (error);
 }
 
@@ -104,7 +106,7 @@ ext2_bmap(ap)
  * which they point.  Triple indirect blocks are addressed by one less than
  * the address of the first double indirect block to which they point.
  *
- * ufs_bmaparray does the bmap conversion, and if requested returns the
+ * ext2_bmaparray does the bmap conversion, and if requested returns the
  * array of logical blocks which must be traversed to get to a block.
  * Each entry contains the offset into that block that gets you to the
  * next block and the disk address of the block (if it is assigned).
@@ -196,21 +198,21 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		ap->in_exists = 1;
 		bp = getblk(vp, metalbn, mp->mnt_stat.f_iosize, 0, 0, BLK_META);
 
-      if (bp->b_flags & (B_DONE | B_DELWRI)) {
+        if (bp->b_flags & (B_DONE | B_DELWRI)) {
 			trace(TR_BREADHIT, pack(vp, mp->mnt_stat.f_iosize), metalbn);
 		}
 
 #ifdef DIAGNOSTIC
       else
-			if (!daddr)
-				panic("ext2_bmaparray: indirect block not in cache");
+        if (!daddr)
+            panic("ext2_bmaparray: indirect block not in cache");
 #endif
-      else {
-         trace(TR_BREADMISS, pack(vp, mp->mnt_stat.f_iosize), metalbn);
+        else {
+            trace(TR_BREADMISS, pack(vp, mp->mnt_stat.f_iosize), metalbn);
          
-			bp->b_blkno = blkptrtodb(ump, daddr);
-         bp->b_flags |= B_READ;
-         bp->b_flags &= ~B_ERROR;
+            bp->b_blkno = blkptrtodb(ump, daddr);
+            bp->b_flags |= B_READ;
+            bp->b_flags &= ~B_ERROR;
 			VOP_STRATEGY(bp);
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
 			error = bufwait(bp);
