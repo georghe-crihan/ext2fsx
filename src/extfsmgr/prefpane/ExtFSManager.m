@@ -26,6 +26,10 @@
 static const char whatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
+#import <sys/types.h>
+#import <sys/sysctl.h>
+#import <unistd.h>
+
 #import <ExtFSDiskManager/ExtFSDiskManager.h>
 #import "ExtFSManager.h"
 #import "ExtFSManagerAdditions.h"
@@ -50,6 +54,7 @@ static id ExtMakeInfoTitle(NSString *title);
 static void ExtSetPrefVal(ExtFSMedia *media, id key, id val);
 static void AddRestoreAction(ExtFSMedia *m, id key, id val);
 static BOOL PlayRestoreActions(ExtFSMedia *m);
+static int FindPIDByPathOrName(const char *path, const char *name, uid_t user);
 
 #import "extfsmgr.h"
 
@@ -870,29 +875,22 @@ info_alt_switch:
    
     // Install the SMART monitor into the user's login items
     boolVal = [e_prefMgr objectForKey:EXT_PREF_KEY_MGR_SMARTD_ADDED];
+    tmp = [[self bundle] pathForResource:@"efssmartd" ofType:@"app"];
     if (nil == boolVal || NO == [boolVal boolValue]) {
-        NSEnumerator *en;
-        NSString *path;
-        id obj;
-        
-        path = [[self bundle] pathForResource:@"efssmartd" ofType:@"app"];
-        if ([self addLoginItem:path]) {
+        if ([self addLoginItem:tmp]) {
             boolVal = [NSNumber numberWithBool:YES];
             [e_prefMgr setObject:boolVal forKey:EXT_PREF_KEY_MGR_SMARTD_ADDED];
+            e_prefsChanged = YES;
             [self savePrefs];
         }
-        // Launch it if it's not running
-        en = [[[NSWorkspace sharedWorkspace] launchedApplications] objectEnumerator];
-        while ((obj = [en nextObject])) {
-            if ([@"efssmartd" isEqualToString:[obj objectForKey:@"NSApplicationName"]]) {
-                break;
-            }
-        }
-        if (nil == obj)
-            if (NO == [[NSWorkspace sharedWorkspace] launchApplication:path])
-                NSLog(@"ExtFSM: NSWorkspace faild to launch '%@'.\n", path);
     }
-   
+    if (boolVal && YES == [boolVal boolValue]) {
+        // Launch it if it's not running
+        if (0 == FindPIDByPathOrName(nil, "efssmartd", getuid()))
+            if (NO == [[NSWorkspace sharedWorkspace] launchApplication:tmp])
+                NSLog(@"ExtFSM: NSWorkspace faild to launch '%@'.\n", tmp);
+    }
+
    [self performSelector:@selector(startup) withObject:nil afterDelay:0.3];
 }
 
@@ -1155,4 +1153,114 @@ static BOOL PlayRestoreActions(ExtFSMedia *m)
             [objd removeObjectForKey:EXT_OBJ_PROPERTY_RESTORE_ACTIONS];
     }
     return (played);
+}
+
+#define ELOG(f) NSLog(@"EFSM: %@\n")
+#define ELOG1(f,a) NSLog((f), "EFSM", __LINE__, (a))
+#define STRING_ERROR_ALLOC_MEM @"Memory alloc failed"
+
+static int FindPIDByPathOrName(const char *path, const char *name, uid_t user)
+{
+   int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
+   struct kinfo_proc *procs;
+   struct extern_proc *proc;
+   char *pargs, *cmdpath;
+   size_t plen, argmax, arglen;
+   int err, i, argct, retry = 0;
+   pid_t found = (pid_t)0, me;
+   
+   procs = nil;
+   do {
+      // Get needed buffer size
+      plen = 0;
+      err = sysctl(mib, 3, nil, &plen, nil, 0);
+      if (err) {
+         ELOG1(@"%s:%d get process size failed with: %d", err == -1 ? errno : err);
+         break;
+      }
+      
+      procs = (struct kinfo_proc *)malloc(plen);
+      if (!procs) {
+         ELOG(STRING_ERROR_ALLOC_MEM);
+         break;
+      }
+      
+      // Get the process list
+      err = sysctl(mib, 3, procs, &plen, nil, 0);
+      if (-1 == err || (0 != err && ENOMEM == err)) {
+         ELOG1(@"%s:%d get process list failed with: %d", err == -1 ? errno : err);
+         break;
+      }
+      if (ENOMEM == err) {
+         // buffer too small, try again
+         free(procs);
+         procs = nil;
+         err = 0;
+         retry++;
+         if (retry < 3)
+            continue;
+         ELOG1(@"%s:%d Failed to obtain process list after %d tries.", retry);
+         break;
+      }
+      
+      // Get the max arg size for a command
+      mib[1] = KERN_ARGMAX;
+      mib[2] = 0;
+      arglen  = sizeof(argmax);
+      err = sysctl(mib, 2, &argmax, &arglen, nil, 0);
+      if (err) {
+         ELOG1(@"%s:%d get process arg size failed with: %d", err == -1 ? errno : err);
+         break;
+      }
+      
+      // Allocate space for args
+      pargs = malloc(argmax);
+      if (!pargs) {
+         ELOG(STRING_ERROR_ALLOC_MEM);
+         break;
+      }
+      
+      // Walk the list and find the process
+      me = getpid();
+      for (i=0; i < plen / sizeof(struct kinfo_proc); ++i) {
+         proc = &(procs+i)->kp_proc;
+         if (proc->p_pid == me)
+            continue;
+         if ((procs+i)->kp_eproc.e_pcred.p_ruid != user)
+            continue;
+         
+         // Get the process arguments
+         #if (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_3)
+         mib[1] = KERN_PROCARGS2;
+         #else
+         mib[1] = KERN_PROCARGS;
+         #endif
+         mib[2] = proc->p_pid;
+         arglen = argmax;
+         if (0 == sysctl(mib, 3, pargs, &arglen, nil, 0)) {
+            #if (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_3)
+            // argc is first for KERN_PROCARGS2
+            bcopy(pargs, &argct, sizeof(argct));
+            // the command path is next
+            cmdpath = (pargs+sizeof(argct));
+            #else
+            argct = 0;
+            cmdpath = pargs;
+            #endif
+            *(pargs+(arglen-1)) = '\0'; // Just in case
+            if ((path && 0 == strcmp(cmdpath, path)) ||
+                (name && strstr(cmdpath, name))) {
+               found = proc->p_pid;
+               break;
+            }
+         }
+      }
+      free(pargs);
+      break;
+      
+   } while(1);
+   
+   if (procs)
+      free(procs);
+   return (found);
 }
