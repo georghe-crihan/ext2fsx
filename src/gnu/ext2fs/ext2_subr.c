@@ -40,17 +40,12 @@
 
 #include <sys/proc.h>
 #include <sys/systm.h>
-#ifndef APPLE
-#include <sys/bio.h>
-#endif
 #include <sys/buf.h>
 #include <sys/lock.h>
 #include <sys/ucred.h>
 #include <sys/vnode.h>
 
-#ifdef APPLE
 #include "ext2_apple.h"
-#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_extern.h>
@@ -89,12 +84,12 @@ ext2_blkatoff(vp, offset, res, bpp)
 	bsize = blksize(fs, ip, lbn);
 
 	*bpp = NULL;
-	if ((error = bread(vp, lbn, bsize, NOCRED, &bp)) != 0) {
-		brelse(bp);
+	if ((error = buf_bread(vp, (daddr64_t)lbn, bsize, NOCRED, &bp)) != 0) {
+		buf_brelse(bp);
 		return (error);
 	}
 	if (res)
-		*res = (char *)bp->b_data + blkoff(fs, offset);
+		*res = (char *)buf_dataptr(bp) + blkoff(fs, offset);
 	*bpp = bp;
 	return (0);
 }

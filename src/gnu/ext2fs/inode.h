@@ -39,9 +39,8 @@
 #define	_SYS_GNU_EXT2FS_INODE_H_
 
 #include <sys/queue.h>
-#ifdef EXT_KNOTE
 #include <sys/event.h>
-#endif
+#include <kern/locks.h>
 
 #include <kern/ext2_lockf.h>
 
@@ -59,7 +58,7 @@ typedef int32_t   ext2_daddr_t;
 
 /* Function proto to release inode private data */
 struct inode;
-typedef int (*inode_prv_relse_t)(struct vnode*, struct inode*);
+typedef int (*inode_prv_relse_t)(vnode_t, struct inode*);
 
 /*
  * The inode is used to describe each active (or recently active) file in the
@@ -71,22 +70,20 @@ typedef int (*inode_prv_relse_t)(struct vnode*, struct inode*);
  * active, and is put back when the file is no longer being used.
  */
 struct inode {
-   struct lock__bsd__ i_lock;
+	lck_mtx_t i_lock;
 	LIST_ENTRY(inode) i_hash;/* Hash chain. */
 	struct	vnode  *i_vnode;/* Vnode associated with this inode. */
 	struct	vnode  *i_devvp;/* Vnode for block I/O. */
 	u_int32_t i_flag;	/* flags, see below */
 	dev_t	  i_dev;	/* Device associated with the inode. */
 	ino_t	  i_number;	/* The identity of the inode. */
-
-   /*
-    * Various accounting
-    */
-#ifdef EXT_KNOTE
-   struct klist i_knotes; /* Attached knotes. */
-#endif   
-   void		*private_data; /* Private storge, used by dir index (others?). */
-   inode_prv_relse_t private_data_relse; /* Function to release private_data storage. */
+	
+	/*
+	 * Various accounting
+	 */
+	struct klist i_knotes; /* Attached knotes. */ 
+	void	*private_data; /* Private storge, used by dir index (others?). */
+	inode_prv_relse_t private_data_relse; /* Function to release private_data storage. */
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
 	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
@@ -99,15 +96,15 @@ struct inode {
 	doff_t	  i_offset;	/* Offset of free space in directory. */
 	ino_t	  i_ino;	/* Inode number of found directory. */
 	u_int32_t i_reclen;	/* Size of found directory entry. */
-   u_int32_t i_dir_start_lookup; /* Index dir lookup */
-   #define f_pos i_diroff /* Index dir lookups */
-
+	u_int32_t i_dir_start_lookup; /* Index dir lookup */
+	#define f_pos i_diroff /* Index dir lookups */
+	
 	u_int32_t i_block_group;
 	u_int32_t i_next_alloc_block;
 	u_int32_t i_next_alloc_goal;
 	u_int32_t i_prealloc_block;
 	u_int32_t i_prealloc_count;
-
+	
 	/* Fields from struct dinode in UFS. */
 	u_int16_t	i_mode;		/* IFMT, permissions; see below. */
 	int16_t		i_nlink;	/* File link count. */
@@ -125,8 +122,8 @@ struct inode {
 	int32_t		i_gen;		/* Generation number. */
 	u_int32_t	i_uid;		/* File owner. */
 	u_int32_t	i_gid;		/* File group. */
-
-   u_int32_t   i_e2flags; /* copy of on disk ext2 inode flags */
+	
+	u_int32_t   i_e2flags; /* copy of on disk ext2 inode flags */
 };
 
 /*
@@ -184,11 +181,10 @@ struct indir {
 /* Convert between inode pointers and vnode pointers. */
 #define VTOI(vp)	((struct inode *)vnode_fsnode(vp))
 #define ITOV(ip)	((ip)->i_vnode)
-#ifdef EXT_KNOTE
+#define ITOVFS(ip)  (vnode_mount((ip)->i_vnode))
 #define VN_KNOTE(vp,hint) KNOTE(&(VTOI(vp))->i_knotes, (hint))
-#else
-#define VN_KNOTE(vp,hint) {}
-#endif
+#define ILOCK(ip) lck_mtx_lock(&(ip)->i_lock)
+#define IULOCK(ip) lck_mtx_unlock(&(ip)->i_lock)
 
 /* This overlays the fid structure (see mount.h). */
 struct ufid {

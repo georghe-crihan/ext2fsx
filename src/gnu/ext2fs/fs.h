@@ -69,7 +69,7 @@
  * Convert cylinder group to base address of its global summary info.
  */
 #define fs_cs(fs, cgindx)      (((struct ext2_group_desc *) \
-        (fs->s_group_desc[cgindx / EXT2_DESC_PER_BLOCK(fs)]->b_data)) \
+        (buf_dataptr(fs->s_group_desc[cgindx / EXT2_DESC_PER_BLOCK(fs)]))) \
 		[cgindx % EXT2_DESC_PER_BLOCK(fs)])
 
 /*
@@ -147,11 +147,7 @@ extern u_char *fragtbl[];
 #define lock_super(sbp) lck_mtx_lock((sbp)->s_lock)
 #define unlock_super(sbp) lck_mtx_unlock((sbp)->s_lock)
 
-/*
- * To lock a buffer, set the B_LOCKED flag and then brelse() it. To unlock,
- * reset the B_LOCKED flag and brelse() the buffer back on the LRU list
- */ 
-#ifdef E2_BUF_CHECK
+#if defined(E2_BUF_CHECK) && defined(obsolete)
 TAILQ_HEAD(bqueues, buf);
 extern struct bqueues bufqueues[];
 extern unsigned	splbio(void);
@@ -200,22 +196,46 @@ static __inline__ void e2_chk_buf_lck(buf_t  bp, buf_t  obp)
 #define e2_buf_cp(bp)
 #endif /* E2_BUF_CHECK */
 
-#define LCK_BUF(bp) { \
-   e2_decl_buf_cp \
-   e2_buf_cp(bp) \
-	(bp)->b_flags |= B_LOCKED; \
-	buf_relse(bp); \
-   e2_chk_buf_lck(bp, &obuf); \
+/* FS Meta data only! */
+
+#define BMETA_DIRTY(bp) do { \
+    buf_setdirtyoff(bp, 0); \
+    buf_setdirtyend(bp, buf_count(bp)); \
+} while(0)
+
+/* this is supposed to mark a buffer dirty on ready for delayed writing */
+static __inline__
+void mark_buffer_dirty (buf_t bp)
+{
+	BMETA_DIRTY(bp);
 }
 
-#define ULCK_BUF(bp) { \
-	long flags; \
-	flags = (bp)->b_flags; \
-	(bp)->b_flags &= ~(B_DIRTY | B_LOCKED); \
-	bremfree(bp); \
-   (bp)->b_flags |= B_BUSY; /* Mark busy since it is still on the hash list */ \
-	if (flags & B_DIRTY) \
-		buf_write(bp); \
-	else \
-		buf_relse(bp); \
-}
+#define BMETA_CLEAN(bp) do { \
+    buf_setdirtyoff(bp, 0); \
+    buf_setdirtyend(bp, 0); \
+} while(0)
+
+#define BMETA_ISDIRTY(bp) ((0 == buf_dirtyoff(bp)) && (buf_dirtyend(bp) == buf_count(bp)))
+
+/*
+ * To lock a buffer, set the B_LOCKED flag and then brelse() it. To unlock,
+ * reset the B_LOCKED flag and brelse() the buffer back on the LRU list
+ */ 
+#define LCK_BUF(bp) do { \
+	buf_setflags(bp, B_LOCKED); \
+	buf_brelse(bp); \
+} while(0)
+
+#define ULCK_BUF(bp) do { \
+	int32_t flags; \
+	flags = buf_flags(bp); \
+	buf_clearflags(bp, (B_LOCKED)); \
+/* XXX obsolete? */ \
+    /* bremfree(bp); */ \
+    /* (bp)->b_flags |= B_BUSY; */ /* Mark busy since it is still on the hash list */ \
+	if (BMETA_ISDIRTY(bp)) { \
+		BMETA_CLEAN(bp); \
+		buf_bwrite(bp); \
+	} else \
+		buf_brelse(bp); \
+} while(0)

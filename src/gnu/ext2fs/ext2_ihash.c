@@ -36,19 +36,11 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
-#include <sys/lock.h>
 #include <sys/vnode.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
-#ifndef APPLE
-#include <sys/mutex.h>
-#else
-#include <kern/lock.h>
-#endif
 
-#ifdef APPLE
 #include "ext2_apple.h"
-#endif
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_extern.h>
@@ -64,7 +56,10 @@ static MALLOC_DEFINE(M_EXT2IHASH, "EXT2 ihash", "EXT2 Inode hash tables");
 static LIST_HEAD(ihashhead, inode) *ihashtbl;
 static u_long	ihash;		/* size of hash table - 1 */
 #define	INOHASH(device, inum)	(&ihashtbl[(minor(device) + (inum)) & ihash])
-static struct slock ext2_ihash_slock;
+static lck_mtx_t ext2_ihash_lock;
+
+#define hlock() do {lck_mtx_lock(&ext2_ihash_lock);} while(0)
+#define hulock() do {lck_mtx_unlock(&ext2_ihash_lock);} while(0)
 
 /*
  * Initialize inode hash table.
@@ -74,8 +69,8 @@ ext2_ihashinit()
 {
 
 	KASSERT(ihashtbl == NULL, ("ext2_ihashinit called twice"));
+	lck_mtx_init(&ext2_ihash_lock, EXT2_LCK_GRP, LCK_ATTR_NULL);
 	ihashtbl = hashinit(desiredvnodes, M_EXT2IHASH, &ihash);
-    simple_lock_init(&ext2_ihash_slock);
 }
 
 /*
@@ -84,8 +79,11 @@ ext2_ihashinit()
 void
 ext2_ihashuninit()
 {
-
+	hlock();
 	hashdestroy(ihashtbl, M_EXT2IHASH, ihash);
+	ihashtbl = NULL;
+	hulock();
+	lck_mtx_destroy(&ext2_ihash_lock, EXT2_LCK_GRP);
 }
 
 /*
@@ -99,11 +97,11 @@ ext2_ihashlookup(dev, inum)
 {
 	struct inode *ip;
 
-	simple_lock(&ext2_ihash_slock);
+	hlock();
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash)
 	if (inum == ip->i_number && dev == ip->i_dev)
 		break;
-	simple_unlock(&ext2_ihash_slock);
+	hulock();
 
 	if (ip)
 		return (ITOV(ip));
@@ -121,22 +119,18 @@ ext2_ihashget(dev, inum, flags, vpp)
 	int flags;
 	vnode_t *vpp;
 {
-	struct thread *td = curthread;	/* XXX */
 	struct inode *ip;
 	vnode_t vp;
 	int error;
 
 	*vpp = NULL;
 loop:
-	simple_lock(&ext2_ihash_slock);
+	hlock();
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash) {
 		if (inum == ip->i_number && dev == ip->i_dev) {
 			vp = ITOV(ip);
-			/* XXX Can cause spinlock deadlock because of a bug in vget() when
-				using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
-            simple_lock(&vp->v_interlock); */
-			simple_unlock(&ext2_ihash_slock);
-			error = vget(vp, flags /*| LK_INTERLOCK*/, td);
+			hulock();
+			error = vnode_get(vp);
 			if (error == ENOENT)
 				goto loop;
 			if (error)
@@ -145,7 +139,7 @@ loop:
 			return (0);
 		}
 	}
-	simple_unlock(&ext2_ihash_slock);
+	hulock();
 	return (0);
 }
 
@@ -156,17 +150,18 @@ void
 ext2_ihashins(ip)
 	struct inode *ip;
 {
-	struct thread *td = curthread;		/* XXX */
 	struct ihashhead *ipp;
 
+#ifdef obsolete
 	/* lock the inode, then put it on the appropriate hash list */
-	vn_lock(ITOV(ip), LK_EXCLUSIVE | LK_RETRY, td);
+	vnode_lock(ITOV(ip));
+#endif
 
-	simple_lock(&ext2_ihash_slock);
+	hlock();
 	ipp = INOHASH(ip->i_dev, ip->i_number);
 	LIST_INSERT_HEAD(ipp, ip, i_hash);
 	ip->i_flag |= IN_HASHED;
-	simple_unlock(&ext2_ihash_slock);
+	hulock();
 }
 
 /*
@@ -176,10 +171,10 @@ void
 ext2_ihashrem(ip)
 	struct inode *ip;
 {
-	simple_lock(&ext2_ihash_slock);
+	hlock();
 	if (ip->i_flag & IN_HASHED) {
 		ip->i_flag &= ~IN_HASHED;
 		LIST_REMOVE(ip, i_hash);
 	}
-	simple_unlock(&ext2_ihash_slock);
+	hulock();
 }

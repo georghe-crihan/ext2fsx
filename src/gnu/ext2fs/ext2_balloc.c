@@ -46,9 +46,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/ucred.h>
 #include <sys/vnode.h>
 
-#ifdef APPLE
 #include "ext2_apple.h"
-#endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_fs.h>
@@ -73,7 +71,7 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 {
 	struct ext2_sb_info *fs;
 	ext2_daddr_t nb;
-	buf_t  bp, *nbp;
+	buf_t bp, nbp;
 	vnode_t vp = ITOV(ip);
 	struct indir indirs[NIADDR + 2];
 	ext2_daddr_t newb, lbn, *bap, pref;
@@ -89,7 +87,7 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	fs = ip->i_e2fs;
 	lbn = bn;
    
-    if (flags & B_NOBUFF) 
+    if (flags & B_NOBUFF)
       alloc_buf = 0;
    
     if (blk_alloc)
@@ -114,12 +112,12 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		   the file */
 		if (nb != 0 && ip->i_size >= (bn + 1) * fs->s_blocksize) {
 			if (alloc_buf) {
-                error = bread(vp, bn, fs->s_blocksize, NOCRED, &bp);
+                error = buf_bread(vp, (daddr64_t)bn, fs->s_blocksize, NOCRED, &bp);
                 if (error) {
-                    brelse(bp);
+                    buf_brelse(bp);
                     return (error);
                 }
-                bp->b_blkno = fsbtodb(fs, nb);
+                buf_setblkno(bp, (daddr64_t)fsbtodb(fs, nb));
                 *bpp = bp;
             } /* allocbuf */
 			return (0);
@@ -132,12 +130,12 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			nsize = fragroundup(fs, size);
 			if (nsize <= osize) {
                 if (alloc_buf) {
-                    error = bread(vp, bn, osize, NOCRED, &bp);
+                    error = buf_bread(vp, (daddr64_t)bn, osize, NOCRED, &bp);
                     if (error) {
-                        brelse(bp);
+                        buf_brelse(bp);
                         return (error);
                     }
-                    bp->b_blkno = fsbtodb(fs, nb);
+                    buf_setblkno(bp, (daddr64_t)fsbtodb(fs, nb));
                 } else { /* alloc_buf */
                     ip->i_flag |= IN_CHANGE | IN_UPDATE;
                     return (0);
@@ -165,8 +163,8 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			if (error)
 				return (error);
             if (alloc_buf) {
-                bp = getblk(vp, bn, nsize, 0, 0, BLK_WRITE);
-                bp->b_blkno = fsbtodb(fs, newb);
+                bp = buf_getblk(vp, (daddr64_t)bn, nsize, 0, 0, BLK_WRITE);
+                buf_setblkno(bp, (daddr64_t)fsbtodb(fs, newb));
                 if (flags & B_CLRBUF)
                     vfs_bio_clrbuf(bp);
             } /* alloc_buf */
@@ -216,14 +214,14 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		    cred, &newb)) != 0)
 			return (error);
 		nb = newb;
-		bp = getblk(vp, indirs[1].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
-		bp->b_blkno = fsbtodb(fs, nb);
+		bp = buf_getblk(vp, (daddr64_t)indirs[1].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
+		buf_setblkno(bp, (daddr64_t)fsbtodb(fs, nb));
 		vfs_bio_clrbuf(bp);
 		/*
 		 * Write synchronously so that indirect blocks
 		 * never point at garbage.
 		 */
-		if ((error = bwrite(bp)) != 0) {
+		if ((error = buf_bwrite(bp)) != 0) {
 			ext2_blkfree(ip, nb, fs->s_blocksize);
 			return (error);
 		}
@@ -234,19 +232,19 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	 * Fetch through the indirect blocks, allocating as necessary.
 	 */
 	for (i = 1;;) {
-		error = meta_bread(vp,
-		    indirs[i].in_lbn, (int)fs->s_blocksize, NOCRED, &bp);
+		error = buf_meta_bread(vp,
+		    (daddr64_t)indirs[i].in_lbn, (int)fs->s_blocksize, NOCRED, &bp);
 		if (error) {
-			brelse(bp);
+			buf_brelse(bp);
 			return (error);
 		}
-		bap = (int32_t *)bp->b_data;
+		bap = (ext2_daddr_t *)buf_dataptr(bp);
 		nb = le32_to_cpu(bap[indirs[i].in_off]);
 		if (i == num)
 			break;
 		i += 1;
 		if (nb != 0) {
-			brelse(bp);
+			buf_brelse(bp);
 			continue;
 		}
 		if (pref == 0) 
@@ -258,26 +256,26 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			 * Also, will it ever succeed ?
 			 */
 			pref = ext2_blkpref(ip, lbn, indirs[i].in_off, bap,
-						bp->b_lblkno);
+						/* XXX */(ext2_daddr_t)buf_lblkno(bp));
 #else
 			pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
 #endif
 		if ((error =
 		    ext2_alloc(ip, lbn, pref, (int)fs->s_blocksize, cred, &newb)) != 0) {
-			brelse(bp);
+			buf_brelse(bp);
 			return (error);
 		}
 		nb = newb;
-		nbp = getblk(vp, indirs[i].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
-		nbp->b_blkno = fsbtodb(fs, nb);
+		nbp = buf_getblk(vp, (daddr64_t)indirs[i].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
+		buf_setblkno(nbp, (daddr64_t)fsbtodb(fs, nb));
 		vfs_bio_clrbuf(nbp);
 		/*
 		 * Write synchronously so that indirect blocks
 		 * never point at garbage.
 		 */
-		if ((error = bwrite(nbp)) != 0) {
+		if ((error = buf_bwrite(nbp)) != 0) {
 			ext2_blkfree(ip, nb, fs->s_blocksize);
-			brelse(bp);
+			buf_brelse(bp);
 			return (error);
 		}
 		bap[indirs[i - 1].in_off] = cpu_to_le32(nb);
@@ -286,9 +284,9 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		 * delayed write.
 		 */
 		if (flags & B_SYNC) {
-			bwrite(bp);
+			buf_bwrite(bp);
 		} else {
-			bdwrite(bp);
+			buf_bdwrite(bp);
 		}
 	}
 	/*
@@ -296,10 +294,10 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	 */
 	if (nb == 0) {
 		pref = ext2_blkpref(ip, lbn, indirs[i].in_off, &bap[0], 
-				bp->b_lblkno);
+				/* XXX */(ext2_daddr_t)buf_lblkno(bp));
 		if ((error = ext2_alloc(ip,
 		    lbn, pref, (int)fs->s_blocksize, cred, &newb)) != 0) {
-			brelse(bp);
+			buf_brelse(bp);
 			return (error);
 		}
 		nb = newb;
@@ -309,13 +307,13 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		 * delayed write.
 		 */
 		if (flags & B_SYNC) {
-			bwrite(bp);
+			buf_bwrite(bp);
 		} else {
-			bdwrite(bp);
+			buf_bdwrite(bp);
 		}
         if (alloc_buf) {
-            nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
-            nbp->b_blkno = fsbtodb(fs, nb);
+            nbp = buf_getblk(vp, (daddr64_t)lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
+            buf_setblkno(nbp, (daddr64_t)fsbtodb(fs, nb));
             if (flags & B_CLRBUF)
                 vfs_bio_clrbuf(nbp);
         } /* alloc_buf */
@@ -326,17 +324,17 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
             *bpp = nbp;
 		return (0);
 	}
-	brelse(bp);
+	buf_brelse(bp);
     if (alloc_buf) {
         if (flags & B_CLRBUF) {
-            error = bread(vp, lbn, (int)fs->s_blocksize, NOCRED, &nbp);
+            error = buf_bread(vp, (daddr64_t)lbn, (int)fs->s_blocksize, NOCRED, &nbp);
             if (error) {
-                brelse(nbp);
+                buf_brelse(nbp);
                 return (error);
             }
         } else {
-            nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
-            nbp->b_blkno = fsbtodb(fs, nb);
+            nbp = buf_getblk(vp, (daddr64_t)lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
+            buf_setblkno(nbp, (daddr64_t)fsbtodb(fs, nb));
         }
         *bpp = nbp;
     } /* alloc_buf */

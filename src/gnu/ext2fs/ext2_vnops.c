@@ -829,11 +829,10 @@ ext2_chown(vp, uid, gid, cred, td)
 /* ARGSUSED */
 static int
 ext2_fsync(ap)
-	struct vop_fsync_args /* {
+	struct vnop_fsync_args /* {
 		vnode_t a_vp;
-		struct ucred *a_cred;
 		int a_waitfor;
-		struct thread *a_td;
+        vfs_context_t a_context;
 	} */ *ap;
 {
     ext2_trace_enter();
@@ -847,7 +846,7 @@ ext2_fsync(ap)
 	 * Flush all dirty buffers associated with a vnode.
 	 */
 	ext2_discard_prealloc(VTOI(ap->a_vp));
-   
+    
     vop_stdfsync(ap);
 
 	ext2_trace_return(ext2_update(ap->a_vp, ap->a_waitfor == MNT_WAIT));
@@ -2123,23 +2122,44 @@ ext2_advlock(ap)
  * vnodes.
  */
 int
-ext2_vinit(mntp, specops, fifoops, vpp)
+ext2_vinit(mntp, args, vpp)
 	mount_t  mntp;
-	vop_t **specops;
-	vop_t **fifoops;
+    evinit_args_t *args;
 	vnode_t *vpp;
 {
-	struct inode *ip;
+	struct vnode_fsparam vfsargs;
+    struct inode *ip = args->va_ip;
+    evalloc_args_t *vaargs = args->va_vgetargs;
 	vnode_t vp;
-   vnode_t nvp;
+    vnode_t nvp;
 	struct timeval tv;
 
-	vp = *vpp;
+#ifdef obsolete
+    vp = *vpp;
 	ip = VTOI(vp);
-	switch(vp->v_type = IFTOVT(ip->i_mode)) {
+#endif
+	*vpp = NULL;
+    vfsargs.vnfs_mp = mntp;
+    vfsargs.vnfs_type = IFTOVT(ip->i_mode);
+    vfsargs.vnfs_str = "ext2 vnode";
+    vfsargs.vnfs_dvp = vaargs->va_parent;
+    vfsargs.vnfs_fsnode = ip;
+    vfsargs.vnfs_vops = args.va_vnops;
+    vfsargs.vnfs_markroot = (ROOTINO == ip->i_number);
+    vfsargs.vnfs_marksystem = (ip->i_number >= le32_to_cpu(EXT2_FIRST_INO(fs->s_es)));
+    vfsargs.vnfs_rdev = ip->i_rdev;
+    vfsargs.vnfs_filesize = ip->i_size;
+    vfsargs.vnfs_cnp = vaargs->va_cnp;
+    if (vfsargs.vnfs_dvp && vfsargs.vnfs_cnp && (vfsargs.vnfs_cnp->cn_flags & MAKEENTRY))
+        vfsargs.vnfs_flags = 0;
+    else
+        vfsp.vnfs_flags = VNFS_NOCACHE;
+    
+    switch(vfsargs.vnfs_type) {
 	case VCHR:
 	case VBLK:
-		vp->v_op = specops;
+		vfsargs.vnfs_vops = args.va_specops;
+#ifdef obsolete // XXX ???
       if (nvp = checkalias(vp, ip->i_rdev, mntp)) {
 			/*
 			 * Discard unneeded vnode, but save its inode.
@@ -2157,23 +2177,32 @@ ext2_vinit(mntp, specops, fifoops, vpp)
 			vp = nvp;
 			ip->i_vnode = vp;
 		}
+#endif // obsolete
 		break;
 	case VFIFO:
-		vp->v_op = fifoops;
+		vfsargs.vnfs_vops = args.va_fifoops;
 		break;
 	default:
 		break;
 
 	}
+#ifdef obsolete
 	if (ip->i_number == ROOTINO)
 		vp->v_vflag |= VV_ROOT;
-	/*
+#endif
+    /*
 	 * Initialize modrev times
 	 */
 	getmicrouptime(&tv);
 	SETHIGH(ip->i_modrev, tv.tv_sec);
 	SETLOW(ip->i_modrev, tv.tv_usec * 4294);
-	*vpp = vp;
+    if (0 != (error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsargs, &vp)))
+        return (error);
+    if (/* 0 == error && */ (args.va_flags & EXT2_VINIT_INO_LCKD))
+        IULOCK(ip);
+    vnode_addfsref(vp);
+    vnode_lock(vp);
+    *vpp = vp;
 	return (0);
 }
 
@@ -2202,7 +2231,7 @@ ext2_makeinode(mode, dvp, vpp, cnp)
 
 	error = ext2_valloc(dvp, mode, cnp->cn_cred, &tvp);
 	if (error) {
-      _FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
+        _FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
 		vput(dvp);
 		ext2_trace_return(error);
 	}

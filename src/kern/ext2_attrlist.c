@@ -105,12 +105,11 @@ static int ext2_unpackattr(struct vnode*, struct ucred*,
 
 int
 ext2_getattrlist(ap)
-	struct vop_getattrlist_args /* {
+	struct vnop_getattrlist_args /* {
 	vnode_t a_vp;
 	struct attrlist *a_alist
 	struct uio *a_uio; // INOUT
-	struct ucred *a_cred;
-	struct proc *a_p;
+	vfs_context_t a_context;
 	} */ *ap;
 {
    vnode_t vp = ap->a_vp;
@@ -128,21 +127,21 @@ ext2_getattrlist(ap)
       return (EINVAL);
    }
    
-   /* 
-	 * Requesting volume information requires setting the ATTR_VOL_INFO bit and
-	 * volume info requests are mutually exclusive with all other info requests.
-    * We only support VOL attributes.
-	 */
-   if ((0 != alist->volattr) && ((0 == (alist->volattr & ATTR_VOL_INFO)) ||
+    /* 
+     * Requesting volume information requires setting the ATTR_VOL_INFO bit and
+     * volume info requests are mutually exclusive with all other info requests.
+     * We only support VOL attributes.
+     */
+    if ((0 != alist->volattr) && ((0 == (alist->volattr & ATTR_VOL_INFO)) ||
          (0 != alist->dirattr) || (0 != alist->fileattr) ||
          (0 != alist->forkattr) )) {
       return (EINVAL);
-	}
+    }
    
-   /*
+    /*
 	 * Reject requests for unsupported options for now:
 	 */
-	if (!(vp->v_flag & VROOT) && (alist->commonattr & ATTR_CMN_NAME))
+	if (!vnode_isvroot(vp) && (alist->commonattr & ATTR_CMN_NAME))
       return (EINVAL); /*No way to determine an inode's name*/
 	if (alist->commonattr & (ATTR_CMN_NAMEDATTRCOUNT | ATTR_CMN_NAMEDATTRLIST | ATTR_CMN_FNDRINFO))
       return (EINVAL);
@@ -191,15 +190,15 @@ exit:
 
 /* Cribbed from ufs_attrlist.c */
 __private_extern__ int
-ext2_setattrlist(struct vop_setattrlist_args *ap)
+ext2_setattrlist(struct vnop_setattrlist_args *ap)
 {
 	struct vnode	*vp = ap->a_vp;
 	struct attrlist	*alist = ap->a_alist;
-	size_t		 attrblocksize;
-	void		*attrbufptr;
-	int		 error;
+	size_t attrblocksize;
+	void   *attrbufptr;
+	int    error;
 
-	if (vp->v_mount->mnt_flag & MNT_RDONLY)
+	if (vnode_vfsisrdonly(vp))
 		return (EROFS);
 
 	/*
@@ -239,7 +238,7 @@ ext2_setattrlist(struct vop_setattrlist_args *ap)
 	/*
 	 * Setting volume information requires a vnode for the volume root.
 	 */
-	if (alist->volattr && (vp->v_flag & VROOT) == 0)
+	if (alist->volattr && 0 == vnode_isvroot(vp))
 		return (EINVAL);
 
 	attrblocksize = ap->a_uio->uio_resid;
@@ -252,7 +251,7 @@ ext2_setattrlist(struct vop_setattrlist_args *ap)
 	if (error)
 		goto ErrorExit;
 
-	error = ext2_unpackattr(vp, ap->a_cred, alist, attrbufptr);
+	error = ext2_unpackattr(vp, vfs_context_ucred(ap->a_context), alist, attrbufptr);
 
 ErrorExit:
 	FREE(attrbufptr, M_TEMP);
@@ -384,59 +383,59 @@ ext2_packvolattr (struct attrlist *alist,
 			 void **attrbufptrptr,
 			 void **varbufptrptr)
 {
-   struct proc *p;
-   void *attrbufptr;
-   void *varbufptr;
-	struct ext2_sb_info *fs;
-	mount_t mp;
-   struct ext2mount *emp;
-	attrgroup_t a;
-	u_long attrlength;
-   int err = 0;
-   struct timespec ts;
+    struct proc *p;
+    void *attrbufptr;
+    void *varbufptr;
+    struct ext2_sb_info *fs;
+    mount_t mp;
+    struct ext2mount *emp;
+    attrgroup_t a;
+    u_long attrlength;
+    int err = 0;
+    struct timespec ts;
 	
 	attrbufptr = *attrbufptrptr;
 	varbufptr = *varbufptrptr;
-	mp = ip->i_vnode->v_mount;
-   emp = VFSTOEXT2(mp);
-   fs = ip->i_e2fs;
+	mp = ITOVFS(ip);
+    emp = VFSTOEXT2(mp);
+    fs = ip->i_e2fs;
    
-   p = current_proc();
+    p = current_proc();
 
-   if ((a = alist->commonattr) != 0) {
+    if ((a = alist->commonattr) != 0) {
       
-      if (a & ATTR_CMN_NAME) {
-         attrlength = ext2_vol_label_len(fs->s_es->s_volume_name);
-         
-         ((struct attrreference *)attrbufptr)->attr_dataoffset = (u_int8_t *)varbufptr - (u_int8_t *)attrbufptr;
-         ((struct attrreference *)attrbufptr)->attr_length = attrlength;
-         /* copy name */
-         (void) strncpy((unsigned char *)varbufptr, fs->s_es->s_volume_name, attrlength);
-         *((unsigned char *)varbufptr + attrlength) = 0;
-         
-         /* Advance beyond the space just allocated and round up to the next 4-byte boundary: */
-         (u_int8_t *)varbufptr += attrlength + ((4 - (attrlength & 3)) & 3);
-         ++((struct attrreference *)attrbufptr);
-      };
-		if (a & ATTR_CMN_DEVID) *((dev_t *)attrbufptr)++ = emp->um_devvp->v_rdev;
-		if (a & ATTR_CMN_FSID) *((fsid_t *)attrbufptr)++ =  mp->mnt_stat.f_fsid;
-		if (a & ATTR_CMN_OBJTYPE) *((fsobj_type_t *)attrbufptr)++ = 0;
-		if (a & ATTR_CMN_OBJTAG) *((fsobj_tag_t *)attrbufptr)++ = VT_OTHER;
-		if (a & ATTR_CMN_OBJID)	{
-			((fsobj_id_t *)attrbufptr)->fid_objno = EXT2_ROOT_INO;
-			((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
-			++((fsobj_id_t *)attrbufptr);
-		};
-      if (a & ATTR_CMN_OBJPERMANENTID) {
-         ((fsobj_id_t *)attrbufptr)->fid_objno = EXT2_ROOT_INO;
-         ((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
-         ++((fsobj_id_t *)attrbufptr);
-      };
-		if (a & ATTR_CMN_PAROBJID) {
+        if (a & ATTR_CMN_NAME) {
+            attrlength = ext2_vol_label_len(fs->s_es->s_volume_name);
+
+            ((struct attrreference *)attrbufptr)->attr_dataoffset = (u_int8_t *)varbufptr - (u_int8_t *)attrbufptr;
+            ((struct attrreference *)attrbufptr)->attr_length = attrlength;
+            /* copy name */
+            (void) strncpy((unsigned char *)varbufptr, fs->s_es->s_volume_name, attrlength);
+            *((unsigned char *)varbufptr + attrlength) = 0;
+
+            /* Advance beyond the space just allocated and round up to the next 4-byte boundary: */
+            (u_int8_t *)varbufptr += attrlength + ((4 - (attrlength & 3)) & 3);
+            ++((struct attrreference *)attrbufptr);
+        };
+        if (a & ATTR_CMN_DEVID) *((dev_t *)attrbufptr)++ = vnode_specrdev(emp->um_devvp);
+        if (a & ATTR_CMN_FSID) *((fsid_t *)attrbufptr)++ =  vfs_statfs(mp)->f_fsid;
+        if (a & ATTR_CMN_OBJTYPE) *((fsobj_type_t *)attrbufptr)++ = 0;
+        if (a & ATTR_CMN_OBJTAG) *((fsobj_tag_t *)attrbufptr)++ = VT_EXT2;
+        if (a & ATTR_CMN_OBJID)	{
+            ((fsobj_id_t *)attrbufptr)->fid_objno = ROOTINO;
+            ((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
+            ++((fsobj_id_t *)attrbufptr);
+        };
+        if (a & ATTR_CMN_OBJPERMANENTID) {
+            ((fsobj_id_t *)attrbufptr)->fid_objno = ROOTINO;
+            ((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
+            ++((fsobj_id_t *)attrbufptr);
+        };
+        if (a & ATTR_CMN_PAROBJID) {
             ((fsobj_id_t *)attrbufptr)->fid_objno = 0;
-			((fsobj_id_t *)attrbufptr)->fid_generation = 0;
-			++((fsobj_id_t *)attrbufptr);
-		};
+            ((fsobj_id_t *)attrbufptr)->fid_generation = 0;
+            ++((fsobj_id_t *)attrbufptr);
+        };
       
       if (a & ATTR_CMN_SCRIPT) *((text_encoding_t *)attrbufptr)++ = 0;
       
@@ -468,33 +467,32 @@ ext2_packvolattr (struct attrlist *alist,
 	}
 	
 	if ((a = alist->volattr) != 0) {
-      struct statfs sb;
-      int numdirs = fs->s_dircount;
-      
-      if (0 != (err = mp->mnt_op->vfs_statfs(mp, &sb, p)))
-         goto exit;
+        struct vfsstatfs *sbp;
+        int numdirs = fs->s_dircount;
 
-		if (a & ATTR_VOL_FSTYPE) *((u_long *)attrbufptr)++ = (u_long)mp->mnt_vfc->vfc_typenum;
-		if (a & ATTR_VOL_SIGNATURE) *((u_long *)attrbufptr)++ = (u_long)EXT2_SUPER_MAGIC;
-      if (a & ATTR_VOL_SIZE) *((off_t *)attrbufptr)++ = (off_t)sb.f_blocks * sb.f_bsize;
-      if (a & ATTR_VOL_SPACEFREE) *((off_t *)attrbufptr)++ = (off_t)sb.f_bfree * sb.f_bsize;
-      if (a & ATTR_VOL_SPACEAVAIL) *((off_t *)attrbufptr)++ = (off_t)sb.f_bavail * sb.f_bsize;
-      if (a & ATTR_VOL_MINALLOCATION) *((off_t *)attrbufptr)++ = sb.f_bsize;
-		if (a & ATTR_VOL_ALLOCATIONCLUMP) *((off_t *)attrbufptr)++ = sb.f_bsize;
-      if (a & ATTR_VOL_IOBLOCKSIZE) *((size_t *)attrbufptr)++ = sb.f_iosize;
-		if (a & ATTR_VOL_OBJCOUNT) *((u_long *)attrbufptr)++ = sb.f_files - sb.f_ffree;
-		if (a & ATTR_VOL_FILECOUNT) *((u_long *)attrbufptr)++ = (sb.f_files - sb.f_ffree) - numdirs;
-		if (a & ATTR_VOL_DIRCOUNT) *((u_long *)attrbufptr)++ = numdirs;
-		if (a & ATTR_VOL_MAXOBJCOUNT) *((u_long *)attrbufptr)++ = sb.f_files;
+        sbp = vfs_statfs(mp);
+
+        if (a & ATTR_VOL_FSTYPE) *((u_long *)attrbufptr)++ = (u_long)vfs_typenum(mp);
+        if (a & ATTR_VOL_SIGNATURE) *((u_long *)attrbufptr)++ = (u_long)EXT2_SUPER_MAGIC;
+        if (a & ATTR_VOL_SIZE) *((off_t *)attrbufptr)++ = (off_t)sbp->f_blocks * sbp->f_bsize;
+        if (a & ATTR_VOL_SPACEFREE) *((off_t *)attrbufptr)++ = (off_t)sbp->f_bfree * sbp->f_bsize;
+        if (a & ATTR_VOL_SPACEAVAIL) *((off_t *)attrbufptr)++ = (off_t)sbp->f_bavail * sbp->f_bsize;
+        if (a & ATTR_VOL_MINALLOCATION) *((off_t *)attrbufptr)++ = sbp->f_bsize;
+        if (a & ATTR_VOL_ALLOCATIONCLUMP) *((off_t *)attrbufptr)++ = sbp->f_bsize;
+        if (a & ATTR_VOL_IOBLOCKSIZE) *((size_t *)attrbufptr)++ = sbp->f_iosize;
+        if (a & ATTR_VOL_OBJCOUNT) *((u_long *)attrbufptr)++ = sbp->f_files - sbp->f_ffree;
+        if (a & ATTR_VOL_FILECOUNT) *((u_long *)attrbufptr)++ = (sbp->f_files - sbp->f_ffree) - numdirs;
+        if (a & ATTR_VOL_DIRCOUNT) *((u_long *)attrbufptr)++ = numdirs;
+        if (a & ATTR_VOL_MAXOBJCOUNT) *((u_long *)attrbufptr)++ = sbp->f_files;
       if (a & ATTR_VOL_MOUNTPOINT) {
          ((struct attrreference *)attrbufptr)->attr_dataoffset =
                (char *)varbufptr - (char *)attrbufptr;
          ((struct attrreference *)attrbufptr)->attr_length =
-               strlen(mp->mnt_stat.f_mntonname) + 1;
+               strlen(sbp->f_mntonname) + 1;
          attrlength = ((struct attrreference *)attrbufptr)->attr_length;
          /* round up to the next 4-byte boundary: */
          attrlength = attrlength + ((4 - (attrlength & 3)) & 3);
-         (void) bcopy(mp->mnt_stat.f_mntonname, varbufptr, attrlength);
+         (void) bcopy(sbp->f_mntonname, varbufptr, attrlength);
             
          /* Advance beyond the space just allocated: */
          (char *)varbufptr += attrlength;
@@ -512,13 +510,13 @@ ext2_packvolattr (struct attrlist *alist,
          (u_int8_t *)varbufptr += attrlength + ((4 - (attrlength & 3)) & 3);
          ++((struct attrreference *)attrbufptr);
       };
-		if (a & ATTR_VOL_MOUNTFLAGS) *((u_long *)attrbufptr)++ = (u_long)mp->mnt_flag;
+		if (a & ATTR_VOL_MOUNTFLAGS) *((u_long *)attrbufptr)++ = (u_long)(vfs_flags(mp) & 0xFFFFFFFF00000000ULL);
         if (a & ATTR_VOL_MOUNTEDDEVICE) {
             ((struct attrreference *)attrbufptr)->attr_dataoffset = (u_int8_t *)varbufptr - (u_int8_t *)attrbufptr;
-            ((struct attrreference *)attrbufptr)->attr_length = strlen(mp->mnt_stat.f_mntfromname) + 1;
+            ((struct attrreference *)attrbufptr)->attr_length = strlen(sbp->f_mntfromname) + 1;
 			attrlength = ((struct attrreference *)attrbufptr)->attr_length;
 			attrlength = attrlength + ((4 - (attrlength & 3)) & 3);		/* round up to the next 4-byte boundary: */
-			(void) bcopy(mp->mnt_stat.f_mntfromname, varbufptr, attrlength);
+			(void) bcopy(sbp->f_mntfromname, varbufptr, attrlength);
 			
 			/* Advance beyond the space just allocated: */
             (u_int8_t *)varbufptr += attrlength;
@@ -594,7 +592,6 @@ ext2_packvolattr (struct attrlist *alist,
         }
 	}
 
-exit:
 	*attrbufptrptr = attrbufptr;
 	*varbufptrptr = varbufptr;
    
@@ -607,17 +604,21 @@ ext2_packcommonattr (struct attrlist *alist,
 				void **attrbufptrptr,
 				void **varbufptrptr)
 {
-	void *attrbufptr;
+	vnode_t vp;
+    void *attrbufptr;
 	void *varbufptr;
 	attrgroup_t a;
 	u_long attrlength;
     struct timespec ts;
-	
+	int vroot;
+    
 	attrbufptr = *attrbufptrptr;
 	varbufptr = *varbufptrptr;
 	
+    vp = ITOV(ip);
+    vroot = vnode_isvroot(vp);
     if ((a = alist->commonattr) != 0) {
-		struct ext2mount *emp = VFSTOEXT2(ip->i_vnode->v_mount);
+		struct ext2mount *emp = VFSTOEXT2(ITOVFS(ip));
 
         if (a & ATTR_CMN_NAME) {
 			/* special case root since we know how to get it's name
@@ -635,21 +636,21 @@ ext2_packcommonattr (struct attrlist *alist,
             (u_int8_t *)varbufptr += attrlength + ((4 - (attrlength & 3)) & 3);
             ++((struct attrreference *)attrbufptr);
         };
-		if (a & ATTR_CMN_DEVID) *((dev_t *)attrbufptr)++ = ip->i_devvp->v_rdev;
-		if (a & ATTR_CMN_FSID) *((fsid_t *)attrbufptr)++ = ITOV(ip)->v_mount->mnt_stat.f_fsid;
-		if (a & ATTR_CMN_OBJTYPE) *((fsobj_type_t *)attrbufptr)++ = ITOV(ip)->v_type;
-		if (a & ATTR_CMN_OBJTAG) *((fsobj_tag_t *)attrbufptr)++ = ITOV(ip)->v_tag;
+		if (a & ATTR_CMN_DEVID) *((dev_t *)attrbufptr)++ = vnode_specrdev(ip->i_devvp);
+		if (a & ATTR_CMN_FSID) *((fsid_t *)attrbufptr)++ = vfs_statfs(vnode_mount(vp))->f_fsid;
+		if (a & ATTR_CMN_OBJTYPE) *((fsobj_type_t *)attrbufptr)++ = vnode_vtype(vp);
+		if (a & ATTR_CMN_OBJTAG) *((fsobj_tag_t *)attrbufptr)++ = vnode_tag(vp);
         if (a & ATTR_CMN_OBJID)	{
-			if (ITOV(ip)->v_flag & VROOT)
-				((fsobj_id_t *)attrbufptr)->fid_objno = EXT2_ROOT_INO;	/* force root */
+			if (vroot)
+				((fsobj_id_t *)attrbufptr)->fid_objno = ROOTINO;	/* force root */
 			else
             	((fsobj_id_t *)attrbufptr)->fid_objno = ip->i_number;
 			((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
 			++((fsobj_id_t *)attrbufptr);
 		};
         if (a & ATTR_CMN_OBJPERMANENTID)	{
-			if (ITOV(ip)->v_flag & VROOT)
-				((fsobj_id_t *)attrbufptr)->fid_objno = EXT2_ROOT_INO;	/* force root */
+			if (vroot)
+				((fsobj_id_t *)attrbufptr)->fid_objno = ROOTINO;	/* force root */
 			else
             	((fsobj_id_t *)attrbufptr)->fid_objno = ip->i_number;
             ((fsobj_id_t *)attrbufptr)->fid_generation = ip->i_gen;
@@ -657,8 +658,8 @@ ext2_packcommonattr (struct attrlist *alist,
         };
 		if (a & ATTR_CMN_PAROBJID) {
 
-			if (ITOV(ip)->v_flag & VROOT)
-				((fsobj_id_t *)attrbufptr)->fid_objno = EXT2_ROOT_INO;
+			if (vroot)
+				((fsobj_id_t *)attrbufptr)->fid_objno = ROOTINO;
 			else
             	((fsobj_id_t *)attrbufptr)->fid_objno = 0;
 			((fsobj_id_t *)attrbufptr)->fid_generation = 0;
@@ -666,7 +667,7 @@ ext2_packcommonattr (struct attrlist *alist,
 		};
       if (a & ATTR_CMN_SCRIPT) *((text_encoding_t *)attrbufptr)++ = 0;
       
-      if ((ITOV(ip)->v_flag & VROOT)) {
+      if (vroot) {
           ts.tv_sec = le32_to_cpu(emp->um_e2fs->s_es->s_mkfs_time); ts.tv_nsec = 0;
       } else {
          ts.tv_sec = ip->i_ctime; ts.tv_nsec = ip->i_ctimensec;
@@ -712,7 +713,7 @@ ext2_packcommonattr (struct attrlist *alist,
 				DerivePermissionSummary(ip->i_uid,
 										ip->i_gid,
 										ip->i_mode,
-										ip->i_vnode->v_mount,
+										ITOVFS(ip),
 										current_proc()->p_ucred,
 										current_proc());
 		};
@@ -729,15 +730,17 @@ ext2_packdirattr(struct attrlist *alist,
 			void **attrbufptrptr,
 			void **varbufptrptr)
 {
-   void *attrbufptr;
-   attrgroup_t a;
-	int filcnt, dircnt;
+    vnode_t vp;
+    void *attrbufptr;
+    attrgroup_t a;
+    int filcnt, dircnt;
 	
 	attrbufptr = *attrbufptrptr;
 	filcnt = dircnt = 0;
 	
-	a = alist->dirattr;
-	if ((ITOV(ip)->v_type == VDIR) && (a != 0)) {
+	vp = ITOV(ip);
+    a = alist->dirattr;
+	if ((vnode_vtype(vp) == VDIR) && (a != 0)) {
 		if (a & ATTR_DIR_LINKCOUNT) {
 			*((u_long *)attrbufptr)++ = ip->i_nlink;
 		}
@@ -746,7 +749,7 @@ ext2_packdirattr(struct attrlist *alist,
 			*((u_long *)attrbufptr)++ = ((ip->i_nlink <= 2) ? 0 : (ip->i_nlink - 2));
 		}
 		if (a & ATTR_DIR_MOUNTSTATUS) {
-			if (ITOV(ip)->v_mountedhere) {
+			if (vnode_mountedhere(vp)) {
 				*((u_long *)attrbufptr)++ = DIR_MNTSTATUS_MNTPOINT;
 			} else {
 				*((u_long *)attrbufptr)++ = 0;
@@ -764,12 +767,14 @@ ext2_packfileattr(struct attrlist *alist,
 			 void **attrbufptrptr,
 			 void **varbufptrptr)
 {
+    vnode_t vp;
     void *attrbufptr = *attrbufptrptr;
     void *varbufptr = *varbufptrptr;
     attrgroup_t a = alist->fileattr;
     struct ext2_sb_info *fs = ip->i_e2fs;
 	
-	if ((ITOV(ip)->v_type == VREG) && (a != 0)) {
+	vp = ITOV(ip);
+    if ((vnode_vtype(vp) == VREG) && (a != 0)) {
 		if (a & ATTR_FILE_LINKCOUNT)
 			*((u_long *)attrbufptr)++ = ip->i_nlink;
 		if (a & ATTR_FILE_TOTALSIZE)
@@ -781,7 +786,7 @@ ext2_packfileattr(struct attrlist *alist,
 		if (a & ATTR_FILE_CLUMPSIZE)
 			*((u_long *)attrbufptr)++ = ip->i_e2fs->s_frag_size;
 		if (a & ATTR_FILE_DEVTYPE)
-			*((u_long *)attrbufptr)++ = (u_long)ip->i_devvp->v_rdev;
+			*((u_long *)attrbufptr)++ = (u_long)vnode_specrdev(ip->i_devvp);
 		if (a & ATTR_FILE_DATALENGTH)
 			*((off_t *)attrbufptr)++ = (off_t)ip->i_size;
 		if (a & ATTR_FILE_DATAALLOCSIZE)
@@ -809,7 +814,7 @@ ext2_packattrblk(struct attrlist *alist,
    } else {
       ext2_packcommonattr(alist, ip, attrbufptrptr, varbufptrptr);
       
-      switch (vp->v_type) {
+      switch (vnode_vtype(vp)) {
          case VDIR:
             ext2_packdirattr(alist, ip, attrbufptrptr, varbufptrptr);
          break;
@@ -939,7 +944,7 @@ DerivePermissionSummary(uid_t obj_uid, gid_t obj_gid, mode_t obj_mode,
 	}
 
 	/* Otherwise, check the groups. */
-	if (! (mp->mnt_flag & MNT_UNKNOWNPERMISSIONS)) {
+	if (! (vfs_flags(mp) & MNT_UNKNOWNPERMISSIONS)) {
 		for (i = 0, gp = cred->cr_groups; i < cred->cr_ngroups; i++, gp++) {
 			if (obj_gid == *gp) {
 				permissions = ((unsigned long)obj_mode & S_IRWXG) >> 3;

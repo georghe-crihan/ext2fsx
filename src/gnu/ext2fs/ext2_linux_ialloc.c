@@ -37,12 +37,9 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #include <sys/buf.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
-
-#ifdef APPLE
 #include <machine/spl.h>
 
 #include "ext2_apple.h"
-#endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -63,20 +60,9 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #error Provide a bitops.h file, please!
 #endif
 
-/* this is supposed to mark a buffer dirty on ready for delayed writing
- */
-void mark_buffer_dirty(buf_t  bh)
-{
-	int s;
-
-	s = splbio();
-	bh->b_flags |= B_DIRTY;
-	splx(s);
-} 
-
-struct ext2_group_desc * get_group_desc (mount_t   mp,
-						unsigned int block_group,
-						struct buffer_head ** bh)
+struct ext2_group_desc * get_group_desc (mount_t mp,
+	unsigned int block_group,
+	buf_t* bp)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	unsigned long group_desc;
@@ -101,40 +87,41 @@ struct ext2_group_desc * get_group_desc (mount_t   mp,
       /* Linux logs the panic msg and returns NULL */
    }
 	gdp = (struct ext2_group_desc *) 
-		sb->s_group_desc[group_desc]->b_data;
-	if (bh)
-		*bh = sb->s_group_desc[group_desc];
+		buf_dataptr(sb->s_group_desc[group_desc]);
+	if (bp)
+		*bp = sb->s_group_desc[group_desc];
 	return gdp + desc;
 }
 
 static void read_inode_bitmap (mount_t   mp,
-			       unsigned long block_group,
-			       unsigned int bitmap_nr
-				#if !EXT2_SB_BITMAP_CACHE
-                , struct buffer_head **bhpp
-            #endif
-					 )
+	unsigned long block_group,
+	unsigned int bitmap_nr
+	#if !EXT2_SB_BITMAP_CACHE
+	, buf_t *bpp
+	#endif
+	)
 {
-	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
+	struct ext2mount *ump = VFSTOEXT2(mp);
+	struct ext2_sb_info *sb = ump->um_e2fs;
 	struct ext2_group_desc * gdp;
-	struct buffer_head * bh;
+	buf_t bp;
 	int	error;
 
 	gdp = get_group_desc (mp, block_group, NULL);
-	if ((error = meta_bread (VFSTOEXT2(mp)->um_devvp,
-			    fsbtodb(sb, le32_to_cpu(gdp->bg_inode_bitmap)), 
+	if ((error = buf_meta_bread (ump->um_devvp,
+			    (daddr64_t)fsbtodb(sb, le32_to_cpu(gdp->bg_inode_bitmap)), 
 			    sb->s_blocksize,
-			    NOCRED, &bh)) != 0)
+			    NOCRED, &bp)) != 0)
 		panic ( "ext2: read_inode_bitmap:"
 			    "Cannot read inode bitmap - "
 			    "block_group = %lu, inode_bitmap = %lu",
 			    block_group, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
 #if EXT2_SB_BITMAP_CACHE
 	sb->s_inode_bitmap_number[bitmap_nr] = block_group;
-	sb->s_inode_bitmap[bitmap_nr] = bh;
-	LCK_BUF(bh)
+	sb->s_inode_bitmap[bitmap_nr] = bp;
+	LCK_BUF(bp)
 #else
-	*bhpp = bh;
+	*bpp = bp;
 #endif
 }
 
@@ -149,17 +136,17 @@ static void read_inode_bitmap (mount_t   mp,
  * 2/ If the file system contains less than EXT2_MAX_GROUP_LOADED groups,
  *    this function reads the bitmap without maintaining a LRU cache.
  */
-static int load_inode_bitmap (mount_t   mp,
-			      unsigned int block_group
-				#if !EXT2_SB_BITMAP_CACHE
-					, struct buffer_head **bhpp
-            #endif
-					)
+static int load_inode_bitmap (mount_t mp,
+	unsigned int block_group
+	#if !EXT2_SB_BITMAP_CACHE
+	, buf_t *bpp
+	#endif
+	)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	int i, j;
 	unsigned long inode_bitmap_number;
-	struct buffer_head * inode_bitmap;
+	buf_t inode_bitmap;
 
 	if (block_group >= sb->s_groups_count)
 		panic ("ext2: load_inode_bitmap:"
@@ -181,7 +168,7 @@ static int load_inode_bitmap (mount_t   mp,
 		#if EXT2_SB_BITMAP_CACHE
 			read_inode_bitmap (mp, block_group, block_group);
 		#else
-			read_inode_bitmap (mp, block_group, block_group, bhpp);
+			read_inode_bitmap (mp, block_group, block_group, bpp);
 		#endif
 			return block_group;
 		}
@@ -217,7 +204,7 @@ static int load_inode_bitmap (mount_t   mp,
 		}
 		read_inode_bitmap (mp, block_group, 0);
 #else
-		read_inode_bitmap (mp, block_group, 0, bhpp);
+		read_inode_bitmap (mp, block_group, 0, bpp);
 #endif /* EXT2_SB_BITMAP_CACHE */
 	}
 	return 0;
@@ -227,8 +214,9 @@ static int load_inode_bitmap (mount_t   mp,
 void ext2_free_inode (struct inode * inode)
 {
 	struct ext2_sb_info * sb;
-	struct buffer_head * bh;
-	struct buffer_head * bh2;
+	mount_t mp;
+	buf_t bp;
+	buf_t bp2;
 	unsigned long block_group;
 	unsigned long bit;
 	int bitmap_nr;
@@ -247,6 +235,7 @@ void ext2_free_inode (struct inode * inode)
 	ext2_debug ("ext2: freeing inode %lu\n", (unsigned long)inode->i_number);
 
 	sb = inode->i_e2fs;
+	mp = ITOVFS(inode);
 	lock_super (sb);
 	if (inode->i_number < EXT2_FIRST_INO ||
 	    inode->i_number > le32_to_cpu(sb->s_es->s_inodes_count)) {
@@ -258,41 +247,41 @@ void ext2_free_inode (struct inode * inode)
 	block_group = (inode->i_number - 1) / EXT2_INODES_PER_GROUP(sb);
 	bit = (inode->i_number - 1) % EXT2_INODES_PER_GROUP(sb);
 #if EXT2_SB_BITMAP_CACHE
-	bitmap_nr = load_inode_bitmap (ITOV(inode)->v_mount, block_group);
-	bh = sb->s_inode_bitmap[bitmap_nr];
+	bitmap_nr = load_inode_bitmap (mp, block_group);
+	bp = sb->s_inode_bitmap[bitmap_nr];
 #else
-	bitmap_nr = load_inode_bitmap (ITOV(inode)->v_mount, block_group, &bh);
+	bitmap_nr = load_inode_bitmap (mp, block_group, &bp);
 #endif
-   if (!ext2_clear_bit (bit, bh->b_data))
+   if (!ext2_clear_bit (bit, (char*)buf_dataptr(bp)))
 		printf ( "ext2_free_inode:"
 		      "bit already cleared for inode %lu",
 		      (unsigned long)inode->i_number);
 	else {
-		gdp = get_group_desc (ITOV(inode)->v_mount, block_group, &bh2);
+		gdp = get_group_desc (mp, block_group, &bp2);
 		gdp->bg_free_inodes_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_inodes_count) + 1);
 		if (S_ISDIR(inode->i_mode)) {
 			gdp->bg_used_dirs_count = cpu_to_le16(le16_to_cpu(gdp->bg_used_dirs_count) - 1);
 			sb->s_dircount -= 1;
 		}
-		mark_buffer_dirty(bh2);
+		mark_buffer_dirty(bp2);
 		es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) + 1);
 	}
 #if EXT2_SB_BITMAP_CACHE
-	mark_buffer_dirty(bh);
+	mark_buffer_dirty(bp);
 #endif
 /*** XXX
 	if (sb->s_flags & MS_SYNCHRONOUS) {
-		ll_rw_block (WRITE, 1, &bh);
-		wait_on_buffer (bh);
+		ll_rw_block (WRITE, 1, &bp);
+		wait_on_buffer (bp);
 	}
 ***/
 	sb->s_dirt = 1;
 	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
-	if (0 == (ITOV(inode)->v_mount->mnt_flag & MNT_SYNCHRONOUS))
-		bdwrite(bh);
+	if (0 == vnode_vfsisrdonly(ITOV(inode)))
+		buf_bdwrite(bp);
 	else
-		bwrite(bh);
+		buf_bwrite(bp);
 #endif
 }
 
@@ -307,30 +296,30 @@ static void inc_inode_version (struct inode * inode,
 			       int mode)
 {
 	unsigned long inode_block;
-	struct buffer_head * bh;
+	buf_t bp;
 	struct ext2_inode * raw_inode;
 
 	inode_block = cpu_to_le32(gdp->bg_inode_table) + (((inode->i_number - 1) %
 			EXT2_INODES_PER_GROUP(inode->i_sb)) /
 			EXT2_INODES_PER_BLOCK(inode->i_sb));
-	bh = bread (inode->i_sb->s_dev, inode_block, inode->i_sb->s_blocksize);
-	if (!bh) {
+	bp = bread (inode->i_sb->s_dev, inode_block, inode->i_sb->s_blocksize);
+	if (!bp) {
 		printf ("inc_inode_version Cannot load inode table block - "
 			    "inode=%lu, inode_block=%lu\n",
 			    inode->i_number, inode_block);
 		inode->u.ext2_i.i_version = 1;
 		return;
 	}
-	raw_inode = ((struct ext2_inode *) bh->b_data) +
+	raw_inode = ((struct ext2_inode *) bp->b_data) +
 			(((inode->i_number - 1) %
 			EXT2_INODES_PER_GROUP(inode->i_sb)) %
 			EXT2_INODES_PER_BLOCK(inode->i_sb));
 	raw_inode->i_version++;
 	inode->u.ext2_i.i_version = raw_inode->i_version;
 	if (0 == (ITOV(inode)->v_mount->mnt_flag & MNT_SYNCHRONOUS))
-		bdwrite(bh);
+		bdwrite(bp);
 	else
-		bwrite(bh);
+		bwrite(bp);
 }
 
 #endif /* linux */
@@ -351,17 +340,20 @@ static void inc_inode_version (struct inode * inode,
 ino_t ext2_new_inode (const struct inode * dir, int mode)
 {
 	struct ext2_sb_info * sb;
-	struct buffer_head * bh;
-	struct buffer_head * bh2;
+	mount_t mp;
+	buf_t bp;
+	buf_t bp2;
 	int i, j, avefreei;
 	int bitmap_nr;
 	struct ext2_group_desc * gdp;
 	struct ext2_group_desc * tmp;
 	struct ext2_super_block * es;
+	char *data;
 
 	if (!dir)
 		return 0;
 	sb = dir->i_e2fs;
+	mp = ITOVFS(dir);
 
 	lock_super (sb);
 	es = sb->s_es;
@@ -374,7 +366,7 @@ repeat:
 /* I am not yet convinced that this next bit is necessary.
 		i = dir->u.ext2_i.i_block_group;
 		for (j = 0; j < sb->u.ext2_sb.s_groups_count; j++) {
-			tmp = get_group_desc (sb, i, &bh2);
+			tmp = get_group_desc (sb, i, &bp2);
 			if ((le16_to_cpu(tmp->bg_used_dirs_count) << 8) < 
 			    le16_to_cpu(tmp->bg_free_inodes_count)) {
 				gdp = tmp;
@@ -386,7 +378,7 @@ repeat:
 */
 		if (!gdp) {
 			for (j = 0; j < sb->s_groups_count; j++) {
-				tmp = get_group_desc(ITOV(dir)->v_mount,j,&bh2);
+				tmp = get_group_desc(mp, j, &bp2);
 				if (tmp->bg_free_inodes_count &&
 					le16_to_cpu(tmp->bg_free_inodes_count) >= avefreei) {
 					if (!gdp || 
@@ -405,7 +397,7 @@ repeat:
 		 * Try to place the inode in its parent directory
 		 */
 		i = dir->i_block_group;
-		tmp = get_group_desc (ITOV(dir)->v_mount, i, &bh2);
+		tmp = get_group_desc (mp, i, &bp2);
 		if (tmp->bg_free_inodes_count)
 			gdp = tmp;
 		else
@@ -418,7 +410,7 @@ repeat:
 				i += j;
 				if (i >= sb->s_groups_count)
 					i -= sb->s_groups_count;
-				tmp = get_group_desc(ITOV(dir)->v_mount,i,&bh2);
+				tmp = get_group_desc(mp, i, &bp2);
 				if (tmp->bg_free_inodes_count) {
 					gdp = tmp;
 					break;
@@ -433,7 +425,7 @@ repeat:
 			for (j = 0; j < sb->s_groups_count; j++) {
 				if (++i >= sb->s_groups_count)
 					i = 0;
-				tmp = get_group_desc(ITOV(dir)->v_mount,i,&bh2);
+				tmp = get_group_desc(mp, i, &bp2);
 				if (tmp->bg_free_inodes_count) {
 					gdp = tmp;
 					break;
@@ -447,35 +439,36 @@ repeat:
 		return 0;
 	}
 #if EXT2_SB_BITMAP_CACHE
-	bitmap_nr = load_inode_bitmap (ITOV(dir)->v_mount, i);
-	bh = sb->s_inode_bitmap[bitmap_nr];
+	bitmap_nr = load_inode_bitmap (mp, i);
+	bp = sb->s_inode_bitmap[bitmap_nr];
 #else
-	bitmap_nr = load_inode_bitmap (ITOV(dir)->v_mount, i, &bh);
+	bitmap_nr = load_inode_bitmap (mp, i, &bp);
 #endif
-	if ((j = ext2_find_first_zero_bit ((unsigned long *) bh->b_data,
-				      EXT2_INODES_PER_GROUP(sb))) <
+	data = (char*)buf_dataptr(bp);
+	if ((j = ext2_find_first_zero_bit ((unsigned long *)data,
+		EXT2_INODES_PER_GROUP(sb))) <
 	    EXT2_INODES_PER_GROUP(sb)) {
-      if (ext2_set_bit (j, bh->b_data)) {
+      if (ext2_set_bit (j, data)) {
 			printf ( "ext2_new_inode:"
 				      "bit already set for inode %d", j);
 		#if !EXT2_SB_BITMAP_CACHE
-			brelse(bh);
+			buf_brelse(bp);
 		#endif
 			goto repeat;
 		}
 /* Linux now does the following:
-		mark_buffer_dirty(bh);
+		mark_buffer_dirty(bp);
 		if (sb->s_flags & MS_SYNCHRONOUS) {
-			ll_rw_block (WRITE, 1, &bh);
-			wait_on_buffer (bh);
+			ll_rw_block (WRITE, 1, &bp);
+			wait_on_buffer (bp);
 		}
 */
 	#if EXT2_SB_BITMAP_CACHE
-		mark_buffer_dirty(bh);
+		mark_buffer_dirty(bp);
 	#endif
 	} else {
 	#if !EXT2_SB_BITMAP_CACHE
-		brelse(bh);
+		buf_brelse(bp);
 	#endif
 		if (gdp->bg_free_inodes_count != 0) {
 			printf ( "ext2_new_inode:"
@@ -493,7 +486,7 @@ repeat:
 			    "block_group = %d,inode=%d", i, j);
 		unlock_super (sb);
 	#if !EXT2_SB_BITMAP_CACHE
-		brelse(bh);
+		buf_brelse(bp);
 	#endif
 		return 0;
 	}
@@ -502,16 +495,16 @@ repeat:
 		gdp->bg_used_dirs_count = cpu_to_le16(le16_to_cpu(gdp->bg_used_dirs_count) + 1);
 		sb->s_dircount += 1;
 	}
-	mark_buffer_dirty(bh2);
+	mark_buffer_dirty(bp2);
 	es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) - 1);
-	/* mark_buffer_dirty(sb->u.ext2_sb.s_sbh, 1); */
+	/* mark_buffer_dirty(sb->u.ext2_sb.s_sbp, 1); */
 	sb->s_dirt = 1;
 	unlock_super (sb);
 #if !EXT2_SB_BITMAP_CACHE
-	if (0 == (ITOV(dir)->v_mount->mnt_flag & MNT_SYNCHRONOUS))
-		bdwrite(bh);
+	if (0 == vnode_vfsisrdonly(ITOV(dir)))
+		buf_bdwrite(bp);
 	else
-		bwrite(bh);
+		buf_bwrite(bp);
 #endif
 	return j;
 }

@@ -47,15 +47,15 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/resourcevar.h>
 #include <sys/stat.h>
 
-#ifdef APPLE
 #include <sys/trace.h>
 #include "ext2_apple.h"
-#endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/ext2_extern.h>
+#include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_fs.h> /* For linux type defines. */
+#include <gnu/ext2fs/ext2_fs_sb.h>
 #include <ext2_byteorder.h>
 
 /*
@@ -65,31 +65,45 @@ static const char whatid[] __attribute__ ((unused)) =
  */
 int
 ext2_bmap(ap)
-	struct vop_bmap_args /* {
+	struct vnop_blockmap_args /* {
 		vnode_t a_vp;
-		daddr_t a_bn;
-		vnode_t *a_vpp;
-		daddr_t *a_bnp;
-		int *a_runp;
+        off_t a_foffset;
+        size_t a_size;
+		daddr64_t *a_bpn;
+        size_t *a_run;
+        void *a_poff;
+        int a_flags;
+        vfs_context_t a_context;
 	} */ *ap;
 {
-	ext2_daddr_t blkno;
+	struct ext2_sb_info *fs;
+    ext2_daddr_t blkno, bn;
 	int error;
 
 	/*
 	 * Check for underlying vnode requests and ensure that logical
 	 * to physical mapping is requested.
 	 */
-	if (ap->a_vpp != NULL)
+#ifdef obsolete
+    if (ap->a_vpp != NULL)
 		*ap->a_vpp = VTOI(ap->a_vp)->i_devvp;
-	if (ap->a_bnp == NULL)
+#endif
+	if (ap->a_bpn == NULL)
 		return (0);
    
     ext2_trace_enter();
 
-	error = ext2_bmaparray(ap->a_vp, (ext2_daddr_t)ap->a_bn, &blkno, ap->a_runp, NULL);
-	*ap->a_bnp = (daddr_t)blkno;
-    ext2_trace("returning dblock: %d for lblock: %d in inode %u\n", blkno, ap->a_bn,
+	fs = VTOI(ap->a_vp)->i_e2fs;
+    if ((error = blkoff(fs, ap->a_foffset))) {
+		panic("ext2_bmap: allocation requested inside a block (possible filesystem corruption): "
+         "qbmask=%qd, inode=%u, offset=%qu, blkoff=%d",
+         fs->s_qbmask, VTOI(ap->a_vp)->i_number, ap->a_foffset, error);
+	}
+    
+    bn = (ext2_daddr_t)lblkno(fs, ap->a_foffset);
+    error = ext2_bmaparray(ap->a_vp, bn, &blkno, ap->a_run, NULL);
+	*ap->a_bpn = (daddr64_t)blkno;
+    ext2_trace("returning dblock: %d for lblock: %d in inode %u\n", blkno, bn,
         VTOI(ap->a_vp)->i_number);
 	return (error);
 }
@@ -113,10 +127,11 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	vnode_t vp;
 	ext2_daddr_t bn;
 	ext2_daddr_t *bnp;
-	int *runp;
-	int *runb;
+	size_t *runp;
+	size_t *runb;
 {
-	struct inode *ip;
+	struct vfsioattr vfsio;
+    struct inode *ip;
 	buf_t  bp;
 	struct ext2mount *ump;
 	mount_t  mp;
@@ -124,17 +139,22 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	struct indir a[NIADDR+1], *ap;
 	ext2_daddr_t daddr;
 	ext2_daddr_t metalbn;
-	int error, num, maxrun = 0;
-	int *nump;
+	size_t maxrun = 0;
+    ext2_daddr_t *bap;
+	int num, *nump, error;
+    long iosize;
 
 	ap = NULL;
 	ip = VTOI(vp);
-	mp = vp->v_mount;
+	mp = ITOVFS(ip);
 	ump = VFSTOEXT2(mp);
 	devvp = ump->um_devvp;
+    
+    vfs_ioattr(mp, &vfsio);
+    iosize = vfs_statfs(mp)->f_iosize;
 
 	if (runp) {
-		maxrun = mp->mnt_iosize_max / mp->mnt_stat.f_iosize - 1;
+		maxrun = vfsio.io_maxwritecnt / iosize - 1;
 		*runp = 0;
 	}
 
@@ -181,7 +201,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		 */
 
 		metalbn = ap->in_lbn;
-		if ((daddr == 0 && !incore(vp, metalbn)) || metalbn == bn)
+		if ((daddr == 0 && !incore(vp, (daddr64_t)metalbn, BLK_META)) || metalbn == bn)
 			break;
 		/*
 		 * If we get here, we've either got the block in the cache
@@ -191,10 +211,10 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			bqrelse(bp);
 
 		ap->in_exists = 1;
-		bp = getblk(vp, metalbn, mp->mnt_stat.f_iosize, 0, 0, BLK_META);
+		bp = buf_getblk(vp, (daddr64_t)metalbn, iosize, 0, 0, BLK_META);
 
-        if (bp->b_flags & (B_DONE | B_DELWRI)) {
-			trace(TR_BREADHIT, pack(vp, mp->mnt_stat.f_iosize), metalbn);
+        if (buf_flags(bp) & (/* B_DONE | */ B_DELWRI)) {
+			trace(TR_BREADHIT, pack(vp, iosize), metalbn);
 		}
 
 #ifdef DIAGNOSTIC
@@ -203,34 +223,37 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
             panic("ext2_bmaparray: indirect block not in cache");
 #endif
         else {
-            trace(TR_BREADMISS, pack(vp, mp->mnt_stat.f_iosize), metalbn);
+            trace(TR_BREADMISS, pack(vp, iosize), metalbn);
          
-            bp->b_blkno = blkptrtodb(ump, daddr);
-            bp->b_flags |= B_READ;
+            buf_setblkno(bp, (daddr64_t)blkptrtodb(ump, daddr));
+            buf_setflags(bp, B_READ);
+#ifdef obsolete
             bp->b_flags &= ~B_ERROR;
-			VOP_STRATEGY(bp);
+#endif
+			VNOP_STRATEGY(bp);
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
 			error = bufwait(bp);
 			if (error) {
-				brelse(bp);
+				buf_brelse(bp);
 				return (error);
 			}
 		}
 
-		daddr = le32_to_cpu(((ext2_daddr_t *)bp->b_data)[ap->in_off]);
+		bap = (ext2_daddr_t *)buf_dataptr(bp);
+        daddr = le32_to_cpu(bap[ap->in_off]);
 		if (num == 1 && daddr && runp) {
 			for (bn = ap->in_off + 1;
 			    bn < MNINDIR(ump) && *runp < maxrun &&
 			    is_sequential(ump,
-			    le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn - 1]),
-			    le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn]));
+                le32_to_cpu(bap[bn - 1]),
+                le32_to_cpu(bap[bn]));
 			    ++bn, ++*runp);
 			bn = ap->in_off;
 			if (runb && bn) {
 				for(--bn; bn >= 0 && *runb < maxrun &&
 			    		is_sequential(ump,
-                        le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn]),
-					    le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn+1]));
+                        le32_to_cpu(bap[bn]),
+					    le32_to_cpu(bap[bn+1]));
 			    		--bn, ++*runb);
 			}
 		}
@@ -266,7 +289,7 @@ ext2_getlbns(vp, bn, ap, nump)
 	int i, numlevels, off;
 	int64_t qblockcnt;
 
-	ump = VFSTOEXT2(vp->v_mount);
+	ump = VFSTOEXT2(vnode_mount(vp));
 	if (nump)
 		*nump = 0;
 	numlevels = 0;

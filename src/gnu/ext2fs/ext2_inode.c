@@ -45,13 +45,13 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/buf.h>
 #include <sys/vnode.h>
 #include <sys/malloc.h>
-
-#ifdef APPLE
 #include <sys/namei.h> /* cache_purge() */
 #include <sys/ubc.h>
 #include <sys/trace.h>
+/* XXX declared in <sys/vnode_internal.h>, so it's supposed to be private. */
+void	vprint(const char *label, vnode_t vp);
+
 #include "ext2_apple.h"
-#endif /* APPLE */
 
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
@@ -87,22 +87,22 @@ ext2_update(vp, waitfor)
 	if ((ip->i_flag & IN_MODIFIED) == 0)
 		return (0);
 	ip->i_flag &= ~(IN_LAZYMOD | IN_MODIFIED);
-	if (vp->v_mount->mnt_flag & MNT_RDONLY)
+	if (vnode_vfsisrdonly(vp))
 		return (0);
 	fs = ip->i_e2fs;
-	if ((error = meta_bread(ip->i_devvp,
-	    fsbtodb(fs, ino_to_fsba(fs, ip->i_number)),
+	if ((error = buf_meta_bread(ip->i_devvp,
+	    (daddr64_t)fsbtodb(fs, ino_to_fsba(fs, ip->i_number)),
 		(int)fs->s_blocksize, NOCRED, &bp)) != 0) {
-		brelse(bp);
+		buf_brelse(bp);
 		return (error);
 	}
-	ext2_i2ei(ip, (struct ext2_inode *)((char *)bp->b_data +
+	ext2_i2ei(ip, (struct ext2_inode *)((char *)buf_dataptr(bp) +
 	    EXT2_INODE_SIZE * ino_to_fsbo(fs, ip->i_number)));
    
-	if (waitfor && (vp->v_mount->mnt_flag & MNT_ASYNC) == 0)
-		return (bwrite(bp));
+	if (waitfor && (vfs_flags(vnode_mount(vp)) & MNT_ASYNC) == 0)
+		return (buf_bwrite(bp));
    
-   bdwrite(bp);
+   buf_bdwrite(bp);
    return (0);
 }
 
@@ -114,12 +114,12 @@ ext2_update(vp, waitfor)
  * disk blocks.
  */
 int
-ext2_truncate(vp, length, flags, cred, td)
+ext2_truncate(vp, length, flags, cred, p)
 	vnode_t vp;
 	off_t length;
 	int flags;
-	struct ucred *cred;
-	struct thread *td;
+	ucred_t cred;
+	proc_t p;
 {
 	vnode_t ovp = vp;
 	int32_t lastblock;
@@ -146,15 +146,15 @@ ext2_truncate(vp, length, flags, cred, td)
 	 * are not meaningful anyways.
 	 */
 	if (length < 0 || length > fs->s_maxfilesize)
-	    return EFBIG;
+	    return (EFBIG);
    
 	/* Note, it is possible to get here with an inode that is not completely
 	   initialized. This can happen when ext2_vget() fails and calls vput() on
 	   an inode that is only partially setup.
 	 */
    
-	if (ovp->v_type == VLNK &&
-	    oip->i_size < ovp->v_mount->mnt_maxsymlinklen) {
+	if (VLNK == vnode_vtype(ovp) &&
+	    oip->i_size < vnode_vfsmaxsymlen(ovp)) {
 #if DIAGNOSTIC
 		if (length != 0)
 			panic("ext2_truncate: partial truncate of symlink");
@@ -187,16 +187,16 @@ ext2_truncate(vp, length, flags, cred, td)
 			return (error);
 		oip->i_size = length;
       
-      if (UBCINFOEXISTS(ovp)) {
-			bp->b_flags |= B_INVAL;
-			bwrite(bp);
+		if (UBCINFOEXISTS(ovp)) {
+			buf_markinvalid(bp);
+			buf_bwrite(bp);
 			ubc_setsize(ovp, (off_t)length); 
 		} else {
-         if (aflags & B_SYNC)
-            bwrite(bp);
-         else
-            bawrite(bp);
-      }
+			if (aflags & B_SYNC)
+				buf_bwrite(bp);
+			else
+				buf_bawrite(bp);
+		}
 		oip->i_flag |= IN_CHANGE | IN_UPDATE;
 		return (ext2_update(ovp, 1));
 	}
@@ -212,8 +212,8 @@ ext2_truncate(vp, length, flags, cred, td)
    if (UBCINFOEXISTS(ovp))
 		ubc_setsize(ovp, (off_t)length); 
 
-	vflags = ((length > 0) ? V_SAVE : 0) | V_SAVEMETA;
-	allerror = vinvalbuf(ovp, vflags, cred, td, 0, 0);
+	vflags = ((length > 0) ? BUF_WRITE_DATA : 0) | BUF_SKIP_META;
+	allerror = buf_invalidateblks(ovp, vflags, 0, 0);
    
 	offset = blkoff(fs, length);
 	if (offset == 0) {
@@ -228,16 +228,18 @@ ext2_truncate(vp, length, flags, cred, td)
 			return (error);
 		oip->i_size = length;
 		size = blksize(fs, oip, lbn);
-		bzero((char *)bp->b_data + offset, (u_int)(size - offset));
+		bzero((char *)buf_dataptr(bp) + offset, (u_int)(size - offset));
+#ifdef obsolete /* XXX */
 		allocbuf(bp, size);
-      if (UBCINFOEXISTS(ovp)) {
-			bp->b_flags |= B_INVAL;
-			bwrite(bp);
+#endif
+        if (UBCINFOEXISTS(ovp)) {
+			buf_markinvalid(bp);
+			buf_bwrite(bp);
 		} else {
-         if (aflags & B_SYNC)
-            bwrite(bp);
-         else
-            bawrite(bp);
+			if (aflags & B_SYNC)
+				buf_bwrite(bp);
+			else
+				buf_bawrite(bp);
       }
 	}
 	/*
@@ -278,8 +280,8 @@ ext2_truncate(vp, length, flags, cred, td)
 	bcopy((caddr_t)&oip->i_db[0], (caddr_t)newblks, sizeof newblks);
 	bcopy((caddr_t)oldblks, (caddr_t)&oip->i_db[0], sizeof oldblks);
 	oip->i_size = osize;
-    vflags = ((length > 0) ? V_SAVE : 0) | V_SAVEMETA;
-    allerror = vinvalbuf(ovp, vflags, cred, td, 0, 0);
+    vflags = ((length > 0) ? BUF_WRITE_DATA : 0) | BUF_SKIP_META;
+    allerror = buf_invalidateblks(ovp, vflags, 0, 0);
 
 	/*
 	 * Indirect blocks first.
@@ -358,8 +360,8 @@ done:
 	for (i = 0; i < NDADDR; i++)
 		if (newblks[i] != oip->i_db[i])
 			panic("ext2: itrunc2");
-   if (length == 0 && (!LIST_EMPTY(&ovp->v_dirtyblkhd) ||
-			    !LIST_EMPTY(&ovp->v_cleanblkhd)))
+   if (length == 0 && (!vnode_hasdirtyblks(ovp) ||
+			    !vnode_hascleanblks(ovp)))
 		panic("ext2: itrunc3");
 #endif /* DIAGNOSTIC */
 	/*
@@ -395,22 +397,22 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	buf_t  bp;
 	struct ext2_sb_info *fs = ip->i_e2fs;
 	vnode_t vp;
-	int32_t *bap, *copy, nb, nlbn, last;
+	ext2_daddr_t *bap, *copy, nb, nlbn, last;
 	long blkcount, factor;
 	int i, nblocks, blocksreleased = 0;
 	int error = 0, allerror = 0;
-   int devBlockSize=0;
-   buf_t  tbp;
+    u_int32_t devBlockSize=0;
+    buf_t  tbp;
    
-   devBlockSize = ip->i_e2fs->s_d_blocksize;
+    devBlockSize = ip->i_e2fs->s_d_blocksize;
    
-   /* Doing a MALLOC here is asking for trouble. We can still
+    /* Doing a MALLOC here is asking for trouble. We can still
 	 * deadlock on pagerfile lock, in case we are running
 	 * low on memory and block in MALLOC
 	 */
 
-	tbp = geteblk(fs->s_blocksize);
-	copy = (int32_t *)tbp->b_data;
+	tbp = buf_geteblk(fs->s_blocksize);
+	copy = (int32_t *)buf_dataptr(tbp);
 
 	/*
 	 * Calculate index in current block of last
@@ -434,33 +436,33 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	 * explicitly instead of letting bread do everything for us.
 	 */
 	vp = ITOV(ip);
-	bp = getblk(vp, lbn, (int)fs->s_blocksize, 0, 0, BLK_META);
-	if (bp->b_flags & (B_DONE | B_DELWRI)) {
-      trace(TR_BREADHIT, pack(vp, fs->fs_bsize), lbn);
+	bp = buf_getblk(vp, (daddr64_t)lbn, (int)fs->s_blocksize, 0, 0, BLK_META);
+	if (buf_flags(bp) & (/* B_DONE |*/ B_DELWRI)) {
+		trace(TR_BREADHIT, pack(vp, fs->fs_bsize), lbn);
 	} else {
-      trace(TR_BREADMISS, pack(vp, fs->fs_bsize), lbn);
-      current_proc()->p_stats->p_ru.ru_inblock++;	/* pay for read */
-		bp->b_flags |= B_READ;
-		if (bp->b_bcount > bp->b_bufsize)
+		trace(TR_BREADMISS, pack(vp, fs->fs_bsize), lbn);
+		current_proc()->p_stats->p_ru.ru_inblock++;	/* pay for read */
+		buf_setflags(bp, B_READ);
+		if (buf_count(bp) > buf_size(bp))
 			panic("ext2_indirtrunc: bad buffer size");
-		bp->b_blkno = dbn;
-      VOP_STRATEGY(bp);
+		buf_setblkno(bp, (daddr64_t)dbn);
+		VNOP_STRATEGY(bp);
 		error = bufwait(bp);
 	}
 	if (error) {
-		brelse(bp);
+		buf_brelse(bp);
 		*countp = 0;
-      brelse(tbp);
+		buf_brelse(tbp);
 		return (error);
 	}
 
-	bap = (int32_t *)bp->b_data;
+	bap = (ext2_daddr_t *)buf_dataptr(bp);
 	bcopy((caddr_t)bap, (caddr_t)copy, (u_int)fs->s_blocksize);
 	bzero((caddr_t)&bap[last + 1],
-	  (u_int)(NINDIR(fs) - (last + 1)) * sizeof (int32_t));
+	  (u_int)(NINDIR(fs) - (last + 1)) * sizeof (ext2_daddr_t));
 	if (last == -1)
-		bp->b_flags |= B_INVAL;
-	error = bwrite(bp);
+		buf_markinvalid(bp);
+	error = buf_bwrite(bp);
 	if (error)
 		allerror = error;
 	bap = copy;
@@ -496,7 +498,7 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 			blocksreleased += blkcount;
 		}
 	}
-   brelse(tbp);
+    buf_brelse(tbp);
 	*countp = blocksreleased;
 	return (allerror);
 }
@@ -506,14 +508,14 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
  */
 int
 ext2_inactive(ap)
-        struct vop_inactive_args /* {
+        struct vnop_inactive_args /* {
 		vnode_t a_vp;
-		struct thread *a_td;
+		vfs_context_t a_context;
 	} */ *ap;
 {
 	vnode_t vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
-	struct thread *td = ap->a_td;
+	proc_t p = vfs_context_proc(ap->a_context);
 	int mode, error = 0;
 
 	ext2_discard_prealloc(ip);
@@ -523,11 +525,11 @@ ext2_inactive(ap)
 	/*
 	 * Ignore inodes related to stale file handles.
 	 */
-	if (ip->i_mode == 0 && (vp->v_mount->mnt_flag & MNT_RDONLY) == 0)
+	if (ip->i_mode == 0 && vnode_vfsisrdonly(vp) == 0)
 		goto out;
 	if (ip->i_nlink <= 0) {
 		(void) vn_write_suspend_wait(vp, NULL, V_WAIT);
-		error = ext2_truncate(vp, (off_t)0, 0, NOCRED, td);
+		error = ext2_truncate(vp, (off_t)0, 0, NOCRED, p);
 		ip->i_rdev = 0;
 		mode = ip->i_mode;
 		ip->i_mode = 0;
@@ -544,13 +546,15 @@ ext2_inactive(ap)
 		}
 	}
 out:
-	VOP_UNLOCK(vp, 0, td);
+#ifdef obsolete /* XXX Still necessary? */
+	vnode_unlock(vp);
+#endif
 	/*
 	 * If we are done with the inode, reclaim it
 	 * so that it can be reused immediately.
 	 */
 	if (ip->i_mode == 0)
-		vrecycle(vp, NULL, td);
+		(void)vnode_recycle(vp);
 	return (error);
 }
 
@@ -559,14 +563,13 @@ out:
  */
 int
 ext2_reclaim(ap)
-	struct vop_reclaim_args /* {
+	struct vnop_reclaim_args /* {
 		vnode_t a_vp;
-		struct thread *a_td;
+		vfs_context_t a_context;
 	} */ *ap;
 {
 	struct inode *ip;
 	vnode_t vp = ap->a_vp;
-	void *tdata;
 
 	if (prtactive && vrefcnt(vp) != 0)
 		vprint("ext2_reclaim: pushing active", vp);
@@ -584,13 +587,15 @@ ext2_reclaim(ap)
 	 */
 	if (ip->i_devvp) {
 		vnode_t tvp = ip->i_devvp;
-      ip->i_devvp = 0;
-		vrele(tvp);
+        ip->i_devvp = (vnode_t)0;
+		vnode_rele(tvp);
 	}
 	if (ip->private_data_relse)
 		ip->private_data_relse(NULL, ip);
-	tdata = vp->v_data;
-   vp->v_data = 0;
-	FREE(tdata, M_EXT2NODE);
+	vnode_clearfsnode(vp);
+	vnode_removefsref(vp);
+	
+	lck_mtx_destroy(&ip->i_lock, EXT2_LCK_GRP);
+	FREE(ip, M_EXT2NODE);
 	return (0);
 }

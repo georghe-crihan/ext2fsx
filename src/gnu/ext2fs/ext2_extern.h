@@ -52,9 +52,13 @@ struct ext2_sb_info;
 struct ext2_dir_entry_2;
 struct indir;
 struct inode;
-struct mount;
-struct vfsconf;
-struct vnode;
+
+typedef struct ext2_valloc_args {
+	ino_t va_ino;
+	vnode_t va_parent;
+	vfs_context_t va_vctx;
+	struct componentname *va_cnp;
+} evalloc_args_t;
 
 int	ext2_alloc(struct inode *,
 	    ext2_daddr_t, ext2_daddr_t, int, struct ucred *, ext2_daddr_t *);
@@ -63,8 +67,8 @@ int	ext2_balloc2(struct inode *,
 int	ext2_blkatoff(vnode_t , off_t, char **, buf_t  *);
 void	ext2_blkfree(struct inode *, ext2_daddr_t, long);
 ext2_daddr_t	ext2_blkpref(struct inode *, ext2_daddr_t, int, ext2_daddr_t *, ext2_daddr_t);
-int	ext2_bmap(struct vop_bmap_args *);
-int	ext2_bmaparray(vnode_t , ext2_daddr_t, ext2_daddr_t *, int *, int *);
+int	ext2_bmap(struct vnop_blockmap_args *);
+int	ext2_bmaparray(vnode_t , ext2_daddr_t, ext2_daddr_t *, size_t *, size_t *);
 void	ext2_dirbad(struct inode *ip, doff_t offset, char *how);
 void	ext2_ei2i(struct ext2_inode *, struct inode *);
 int	ext2_getlbns(vnode_t , ext2_daddr_t, struct indir *, int *);
@@ -77,16 +81,27 @@ vnode_t
 void	ext2_ihashrem(struct inode *);
 void	ext2_ihashuninit(void);
 void	ext2_itimes(vnode_t vp);
-int	ext2_reallocblks(struct vop_reallocblks_args *);
-int	ext2_reclaim(struct vop_reclaim_args *);
+#ifdef FANCY_REALLOC
+int	ext2_reallocblks(struct vnop_reallocblks_args *);
+#endif
+int	ext2_reclaim(struct vnop_reclaim_args *);
 /* void ext2_setblock(struct ext2_sb_info *, u_char *, int32_t); */
-int	ext2_truncate(vnode_t , off_t, int, struct ucred *, struct thread *);
-int	ext2_update(vnode_t , int);
-int	ext2_valloc(vnode_t , int, struct ucred *, vnode_t *);
-int	ext2_vfree(vnode_t , ino_t, int);
-int	ext2_vinit(mount_t  , vop_t **, vop_t **, vnode_t *vpp);
-int 	ext2_lookup(struct vop_cachedlookup_args *);
-int 	ext2_readdir(struct vop_readdir_args *);
+int	ext2_truncate(vnode_t, off_t, int, ucred_t, proc_t);
+int	ext2_update(vnode_t, int);
+int	ext2_valloc(vnode_t, int, evalloc_args_t *, vnode_t *);
+int	ext2_vfree(vnode_t, ino_t, int);
+
+typedef struct ext2_vinit_args {
+	evalloc_args_t *vi_vallocargs;
+	struct inode *vi_ip;
+	vop_t **vi_vnops, **vi_specops, **vi_fifoops;
+	u_int32_t vi_flags;
+} evinit_args_t;
+#define EXT2_VINIT_INO_LCKD 0x00000001
+
+int	ext2_vinit(mount_t, evinit_args_t *, vnode_t *vpp);
+int ext2_lookup(struct vnop_cachedlookup_args *);
+int ext2_readdir(struct vnop_readdir_args *);
 void	ext2_print_inode(struct inode *);
 int	ext2_direnter(struct inode *, 
 		vnode_t , struct componentname *);
@@ -99,7 +114,7 @@ struct  ext2_group_desc * get_group_desc(mount_t   ,
 		unsigned int , buf_t  * );
 int	ext2_group_sparse(int group);
 void	ext2_discard_prealloc(struct inode *);
-int	ext2_inactive(struct vop_inactive_args *);
+int	ext2_inactive(struct vnop_inactive_args *);
 int	ext2_new_block(mount_t   mp, unsigned long goal,
 	    u_int32_t *prealloc_count, u_int32_t *prealloc_block);
 ino_t	ext2_new_inode(const struct inode * dir, int mode);
@@ -107,7 +122,6 @@ unsigned long ext2_count_free(buf_t  map, unsigned int numchars);
 void	ext2_free_blocks(mount_t  mp, unsigned long block,
 	    unsigned long count);
 void	ext2_free_inode(struct inode * inode);
-void	mark_buffer_dirty(buf_t  bh);
 
 /* ext3_super.c */
 extern void __ext3_std_error (struct ext2_sb_info *, const char *, int);
@@ -134,6 +148,7 @@ extern int ext3fs_dirhash(const char *name, int len, struct
 #define B_SYNC		0x02	/* Do all allocations synchronously. */
 #define B_METAONLY	0x04	/* Return indirect block buffer. */
 #define B_NOWAIT	0x08	/* do not sleep to await lock */
+#define B_NOBUFF    0x10    /* do not allocate buffer */
 
 extern vop_t **ext2_vnodeop_p;
 extern vop_t **ext2_specop_p;

@@ -79,7 +79,7 @@ ext2_discard_prealloc(ip)
         if (ip->i_prealloc_count) {
                 int i = ip->i_prealloc_count;
                 ip->i_prealloc_count = 0;
-                ext2_free_blocks (ITOV(ip)->v_mount,
+                ext2_free_blocks (ITOVFS(ip),
                                   ip->i_prealloc_block,
                                   i);
         }
@@ -107,6 +107,7 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 {
 	struct ext2_sb_info *fs;
 	ext2_daddr_t bno;
+    mount_t mp = ITOVFS(ip);
 	
 	*bnp = 0;
 	fs = ip->i_e2fs;
@@ -149,16 +150,14 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
                 /* ext2_debug ("preallocation miss (%lu/%lu).\n",
                             alloc_hits, ++alloc_attempts); */
                 if (S_ISREG(ip->i_mode))
-                        bno = ext2_new_block
-                                (ITOV(ip)->v_mount, bpref,
+                        bno = ext2_new_block (mp, bpref,
                                  &ip->i_prealloc_count,
                                  &ip->i_prealloc_block);
                 else
-			bno = (int32_t)ext2_new_block(ITOV(ip)->v_mount, 
-					bpref, 0, 0);
+			bno = (int32_t)ext2_new_block(mp, bpref, 0, 0);
         }
 #else
-	bno = (int32_t)ext2_new_block(ITOV(ip)->v_mount, bpref, 0, 0);
+	bno = (int32_t)ext2_new_block(mp, bpref, 0, 0);
 #endif
 
 	if (bno > 0) {
@@ -369,10 +368,10 @@ fail:
  * ext2_new_inode(), to make sure we get the policies right
  */
 int
-ext2_valloc(pvp, mode, cred, vpp)
+ext2_valloc(pvp, mode, vaargsp, vpp)
 	vnode_t pvp;
 	int mode;
-	struct ucred *cred;
+	evalloc_args_t *vaargsp;
 	vnode_t *vpp;
 {
 	struct inode *pip;
@@ -381,7 +380,9 @@ ext2_valloc(pvp, mode, cred, vpp)
 	ino_t ino;
 	int i, error;
 	
-	*vpp = NULL;
+    assert (NULL != vaargsp->va_vctx);
+	
+    *vpp = NULL;
 	pip = VTOI(pvp);
 	fs = pip->i_e2fs;
 	if (fs->s_es->s_free_inodes_count == 0)
@@ -393,7 +394,8 @@ ext2_valloc(pvp, mode, cred, vpp)
 	if (ino == 0)
 		goto noinodes;
    
-   error = VFS_VGET(pvp->v_mount, (void*)ino, vpp);
+   vaargsp->va_ino = ino;
+   error = VFS_VGET(vnode_mount(pvp), vaargsp, vpp, vaargsp->va_vctx);
    
 	if (error) {
 		ext2_vfree(pvp, ino, mode);
@@ -410,11 +412,11 @@ ext2_valloc(pvp, mode, cred, vpp)
 	ip->i_size = 0;
 	ip->i_blocks = 0;
 	ip->i_flags = 0;
-        /* now we want to make sure that the block pointers are zeroed out */
-        for (i = 0; i < NDADDR; i++)
-                ip->i_db[i] = 0;
-        for (i = 0; i < NIADDR; i++)
-                ip->i_ib[i] = 0;
+    /* now we want to make sure that the block pointers are zeroed out */
+    for (i = 0; i < NDADDR; i++)
+        ip->i_db[i] = 0;
+    for (i = 0; i < NIADDR; i++)
+        ip->i_ib[i] = 0;
 
 	/*
 	 * Set up a new generation number for this inode.
@@ -427,7 +429,7 @@ printf("ext2_valloc: allocated inode %d\n", ino);
 */
 	return (0);
 noinodes:
-	ext2_fserr(fs, cred->cr_uid, "out of inodes");
+	ext2_fserr(fs, (vfs_context_ucred(vaargsp->va_vctx))->cr_uid, "out of inodes");
 	uprintf("\n%s: create/symlink failed, no inodes free\n", fs->fs_fsmnt);
 	return (ENOSPC);
 }
@@ -515,7 +517,7 @@ ext2_blkfree(ip, bno, size)
 	/*
 	 *	call Linux code with mount *, block number, count
 	 */
-	ext2_free_blocks(ITOV(ip)->v_mount, bno, size / fs->s_frag_size);
+	ext2_free_blocks(ITOVFS(ip), bno, size / fs->s_frag_size);
 }
 
 /*

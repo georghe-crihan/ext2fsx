@@ -146,6 +146,7 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 	return (EACCES);
 }
 
+#ifdef obsolete
 /* Cribbed from FreeBSD kern/vfs_subr.c */
 /* This will cause the KEXT to break if/when the kernel proper defines this routine. */
 /*
@@ -227,8 +228,12 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
    
     return (0);
 }
+#endif // obsolete
 
 /* VNode Ops */
+
+// XXX Lock replacements?
+#ifdef obsolete
 
 #define EXT_NO_ILOCKS 0
 
@@ -250,8 +255,8 @@ ext2_lock(ap)
 		panic ("ext2_lock: null node");
 #endif
 
-   ext2_trace("locking inode %lu for pid %ld -- cur pid:%ld, cur ex: %d, cur shr: %d, cur wait:%d\n",
-      (unsigned long)VTOI(vp)->i_number, (long)ap->a_p->p_pid, 
+   ext2_trace("locking inode %ld for pid %ld -- cur pid:%ld, cur ex: %d, cur shr: %d, cur wait:%d\n",
+      VTOI(vp)->i_number, (long)ap->a_p->p_pid, 
       (long)VTOI(vp)->i_lock.lk_lockholder, VTOI(vp)->i_lock.lk_exclusivecount,
       VTOI(vp)->i_lock.lk_sharecount, VTOI(vp)->i_lock.lk_waitcount);
    
@@ -296,6 +301,10 @@ ext2_islocked(ap)
 	return (lockstatus(&VTOI(ap->a_vp)->i_lock));
 }
 
+#endif // obsolete
+
+#ifdef obsolete
+
 __private_extern__ int
 ext2_abortop(ap)
 struct vop_abortop_args /* {
@@ -310,23 +319,26 @@ struct vop_abortop_args /* {
     return (0);
 }
 
+#endif
+
 __private_extern__ int
 ext2_ioctl(ap)
-	struct vop_ioctl_args /* {
+	struct vnop_ioctl_args /* {
       vnode_t a_vp;
       u_long a_command;
       caddr_t a_data;
       int a_fflag;
-      struct ucred *a_cred;
-      struct proc *a_p;
+      vfs_context_t a_context;
    } */ *ap;
 {
    struct inode *ip = VTOI(ap->a_vp);
    struct ext2_sb_info *fs;
    int err = 0, super;
    u_int32_t flags, oldflags;
+   proc_t p = vfs_context_proc(ap->a_context);
+   ucred_t cred = vfs_context_ucred(ap->a_context);
    
-   super = (0 == suser(ap->a_cred, &ap->a_p->p_acflag));
+   super = (0 == suser(cred, &p->p_acflag));
    fs = ip->i_e2fs;
    
    switch (ap->a_command) {
@@ -339,7 +351,7 @@ ext2_ioctl(ap)
          if (ip->i_e2fs->s_rd_only)
             return (EROFS);
          
-         if (ap->a_cred->cr_uid != ip->i_uid && !super)
+         if (cred->cr_uid != ip->i_uid && !super)
             return (EACCES);
          
          bcopy(ap->a_data, &flags, sizeof(u_int32_t));
@@ -364,7 +376,7 @@ ext2_ioctl(ap)
                err = EPERM;
             if (super && (oldflags & (EXT2_APPEND_FL | EXT2_IMMUTABLE_FL)) &&
                   ip->i_uid == 0)
-               err = securelevel_gt(ap->a_cred, 0);
+               err = securelevel_gt(cred, 0);
             if (err)
                return(err);
          }
@@ -404,7 +416,7 @@ ext2_ioctl(ap)
       break;
       
       case IOCBASECMD(EXT2_IOC_SETVERSION):
-         if (ap->a_cred->cr_uid != ip->i_uid && !super)
+         if (cred->cr_uid != ip->i_uid && !super)
             err = EACCES;
          break;
          err = ENOTSUP;
@@ -425,7 +437,7 @@ ext2_ioctl(ap)
    return (err);
 }
 
-#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
+#if defined(obsolete) && defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
 __private_extern__
 void print_clusters(vnode_t vp, char *msg)

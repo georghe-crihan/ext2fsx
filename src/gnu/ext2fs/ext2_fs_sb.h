@@ -32,7 +32,7 @@
 
 #define MAXMNTLEN	512
 
-#include <kern/lock.h>
+#include <kern/locks.h>
 
 /*
  * second extended-fs super-block data in memory
@@ -50,13 +50,13 @@ struct ext2_sb_info {
 	unsigned long s_groups_count;	/* Number of groups in the fs */
 	struct buffer_head * s_sbh;	/* Buffer containing the super block */
 	struct ext2_super_block * s_es;	/* Pointer to the super block in the buffer */
-	struct buffer_head ** s_group_desc;
+	buf_t* s_group_desc;
 	unsigned short s_loaded_inode_bitmaps;
 	unsigned short s_loaded_block_bitmaps;
 	unsigned long s_inode_bitmap_number[EXT2_MAX_GROUP_LOADED];
-	struct buffer_head * s_inode_bitmap[EXT2_MAX_GROUP_LOADED];
+	buf_t s_inode_bitmap[EXT2_MAX_GROUP_LOADED];
 	unsigned long s_block_bitmap_number[EXT2_MAX_GROUP_LOADED];
-	struct buffer_head * s_block_bitmap[EXT2_MAX_GROUP_LOADED];
+	buf_t s_block_bitmap[EXT2_MAX_GROUP_LOADED];
 	int s_rename_lock;
 	unsigned long  s_mount_opt;
 	unsigned short s_resuid;
@@ -80,7 +80,7 @@ struct ext2_sb_info {
 	char	s_wasvalid;			/* valid at mount time */
    
    quad_t s_dircount; /* In core count of all directories */
-   int32_t s_d_blocksize; /* block size of underlying device */
+   u_int32_t s_d_blocksize; /* block size of underlying device */
    lck_mtx_t *s_lock; /* lock to protect access to in core sb */
    uid_t s_uid_noperm; /* used when mounted w/o permissions in effect */
    gid_t s_gid_noperm; /* ditto */
