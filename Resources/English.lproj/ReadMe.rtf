@@ -6,8 +6,8 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.0d3\
-2/28/2003
+\f1\b0 1.0d4\
+3/12/2003
 \f0\b \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
@@ -23,13 +23,18 @@ This is a pre-release version of the Ext2 Filesystem for Mac OS X. All kinds of 
 If you are upgrading, you should make sure that all EXT2 disks are unmounted before continuing.\
 \
 
+\f0\b Using command line utilities
+\f1\b0 \
+\
+If you want to use the Ext2 command line utilities from Terminal, you may wish to add "/usr/local/bin" and "/usr/local/sbin" to your shell PATH variable. You may also wish to add "/usr/local/share/man" to your shell MANPATH variable for easy access to the man pages.\
+\
+
 \f0\b Known Limitations\
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
 \f1\b0 \cf0 \
+Disk Copy disables the "Volume Name" field when Ext2 is selected.\
 Files/Folders containing non-ASCII characters may appear garbled.\
-Read only support.\
-Formatting and fsck are not supported.\
 NFS export is not supported.\
 Boot/Root is not supported.\
 EXT3 is not supported.\
@@ -48,6 +53,7 @@ Please include the following.\
 System Version (including build number)\
 Version of Ext2 FS for Mac OS X\
 A copy of your system log in /var/log/system.log.\
+A detailed description of what lead to the problem and how to reproduce it.\
 \
 If the problem is a kernel panic, please include a copy of the panic. Mac OS X 10.2 logs panic information to the /Library/Logs/panic.log file after the machine is rebooted.\
 }
