@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -515,10 +515,12 @@ exit:
    return (0 != (_volCaps & VOL_CAP_FMT_SPARSE_FILES));
 }
 
+#if notyet
 - (BOOL)hasSuper
 {
    return (nil != _sb);
 }
+#endif
 
 - (CFUUIDRef)uuid /* Private (for now) */
 {
