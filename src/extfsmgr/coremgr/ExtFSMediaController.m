@@ -90,6 +90,8 @@ static void DiskArbCallback_DiskAppearedWithMountpoint(char *device,
    unsigned flags, char *mountpoint);
 static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device,
    int errorCode, pid_t dissenter);
+static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
+   int type, int status);
 
 @interface ExtFSMediaController (Private)
 - (void)updateMountStatus;
@@ -295,7 +297,7 @@ static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device
 
 - (int)unmount:(ExtFSMedia*)media force:(BOOL)force eject:(BOOL)eject
 {
-   int flags = 0;
+   int flags = kDiskArbUnmountOneFlag;
    
    if (force)
       flags |= kDiskArbForceUnmountFlag;
@@ -355,6 +357,8 @@ static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device
       (void *)&DiskArbCallback_UnmountPostNotification, 0);
    DiskArbAddCallbackHandler(kDA_DISK_APPEARED_WITH_MT,
       (void *)&DiskArbCallback_DiskAppearedWithMountpoint, 0);
+   DiskArbAddCallbackHandler(kDA_CALL_FAILED,
+      (void *)&DiskArbCallback_CallFailedNotification, 0);
    DiskArbUpdateClientFlags();
    
    return (self);
@@ -561,4 +565,13 @@ static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device
    int errorCode, pid_t dissenter)
 {
    (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
+}
+
+static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
+   int type, int status)
+{
+#ifdef DIAGNOSTIC
+   NSLog(@"ExtFS: DiskArb failure for device '%s', with type %d and status %X\n",
+      device, type, status);
+#endif
 }
