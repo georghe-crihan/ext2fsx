@@ -429,8 +429,8 @@ repeat:
 			/*
 			 * That failed: try linear search for a free inode
 			 */
-			i = dir->i_block_group + 1;
-			for (j = 2; j < sb->s_groups_count; j++) {
+			i = dir->i_block_group;
+			for (j = 0; j < sb->s_groups_count; j++) {
 				if (++i >= sb->s_groups_count)
 					i = 0;
 				tmp = get_group_desc(ITOV(dir)->v_mount,i,&bh2);
