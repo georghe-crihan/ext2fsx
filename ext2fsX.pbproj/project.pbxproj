@@ -89,6 +89,7 @@
 				D3D485850405AEF400A80164,
 				D34AE6840417173400A80164,
 				D3FCC55A041C72E000A80164,
+				D387FCA90595632700C31A93,
 				D31F7D360569E3E700A80164,
 				D3D4AF220579135600A80164,
 			);
@@ -98,12 +99,12 @@
 				247142CAFF3F8F9811CA285C,
 				D33D91670405A28700A80164,
 				D3B4645704099F8700A80164,
-				D3C06DAB040A137600A80164,
 				D3D485770405AC0900A80164,
 				D33C06890418779900A80164,
 				D376F3C6040DF69900A80164,
 				D376F3CC040E085900A80164,
 				D30B790D04059A6B00A80164,
+				D387FC9E059558B700C31A93,
 				D31F7D390569E42A00A80164,
 				D367265B057D3E9600A80164,
 				089C167CFE841241C02AAC07,
@@ -301,6 +302,7 @@
 				D3FCC55B041C72E000A80164,
 				D31F7D370569E3E700A80164,
 				D3D4AF230579135600A80164,
+				D387FCAA0595632700C31A93,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -331,6 +333,7 @@
 				F53B86BF03610B5901A80165,
 				F5106D60035A69B701A80165,
 				F53B86C10361275401A80165,
+				D3C06DAB040A137600A80164,
 				D381D597058F967200DE3D72,
 			);
 			isa = PBXGroup;
@@ -389,7 +392,7 @@
 				D30B7909040599D500A80164,
 			);
 			buildSettings = {
-				HEADER_SEARCH_PATHS = src;
+				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-DAPPLE";
 				OTHER_LDFLAGS = "-ldisk";
@@ -484,7 +487,7 @@
 				D31F7D350569E3E700A80164,
 			);
 			buildSettings = {
-				HEADER_SEARCH_PATHS = "src/ src/e2fsprogs/lib";
+				HEADER_SEARCH_PATHS = "src/ src/e2fsprogs/lib src/gnu/ext2fs/linux/include";
 				LIBRARY_SEARCH_PATHS = "/Users/brian/Projects/Sourceforge/ext2fsx/src/e2fsprogs/lib/ext2fs /Users/brian/Projects/Sourceforge/ext2fsx/src/e2fsprogs/lib/et";
 				OTHER_CFLAGS = "-DBSD -DWITH_FILE -traditional-cpp";
 				OTHER_LDFLAGS = "-lext2fs -lcom_err_e2 -lss -flat_namespace";
@@ -898,9 +901,12 @@
 		};
 		D381D59A058F967200DE3D72 = {
 			fileEncoding = 30;
+			indentWidth = 3;
 			isa = PBXFileReference;
 			path = dir.c;
 			refType = 4;
+			tabWidth = 3;
+			usesTabs = 1;
 		};
 		D381D59B058F967200DE3D72 = {
 			fileEncoding = 30;
@@ -952,6 +958,101 @@
 			settings = {
 			};
 		};
+		D387FC9E059558B700C31A93 = {
+			children = (
+				D387FC9F059558E400C31A93,
+				D387FCA10595597500C31A93,
+				D387FCA20595597500C31A93,
+			);
+			isa = PBXGroup;
+			name = util;
+			path = src/util;
+			refType = 4;
+		};
+		D387FC9F059558E400C31A93 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = fsck_ext2.c;
+			refType = 4;
+		};
+		D387FCA10595597500C31A93 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = spawn.c;
+			refType = 4;
+		};
+		D387FCA20595597500C31A93 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = super.c;
+			refType = 4;
+		};
+		D387FCA50595632700C31A93 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D387FCA60595632700C31A93 = {
+			buildActionMask = 2147483647;
+			files = (
+				D387FCAC0595636400C31A93,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D387FCA70595632700C31A93 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D387FCA80595632700C31A93 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D387FCA90595632700C31A93 = {
+			buildPhases = (
+				D387FCA50595632700C31A93,
+				D387FCA60595632700C31A93,
+				D387FCA70595632700C31A93,
+				D387FCA80595632700C31A93,
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = fsck_ext2;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = fsck_ext2;
+			productInstallPath = /usr/local/bin;
+			productName = fsck_ext2;
+			productReference = D387FCAA0595632700C31A93;
+		};
+		D387FCAA0595632700C31A93 = {
+			isa = PBXExecutableFileReference;
+			path = fsck_ext2;
+			refType = 3;
+		};
+		D387FCAC0595636400C31A93 = {
+			fileRef = D387FC9F059558E400C31A93;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		D39ED63004060E7300A80164 = {
 			buildPhases = (
 			);
@@ -991,17 +1092,6 @@
 		D39ED63404060E8300A80164 = {
 			isa = PBXTargetDependency;
 			target = D3D485850405AEF400A80164;
-		};
-		D3A9B7CC057FE5DC00B93FC7 = {
-			isa = PBXFileReference;
-			path = Options.tiff;
-			refType = 4;
-		};
-		D3A9B7CD057FE5DC00B93FC7 = {
-			fileRef = D3A9B7CC057FE5DC00B93FC7;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		D3A9B805058283EC00B93FC7 = {
 			fileEncoding = 30;
@@ -1087,7 +1177,7 @@
 			isa = PBXGroup;
 			name = kern;
 			path = src/kern;
-			refType = 4;
+			refType = 2;
 		};
 		D3C06DAC040A137600A80164 = {
 			fileEncoding = 30;
@@ -1109,6 +1199,61 @@
 		};
 		D3C06DAF040A137600A80164 = {
 			fileRef = D3C06DAD040A137600A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3C4F1D40593730700B7812F = {
+			isa = PBXFileReference;
+			path = Info.icns;
+			refType = 4;
+		};
+		D3C4F1D50593730700B7812F = {
+			isa = PBXFileReference;
+			path = Mount.icns;
+			refType = 4;
+		};
+		D3C4F1D60593730700B7812F = {
+			isa = PBXFileReference;
+			path = Options.icns;
+			refType = 4;
+		};
+		D3C4F1D70593730700B7812F = {
+			isa = PBXFileReference;
+			path = Unmount.icns;
+			refType = 4;
+		};
+		D3C4F1D80593730700B7812F = {
+			fileRef = D3C4F1D40593730700B7812F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3C4F1D90593730700B7812F = {
+			fileRef = D3C4F1D50593730700B7812F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3C4F1DA0593730700B7812F = {
+			fileRef = D3C4F1D60593730700B7812F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3C4F1DB0593730700B7812F = {
+			fileRef = D3C4F1D70593730700B7812F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D3C4F1DC0593733B00B7812F = {
+			isa = PBXFileReference;
+			path = Eject.icns;
+			refType = 4;
+		};
+		D3C4F1DD0593733B00B7812F = {
+			fileRef = D3C4F1DC0593733B00B7812F;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1165,7 +1310,7 @@
 				D3D4857C0405AE8E00A80164,
 			);
 			buildSettings = {
-				HEADER_SEARCH_PATHS = src/gnu/ext2fs;
+				HEADER_SEARCH_PATHS = "src/gnu/ext2fs src/gnu/ext2fs/linux/include";
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1486,13 +1631,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				D3D4AF3C057915F800A80164,
-				D3F22243057FB5010085CE79,
-				D3F22244057FB5010085CE79,
 				D3F2225C057FBCE10085CE79,
-				D3F2225D057FBCE10085CE79,
 				D3F2225E057FBCE30085CE79,
-				D3A9B7CD057FE5DC00B93FC7,
 				D3556144058517B7008148F9,
+				D3C4F1D80593730700B7812F,
+				D3C4F1D90593730700B7812F,
+				D3C4F1DA0593730700B7812F,
+				D3C4F1DB0593730700B7812F,
+				D3C4F1DD0593733B00B7812F,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1535,7 +1681,7 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				HEADER_SEARCH_PATHS = src;
+				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-DEXT_MGR_GUI";
 				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
@@ -1630,11 +1776,12 @@
 				D3F2223C057FB4720085CE79,
 				D3D4AF3A057915F800A80164,
 				D3556142058517B7008148F9,
-				D3A9B7CC057FE5DC00B93FC7,
-				D3F2223E057FB5010085CE79,
+				D3C4F1DC0593733B00B7812F,
+				D3C4F1D40593730700B7812F,
+				D3C4F1D50593730700B7812F,
+				D3C4F1D60593730700B7812F,
+				D3C4F1D70593730700B7812F,
 				D3F22252057FB7390085CE79,
-				D3F2223F057FB5010085CE79,
-				D3F22240057FB5010085CE79,
 			);
 			isa = PBXGroup;
 			path = Resources;
@@ -1691,33 +1838,6 @@
 			path = ExtFSManager.nib;
 			refType = 4;
 		};
-		D3F2223E057FB5010085CE79 = {
-			isa = PBXFileReference;
-			path = Eject.tiff;
-			refType = 4;
-		};
-		D3F2223F057FB5010085CE79 = {
-			isa = PBXFileReference;
-			path = Info.tiff;
-			refType = 4;
-		};
-		D3F22240057FB5010085CE79 = {
-			isa = PBXFileReference;
-			path = Mount.tiff;
-			refType = 4;
-		};
-		D3F22243057FB5010085CE79 = {
-			fileRef = D3F2223F057FB5010085CE79;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		D3F22244057FB5010085CE79 = {
-			fileRef = D3F22240057FB5010085CE79;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		D3F22252057FB7390085CE79 = {
 			isa = PBXFileReference;
 			path = tux.icns;
@@ -1725,12 +1845,6 @@
 		};
 		D3F2225C057FBCE10085CE79 = {
 			fileRef = D3F22252057FB7390085CE79;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		D3F2225D057FBCE10085CE79 = {
-			fileRef = D3F2223E057FB5010085CE79;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1784,6 +1898,7 @@
 				D3FCC559041C72E000A80164,
 			);
 			buildSettings = {
+				HEADER_SEARCH_PATHS = src;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
