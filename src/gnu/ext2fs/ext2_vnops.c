@@ -241,6 +241,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
    { &vop_bwrite_desc, (vop_t *)vn_bwrite },
    /* { &vop_update_desc, (vop_t *) ext2_update }, */
+   { &vop_ioctl_desc, (vop_t *)ext2_ioctl },
    { &vop_getattrlist_desc,	(vop_t *) ext2_getattrlist },
 /*   { &vop_setattrlist_desc,	(vop_t *) ext2_setattrlist }, */
    #endif /* APPLE */
@@ -295,6 +296,7 @@ static struct vnodeopv_entry_desc ext2_specop_entries[] = {
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
    { &vop_bwrite_desc, (vop_t *)vn_bwrite },
    /* { &vop_update_desc, (vop_t *) ext2_update }, */
+   { &vop_ioctl_desc, (vop_t *)spec_ioctl },
    #endif /* APPLE */
 	{ NULL, NULL }
 };
@@ -350,6 +352,7 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
    { &vop_bwrite_desc, (vop_t *)vn_bwrite },
    /* { &vop_update_desc, (vop_t *) ext2_update }, */
+   { &vop_ioctl_desc, (vop_t *)fifo_ioctl },
    #endif /* APPLE */
 	{ NULL, NULL }
 };
