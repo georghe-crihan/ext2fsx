@@ -7,7 +7,7 @@
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
 \f1\b0 1.1d3\
-2003/11/16
+2003/11/29
 \f0\b \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
@@ -41,15 +41,16 @@ The OS X driver respects/implements the following inode flags (man chattr):\
 	a -- (append only)\
 	i  -- (immutable)\
 \
+Ext3 indexed directories are supported. Indexed directories are orders of magnitude faster than standard directories. The driver will auto-recognize and use these when present; if you wish to add support to an existing volume using Mac OS X, then the filesystem must be mounted with the -o index option.\
+\
 
 \f0\b Known Limitations
 \f1\b0 \
 \
 Volumes will fail to auto-mount if they are corrupted. The auto-mounter funs fsck (in verification mode only) before mounting a volume and if fsck fails, the auto-mounter won't even try to mount the volume. If you are having problems with volumes not auto-mounting, try running fsck_ext2 on the device. After any volume errors have been corrected, you can get the auto-mounter to try mounting the device again by running 'disktool -r' from Terminal. Please note that the kernel will also fail to mount any filesystem R/W if it is not clean.
 \f0\b \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f1\b0 \cf0 \
+\f1\b0 \
 If you re-format an existing partition as Ext2, then that partition may fail to automount in the future. This is because re-formating does not change the partition type in the partition header of the disk. Automounter uses this type as a "hint" when trying to find the right filesystem utility to use. Unfortunately, the "hint" is actually literal; automounter will find an incorrect filesystem utility based on the partition type and when that utility fails the probe phase, automounter will return an error without trying other filesystem utilities. There is no known way to change a partition type without re-formating the entire disk. (Amendment:  Dan C. pointed out that pdisk can apparently alter the partition table without destroying other partitions. So you could drop a partition and replace it with a new type. I don't know if I trust this, so for now I'll leave this up to the intrepid user.)\
 \
 Renaming a volume in the Finder is not supported on 10.2.x. To change the name of a volume, you must use the Terminal program 'e2label'. Example (using a disk image):\
@@ -73,9 +74,8 @@ Quotas are not supported.\
 ACL's are not supported.\
 Volumes cannot be renamed in the Finder.\
 \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b \cf0 Reporting a Bug
+\f0\b Reporting a Bug
 \f1\b0 \
 \
 Bug reports should be entered into the bug tracking system at\

@@ -5,9 +5,17 @@
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
 \f0\fs24 \cf0 1.1d3\
+Added support for Ext3 indexed directories (from Linux 2.6.0-test10).\
+\
 Added e2undel utility. See /usr/local/share/doc/E2UNDEL_README.\
 \
-Implemented ext2_ioctl() in the KEXT so lsattr and chattr work with the extended EXT2 flags.\
+Implemented ext2_ioctl() in the kernel driver so lsattr and chattr work with the extended EXT2 flags. We also now respect the NOATIME inode flag.\
+\
+Added support for Ext2 sysctl's. Variables appear under the "vfs.e2fs" MIB.\
+\
+Mount SYNC is now respected when writing group buffers.\
+\
+Includes 1.0.1 fix for dir corruption bug.\
 \
 1.1d2\
 Volumes can now be re-named in the Finder. This is only supported in Panther.\
@@ -23,8 +31,9 @@ Implemented proper superblock locking.\
 1.1d1 (not public)\
 Large file (> 2GB) support.\
 \
-1.0.1\
+16 bit uid/gid support for older filesystems.\
 \
+1.0.1\
 Fixed a byte swap bug that caused directory corruption when moving a directory to another directory. This manifested itself in the Finder with a busy error whenever you moved a directory to the Trash.\
 \
 1.0\
