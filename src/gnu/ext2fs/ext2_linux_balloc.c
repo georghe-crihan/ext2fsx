@@ -67,7 +67,7 @@ static const char whatid[] __attribute__ ((unused)) =
  * ext2_linux_ialloc.c
  */
 
-static void read_block_bitmap (struct mount * mp,
+static void read_block_bitmap (mount_t   mp,
 			       unsigned int block_group,
 			       unsigned long bitmap_nr
             #if !EXT2_SB_BITMAP_CACHE
@@ -107,7 +107,7 @@ static void read_block_bitmap (struct mount * mp,
  * 2/ If the file system contains less than EXT2_MAX_GROUP_LOADED groups,
  *    this function reads the bitmap without maintaining a LRU cache.
  */
-static int load__block_bitmap (struct mount * mp,
+static int load__block_bitmap (mount_t   mp,
 			       unsigned int block_group
             #if !EXT2_SB_BITMAP_CACHE
                 , struct buffer_head **bhpp
@@ -179,7 +179,7 @@ static int load__block_bitmap (struct mount * mp,
 	return 0;
 }
 
-static __inline int load_block_bitmap (struct mount * mp,
+static __inline int load_block_bitmap (mount_t   mp,
 				       unsigned int block_group
                #if !EXT2_SB_BITMAP_CACHE
                    , struct buffer_head **bhpp
@@ -203,7 +203,7 @@ static __inline int load_block_bitmap (struct mount * mp,
 #endif
 }
 
-void ext2_free_blocks (struct mount * mp, unsigned long block,
+void ext2_free_blocks (mount_t   mp, unsigned long block,
 		       unsigned long count)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
@@ -299,7 +299,7 @@ void ext2_free_blocks (struct mount * mp, unsigned long block,
  * each block group the search first looks for an entire free byte in the block
  * bitmap, and then for any free bit if that fails.
  */
-int ext2_new_block (struct mount * mp, unsigned long goal,
+int ext2_new_block (mount_t   mp, unsigned long goal,
 		    u_int32_t * prealloc_count,
 		    u_int32_t * prealloc_block)
 {
@@ -558,7 +558,7 @@ got_block:
 }
 
 #ifdef unused
-static unsigned long ext2_count_free_blocks (struct mount * mp)
+static unsigned long ext2_count_free_blocks (mount_t   mp)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 #if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
@@ -621,7 +621,7 @@ int ext2_group_sparse(int group)
 }
 
 #ifdef unused
-static void ext2_check_blocks_bitmap (struct mount * mp)
+static void ext2_check_blocks_bitmap (mount_t   mp)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	struct buffer_head * bh;

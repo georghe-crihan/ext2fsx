@@ -15,8 +15,6 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1262FFB20DD611CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -31,8 +29,6 @@
 			name = Development;
 		};
 		06AA1263FFB20DD611CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -132,7 +128,7 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_VERSION = 3.3;
+				GCC_VERSION = 3.5;
 				HEADER_SEARCH_PATHS = "src src/gnu/ext2fs/linux/include";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -140,7 +136,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.2.1;
+				MODULE_VERSION = 1.3d1;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -178,15 +174,15 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.3d1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.3d1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
-		<string>6.9.9</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0</string>
 	</dict>
 	<key>OSBundleProductName</key>
 	<string>Ext2 Filesystem</string>
@@ -298,8 +294,7 @@
 //0A4
 		0A5A7D55FFB780D811CA28AA = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = ext2fs.kext;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -440,8 +435,7 @@
 		};
 		D30B790B040599D500A80164 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = mount_ext2;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -549,8 +543,7 @@
 		};
 		D31F7D370569E3E700A80164 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = e2undel;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -740,8 +733,6 @@
 			};
 		};
 		D3360E46058AF97E004AF361 = {
-			buildRules = (
-			);
 			buildSettings = {
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-DOSX -DDEBUG -DEXT2FS_DEBUG=1 -DDIAGNOSTIC -DDX_DEBUG -DEXT2FS_TRACE";
@@ -750,8 +741,6 @@
 			name = JagDevelopment;
 		};
 		D3360E47058AF9A6004AF361 = {
-			buildRules = (
-			);
 			buildSettings = {
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				OPTIMIZATION_CFLAGS = "-Os";
@@ -986,7 +975,7 @@
 		};
 		D3660BFB0643ED21009810C9 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "ExtFSDiskManager-Info.plist";
 			path = "Resources/ExtFSDiskManager-Info.plist";
 			refType = 2;
@@ -1157,8 +1146,7 @@
 			sourceTree = "<group>";
 		};
 		D36725BA057A6F0700A80164 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
@@ -1166,8 +1154,7 @@
 			sourceTree = "<absolute>";
 		};
 		D36725FE057BB78100A80164 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = DiskArbitration.framework;
 			path = /System/Library/PrivateFrameworks/DiskArbitration.framework;
@@ -1269,8 +1256,7 @@
 			sourceTree = "<group>";
 		};
 		D376F3CD040E088100A80164 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
@@ -1656,8 +1642,7 @@
 		};
 		D387FCAA0595632700C31A93 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = fsck_ext2;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1805,7 +1790,7 @@
 		D38A5F4206711FDA00E9E666 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			path = "efssmartd-Info.plist";
 			refType = 4;
 			sourceTree = "<group>";
@@ -2016,8 +2001,7 @@
 			sourceTree = SOURCE_ROOT;
 		};
 		D3A9B8130582E25500B93FC7 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
@@ -2249,8 +2233,7 @@
 		};
 		D3D4857E0405AE8E00A80164 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = ext2fs.util;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -2491,8 +2474,7 @@
 		};
 		D3D485860405AEF400A80164 = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = ext2.fs;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -2669,8 +2651,7 @@
 		};
 		D3D4AF230579135600A80164 = {
 			explicitFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			isa = PBXFileReference;
 			path = ExtFSManager.prefPane;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -2686,8 +2667,7 @@
 			targetProxy = D32E729405F2A326002928A8;
 		};
 		D3D4AF27057913CB00A80164 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = Cocoa.framework;
 			path = /System/Library/Frameworks/Cocoa.framework;
@@ -2695,8 +2675,7 @@
 			sourceTree = "<absolute>";
 		};
 		D3D4AF28057913CB00A80164 = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = PreferencePanes.framework;
 			path = /System/Library/Frameworks/PreferencePanes.framework;
@@ -2892,8 +2871,7 @@
 		};
 		D3FCC55B041C72E000A80164 = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = newfs_ext2;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;

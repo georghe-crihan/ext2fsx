@@ -81,10 +81,10 @@ struct dentry {
 #define BUFFER_TRACE(bh,msg)
 
 static __inline__
-int ext3_journal_get_write_access(handle_t *handle, struct buf *bh) {return (0);}
+int ext3_journal_get_write_access(handle_t *handle, buf_t  bh) {return (0);}
 
 static __inline__
-int ext3_journal_dirty_metadata(handle_t *handle, struct buf *bh)
+int ext3_journal_dirty_metadata(handle_t *handle, buf_t  bh)
 {
    bh->b_flags |= B_NORELSE;
    return (-bwrite(bh));
@@ -113,7 +113,7 @@ static
 struct buffer_head *ext3_bread(handle_t *handle, struct inode * inode,
 				long block, int create, int * errp)
 {
-   struct buf *bp;
+   buf_t  bp;
    struct	ucred *cred;
    int blksize = inode->i_e2fs->s_blocksize, err;
    

@@ -144,8 +144,8 @@ extern u_char *fragtbl[];
  * FreeBSD uses VOP_LOCK/VOP_UNLOCK on the device vnode
  * For Darwin, the in-core sb contains its own lock
  */
-#define lock_super(sbp) mutex_lock((sbp)->s_lock)
-#define unlock_super(sbp) mutex_unlock((sbp)->s_lock)
+#define lock_super(sbp) lck_mtx_lock((sbp)->s_lock)
+#define unlock_super(sbp) lck_mtx_unlock((sbp)->s_lock)
 
 /*
  * To lock a buffer, set the B_LOCKED flag and then brelse() it. To unlock,
@@ -164,9 +164,9 @@ obuf.b_hash = (b)->b_hash; \
 obuf.b_vnbufs = (b)->b_vnbufs; \
 obuf.b_freelist = (b)->b_freelist;
 
-static __inline__ void e2_chk_buf_lck(struct buf *bp, struct buf *obp)
+static __inline__ void e2_chk_buf_lck(buf_t  bp, buf_t  obp)
 {
-   struct buf *ent;
+   buf_t  ent;
    struct bqueues *bqh;
    int found = 0, s, idx;
    char *bufnames[BQUEUES+1] = {"LOCKED","LRU","AGE","EMPTY","META","LAUNDRY",""};
@@ -204,7 +204,7 @@ static __inline__ void e2_chk_buf_lck(struct buf *bp, struct buf *obp)
    e2_decl_buf_cp \
    e2_buf_cp(bp) \
 	(bp)->b_flags |= B_LOCKED; \
-	brelse(bp); \
+	buf_relse(bp); \
    e2_chk_buf_lck(bp, &obuf); \
 }
 
@@ -215,7 +215,7 @@ static __inline__ void e2_chk_buf_lck(struct buf *bp, struct buf *obp)
 	bremfree(bp); \
    (bp)->b_flags |= B_BUSY; /* Mark busy since it is still on the hash list */ \
 	if (flags & B_DIRTY) \
-		bwrite(bp); \
+		buf_write(bp); \
 	else \
-		brelse(bp); \
+		buf_relse(bp); \
 }

@@ -125,7 +125,7 @@ static const u_char dt_to_ext2_ft[] = {
     ((dt) > sizeof(dt_to_ext2_ft) / sizeof(dt_to_ext2_ft[0]) ?	\
     EXT2_FT_UNKNOWN : dt_to_ext2_ft[(dt)])
 
-static int	ext2_dirbadentry(struct vnode *dp, struct ext2_dir_entry_2 *de,
+static int	ext2_dirbadentry(vnode_t dp, struct ext2_dir_entry_2 *de,
 		    int entryoffsetinblock);
 
 /* Bring in dir index support. */
@@ -154,7 +154,7 @@ static int	ext2_dirbadentry(struct vnode *dp, struct ext2_dir_entry_2 *de,
 int
 ext2_readdir(ap)
    struct vop_readdir_args /* {
-            struct vnode *a_vp;
+            vnode_t a_vp;
             struct uio *a_uio;
             struct ucred *a_cred;
    } */ *ap;
@@ -387,14 +387,14 @@ io_done:
 int
 ext2_lookup(ap)
 	struct vop_cachedlookup_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
+		vnode_t a_dvp;
+		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 	} */ *ap;
 {
-	struct vnode *vdp;		/* vnode for directory being searched */
+	vnode_t vdp;		/* vnode for directory being searched */
 	struct inode *dp;		/* inode for directory being searched */
-	struct buf *bp;			/* a buffer of directory entries */
+	buf_t  bp;			/* a buffer of directory entries */
 	struct ext2_dir_entry_2 *ep;	/* the current directory entry */
 	int entryoffsetinblock;		/* offset of ep in bp's buffer */
 	enum {NONE, COMPACT, FOUND} slotstatus;
@@ -405,14 +405,14 @@ ext2_lookup(ap)
 	int numdirpasses=0;		/* strategy for directory search */
 	doff_t endsearch;		/* offset to end directory search */
 	doff_t prevoff=0;			/* prev entry dp->i_offset */
-	struct vnode *pdp;		/* saved dp during symlink work */
-	struct vnode *tdp;		/* returned by VFS_VGET */
+	vnode_t pdp;		/* saved dp during symlink work */
+	vnode_t tdp;		/* returned by VFS_VGET */
 	doff_t enduseful=0;		/* pointer past last used dir slot */
 	u_long bmask=0;			/* block offset mask */
 	int lockparent;			/* 1 => lockparent flag is set */
 	int wantparent;			/* 1 => wantparent or lockparent flag */
 	int namlen, error;
-	struct vnode **vpp = ap->a_vpp;
+	vnode_t *vpp = ap->a_vpp;
 	struct componentname *cnp = ap->a_cnp;
 	struct ucred *cred = cnp->cn_cred;
 	int flags = cnp->cn_flags;
@@ -843,7 +843,7 @@ ext2_dirbad(ip, offset, how)
 	doff_t offset;
 	char *how;
 {
-	struct mount *mp;
+	mount_t  mp;
 
 	mp = ITOV(ip)->v_mount;
 	(void)printf("%s: bad dir ino %lu at offset %ld: %s\n",
@@ -865,7 +865,7 @@ ext2_dirbad(ip, offset, how)
  */
 static int
 ext2_dirbadentry(dp, de, entryoffsetinblock)
-	struct vnode *dp;
+	vnode_t dp;
 	struct ext2_dir_entry_2 *de;
 	int entryoffsetinblock;
 {
@@ -906,12 +906,12 @@ ext2_dirbadentry(dp, de, entryoffsetinblock)
 int
 ext2_direnter(ip, dvp, cnp)
 	struct inode *ip;
-	struct vnode *dvp;
+	vnode_t dvp;
 	struct componentname *cnp;
 {
 	struct ext2_dir_entry_2 *ep, *nep;
 	struct inode *dp;
-	struct buf *bp;
+	buf_t  bp;
 	struct ext2_dir_entry_2 newdir;
 	struct iovec aiov;
 	struct uio auio;
@@ -1096,12 +1096,12 @@ ext2_direnter(ip, dvp, cnp)
  */
 int
 ext2_dirremove(dvp, cnp)
-	struct vnode *dvp;
+	vnode_t dvp;
 	struct componentname *cnp;
 {
 	struct inode *dp;
 	struct ext2_dir_entry_2 *ep;
-	struct buf *bp;
+	buf_t  bp;
 	int error;
 	 
 	dp = VTOI(dvp);
@@ -1163,9 +1163,9 @@ ext2_dirrewrite(dp, ip, cnp)
 	struct inode *dp, *ip;
 	struct componentname *cnp;
 {
-	struct buf *bp;
+	buf_t  bp;
 	struct ext2_dir_entry_2 *ep;
-	struct vnode *vdp = ITOV(dp);
+	vnode_t vdp = ITOV(dp);
 	int error;
 
    /* Check for indexed dir */
@@ -1264,7 +1264,7 @@ ext2_checkpath(source, target, cred)
 	struct inode *source, *target;
 	struct ucred *cred;
 {
-	struct vnode *vp;
+	vnode_t vp;
 	int error, rootino, namlen;
 	struct dirtemplate dirbuf;
    u_int32_t dotdot_ino;

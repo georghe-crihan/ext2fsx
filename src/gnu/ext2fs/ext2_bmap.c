@@ -66,9 +66,9 @@ static const char whatid[] __attribute__ ((unused)) =
 int
 ext2_bmap(ap)
 	struct vop_bmap_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		daddr_t a_bn;
-		struct vnode **a_vpp;
+		vnode_t *a_vpp;
 		daddr_t *a_bnp;
 		int *a_runp;
 	} */ *ap;
@@ -110,17 +110,17 @@ ext2_bmap(ap)
 
 int
 ext2_bmaparray(vp, bn, bnp, runp, runb)
-	struct vnode *vp;
+	vnode_t vp;
 	ext2_daddr_t bn;
 	ext2_daddr_t *bnp;
 	int *runp;
 	int *runb;
 {
 	struct inode *ip;
-	struct buf *bp;
+	buf_t  bp;
 	struct ext2mount *ump;
-	struct mount *mp;
-	struct vnode *devvp;
+	mount_t  mp;
+	vnode_t devvp;
 	struct indir a[NIADDR+1], *ap;
 	ext2_daddr_t daddr;
 	ext2_daddr_t metalbn;
@@ -256,7 +256,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
  */
 int
 ext2_getlbns(vp, bn, ap, nump)
-	struct vnode *vp;
+	vnode_t vp;
 	ext2_daddr_t bn;
 	struct indir *ap;
 	int *nump;

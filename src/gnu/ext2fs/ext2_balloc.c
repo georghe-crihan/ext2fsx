@@ -67,14 +67,14 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	ext2_daddr_t bn;
 	int size;
 	struct ucred *cred;
-	struct buf **bpp;
+	buf_t  *bpp;
 	int flags;
     int *blk_alloc;
 {
 	struct ext2_sb_info *fs;
 	ext2_daddr_t nb;
-	struct buf *bp, *nbp;
-	struct vnode *vp = ITOV(ip);
+	buf_t  bp, *nbp;
+	vnode_t vp = ITOV(ip);
 	struct indir indirs[NIADDR + 2];
 	ext2_daddr_t newb, lbn, *bap, pref;
 	int osize, nsize, num, i, error;

@@ -75,17 +75,17 @@ static const char whatid[] __attribute__ ((unused)) =
 static int
 READ(ap)
 	struct vop_read_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_ioflag;
 		struct ucred *a_cred;
 	} */ *ap;
 {
-	struct vnode *vp;
+	vnode_t vp;
 	struct inode *ip;
 	struct uio *uio;
 	FS *fs;
-	struct buf *bp;
+	buf_t  bp;
 	ext2_daddr_t lbn, nextlbn;
 	off_t bytesinfile;
 	long size, xfersize, blkoffset;
@@ -190,17 +190,17 @@ READ(ap)
 static int
 WRITE(ap)
 	struct vop_write_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_ioflag;
 		struct ucred *a_cred;
 	} */ *ap;
 {
-	struct vnode *vp;
+	vnode_t vp;
 	struct uio *uio;
 	struct inode *ip;
 	FS *fs;
-	struct buf *bp;
+	buf_t  bp;
 	struct thread *td;
 	ext2_daddr_t lbn;
 	off_t osize;

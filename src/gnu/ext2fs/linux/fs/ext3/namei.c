@@ -521,7 +521,7 @@ static inline struct ext3_dir_entry_2 *ext3_next_entry(struct ext3_dir_entry_2 *
  * directory block.  It returns the number directory entries loaded
  * into the tree.  If there is an error it is returned in err.
  */
-static int htree_dirblock_to_tree(struct vnode *dir_file,
+static int htree_dirblock_to_tree(vnode_t dir_file,
 				  struct inode *dir, int block,
 				  struct dx_hash_info *hinfo,
 				  __u32 start_hash, __u32 start_minor_hash)
@@ -564,7 +564,7 @@ static int htree_dirblock_to_tree(struct vnode *dir_file,
  * This function returns the number of entries inserted into the tree,
  * or a negative error code.
  */
-int ext3_htree_fill_tree(struct vnode *dir_file, __u32 start_hash,
+int ext3_htree_fill_tree(vnode_t dir_file, __u32 start_hash,
 			 __u32 start_minor_hash, __u32 *next_hash)
 {
 	struct dx_hash_info hinfo;

@@ -106,12 +106,12 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #define vop_kqfilter_desc vop_kqfilt_add_desc
 #define vop_kqfilter vop_kqfilt_add
 
-static int ext2_makeinode(int mode, struct vnode *, struct vnode **, struct componentname *);
+static int ext2_makeinode(int mode, vnode_t , vnode_t *, struct componentname *);
 
 static int ext2_access(struct vop_access_args *);
 static int ext2_advlock(struct vop_advlock_args *);
-static int ext2_chmod(struct vnode *, int, struct ucred *, struct thread *);
-static int ext2_chown(struct vnode *, uid_t, gid_t, struct ucred *,
+static int ext2_chmod(vnode_t , int, struct ucred *, struct thread *);
+static int ext2_chown(vnode_t , uid_t, gid_t, struct ucred *,
     struct thread *);
 static int ext2_close(struct vop_close_args *);
 static int ext2_create(struct vop_create_args *);
@@ -362,7 +362,7 @@ static struct dirtemplate omastertemplate = {
 
 void
 ext2_itimes(vp)
-	struct vnode *vp;
+	vnode_t vp;
 {
 	struct inode *ip;
 	struct timespec ts;
@@ -401,8 +401,8 @@ ext2_itimes(vp)
 static int
 ext2_create(ap)
 	struct vop_create_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
+		vnode_t a_dvp;
+		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		struct vattr *a_vap;
 	} */ *ap;
@@ -428,7 +428,7 @@ ext2_create(ap)
 static int
 ext2_open(ap)
 	struct vop_open_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int  a_mode;
 		struct ucred *a_cred;
 		struct thread *a_td;
@@ -453,13 +453,13 @@ ext2_open(ap)
 static int
 ext2_close(ap)
 	struct vop_close_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int  a_fflag;
 		struct ucred *a_cred;
 		struct thread *a_td;
 	} */ *ap;
 {
-   struct vnode *vp = ap->a_vp;
+   vnode_t vp = ap->a_vp;
    struct inode *ip = VTOI(vp);
    
    ext2_trace("inode=%d, name=%s\n", ip->i_number, VNAME(vp));
@@ -501,13 +501,13 @@ ext2_close(ap)
 static int
 ext2_access(ap)
 	struct vop_access_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int  a_mode;
 		struct ucred *a_cred;
 		struct thread *a_td;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	mode_t mode = ap->a_mode;
 	int error;
@@ -550,13 +550,13 @@ ext2_access(ap)
 static int
 ext2_getattr(ap)
 	struct vop_getattr_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct vattr *a_vap;
 		struct ucred *a_cred;
 		struct thread *a_td;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	struct vattr *vap = ap->a_vap;
    int devBlockSize = ip->i_e2fs->s_d_blocksize;
@@ -609,14 +609,14 @@ ext2_getattr(ap)
 static int
 ext2_setattr(ap)
 	struct vop_setattr_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct vattr *a_vap;
 		struct ucred *a_cred;
 		struct thread *a_td;
 	} */ *ap;
 {
 	struct vattr *vap = ap->a_vap;
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	struct ucred *cred = ap->a_cred;
 	struct thread *td = ap->a_td;
@@ -746,7 +746,7 @@ ext2_setattr(ap)
  */
 static int
 ext2_chmod(vp, mode, cred, td)
-	struct vnode *vp;
+	vnode_t vp;
 	int mode;
 	struct ucred *cred;
 	struct thread *td;
@@ -782,7 +782,7 @@ ext2_chmod(vp, mode, cred, td)
  */
 static int
 ext2_chown(vp, uid, gid, cred, td)
-	struct vnode *vp;
+	vnode_t vp;
 	uid_t uid;
 	gid_t gid;
 	struct ucred *cred;
@@ -830,7 +830,7 @@ ext2_chown(vp, uid, gid, cred, td)
 static int
 ext2_fsync(ap)
 	struct vop_fsync_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct ucred *a_cred;
 		int a_waitfor;
 		struct thread *a_td;
@@ -860,14 +860,14 @@ ext2_fsync(ap)
 static int
 ext2_mknod(ap)
 	struct vop_mknod_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
+		vnode_t a_dvp;
+		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		struct vattr *a_vap;
 	} */ *ap;
 {
 	struct vattr *vap = ap->a_vap;
-	struct vnode **vpp = ap->a_vpp;
+	vnode_t *vpp = ap->a_vpp;
 	struct inode *ip;
 	ino_t ino;
 	int error;
@@ -913,14 +913,14 @@ ext2_mknod(ap)
 static int
 ext2_remove(ap)
 	struct vop_remove_args /* {
-		struct vnode *a_dvp;
-		struct vnode *a_vp;
+		vnode_t a_dvp;
+		vnode_t a_vp;
 		struct componentname *a_cnp;
 	} */ *ap;
 {
 	struct inode *ip;
-	struct vnode *vp = ap->a_vp;
-	struct vnode *dvp = ap->a_dvp;
+	vnode_t vp = ap->a_vp;
+	vnode_t dvp = ap->a_dvp;
 	int error;
    
    ext2_trace_enter();
@@ -977,13 +977,13 @@ out:
 static int
 ext2_link(ap)
 	struct vop_link_args /* {
-		struct vnode *a_tdvp;
-		struct vnode *a_vp;
+		vnode_t a_tdvp;
+		vnode_t a_vp;
 		struct componentname *a_cnp;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
-	struct vnode *tdvp = ap->a_tdvp;
+	vnode_t vp = ap->a_vp;
+	vnode_t tdvp = ap->a_tdvp;
 	struct componentname *cnp = ap->a_cnp;
 	struct inode *ip;
    struct proc *p = curproc;
@@ -1044,18 +1044,18 @@ out:
 static int
 ext2_rename(ap)
 	struct vop_rename_args  /* {
-		struct vnode *a_fdvp;
-		struct vnode *a_fvp;
+		vnode_t a_fdvp;
+		vnode_t a_fvp;
 		struct componentname *a_fcnp;
-		struct vnode *a_tdvp;
-		struct vnode *a_tvp;
+		vnode_t a_tdvp;
+		vnode_t a_tvp;
 		struct componentname *a_tcnp;
 	} */ *ap;
 {
-	struct vnode *tvp = ap->a_tvp;
-	struct vnode *tdvp = ap->a_tdvp;
-	struct vnode *fvp = ap->a_fvp;
-	struct vnode *fdvp = ap->a_fdvp;
+	vnode_t tvp = ap->a_tvp;
+	vnode_t tdvp = ap->a_tdvp;
+	vnode_t fvp = ap->a_fvp;
+	vnode_t fdvp = ap->a_fdvp;
 	struct componentname *tcnp = ap->a_tcnp;
 	struct componentname *fcnp = ap->a_fcnp;
 	struct thread *td = fcnp->cn_thread;
@@ -1419,17 +1419,17 @@ out:
 static int
 ext2_mkdir(ap)
 	struct vop_mkdir_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
+		vnode_t a_dvp;
+		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		struct vattr *a_vap;
 	} */ *ap;
 {
-	struct vnode *dvp = ap->a_dvp;
+	vnode_t dvp = ap->a_dvp;
 	struct vattr *vap = ap->a_vap;
 	struct componentname *cnp = ap->a_cnp;
 	struct inode *ip, *dp;
-	struct vnode *tvp;
+	vnode_t tvp;
 	struct dirtemplate dirtemplate, *dtp;
 	int error, dmode;
    
@@ -1564,13 +1564,13 @@ out:
 static int
 ext2_rmdir(ap)
 	struct vop_rmdir_args /* {
-		struct vnode *a_dvp;
-		struct vnode *a_vp;
+		vnode_t a_dvp;
+		vnode_t a_vp;
 		struct componentname *a_cnp;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
-	struct vnode *dvp = ap->a_dvp;
+	vnode_t vp = ap->a_vp;
+	vnode_t dvp = ap->a_dvp;
 	struct componentname *cnp = ap->a_cnp;
 	struct thread *td = cnp->cn_thread;
 	struct inode *ip, *dp;
@@ -1650,14 +1650,14 @@ out:
 static int
 ext2_symlink(ap)
 	struct vop_symlink_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
+		vnode_t a_dvp;
+		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		struct vattr *a_vap;
 		char *a_target;
 	} */ *ap;
 {
-	struct vnode *vp, **vpp = ap->a_vpp;
+	vnode_t vp, **vpp = ap->a_vpp;
 	struct inode *ip;
 	int len, error;
    
@@ -1689,12 +1689,12 @@ ext2_symlink(ap)
 static int
 ext2_readlink(ap)
 	struct vop_readlink_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct uio *a_uio;
 		struct ucred *a_cred;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	int isize;
    
@@ -1718,11 +1718,11 @@ ext2_readlink(ap)
 static int
 ext2_strategy(ap)
 	struct vop_strategy_args /* {
-		struct buf *a_bp;
+		buf_t  a_bp;
 	} */ *ap;
 {
-	struct buf *bp = ap->a_bp;
-	struct vnode *vp = bp->b_vp;
+	buf_t  bp = ap->a_bp;
+	vnode_t vp = bp->b_vp;
 	struct inode *ip;
 	int error;
    
@@ -1787,10 +1787,10 @@ ext2_strategy(ap)
 static int
 ext2_print(ap)
 	struct vop_print_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 
 	printf("\text2 ino %lu, on dev %s (%d, %d)", (u_long)ip->i_number,
@@ -1806,7 +1806,7 @@ ext2_print(ap)
 static int
 ext2spec_read(ap)
 	struct vop_read_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct uio *a_uio;
 		int  a_ioflag;
 		struct ucred *a_cred;
@@ -1837,7 +1837,7 @@ ext2spec_read(ap)
 static int
 ext2spec_write(ap)
 	struct vop_write_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct uio *a_uio;
 		int  a_ioflag;
 		struct ucred *a_cred;
@@ -1866,13 +1866,13 @@ ext2spec_write(ap)
 static int
 ext2spec_close(ap)
 	struct vop_close_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int  a_fflag;
 		struct ucred *a_cred;
 		struct thread *a_td;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
    
    ext2_trace_enter();
 
@@ -1889,7 +1889,7 @@ ext2spec_close(ap)
 static int
 ext2fifo_read(ap)
 	struct vop_read_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct uio *a_uio;
 		int  a_ioflag;
 		struct ucred *a_cred;
@@ -1917,7 +1917,7 @@ ext2fifo_read(ap)
 static int
 ext2fifo_write(ap)
 	struct vop_write_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct uio *a_uio;
 		int  a_ioflag;
 		struct ucred *a_cred;
@@ -1946,13 +1946,13 @@ ext2fifo_write(ap)
 static int
 ext2fifo_close(ap)
 	struct vop_close_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int  a_fflag;
 		struct ucred *a_cred;
 		struct thread *a_td;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
    
    ext2_trace_enter();
 
@@ -1990,7 +1990,7 @@ ext2fifo_kqfilter(ap)
 static int
 ext2_pathconf(ap)
 	struct vop_pathconf_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int a_name;
 		int *a_retval;
 	} */ *ap;
@@ -2030,7 +2030,7 @@ ext2_pathconf(ap)
 static int
 ext2_advlock(ap)
 	struct vop_advlock_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		caddr_t  a_id;
 		int  a_op;
 		struct flock *a_fl;
@@ -2124,14 +2124,14 @@ ext2_advlock(ap)
  */
 int
 ext2_vinit(mntp, specops, fifoops, vpp)
-	struct mount *mntp;
+	mount_t  mntp;
 	vop_t **specops;
 	vop_t **fifoops;
-	struct vnode **vpp;
+	vnode_t *vpp;
 {
 	struct inode *ip;
-	struct vnode *vp;
-   struct vnode *nvp;
+	vnode_t vp;
+   vnode_t nvp;
 	struct timeval tv;
 
 	vp = *vpp;
@@ -2183,12 +2183,12 @@ ext2_vinit(mntp, specops, fifoops, vpp)
 static int
 ext2_makeinode(mode, dvp, vpp, cnp)
 	int mode;
-	struct vnode *dvp;
-	struct vnode **vpp;
+	vnode_t dvp;
+	vnode_t *vpp;
 	struct componentname *cnp;
 {
 	struct inode *ip, *pdir;
-	struct vnode *tvp;
+	vnode_t tvp;
 	int error;
 
 	pdir = VTOI(dvp);
@@ -2300,11 +2300,11 @@ static struct filterops ext2vnode_filtops =
 static int
 ext2_kqfilter(ap)
 	struct vop_kqfilter_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct knote *a_kn;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct knote *kn = ap->a_kn;
 
 	switch (kn->kn_filter) {
@@ -2331,7 +2331,7 @@ ext2_kqfilter(ap)
 static void
 filt_ext2detach(struct knote *kn)
 {
-   struct vnode *vp = (struct vnode *)kn->kn_hook;
+   vnode_t vp = (vnode_t )kn->kn_hook;
    struct proc *p = current_proc();
    int err;
    
@@ -2351,7 +2351,7 @@ filt_ext2detach(struct knote *kn)
 static int
 filt_ext2read(struct knote *kn, long hint)
 {
-	struct vnode *vp = (struct vnode *)kn->kn_hook;
+	vnode_t vp = (vnode_t )kn->kn_hook;
 	struct inode *ip = VTOI(vp);
 
 	/*
@@ -2401,7 +2401,7 @@ filt_ext2vnode(struct knote *kn, long hint)
 int
 ext2fs_truncate(ap)
 	struct vop_truncate_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		off_t a_length;
 		int a_flags;
 		struct ucred *a_cred;

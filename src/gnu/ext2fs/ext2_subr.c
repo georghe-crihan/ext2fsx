@@ -62,7 +62,7 @@
 #endif
 
 #ifdef DDB
-void	ext2_checkoverlap(struct buf *, struct inode *);
+void	ext2_checkoverlap(buf_t  , struct inode *);
 #endif
 
 /*
@@ -72,14 +72,14 @@ void	ext2_checkoverlap(struct buf *, struct inode *);
  */
 int
 ext2_blkatoff(vp, offset, res, bpp)
-	struct vnode *vp;
+	vnode_t vp;
 	off_t offset;
 	char **res;
-	struct buf **bpp;
+	buf_t  *bpp;
 {
 	struct inode *ip;
 	struct ext2_sb_info *fs;
-	struct buf *bp;
+	buf_t  bp;
 	ext2_daddr_t lbn;
 	int bsize, error;
 
@@ -102,12 +102,12 @@ ext2_blkatoff(vp, offset, res, bpp)
 #ifdef DDB
 void
 ext2_checkoverlap(bp, ip)
-	struct buf *bp;
+	buf_t  bp;
 	struct inode *ip;
 {
-	struct buf *ebp, *ep;
+	buf_t  ebp, *ep;
 	ext2_daddr_t start, last;
-	struct vnode *vp;
+	vnode_t vp;
 
 	ebp = &buf[nbuf];
 	start = bp->b_blkno;

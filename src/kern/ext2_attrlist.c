@@ -97,23 +97,23 @@ static const char whatid[] __attribute__ ((unused)) =
 #define EXT2_ATTR_FORK_SETTABLE 0
 
 static int ext2_attrcalcsize(struct attrlist *);
-static int ext2_packattrblk(struct attrlist *, struct vnode *, void **, void **);
+static int ext2_packattrblk(struct attrlist *, vnode_t , void **, void **);
 static unsigned long DerivePermissionSummary(uid_t, gid_t, mode_t,
-   struct mount *, struct ucred *, struct proc *);
+   mount_t , struct ucred *, struct proc *);
 static int ext2_unpackattr(struct vnode*, struct ucred*,
    struct attrlist*, void*);
 
 int
 ext2_getattrlist(ap)
 	struct vop_getattrlist_args /* {
-	struct vnode *a_vp;
+	vnode_t a_vp;
 	struct attrlist *a_alist
 	struct uio *a_uio; // INOUT
 	struct ucred *a_cred;
 	struct proc *a_p;
 	} */ *ap;
 {
-   struct vnode *vp = ap->a_vp;
+   vnode_t vp = ap->a_vp;
    struct attrlist *alist = ap->a_alist;
    int blockSize, fixedSize, attrBufSize, err;
    void *abp, *atp, *vdp;
@@ -388,7 +388,7 @@ ext2_packvolattr (struct attrlist *alist,
    void *attrbufptr;
    void *varbufptr;
 	struct ext2_sb_info *fs;
-	struct mount *mp;
+	mount_t mp;
    struct ext2mount *emp;
 	attrgroup_t a;
 	u_long attrlength;
@@ -798,7 +798,7 @@ ext2_packfileattr(struct attrlist *alist,
 
 int
 ext2_packattrblk(struct attrlist *alist,
-			struct vnode *vp,
+			vnode_t vp,
 			void **attrbufptrptr,
 			void **varbufptrptr)
 {
@@ -917,7 +917,7 @@ int ext2_unpackattr(
 /* Cribbed from hfs/hfs_attrlist.c */
 unsigned long
 DerivePermissionSummary(uid_t obj_uid, gid_t obj_gid, mode_t obj_mode,
-			struct mount *mp, struct ucred *cred, struct proc *p)
+			mount_t mp, struct ucred *cred, struct proc *p)
 {
 	register gid_t *gp;
 	unsigned long permissions;

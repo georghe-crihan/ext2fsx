@@ -74,11 +74,11 @@ static int ext2_indirtrunc(struct inode *, int32_t, int32_t, int32_t, int,
  */
 int
 ext2_update(vp, waitfor)
-	struct vnode *vp;
+	vnode_t vp;
 	int waitfor;
 {
 	struct ext2_sb_info *fs;
-	struct buf *bp;
+	buf_t  bp;
 	struct inode *ip;
 	int error;
 
@@ -115,19 +115,19 @@ ext2_update(vp, waitfor)
  */
 int
 ext2_truncate(vp, length, flags, cred, td)
-	struct vnode *vp;
+	vnode_t vp;
 	off_t length;
 	int flags;
 	struct ucred *cred;
 	struct thread *td;
 {
-	struct vnode *ovp = vp;
+	vnode_t ovp = vp;
 	int32_t lastblock;
 	struct inode *oip;
 	int32_t bn, lbn, lastiblock[NIADDR], indir_lbn[NIADDR];
 	int32_t oldblks[NDADDR + NIADDR], newblks[NDADDR + NIADDR];
 	struct ext2_sb_info *fs;
-	struct buf *bp;
+	buf_t  bp;
 	int offset, size, level;
 	long count, nblocks, blocksreleased = 0;
 	int aflags, error, i, allerror;
@@ -392,15 +392,15 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	int level;
 	long *countp;
 {
-	struct buf *bp;
+	buf_t  bp;
 	struct ext2_sb_info *fs = ip->i_e2fs;
-	struct vnode *vp;
+	vnode_t vp;
 	int32_t *bap, *copy, nb, nlbn, last;
 	long blkcount, factor;
 	int i, nblocks, blocksreleased = 0;
 	int error = 0, allerror = 0;
    int devBlockSize=0;
-   struct buf *tbp;
+   buf_t  tbp;
    
    devBlockSize = ip->i_e2fs->s_d_blocksize;
    
@@ -507,11 +507,11 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 int
 ext2_inactive(ap)
         struct vop_inactive_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct thread *a_td;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct inode *ip = VTOI(vp);
 	struct thread *td = ap->a_td;
 	int mode, error = 0;
@@ -560,12 +560,12 @@ out:
 int
 ext2_reclaim(ap)
 	struct vop_reclaim_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct thread *a_td;
 	} */ *ap;
 {
 	struct inode *ip;
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	void *tdata;
 
 	if (prtactive && vrefcnt(vp) != 0)
@@ -583,7 +583,7 @@ ext2_reclaim(ap)
 	 * Purge old data structures associated with the inode.
 	 */
 	if (ip->i_devvp) {
-		struct vnode *tvp = ip->i_devvp;
+		vnode_t tvp = ip->i_devvp;
       ip->i_devvp = 0;
 		vrele(tvp);
 	}

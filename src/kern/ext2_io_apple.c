@@ -90,7 +90,7 @@ static int ext2_blkalloc(register struct inode *, int32_t, int, struct ucred *, 
 int
 ext2_pagein(ap)
 	struct vop_pagein_args /* {
-	   	struct vnode *a_vp,
+	   	vnode_t a_vp,
 	   	upl_t 	a_pl,
 		vm_offset_t   a_pl_offset,
 		off_t         a_f_offset,
@@ -99,7 +99,7 @@ ext2_pagein(ap)
 		int           a_flags
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
+	register vnode_t vp = ap->a_vp;
 	upl_t pl = ap->a_pl;
 	size_t size= ap->a_size;
 	off_t f_offset = ap->a_f_offset;
@@ -140,7 +140,7 @@ ext2_pagein(ap)
 int
 ext2_pageout(ap)
 	struct vop_pageout_args /* {
-	   struct vnode *a_vp,
+	   vnode_t a_vp,
 	   upl_t        a_pl,
 	   vm_offset_t   a_pl_offset,
 	   off_t         a_f_offset,
@@ -149,7 +149,7 @@ ext2_pageout(ap)
 	   int           a_flags
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
+	register vnode_t vp = ap->a_vp;
 	upl_t pl = ap->a_pl;
 	size_t size= ap->a_size;
 	off_t f_offset = ap->a_f_offset;
@@ -268,7 +268,7 @@ ext2_pageout(ap)
 int
 ext2_cmap(ap)
 	struct vop_cmap_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		off_t a_foffset;    
 		size_t a_size;
 		daddr_t *a_bpn;
@@ -276,7 +276,7 @@ ext2_cmap(ap)
 		void *a_poff;
 	} */ *ap;
 {
-	struct vnode * vp = ap->a_vp;
+	vnode_t  vp = ap->a_vp;
 	daddr_t *bnp = ap->a_bpn;
 	size_t *runp = ap->a_run;
 	size_t size = ap->a_size;
@@ -308,7 +308,7 @@ ext2_cmap(ap)
 	}
 
 cmap_bmap:
-    if ((error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks))) {
+    if ((error = VOP_BMAP(vp, bn, (vnode_t *) 0, &daddr, &nblks))) {
         ext2_trace_return(error);
     }
 
@@ -393,8 +393,8 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 {
 	register FS *fs;
 	register int32_t nb;
-	struct buf *bp, *nbp;
-	struct vnode *vp = ITOV(ip);
+	buf_t  bp, *nbp;
+	vnode_t vp = ITOV(ip);
 	struct indir indirs[NIADDR + 2];
 	int32_t newb, *bap, pref;
 	int deallocated, osize, nsize, num, i, error;
@@ -605,7 +605,7 @@ fail:
 int
 ext2_mmap(ap)
 	struct vop_mmap_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int  a_fflags;
 		struct ucred *a_cred;
 		struct proc *a_p;
@@ -662,16 +662,16 @@ ext2_offtoblk (ap)
 __private_extern__ int
 ext2_cache_lookup(ap)
 	struct vop_lookup_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
+		vnode_t a_dvp;
+		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 	} */ *ap;
 {
-   struct vnode *dvp;
-	struct vnode *vp;
+   vnode_t dvp;
+	vnode_t vp;
 	int lockparent; 
 	int error;
-	struct vnode **vpp = ap->a_vpp;
+	vnode_t *vpp = ap->a_vpp;
 	struct componentname *cnp = ap->a_cnp;
 	struct ucred *cred = cnp->cn_cred;
 	int flags = cnp->cn_flags;

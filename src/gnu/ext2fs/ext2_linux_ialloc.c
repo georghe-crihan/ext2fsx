@@ -65,7 +65,7 @@ static const char vwhatid[] __attribute__ ((unused)) =
 
 /* this is supposed to mark a buffer dirty on ready for delayed writing
  */
-void mark_buffer_dirty(struct buf *bh)
+void mark_buffer_dirty(buf_t  bh)
 {
 	int s;
 
@@ -74,7 +74,7 @@ void mark_buffer_dirty(struct buf *bh)
 	splx(s);
 } 
 
-struct ext2_group_desc * get_group_desc (struct mount * mp,
+struct ext2_group_desc * get_group_desc (mount_t   mp,
 						unsigned int block_group,
 						struct buffer_head ** bh)
 {
@@ -107,7 +107,7 @@ struct ext2_group_desc * get_group_desc (struct mount * mp,
 	return gdp + desc;
 }
 
-static void read_inode_bitmap (struct mount * mp,
+static void read_inode_bitmap (mount_t   mp,
 			       unsigned long block_group,
 			       unsigned int bitmap_nr
 				#if !EXT2_SB_BITMAP_CACHE
@@ -149,7 +149,7 @@ static void read_inode_bitmap (struct mount * mp,
  * 2/ If the file system contains less than EXT2_MAX_GROUP_LOADED groups,
  *    this function reads the bitmap without maintaining a LRU cache.
  */
-static int load_inode_bitmap (struct mount * mp,
+static int load_inode_bitmap (mount_t   mp,
 			      unsigned int block_group
 				#if !EXT2_SB_BITMAP_CACHE
 					, struct buffer_head **bhpp
@@ -517,7 +517,7 @@ repeat:
 }
 
 #ifdef unused
-static unsigned long ext2_count_free_inodes (struct mount * mp)
+static unsigned long ext2_count_free_inodes (mount_t   mp)
 {
 #if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
         struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
@@ -553,7 +553,7 @@ static unsigned long ext2_count_free_inodes (struct mount * mp)
 #endif /* unused */
 
 #ifdef LATER
-void ext2_check_inodes_bitmap (struct mount * mp)
+void ext2_check_inodes_bitmap (mount_t   mp)
 {
 	struct ext2_super_block * es;
 	unsigned long desc_count, bitmap_count, x;

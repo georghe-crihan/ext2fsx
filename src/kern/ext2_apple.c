@@ -158,7 +158,7 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
  * be accounted for by some other means.
  */
 int
-vrefcnt(struct vnode *vp)
+vrefcnt(vnode_t vp)
 {
 	int usecnt;
 
@@ -173,9 +173,9 @@ vrefcnt(struct vnode *vp)
 
 __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
 {
-    struct vnode *vp = ap->a_vp;
-	struct buf *bp;
-	struct buf *nbp;
+    vnode_t vp = ap->a_vp;
+	buf_t  bp;
+	buf_t  nbp;
 	int s, retry = 0;
    
     loop:
@@ -238,12 +238,12 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
 __private_extern__ int
 ext2_lock(ap)
 	struct vop_lock_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int a_flags;
 		struct proc *a_p;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 
 #ifdef DIAGNOSTIC
 	if (VTOI(vp) == (struct inode *) NULL)
@@ -267,12 +267,12 @@ ext2_lock(ap)
 __private_extern__ int
 ext2_unlock(ap)
 	struct vop_unlock_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		int a_flags;
 		struct proc *a_p;
 	} */ *ap;
 {
-   struct vnode *vp = ap->a_vp;
+   vnode_t vp = ap->a_vp;
    
    ext2_trace("unlocking inode %lu for pid:%ld\n", (unsigned long)VTOI(vp)->i_number,
       (long)ap->a_p->p_pid);
@@ -289,7 +289,7 @@ ext2_unlock(ap)
 __private_extern__ int
 ext2_islocked(ap)
 	struct vop_islocked_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 	} */ *ap;
 {
 
@@ -299,7 +299,7 @@ ext2_islocked(ap)
 __private_extern__ int
 ext2_abortop(ap)
 struct vop_abortop_args /* {
-    struct vnode *a_dvp;
+    vnode_t a_dvp;
     struct componentname *a_cnp;
 } */ *ap;
 {
@@ -313,7 +313,7 @@ struct vop_abortop_args /* {
 __private_extern__ int
 ext2_ioctl(ap)
 	struct vop_ioctl_args /* {
-      struct vnode *a_vp;
+      vnode_t a_vp;
       u_long a_command;
       caddr_t a_data;
       int a_fflag;
@@ -428,7 +428,7 @@ ext2_ioctl(ap)
 #if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
 __private_extern__
-void print_clusters(struct vnode *vp, char *msg)
+void print_clusters(vnode_t vp, char *msg)
 {
     struct inode *ip = VTOI(vp);
     if (vp->v_clen) {
@@ -452,9 +452,9 @@ void print_clusters(struct vnode *vp, char *msg)
 */
 __private_extern__ void
 ext2_checkdirsize(dvp)
-   struct vnode *dvp;
+   vnode_t dvp;
 {
-   struct buf *bp;
+   buf_t  bp;
    struct ext2_dir_entry_2 *ep;
    char *dirbuf;
    struct inode *dp;

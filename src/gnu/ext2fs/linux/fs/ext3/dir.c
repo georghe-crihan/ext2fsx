@@ -127,7 +127,7 @@ void ext3_htree_free_dir_info(struct dir_private_info *p)
 /*
  * Given a directory entry, enter it into the fname rb tree.
  */
-int ext3_htree_store_dirent(struct vnode *dir_file, __u32 hash,
+int ext3_htree_store_dirent(vnode_t dir_file, __u32 hash,
 			     __u32 minor_hash,
 			     struct ext3_dir_entry_2 *dirent)
 {
@@ -193,7 +193,7 @@ int ext3_htree_store_dirent(struct vnode *dir_file, __u32 hash,
  * for all entres on the fname linked list.  (Normally there is only
  * one entry on the linked list, unless there are 62 bit hash collisions.)
  */
-static int call_filldir(struct vnode * filp, void * dirent,
+static int call_filldir(vnode_t  filp, void * dirent,
 			filldir_t filldir, struct fname *fname)
 {
 	loff_t	curr_pos;
@@ -224,9 +224,9 @@ static int call_filldir(struct vnode * filp, void * dirent,
 	return 0;
 }
 
-static int ext3_release_dir (struct vnode *, struct inode *);
+static int ext3_release_dir (vnode_t , struct inode *);
 
-static int ext3_dx_readdir(struct vnode * filp,
+static int ext3_dx_readdir(vnode_t  filp,
 			 void * dirent, filldir_t filldir)
 {
 	struct inode *inode = VTOI(filp);
@@ -319,7 +319,7 @@ finished:
 	return 0;
 }
 
-static int ext3_release_dir (struct vnode * vp, struct inode * filp)
+static int ext3_release_dir (vnode_t  vp, struct inode * filp)
 {
        if (filp->private_data)
 		ext3_htree_free_dir_info(filp->private_data);

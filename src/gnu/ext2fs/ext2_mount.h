@@ -39,13 +39,11 @@
 MALLOC_DECLARE(M_EXT2NODE);
 #endif
 
-struct vnode;
-
 /* This structure describes the ext2fs specific mount structure data. */
 struct ext2mount {
-	struct	mount *um_mountp;		/* filesystem vfs structure */
-	dev_t	um_dev;				/* device mounted */
-	struct	vnode *um_devvp;		/* block device mounted vnode */
+	mount_t um_mountp;		/* filesystem vfs structure */
+	dev_t	um_dev;			/* device mounted */
+	vnode_t um_devvp;		/* block device mounted vnode */
 
 	struct	ext2_sb_info *um_e2fs;		/* EXT2FS */
 #define em_e2fsb um_e2fs->s_es
@@ -56,7 +54,7 @@ struct ext2mount {
 };
 
 /* Convert mount ptr to ext2fsmount ptr. */
-#define VFSTOEXT2(mp)	((struct ext2mount *)((mp)->mnt_data))
+#define VFSTOEXT2(mp)	((struct ext2mount *)vfs_fsprivate(mp))
 
 /*
  * Macros to access file system parameters in the ufsmount structure.
@@ -65,6 +63,7 @@ struct ext2mount {
 #define MNINDIR(ump)			((ump)->um_nindir)
 #define	blkptrtodb(ump, b)		((b) << (ump)->um_bptrtodb)
 #define	is_sequential(ump, a, b)	((b) == (a) + ump->um_seqinc)
+
 #endif /* _KERNEL */
 
 #endif

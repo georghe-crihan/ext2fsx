@@ -210,7 +210,7 @@ SYSCTL_INT(_debug, 14, doasyncfree, CTLFLAG_RW, &doasyncfree, 0, "");
 int
 ext2_reallocblks(ap)
 	struct vop_reallocblks_args /* {
-		struct vnode *a_vp;
+		vnode_t a_vp;
 		struct cluster_save *a_buflist;
 	} */ *ap;
 {
@@ -221,8 +221,8 @@ return ENOSPC;
 
 	struct ext2_sb_info *fs;
 	struct inode *ip;
-	struct vnode *vp;
-	struct buf *sbp, *ebp;
+	vnode_t vp;
+	buf_t  sbp, *ebp;
 	int32_t *bap, *sbap, *ebap;
 	struct cluster_save *buflist;
 	int32_t start_lbn, end_lbn, soff, eoff, newblk, blkno;
@@ -370,10 +370,10 @@ fail:
  */
 int
 ext2_valloc(pvp, mode, cred, vpp)
-	struct vnode *pvp;
+	vnode_t pvp;
 	int mode;
 	struct ucred *cred;
-	struct vnode **vpp;
+	vnode_t *vpp;
 {
 	struct inode *pip;
 	struct ext2_sb_info *fs;
@@ -525,7 +525,7 @@ ext2_blkfree(ip, bno, size)
  */
 int
 ext2_vfree(pvp, ino, mode)
-	struct vnode *pvp;
+	vnode_t pvp;
 	ino_t ino;
 	int mode;
 {

@@ -30,7 +30,6 @@
 
 #define EXT2_MAX_GROUP_LOADED	8
 
-#define buffer_head buf
 #define MAXMNTLEN	512
 
 #include <kern/lock.h>
@@ -63,7 +62,7 @@ struct ext2_sb_info {
 	unsigned short s_resuid;
 	unsigned short s_resgid;
 	unsigned short s_mount_state;
-   u_int32_t s_hash_seed[4]; /* HTREE hash seed (byte swapped if necessary) */
+    u_int32_t s_hash_seed[4]; /* HTREE hash seed (byte swapped if necessary) */
 	u_int8_t s_def_hash_version; /* Default hash version to use */
 	/* 
 	   stuff that FFS keeps in its super block or that linux
@@ -74,7 +73,7 @@ struct ext2_sb_info {
 	unsigned long s_blocksize_bits;
 	unsigned int  s_bshift;			/* = log2(s_blocksize) */
 	quad_t	 s_qbmask;			/* = s_blocksize - 1 */
-   quad_t    s_maxfilesize;
+    quad_t    s_maxfilesize;
 	unsigned int  s_fsbtodb;		/* shift to get disk block */
 	char    s_rd_only;                      /* read-only 		*/
 	char    s_dirt;                         /* fs modified flag */
@@ -82,7 +81,7 @@ struct ext2_sb_info {
    
    quad_t s_dircount; /* In core count of all directories */
    int32_t s_d_blocksize; /* block size of underlying device */
-   mutex_t *s_lock; /* lock to protect access to in core sb */
+   lck_mtx_t *s_lock; /* lock to protect access to in core sb */
    uid_t s_uid_noperm; /* used when mounted w/o permissions in effect */
    gid_t s_gid_noperm; /* ditto */
 

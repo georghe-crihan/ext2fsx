@@ -182,10 +182,10 @@ struct indir {
 };
 
 /* Convert between inode pointers and vnode pointers. */
-#define VTOI(vp)	((struct inode *)(vp)->v_data)
+#define VTOI(vp)	((struct inode *)vnode_fsnode(vp))
 #define ITOV(ip)	((ip)->i_vnode)
 #ifdef EXT_KNOTE
-#define VN_KNOTE(vp,hint) KNOTE(&VTOI(vp)->i_knotes, (hint))
+#define VN_KNOTE(vp,hint) KNOTE(&(VTOI(vp))->i_knotes, (hint))
 #else
 #define VN_KNOTE(vp,hint) {}
 #endif

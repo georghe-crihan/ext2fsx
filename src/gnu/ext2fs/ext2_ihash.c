@@ -92,7 +92,7 @@ ext2_ihashuninit()
  * Use the device/inum pair to find the incore inode, and return a pointer
  * to it. If it is in core, return it, even if it is locked.
  */
-struct vnode *
+vnode_t 
 ext2_ihashlookup(dev, inum)
 	dev_t dev;
 	ino_t inum;
@@ -119,11 +119,11 @@ ext2_ihashget(dev, inum, flags, vpp)
 	dev_t dev;
 	ino_t inum;
 	int flags;
-	struct vnode **vpp;
+	vnode_t *vpp;
 {
 	struct thread *td = curthread;	/* XXX */
 	struct inode *ip;
-	struct vnode *vp;
+	vnode_t vp;
 	int error;
 
 	*vpp = NULL;
