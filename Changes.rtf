@@ -13,7 +13,7 @@ The kext will no longer unload if there are active mounts.\
 \
 Removed some debugging code.\
 \
-Changed the partition label hint to "Ext2" to be more inline with Linux. I don't know if this hint is case-sensitive, but if it is, it may cause something to break.\
+Changed the partition label hint to "Ext2" to be more inline with Linux. This fixes the bug where drives formatted with Linux would fail to automount. Please note, that if you formatted a drive with a previous version of Ext2 for OS X, it will likely fail to automount.\
 \
 1.0d4\
 Write support is now enabled. This may corrupt filesystems!!\
