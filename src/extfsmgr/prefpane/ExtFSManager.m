@@ -42,32 +42,13 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #define EXT_TOOLBAR_ICON_TYPE @"icns"	
 
-static void ExtSwapButtonState(id button, BOOL swapImage)
-{
-   NSString *title;
-   NSImage *image;
-   
-   title = [[button alternateTitle] retain];
-   [button setAlternateTitle:[button title]];
-   [button setTitle:title];
-   [title release];
-   
-   if (swapImage) {
-      image = [[button alternateImage] retain];
-      [button setAlternateImage:[button image]];
-      [button setImage:image];
-      [image release];
-   }
-}
+#define EXT_OBJ_PROPERTY_RESTORE_ACTIONS @"Restore"
 
-static id ExtMakeInfoTitle(NSString *title)
-{
-   NSMutableAttributedString *str;
-   str = [[NSMutableAttributedString alloc] initWithString:
-      [title stringByAppendingString:@":"]];
-   [str applyFontTraits:NSBoldFontMask range:NSMakeRange(0, [str length])];
-   return ([str autorelease]);
-}
+static void ExtSwapButtonState(id button, BOOL swapImage);
+static id ExtMakeInfoTitle(NSString *title);
+static void ExtSetPrefVal(ExtFSMedia *media, id key, id val);
+static void AddRestoreAction(ExtFSMedia *m, id key, id val);
+static BOOL PlayRestoreActions(ExtFSMedia *m);
 
 #import "extfsmgr.h"
 
@@ -82,21 +63,6 @@ static NSString *e_monikers[] =
       {@"bytes", @"KB", @"MB", @"GB", @"TB", @"PB", @"EB", @"ZB", @"YB", nil};
 //     KiloByte, MegaByte, GigaByte, TeraByte, PetaByte, ExaByte, ZetaByte, YottaByte
 //bytes  2^10,     2^20,     2^30,     2^40,     2^50,     2^60,    2^70,     2^80
-
-static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
-{
-    NSString *uuid;
-    NSMutableDictionary *dict;
-    
-    uuid = [media uuidString];
-    dict = [e_prefMedia objectForKey:uuid];
-    if (!dict) {
-        dict = [NSMutableDictionary dictionary];
-        [e_prefMedia setObject:dict forKey:uuid];
-    }
-    [dict setObject:val forKey:key];
-    e_prefsChanged = YES;
-}
 
 static int e_operations = 0;
 #define BeginOp() do { \
@@ -227,6 +193,10 @@ e_curSelection = nil; \
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFSM: **** Media '%s' mounted ***\n", BSDNAMESTR(media));
 #endif
+   // Replay any pref restore options, and save the modified prefs
+   if (PlayRestoreActions(media))
+      [self savePrefs];
+   
    if (media == e_curSelection)
       [self doMediaSelection:media];
    [e_vollist reloadItem:media];
@@ -266,11 +236,16 @@ e_curSelection = nil; \
 {
    NSString *op, *device, *errStr, *msg;
    NSNumber *err;
+   ExtFSMedia *media = [notification object];
    NSDictionary *info = [notification userInfo];
    NSWindow *win;
    
+   // Replay any pref restore options, and save the modified prefs
+   if (PlayRestoreActions(media))
+      [self savePrefs];
+   
    EndOp();
-   device = [[notification object] bsdName];
+   device = [media bsdName];
    err = [info objectForKey:ExtMediaKeyOpFailureError];
    op = [info objectForKey:ExtMediaKeyOpFailureType];
    errStr = [info objectForKey:ExtMediaKeyOpFailureErrorString];
@@ -420,16 +395,18 @@ data = [data stringByAppendingString:@"\n"]; \
    ExtInfoInsert(ExtLocalizedString(@"Writable", ""),
       ([media isWritable] ? e_yes : e_no));
    
-   if (mounted) {
+   if ([media canMount]) {
       ExtInfoInsert(ExtLocalizedString(@"Filesystem", ""),
          [media fsName]);
       
-      data = [media volName];
-      ExtInfoInsert(ExtLocalizedString(@"Volume Name", ""),
-         (data ? data : @""));
-      
       data = [media uuidString];
       ExtInfoInsert(ExtLocalizedString(@"Volume UUID", ""),
+         (data ? data : @""));
+   }
+   
+   if (mounted) {
+      data = [media volName];
+      ExtInfoInsert(ExtLocalizedString(@"Volume Name", ""),
          (data ? data : @""));
       
       ExtInfoInsert(ExtLocalizedString(@"Permissions Enabled", ""),
@@ -575,7 +552,7 @@ data = [data stringByAppendingString:@"\n"]; \
    
    [e_diskIconView setImage:[media icon]];
    
-   if ([media isExtFS] && [media isMounted]) {
+   if ([media isExtFS]) {
       if (nil != [media uuidString]) {
          [self setOptionState:media];
          [e_infoButton setEnabled:YES];
@@ -655,6 +632,17 @@ data = [data stringByAppendingString:@"\n"]; \
    NSLog(@"ExtFSM: %@ '%@'.\n", (mount ? @"Mounting" : @"Unmounting"),
       [e_curSelection bsdName]);
 #endif
+   
+   if (mount) {
+      // Make sure 'Don't Automount' is not set.
+      NSNumber *val;
+      NSMutableDictionary *dict = [e_prefMedia objectForKey:[e_curSelection uuidString]];
+      val = [dict objectForKey:EXT_PREF_KEY_NOAUTO];
+      if (dict && val && [val boolValue]) {
+         ExtSetPrefVal(e_curSelection, EXT_PREF_KEY_NOAUTO, [NSNumber numberWithBool:NO]);
+         AddRestoreAction(e_curSelection, EXT_PREF_KEY_NOAUTO, val);
+      }
+   }
    
    // Save the prefs so mount will behave correctly if an Ext2 disk was changed.
    [self savePrefs];
@@ -1046,3 +1034,98 @@ info_alt_switch:
 }
 
 @end
+
+static void ExtSwapButtonState(id button, BOOL swapImage)
+{
+   NSString *title;
+   NSImage *image;
+   
+   title = [[button alternateTitle] retain];
+   [button setAlternateTitle:[button title]];
+   [button setTitle:title];
+   [title release];
+   
+   if (swapImage) {
+      image = [[button alternateImage] retain];
+      [button setAlternateImage:[button image]];
+      [button setImage:image];
+      [image release];
+   }
+}
+
+static id ExtMakeInfoTitle(NSString *title)
+{
+   NSMutableAttributedString *str;
+   str = [[NSMutableAttributedString alloc] initWithString:
+      [title stringByAppendingString:@":"]];
+   [str applyFontTraits:NSBoldFontMask range:NSMakeRange(0, [str length])];
+   return ([str autorelease]);
+}
+
+static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
+{
+    NSString *uuid;
+    NSMutableDictionary *dict;
+    
+    uuid = [media uuidString];
+    dict = [e_prefMedia objectForKey:uuid];
+    if (!dict) {
+        dict = [NSMutableDictionary dictionary];
+        [e_prefMedia setObject:dict forKey:uuid];
+    }
+    [dict setObject:val forKey:key];
+    e_prefsChanged = YES;
+}
+
+static void AddRestoreAction(ExtFSMedia *m, id key, id val)
+{
+    NSMutableDictionary *objd = [m representedObject];
+    NSMutableArray *actions;
+    
+    if (nil == objd) {
+        objd = [[NSMutableDictionary alloc] init];
+        [m setRepresentedObject:objd];
+        [objd release];
+    }
+    actions = [objd objectForKey:EXT_OBJ_PROPERTY_RESTORE_ACTIONS];
+    if (nil == actions) {
+        actions = [[NSMutableArray alloc] init];
+        [objd setObject:actions forKey:EXT_OBJ_PROPERTY_RESTORE_ACTIONS];
+        [actions release];
+    }
+
+#ifdef TRACE
+    NSLog(@"Adding restore action for media '%@' with key '%@' and val '%@'.\n",
+        [m bsdName], key, val);
+#endif
+    [actions addObject:
+        [NSDictionary dictionaryWithObjectsAndKeys:val, key, nil]];
+}
+
+static BOOL PlayRestoreActions(ExtFSMedia *m)
+{
+    NSMutableDictionary *objd = [m representedObject];
+    NSMutableArray *actions;
+    BOOL played = NO;
+    if (objd) {
+        actions = [objd objectForKey:EXT_OBJ_PROPERTY_RESTORE_ACTIONS];
+        if (actions && [actions count] > 0) {
+            NSDictionary *obj;
+            id key, val;
+            NSEnumerator *en = [actions objectEnumerator];
+            while ((obj = [en nextObject])) {
+                key = [[obj allKeys] objectAtIndex:0];
+                val = [[obj allValues] objectAtIndex:0];
+        #ifdef TRACE
+                NSLog(@"Playing restore action for media '%@' with key '%@' and val '%@'.\n",
+                    [m bsdName], key, val);
+        #endif
+                ExtSetPrefVal(m, key, val);
+            }
+            played = YES;
+        }
+        if (actions)
+            [objd removeObjectForKey:EXT_OBJ_PROPERTY_RESTORE_ACTIONS];
+    }
+    return (played);
+}
