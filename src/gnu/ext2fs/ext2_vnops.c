@@ -543,8 +543,7 @@ ext2_access(ap)
 	    ap->a_mode, ap->a_cred);
 	
     /* If mounting w/o perms, then allow anything except root access. */
-    if (error && (vp->v_mount->mnt_flag & MNT_UNKNOWNPERMISSIONS)) {
-        if (ip->i_uid > 0)
+    if (error && (ip->i_uid > 0) && (vp->v_mount->mnt_flag & MNT_UNKNOWNPERMISSIONS)) {
             error = 0;
     }
     
@@ -574,6 +573,13 @@ ext2_getattr(ap)
    vap->va_fsid = vp->v_mount->mnt_stat.f_fsid.val[0];
 	vap->va_fileid = ip->i_number;
 	vap->va_mode = ip->i_mode & ~IFMT;
+    if (0 != ip->i_uid && (vp->v_mount->mnt_flag & MNT_UNKNOWNPERMISSIONS)) {
+        /* The Finder needs to see that the perms are correct.
+           Otherwise it won't allow access, even though we would. */
+        vap->va_mode = DEFFILEMODE;
+        if (ip->i_mode & S_IXUSR)
+            vap->va_mode |= S_IXUSR|S_IXGRP|S_IXOTH;
+    }
 	vap->va_nlink = ip->i_nlink;
 	vap->va_uid = ip->i_uid;
 	vap->va_gid = ip->i_gid;
@@ -617,7 +623,7 @@ ext2_setattr(ap)
 	struct inode *ip = VTOI(vp);
 	struct ucred *cred = ap->a_cred;
 	struct thread *td = ap->a_td;
-	int error;
+	int error, noperms = 0;
    
    ext2_trace_enter();
 
@@ -630,6 +636,10 @@ ext2_setattr(ap)
 	    ((int)vap->va_bytes != VNOVAL) || (vap->va_gen != VNOVAL)) {
 		return (EINVAL);
 	}
+    
+    if (0 != ip->i_uid && (vp->v_mount->mnt_flag & MNT_UNKNOWNPERMISSIONS))
+        noperms = 1;
+    
 	if (vap->va_flags != VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
 			ext2_trace_return(EROFS);
@@ -701,7 +711,7 @@ ext2_setattr(ap)
 		 * If times is non-NULL, ... The caller must be the owner of
 		 * the file or be the super-user.
 		 */
-      if (cred->cr_uid != ip->i_uid &&
+      if (0 == noperms && cred->cr_uid != ip->i_uid &&
 		    (error = suser(cred, &td->p_acflag)) &&
 		    ((vap->va_vaflags & VA_UTIMES_NULL) == 0 ||
 		    (error = VOP_ACCESS(vp, VWRITE, cred, td))))
