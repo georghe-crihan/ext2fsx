@@ -62,6 +62,6 @@ cp "${EXT2BUILD}/src/mount_ext2fs/mount_ext2fs.8" "${INSTALL}/usr/share/man/man8
 find "${INSTALL}" -name "\.DS_Store" -exec rm {} \;
 find "${INSTALL}" -name "pbdevelopment.plist" -exec rm {} \;
 find "${INSTALL}" -name "CVS" -type d -exec rm -fr {} \;
-exit
+
 sudo chown -R root:wheel "${INSTALL}"
 sudo chmod -R go-w "${INSTALL}"
