@@ -1499,12 +1499,146 @@ vfs_stdquotactl(mp, cmd, uid, arg, p)
 	return EOPNOTSUPP;
 }
 
+extern int vfs_opv_numops; // kernel
+typedef int (*PFI)();
+
+/* Must be called while holding kernel funnel */
+static void init_vnodeopv_desc (struct vnodeopv_desc *opv)
+{
+   int	(***opv_desc_vector_p)(void *);
+	int	(**opv_desc_vector)(void *);
+	struct vnodeopv_entry_desc	*opve_descp;
+   int j;
+   
+   opv_desc_vector_p = opv->opv_desc_vector_p;
+   
+   /* Something better than M_TEMP */
+   MALLOC(*opv_desc_vector_p, PFI *, vfs_opv_numops * sizeof(PFI),
+	       M_TEMP, M_WAITOK);
+	bzero(*opv_desc_vector_p, vfs_opv_numops*sizeof(PFI));
+
+	opv_desc_vector = *opv_desc_vector_p;
+   
+   for (j = 0; opv->opv_desc_ops[j].opve_op; j++) {
+		opve_descp = &(opv->opv_desc_ops[j]);
+
+		/*
+		 * Sanity check:  is this operation listed
+		 * in the list of operations?  We check this
+		 * by seeing if its offest is zero.  Since
+		 * the default routine should always be listed
+		 * first, it should be the only one with a zero
+		 * offset.  Any other operation with a zero
+		 * offset is probably not listed in
+		 * vfs_op_descs, and so is probably an error.
+		 *
+		 * A panic here means the layer programmer
+		 * has committed the all-too common bug
+		 * of adding a new operation to the layer's
+		 * list of vnode operations but
+		 * not adding the operation to the system-wide
+		 * list of supported operations.
+		 */
+		if (opve_descp->opve_op->vdesc_offset == 0 &&
+		    opve_descp->opve_op->vdesc_offset != VOFFSET(vop_default)) {
+			printf("init_vnodeopv_desc: operation %s not listed in %s.\n",
+			       opve_descp->opve_op->vdesc_name,
+			       "vfs_op_descs");
+			panic("init_vnodeopv_desc: bad operation");
+		}
+		/*
+		 * Fill in this entry.
+		 */
+		opv_desc_vector[opve_descp->opve_op->vdesc_offset] =
+		    opve_descp->opve_impl;
+	}
+
+	/*  
+	 * Finally, go back and replace unfilled routines
+	 * with their default.  (Sigh, an O(n^3) algorithm.  I
+	 * could make it better, but that'd be work, and n is small.)
+	 */  
+	opv_desc_vector_p = opv->opv_desc_vector_p;
+
+	/*   
+	 * Force every operations vector to have a default routine.
+	 */  
+	opv_desc_vector = *opv_desc_vector_p;
+	if (opv_desc_vector[VOFFSET(vop_default)] == NULL)
+	    panic("init_vnodeopv_desc: operation vector without default routine.");
+	for (j = 0; j < vfs_opv_numops; j++) {
+		if (opv_desc_vector[j] == NULL)
+			opv_desc_vector[j] = opv_desc_vector[VOFFSET(vop_default)];
+   }
+}
+
+// Kernel entry/exit points
+
+__private_extern__ struct vnodeopv_desc ext2fs_vnodeop_opv_desc;
+__private_extern__ struct vnodeopv_desc ext2fs_specop_opv_desc;
+__private_extern__ struct vnodeopv_desc ext2fs_fifoop_opv_desc;
+
 kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
+   struct vfsconf	*vfsConf = NULL;
+   
+   int funnelState;
+   kern_return_t kret;
+   
+   // Register our module
+   funnelState = thread_funnel_set(kernel_flock, TRUE);
+   
+   MALLOC(vfsConf, void *, sizeof(struct vfsconf), M_TEMP, M_WAITOK);
+	if (NULL == vfsConf) {
+      kret = ENOMEM;
+      goto funnel_release;
+   }
+      
+   bzero(vfsConf, sizeof(struct vfsconf));
+   
+   vfsConf->vfc_vfsops = &ext2fs_vfsops;
+   strncpy(&vfsConf->vfc_name[0], EXT2FS_NAME, MFSNAMELEN);
+   vfsConf->vfc_typenum = maxvfsconf++; /* kernel global */
+	vfsConf->vfc_refcount = 0;
+	vfsConf->vfc_flags = 0; /* |MNT_QUOTA */
+	vfsConf->vfc_mountroot = NULL; /* boot support */
+	vfsConf->vfc_next = NULL;
+   
+   init_vnodeopv_desc(&ext2fs_vnodeop_opv_desc);
+   init_vnodeopv_desc(&ext2fs_specop_opv_desc);
+   init_vnodeopv_desc(&ext2fs_fifoop_opv_desc);
+   
+   kret = vfsconf_add(vfsConf);
+   if (kret) {
+      #ifdef NCDBG
+      printf ("ext2fs_start: Failed to register with kernel, error = %d\n", kret); 
+      #endif
+   }
+
+funnel_release:
+	if (vfsConf)
+		FREE(vfsConf, M_TEMP);
+
+	thread_funnel_set(kernel_flock, funnelState);
+   
+   if (kret)
+      return (KERN_FAILURE);
+   
    return (KERN_SUCCESS);
 }
 
-
 kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
+   int funnelState;
+   
+   // Deregister with the kernel
+   funnelState = thread_funnel_set(kernel_flock, TRUE);
+
+	vfsconf_del(EXT2FS_NAME);
+	FREE(*ext2fs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
+   FREE(*ext2fs_specop_opv_desc.opv_desc_vector_p, M_TEMP);
+   FREE(*ext2fs_fifoop_opv_desc.opv_desc_vector_p, M_TEMP);
+
+	thread_funnel_set(kernel_flock, funnelState);
+   
    ext2_uninit(NULL);
    return (KERN_SUCCESS);
 }
