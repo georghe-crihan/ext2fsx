@@ -54,14 +54,14 @@ static extsuper_read (const char *device, char **bout, struct ext2_super_block *
    /* Read the first 4K. When reading/writing from a raw device, we must
       do so in the native block size (or a multiple thereof) of the device.*/
    bytes = read (fd, buf, EXT_SUPER_SIZE);
+   close(fd);
+   
    if (EXT_SUPER_SIZE != bytes) {
       free(buf);
       fprintf(stderr, "%s: device read '%s' failed, %s\n", progname, device,
 			strerror(errno));
       return (errno);
    }
-   
-   close(fd);
    
     /* Superblock starts at offset 1024 (block 2). */
    *sbp = (struct ext2_super_block*)(buf+EXT_SUPER_OFF);
