@@ -239,6 +239,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
   	{ &vop_cmap_desc,			(vop_t *) ext2_cmap },
    { &vop_mmap_desc,       (vop_t *) ext2_mmap },		/* mmap */
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   { &vop_bwrite_desc, (vop_t *)vn_bwrite },
    /* { &vop_update_desc, (vop_t *) ext2_update }, */
    { &vop_getattrlist_desc,	(vop_t *) ext2_getattrlist },
 /*   { &vop_setattrlist_desc,	(vop_t *) ext2_setattrlist }, */
@@ -292,6 +293,7 @@ static struct vnodeopv_entry_desc ext2_specop_entries[] = {
   	{ &vop_cmap_desc,			(vop_t *) spec_cmap },
    { &vop_mmap_desc,       (vop_t *) spec_mmap },		/* mmap */
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   { &vop_bwrite_desc, (vop_t *)vn_bwrite },
    /* { &vop_update_desc, (vop_t *) ext2_update }, */
    #endif /* APPLE */
 	{ NULL, NULL }
@@ -346,6 +348,7 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
   	{ &vop_cmap_desc,			(vop_t *) ext2_cmap },
    { &vop_mmap_desc,       (vop_t *) fifo_mmap },		/* mmap */
    { &vop_copyfile_desc, (vop_t *) err_copyfile },		/* copyfile */
+   { &vop_bwrite_desc, (vop_t *)vn_bwrite },
    /* { &vop_update_desc, (vop_t *) ext2_update }, */
    #endif /* APPLE */
 	{ NULL, NULL }
@@ -496,21 +499,17 @@ ext2_close(ap)
    
    ext2_trace_enter();
 
-	VI_LOCK(vp);
-   #ifndef APPLE
-	if (vp->v_usecount > 1) {
-   #else
-   if ((!UBCISVALID(vp) && vp->v_usecount > 1)
-	    || (UBCISVALID(vp) && ubc_isinuse(vp, 1)))
-   #endif
-		ext2_itimes(vp);
-		VI_UNLOCK(vp);
-
 #ifdef APPLE
+   simple_lock(&vp->v_interlock);
+   if ((!UBCISVALID(vp) && vp->v_usecount > 1)
+	    || (UBCISVALID(vp) && ubc_isinuse(vp, 1))) {
+      ext2_itimes(vp);
+   }
+   simple_unlock(&vp->v_interlock);
    /*
     * VOP_CLOSE can be called with vp locked (from vclean).
     */
-   if (!VOP_ISLOCKED(vp)) {
+   if (VDIR != vp->v_type && !VOP_ISLOCKED(vp)) {
       struct inode *ip = VTOI(vp);
       enum vtype type = vp->v_type;
       u_long vid = vp->v_id;
@@ -533,6 +532,10 @@ ext2_close(ap)
 	}
    
 #else
+   VI_LOCK(vp);
+	if (vp->v_usecount > 1) {
+		ext2_itimes(vp);
+		VI_UNLOCK(vp);
 	} else {
 		VI_UNLOCK(vp);
 		/*
