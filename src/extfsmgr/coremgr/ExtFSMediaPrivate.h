@@ -40,6 +40,7 @@
 
 @interface ExtFSMediaController (Private)
 - (void)postNotification:(NSArray*)args;
+- (NSString*)pathForResource:(NSString*)resource;
 @end
 
 #define EFSMCPostNotification(note, obj, info) do {\
@@ -50,6 +51,7 @@ withObject:args waitUntilDone:NO]; \
 } while(0)
 
 #define EXTFS_DM_BNDL_ID @"net.sourceforge.ext2fsx.ExtFSDiskManager"
+#define EFS_PROBE_RSRC @"efsprobe"
 
 @interface ExtFSMedia (ExtFSMediaControllerPrivate)
 - (void)updateAttributesFromIOService:(io_service_t)service;

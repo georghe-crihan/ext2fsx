@@ -58,6 +58,21 @@ enum {
          postNotificationName:[args objectAtIndex:kNoteArgName] object:obj userInfo:info];
 }
 
+- (NSString*)pathForResource:(NSString*)resource
+{
+    NSString *path = nil;
+    
+    ewlock(e_lock);
+    NSBundle *me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
+    if (me) {
+        path = [me pathForResource:resource ofType:nil];
+    } else {
+        NSLog(@"ExtFS: Could not find bundle!\n");
+    }
+    eulock(e_lock);
+    return (path);
+}
+
 @end
 
 #define MAX_PARENT_ITERS 10

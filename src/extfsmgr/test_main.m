@@ -78,6 +78,8 @@ int threadID = 0;
       pinfo ("\tDVD/CD ROM: %s\n", (([obj isDVDROM] || [obj isCDROM]) ? "Yes" : "No"));
       pinfo ("\tFS Type: %s\n", EFSNameFromType([obj fsType]));
       pinfo ("\tMounted: %s\n", (mounted ? [[obj mountPoint] cString] : "Not mounted"));
+      if ([obj canMount])
+         pinfo("\tFilesystem: %s\n", [[obj fsName] UTF8String]);
       if (mounted) {
          tmp = [obj volName];
          if (tmp)

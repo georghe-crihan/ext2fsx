@@ -125,11 +125,13 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    struct timeval now;
    int err;
    char *path;
-   NSString *bsdName = [self bsdName];
+   NSString *bsdName = [self bsdName], *tmp;
    
    path = MOUNTPOINTSTR(self);
    if (!path)
       return (EINVAL);
+   
+   gettimeofday(&now, nil);
    
    /* Get the superblock if we don't have it */
    ewlock(e_lock);
@@ -139,14 +141,21 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
          err = syscall(SYS_fsctl, path, EXT2_IOC_GETSBLOCK, e2sblock, 0);
       else
          err = ENOMEM;
-      if (err) {
+      if (0 == err) {
+         // Make sure our UUID copy is correct (ie a re-format since last mount)
+         [e_uuid release];
+         e_uuid = nil;
+         eulock(e_lock);
+         tmp = [self uuidString];
+         ewlock(e_lock);
+         e_uuid = [tmp retain];
+      } else {
          NSLog(@"ExtFS: Failed to load superblock for device '%@' mounted on '%s' (%d).\n",
             bsdName, path, err);
          e2super_free();
       }
    }
    
-   gettimeofday(&now, nil);
    if (e_lastFSUpdate + VOL_INFO_CACHE_TIME > now.tv_sec) {
       eulock(e_lock);
       return (0);
@@ -187,6 +196,8 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    if (!err) {
       e_blockAvail = vinfo.vstat.f_bavail;
       e_fileCount = vinfo.vstat.f_files - vinfo.vstat.f_ffree;
+   } else {
+      e_lastFSUpdate = 0;
    }
    
    e_attributeFlags &= ~kfsGetAttrlist;
@@ -195,10 +206,62 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
 eminfo_exit:
    if (!err) {
       EFSMPostNotification(ExtFSMediaNotificationUpdatedInfo, nil);
-   } else {
-      e_lastFSUpdate = 0;
    }
    return (err);
+}
+
+- (void)probe
+{
+    int type;
+    NSString *uuid, *tmp;
+     
+    if (0 == (e_attributeFlags & kfsNoMount)) {
+        // Query the raw disk for its filesystem type
+        NSString *probePath;
+        probePath = [[ExtFSMediaController mediaController] pathForResource:EFS_PROBE_RSRC];
+        if (probePath) {
+            NSTask *probe = [[NSTask alloc] init];
+            NSPipe *output = [[NSPipe alloc] init];
+            [probe setStandardOutput:output];
+            [probe setArguments:[NSArray arrayWithObjects:[self bsdName], nil]];
+            [probe setLaunchPath:probePath];
+            NS_DURING
+            [probe launch];
+            [probe waitUntilExit];
+            NS_HANDLER
+            // Launch failed
+            NS_ENDHANDLER
+            type = [probe terminationStatus];
+            if (type >= 0 && type < fsTypeNULL) {
+                NSFileHandle *f;
+                NSData *d;
+                unsigned len;
+                
+                // See if there was a UUID output
+                f = [output fileHandleForReading];
+                uuid = nil;
+                if ((d = [f availableData]) && (len = [d length]) > 0)
+                    uuid = [[NSString alloc] initWithBytes:[d bytes]
+                        length:len encoding:NSUTF8StringEncoding];
+                
+                tmp = nil;
+                ewlock(e_lock);
+                e_fsType = type;
+                if (uuid) {
+                    tmp = e_uuid;
+                    e_uuid = uuid;
+                }
+                eulock(e_lock);
+                [tmp release];
+            }
+        #ifdef DIAGNOSTIC
+            else
+                NSLog(@"ExtFS: efsprobe failed with '%d'.\n", type);
+        #endif
+            [output release];
+            [probe release];
+        }
+    }
 }
 
 /* Public */
@@ -261,6 +324,8 @@ init_err:
       r = [hint rangeOfString:@"partition"];
       if (hint && NSNotFound != r.location)
          e_attributeFlags |= kfsNoMount;
+      
+      [self probe];
       
       ewlock(e_mediaIconCacheLck);
       if (nil != e_mediaIconCache)
@@ -761,6 +826,8 @@ emicon_exit:
       str = (NSString*)CFUUIDCreateString(kCFAllocatorDefault, uuid);
       CFRelease(uuid);
       return ([str autorelease]);
+   } else if (e_uuid) {
+      return ([[e_uuid retain] autorelease]);
    }
    
    return (nil);
@@ -856,6 +923,7 @@ emicon_exit:
    [e_volName release];
    [e_where release];
    [e_media release];
+   [e_uuid release];
    [e_children release];
    [e_parent release];
    

@@ -41,7 +41,6 @@
 @constant fsTypeMSDOS FAT filesystem id. Includes FAT12, FAT16 and FAT32
 @constant fsTypeNTFS NTFS filesystem id.
 @constant fsTypeUnknown Unknown filesystem id.
-@constant fsTypeNULL Placeholder for an empty marker.
 */
 typedef enum {
    fsTypeExt2 = 0,
@@ -57,7 +56,7 @@ typedef enum {
    fsTypeMSDOS = 10,
    fsTypeNTFS  = 11,
    fsTypeUnknown = 12,
-   fsTypeNULL = 13
+   fsTypeNULL
 }ExtFSType;
 
 /*!
@@ -103,7 +102,7 @@ a filesystem or device for its properties.
    id e_children;
    
    id e_media, e_iconDesc, e_object;
-   NSString *e_where, *e_ioregName, *e_volName;
+   NSString *e_where, *e_ioregName, *e_volName, *e_uuid;
    struct superblock *e_sb;
    u_int64_t e_size, e_blockCount, e_blockAvail;
    u_int32_t e_devBlockSize, e_fsBlockSize, e_attributeFlags,
@@ -271,7 +270,7 @@ the filesystem only. Otherwise, it applies only to the media.
 /*!
 @method fsType
 @abstract Determine the filesystem type.
-@discussion If the media is not mounted, the result will always
+@discussion If the media is not mounted, the result may
 be fsTypeUnknown.
 @result The filesystem type id.
 */
@@ -378,15 +377,14 @@ Always NO if the media is not mounted.
 @method isExtFS
 @abstract Convenience method to determine if a filesystem is Ext2 or Ext3.
 @result YES if the filesystem is Ext2/3, otherwise NO.
-Always NO if the media is not mounted.
 */
 - (BOOL)isExtFS;
 /*!
 @method uuidString
 @abstract Get the filesystem UUID as a string.
-@discussion This is only supported by Ext2/3 currrently.
+@discussion This is only supported by Ext2/3 and UFS currrently.
 @result String containing UUID or nil if a UUID is not present.
-Always nil if the media is not mounted.
+This may be nil if the media is not mounted.
 */
 - (NSString*)uuidString;
 /*!
