@@ -792,7 +792,8 @@ ext2_mountfs(devvp, mp, td)
 	struct mount *mp;
 	struct thread *td;
 {
-	struct ext2mount *ump;
+	struct timeval tv;
+   struct ext2mount *ump;
 	struct buf *bp;
 	struct ext2_sb_info *fs;
 	struct ext2_super_block * es;
@@ -802,6 +803,8 @@ ext2_mountfs(devvp, mp, td)
    #ifdef APPLE
    int devBlockSize=0;
    #endif
+   
+   getmicrotime(&tv); /* Curent time */
 
 	/*
 	 * Disallow multiple mounts of the same device.
@@ -881,6 +884,33 @@ ext2_mountfs(devvp, mp, td)
 			goto out;
 		}
 	}
+   if ((int16_t)le16_to_cpu(es->s_max_mnt_count) >= 0 &&
+		 le16_to_cpu(es->s_mnt_count) >= (u_int16_t)le16_to_cpu(es->s_max_mnt_count))
+		printf ("EXT2-fs WARNING: maximal mount count reached, "
+			"running fsck is recommended\n");
+	else if (le32_to_cpu(es->s_checkinterval) &&
+		(le32_to_cpu(es->s_lastcheck) + le32_to_cpu(es->s_checkinterval) <= tv.tv_sec))
+		printf ("EXT2-fs WARNING: checktime reached, "
+			"running fsck is recommended\n");
+   
+#ifdef APPLE
+   /* UFS does this, so I assume we have the same shortcoming. */
+   /*
+	 * Buffer cache does not handle multiple pages in a buf when
+	 * invalidating incore buffer in pageout. There are no locks 
+	 * in the pageout path.  So there is a danger of loosing data when
+	 * block allocation happens at the same time a pageout of buddy
+	 * page occurs. incore() returns buf with both
+	 * pages, this leads vnode-pageout to incorrectly flush of entire. 
+	 * buf. Till the low level ffs code is modified to deal with these
+	 * do not mount any FS more than 4K size.
+	 */
+   if ((EXT2_MIN_BLOCK_SIZE << le32_to_cpu(es->s_log_block_size)) > PAGE_SIZE) {
+      error = ENOTSUP;
+      goto out;
+   }
+#endif
+   
 	ump = bsd_malloc(sizeof *ump, M_EXT2MNT, M_WAITOK);
 	bzero((caddr_t)ump, sizeof *ump);
 	/* I don't know whether this is the right strategy. Note that
@@ -924,14 +954,21 @@ ext2_mountfs(devvp, mp, td)
 	ump->um_dev = dev;
 	ump->um_devvp = devvp;
 	/* setting those two parameters allowed us to use
-	   ufs_bmap w/o changse !
+	   ufs_bmap w/o changes !
 	*/
 	ump->um_nindir = EXT2_ADDR_PER_BLOCK(fs);
 	ump->um_bptrtodb = le32_to_cpu(fs->s_es->s_log_block_size) + 1;
 	ump->um_seqinc = EXT2_FRAGS_PER_BLOCK(fs);
    #ifndef APPLE
 	devvp->v_rdev->si_mountpoint = mp;
+   #else
+   devvp->v_specflags |= SI_MOUNTEDON;
    #endif
+   
+   fs->s_es->s_mtime = cpu_to_le32(tv.tv_sec);
+   if (!(int16_t)le16_to_cpu(fs->s_es->s_max_mnt_count))
+		fs->s_es->s_max_mnt_count = (int16_t)cpu_to_le16(EXT2_DFL_MAX_MNT_COUNT);
+	fs->s_es->s_mnt_count = cpu_to_le16(le16_to_cpu(fs->s_es->s_mnt_count) + 1);
 	if (ronly == 0) 
 		ext2_sbupdate(ump, MNT_WAIT);
 	return (0);
@@ -995,6 +1032,8 @@ ext2_unmount(mp, mntflags, td)
    
    #ifndef APPLE
 	ump->um_devvp->v_rdev->si_mountpoint = NULL;
+   #else
+   ump->um_devvp->v_specflags &= ~SI_MOUNTEDON;
    #endif
 	error = VOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE,
 		NOCRED, td);
@@ -1018,6 +1057,9 @@ ext2_flushfiles(mp, flags, td)
 {
 	int error;
 
+#ifdef APPLE
+   error = vflush(mp, NULLVP, SKIPSWAP|flags);
+#endif
 	error = vflush(mp, 0, flags);
 	return (error);
 }
@@ -1218,6 +1260,12 @@ ext2_vget(mp, inop, vpp)
    #ifdef APPLE
    int flags = LK_EXCLUSIVE;
    ino_t ino = (ino_t)inop;
+   
+   /* Check for unmount in progress */
+	if (mp->mnt_kern_flag & MNTK_UNMOUNT) {
+		*vpp = NULL;
+		return (EPERM);
+	}
    #endif
 
 	ump = VFSTOEXT2(mp);
@@ -1665,7 +1713,7 @@ static void init_vnodeopv_desc (struct vnodeopv_desc *opv)
    }
 }
 
-// Kernel entry/exit points
+/* Kernel entry/exit points */
 
 __private_extern__ struct vnodeopv_desc ext2fs_vnodeop_opv_desc;
 __private_extern__ struct vnodeopv_desc ext2fs_specop_opv_desc;
@@ -1676,7 +1724,7 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
    int funnelState;
    kern_return_t kret;
    
-   // Register our module
+   /* Register our module */
    funnelState = thread_funnel_set(kernel_flock, TRUE);
    
    MALLOC(vfsConf, void *, sizeof(struct vfsconf), M_TEMP, M_WAITOK);
@@ -1721,7 +1769,7 @@ funnel_release:
 kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
    int funnelState;
    
-   // Deregister with the kernel
+   /* Deregister with the kernel */
    funnelState = thread_funnel_set(kernel_flock, TRUE);
 
 	vfsconf_del(EXT2FS_NAME);
