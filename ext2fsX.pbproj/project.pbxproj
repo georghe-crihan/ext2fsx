@@ -24,7 +24,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-DOSX -DDEBUG -DEXT2FS_DEBUG -DEXT2FS_TRACE -DDIAGNOSTIC";
+				OTHER_CFLAGS = "\U0001-DOSX -DDEBUG -DEXT2FS_DEBUG -DDIAGNOSTIC";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -120,7 +120,7 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.0.0d4;
+				MODULE_VERSION = 1.0.0a1;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-D_KERNEL -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
@@ -156,11 +156,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0d4</string>
+	<string>1.0.0a1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d4</string>
+	<string>1.0.0a1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -795,19 +795,19 @@
 	<key>CFBundlePackageType</key>
 	<string>fs</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0d4</string>
+	<string>1.0.0a1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d4</string>
+	<string>1.0.0a1</string>
 	<key>FSMediaTypes</key>
 	<dict>
-		<key>EXT2</key>
+		<key>Ext2</key>
 		<dict>
 			<key>FSMediaProperties</key>
 			<dict>
 				<key>Content Hint</key>
-				<string>EXT2</string>
+				<string>Ext2</string>
 				<key>Leaf</key>
 				<true/>
 			</dict>
@@ -837,12 +837,12 @@
 	</dict>
 	<key>FSPersonalities</key>
 	<dict>
-		<key>EXT2</key>
+		<key>Ext2</key>
 		<dict>
 			<key>FSFormatArguments</key>
 			<string>-F</string>
 			<key>FSFormatContentMask</key>
-			<string>EXT2</string>
+			<string>Ext2</string>
 			<key>FSFormatExecutable</key>
 			<string>../../../../../../sbin/newfs_ext2</string>
 			<key>FSFormatMinimumSize</key>
@@ -852,7 +852,7 @@
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount_ext2</string>
 			<key>FSName</key>
-			<string>Ext2 Filesystem</string>
+			<string>Ext2 File System</string>
 			<key>FSRepairArguments</key>
 			<string>-y</string>
 			<key>FSRepairExecutable</key>
