@@ -14,14 +14,15 @@ fi
 
 cd "${SRCROOT}/src/e2fsprogs"
 
-if [ ! -f ./.e2patchdone ]; then
-	patch -p1 < ../../e2diff.txt
-	if [ $? -ne 0 ]; then
-		echo "patch failed!"
-		exit $?
-	fi
-	touch ./.e2patchdone
-fi
+#The patches are now in CVS
+#if [ ! -f ./.e2patchdone ]; then
+#	patch -p1 < ../../e2diff.txt
+#	if [ $? -ne 0 ]; then
+#		echo "patch failed!"
+#		exit $?
+#	fi
+#	touch ./.e2patchdone
+#fi
 
 if [ ! -f ./.e2configdone ]; then
 	./configure --prefix=/usr/local --mandir=/usr/local/share/man \
@@ -32,6 +33,12 @@ if [ ! -f ./.e2configdone ]; then
 	fi
 	touch ./.e2configdone
 fi
+
+#set no prebind
+#since the exec's are linked against the libs using a relative path,
+#pre-binding will never work anyway. Setting tells the loader to not
+#even try pre-binding.
+export LD_FORCE_NO_PREBIND=1
 
 #make clean
 make
