@@ -142,7 +142,6 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		*runb = 0;
 	}
 
-
 	ap = a;
 	nump = &num;
 	error = ext2_getlbns(vp, bn, ap, nump);
@@ -218,19 +217,20 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			}
 		}
 
-		daddr = le32_to_cpu(((int32_t *)bp->b_data)[ap->in_off]);
+		daddr = le32_to_cpu(((ext2_daddr_t *)bp->b_data)[ap->in_off]);
 		if (num == 1 && daddr && runp) {
 			for (bn = ap->in_off + 1;
 			    bn < MNINDIR(ump) && *runp < maxrun &&
 			    is_sequential(ump,
-			    le32_to_cpu(((int32_t *)bp->b_data)[bn - 1]),
-			    le32_to_cpu(((int32_t *)bp->b_data)[bn]));
+			    le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn - 1]),
+			    le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn]));
 			    ++bn, ++*runp);
 			bn = ap->in_off;
 			if (runb && bn) {
 				for(--bn; bn >= 0 && *runb < maxrun &&
-			    		is_sequential(ump, le32_to_cpu(((int32_t *)bp->b_data)[bn]),
-					    le32_to_cpu(((int32_t *)bp->b_data)[bn+1]));
+			    		is_sequential(ump,
+                        le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn]),
+					    le32_to_cpu(((ext2_daddr_t *)bp->b_data)[bn+1]));
 			    		--bn, ++*runb);
 			}
 		}
@@ -319,11 +319,6 @@ ext2_getlbns(vp, bn, ap, nump)
 		if (metalbn == realbn)
 			break;
 
-        /* XXX Moved from FBSD loc. to match UFS.
-           This makes a difference in the offset and metalbn
-           calculations for some lbn's.
-         */
-        blockcnt /= MNINDIR(ump);
         off = (bn / blockcnt) % MNINDIR(ump);
 
 		++numlevels;
@@ -333,9 +328,7 @@ ext2_getlbns(vp, bn, ap, nump)
 		++ap;
 
 		metalbn -= -1 + off * blockcnt;
-        /* XXX Original FBSD location.
         blockcnt /= MNINDIR(ump);
-        */
 	}
 	if (nump)
 		*nump = numlevels;
