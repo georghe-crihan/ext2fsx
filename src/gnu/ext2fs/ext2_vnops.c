@@ -1338,7 +1338,7 @@ abortit:
 					ext2_dirbad(xp, (doff_t)12,
 					    "ext2_rename: mangled dir");
 				} else {
-					dirbuf.dotdot_ino = newparent;
+					dirbuf.dotdot_ino = cpu_to_le32(newparent);
 					(void) vn_rdwr(UIO_WRITE, fvp,
 					    (caddr_t)&dirbuf,
 					    sizeof (struct dirtemplate),

@@ -23,6 +23,10 @@ Implemented proper superblock locking.\
 1.1d1 (not public)\
 Large file (> 2GB) support.\
 \
+1.0.1\
+\
+Fixed a byte swap bug that caused directory corruption when moving a directory to another directory. This manifested itself in the Finder with a busy error whenever you moved a directory to the Trash.\
+\
 1.0\
 Fixed bugs #796132 and #826406. These were caused by a kernel bug and fixed by working around the kernel bug.\
 \
