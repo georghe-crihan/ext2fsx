@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,31 +20,34 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998 Robert Nordier
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR(S) ``AS IS'' AND ANY EXPRESS
- * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR(S) BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+* Copyright 2003 Brian Bergstrand.
+*
+* Redistribution and use in source and binary forms, with or without modification, 
+* are permitted provided that the following conditions are met:
+*
+* 1.	Redistributions of source code must retain the above copyright notice, this list of
+*     conditions and the following disclaimer.
+* 2.	Redistributions in binary form must reproduce the above copyright notice, this list of
+*     conditions and the following disclaimer in the documentation and/or other materials provided
+*     with the distribution.
+* 3.	The name of the author may not be used to endorse or promote products derived from this
+*     software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+* AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE
+* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+* OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+* THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+*/
+
+#if defined(APPLE) && !defined(lint)
+static const char whatid[] __attribute__ ((unused)) =
+"@(#)Revision: $Revision$ Built: " __DATE__ __TIME__;
+#endif
 
 #include <sys/param.h>
 #include <sys/wait.h>
@@ -67,12 +70,40 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFStringEncodingExt.h>
+
 #include "ext2_apple.h"
 #include <ext2_fs.h>
 #include <fs.h>
+#include <ext2_byteorder.h>
+
+#ifndef FSUC_ADOPT
+#define FSUC_ADOPT 'a'
+#endif
+
+#ifndef FSUC_DISOWN
+#define FSUC_DISOWN 'd'
+#endif
+
+#ifndef FSUC_GETUUID
+#define FSUC_GETUUID 'k'
+#endif
+
+#ifndef FSUC_SETUUID
+#define FSUC_SETUUID 's'
+#endif
+
+#ifndef FSUC_MKJNL
+#define FSUC_MKJNL   'J'
+#endif
+
+#ifndef FSUC_UNJNL
+#define FSUC_UNJNL   'U'
+#endif
 
 #define FS_TYPE			EXT2FS_NAME
-#define FS_NAME_FILE		"EXT2"
+#define FS_NAME_FILE		EXT2FS_NAME
 #define FS_BUNDLE_NAME		"ext2fs.kext"
 #define FS_KEXT_DIR			"/System/Library/Extensions/ext2fs.kext"
 #define FS_KMOD_DIR			"/System/Library/Extensions/ext2fs.kext/Contents/MacOS/ext2fs"
@@ -88,18 +119,21 @@
 #define NOSUID_OPT			"nosuid"
 #define DEV_OPT				"dev"
 #define NODEV_OPT			"nodev"
-#define LABEL_LENGTH		11
-#define MAX_DOS_BLOCKSIZE	2048
+#define LABEL_LENGTH		16
 
 #define FSUC_LABEL		'n'
 
-#define UNKNOWN_LABEL		"Unlabeled"
+#define UNKNOWN_LABEL		"UNTITLED"
 
 #define	DEVICE_SUID			"suid"
 #define	DEVICE_NOSUID		"nosuid"
 
 #define	DEVICE_DEV			"dev"
 #define	DEVICE_NODEV		"nodev"
+
+#ifdef DEBUG
+#undef DEBUG
+#endif
 
 /* globals */
 const char	*progname;	/* our program name, from argv[0] */
@@ -253,15 +287,23 @@ int main(int argc, char **argv)
             #if 0
             ret = fs_label(rawdevpath, argv[2]);
             #else
-            ret = ENOTSUP;
+            ret = FSUR_INVAL;
             #endif
+            break;
+         case FSUC_GETUUID:
+         case FSUC_SETUUID:
+         case FSUC_ADOPT:
+         case FSUC_DISOWN:
+         case FSUC_MKJNL:
+         case FSUC_UNJNL:
+            ret = FSUR_INVAL;
             break;
         default:
             usage();
     }
 
     #ifdef DEBUG
-    report_exit_code(ret);
+    //report_exit_code(ret);
     #endif
     exit(ret);
 
@@ -297,7 +339,6 @@ static int fs_unmount(char *devpath) {
         return(FSUR_IO_SUCCESS);
 }
 
-#if 0
 /*
  * Check a volume label.
  */
@@ -314,6 +355,7 @@ oklabel(const char *src)
     return i && !c;
 }
 
+#if 0
 /*
  * Make a volume label.
  */
@@ -403,19 +445,20 @@ safe_unlink(char *path)
 static void
 safe_read(int fd, char *buf, int nbytes, off_t off)
 {
-	if (lseek(fd, off, SEEK_SET) == -1) {
+	int b;
+   if (lseek(fd, off, SEEK_SET) == -1) {
 		fprintf(stderr, "%s: device seek error @ %qu, %s\n", progname,
 			off, strerror(errno));
 		exit(FSUR_IO_FAIL);
 	}
-	if (read(fd, buf, nbytes) != nbytes) {
+	if ((b=read(fd, buf, nbytes)) != nbytes) {
 		fprintf(stderr, "%s: device safe_read error @ %qu, %s\n", progname,
 			off, strerror(errno));
 		exit(FSUR_IO_FAIL);
 	}
 }
 
-#if 0
+#ifdef 0
 void
 safe_write(int fd, char *buf, int nbytes, off_t off)
 {
@@ -467,28 +510,128 @@ report_exit_code(int ret)
 }
 #endif
 
+/* Set the name of this file system */
+static void fs_set_label_file(char *labelPtr)
+{
+    int 			fd;
+    unsigned char	filename[MAXPATHLEN];
+    unsigned char	label[LABEL_LENGTH],
+        			labelUTF8[LABEL_LENGTH*3],
+        			*tempPtr;
+    off_t			offset;
+    CFStringRef 	cfstr;
+
+    sprintf(filename, "%s/%s%s/%s.label", FS_DIR_LOCATION,
+            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
+    unlink(filename);
+
+    sprintf(filename, "%s/%s%s/%s.name", FS_DIR_LOCATION,
+            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
+    unlink(filename);
+
+    if((labelPtr[0] != '\0') && oklabel(labelPtr)) {
+        /* Remove any trailing white space*/
+        labelPtr[LABEL_LENGTH] = '\0';
+        tempPtr = &labelPtr[LABEL_LENGTH - 1];
+        offset = LABEL_LENGTH;
+        while(((*tempPtr == '\0')||(*tempPtr == ' ')) && (offset--)) {
+            if(*tempPtr == ' ') {
+                *tempPtr = '\0';
+            }
+            tempPtr--;
+        }
+
+        /* remove any embedded spaces (mount doesn't like them) */
+        tempPtr = labelPtr;
+        while(*tempPtr != '\0') {
+            if(*tempPtr == ' ') {
+                *tempPtr = '_';
+            }
+            tempPtr++;
+        }
+
+        if(labelPtr[0] == '\0') {
+            strncpy(label, UNKNOWN_LABEL, LABEL_LENGTH);
+        } else
+            strncpy(label, labelPtr, LABEL_LENGTH);
+
+    } else {
+        strncpy(label, UNKNOWN_LABEL, LABEL_LENGTH);
+    }
+
+#if	D2U_LOWER_CASE
+    msd_str_to_lower(label);
+#endif	/* D2U_LOWER_CASE */
+
+    /* Convert it to UTF-8 */
+    cfstr = CFStringCreateWithCString(kCFAllocatorDefault, label, kCFStringEncodingWindowsLatin1);
+    if (cfstr == NULL)
+        cfstr = CFStringCreateWithCString(kCFAllocatorDefault, label, kCFStringEncodingDOSJapanese);
+    if (cfstr == NULL)
+        cfstr = CFStringCreateWithCString(kCFAllocatorDefault, UNKNOWN_LABEL, kCFStringEncodingWindowsLatin1);
+    (void) CFStringGetCString(cfstr, labelUTF8, sizeof(labelUTF8), kCFStringEncodingUTF8);
+    CFRelease(cfstr);
+
+    /* At this point, label should contain a correct formatted name */
+    write(1, labelUTF8, strlen(labelUTF8));
+
+    /* backwards compatibility */
+    /* write the .label file */
+    sprintf(filename, "%s/%s%s/%s.label", FS_DIR_LOCATION,
+            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
+    fd = open(filename, O_WRONLY|O_CREAT|O_EXCL, 0755);
+    if (fd >= 0) {
+	write(fd, labelUTF8, strlen(labelUTF8) + 1);
+	close(fd);
+    }
+    /* write the .name file */
+    sprintf(filename, "%s/%s%s/%s.name", FS_DIR_LOCATION,
+            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
+    fd = open(filename, O_WRONLY|O_CREAT|O_EXCL, 0755);
+    if (fd >= 0) {
+	write(fd, FS_NAME_FILE, 1 + strlen(FS_NAME_FILE));
+	close(fd);
+    }
+}
+
 /*
  * Begin Filesystem-specific code
  */
 static int fs_probe(char *devpath, int removable, int writable)
 {
-   char buf[SBSIZE];
+   char *buf;
    struct ext2_super_block *sbp;
    int fd;
    
+   bzero(diskLabel, LABEL_LENGTH+1);
+
+   buf = malloc(4096);
+   if (!buf)
+      return (FSUR_UNRECOGNIZED);
+   
    fd = safe_open(devpath, O_RDONLY, 0);
    
-   /* Read the superblock */
-   safe_read(fd, buf, SBSIZE, SBLOCK);
+   /* Read the first 4K. When reading/writing from a raw device, we must
+   do so in the native block size (or a multiple thereof) of the device.*/
+   safe_read(fd, buf, 4096, 0);
    
-   sbp = (struct ext2_super_block*)buf;
+   /* Superblock starts at offset 1024 (block 2). */
+   sbp = (struct ext2_super_block*)(buf+SBSIZE);
    
    safe_close(fd);
    
-   if (EXT2_SUPER_MAGIC != sbp->s_magic) {
-      return (EINVAL);
+   if (EXT2_SUPER_MAGIC != le16_to_cpu(sbp->s_magic)) {
+      free(buf);
+      return (FSUR_UNRECOGNIZED);
    }
+   
+   /* Get the volume name */
+   if (0 != sbp->s_volume_name[0])
+      bcopy(sbp->s_volume_name, diskLabel, LABEL_LENGTH);
+   
+   fs_set_label_file(diskLabel);
 
+   free(buf);
    return(FSUR_RECOGNIZED);
 }
 
