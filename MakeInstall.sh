@@ -45,16 +45,30 @@ ln -sf ../../../sbin/fsck_ext2 ./fsck.ext2
 ln -sf ../../../sbin/fsck_ext2 ./fsck.ext3
 
 cd ../share/man/man8
-ln -f e2fsck.8 fsck_ext2.8
+ln -f e2fsck.8 ./fsck_ext2.8
+ln -f mke2fs.8 ./newfs_ext2.8
+
+#mkfs symlink
+cd "${INSTALL}/sbin"
+ln -sf ../usr/local/sbin/mke2fs ./newfs_ext2
+
+#lib sym links
+cd "${INSTALL}/usr/local/lib"
+
+ln -sf ./libcom_err.1.0.dylib ./libcom_err.dylib
+ln -sf ./libe2p.2.1.dylib ./libe2p.dylib
+ln -sf ./libext2fs.2.1.dylib ./libext2fs.dylib
+ln -sf ./libss.1.0.dylib ./libss.dylib
+ln -sf ./libuuid.1.1.dylib ./libuuid.dylib
 
 cd "${EXT2BUILD}"
 
-cp -R "${BUILD}/ext2fs.kext" "${INSTALL}/System/Library/Extensions"
-cp -R "${BUILD}/ext2.fs" "${INSTALL}/System/Library/FileSystems"
+cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/System/Library/Extensions"
+cp -pR "${BUILD}/ext2.fs" "${INSTALL}/System/Library/FileSystems"
 
 #mount
-cp "${BUILD}/mount_ext2" "${INSTALL}/sbin"
-cp "${EXT2BUILD}/src/mount_ext2fs/mount_ext2fs.8" "${INSTALL}/usr/share/man/man8/mount_ext2.8"
+cp -p "${BUILD}/mount_ext2" "${INSTALL}/sbin"
+cp -p "${EXT2BUILD}/src/mount_ext2fs/mount_ext2fs.8" "${INSTALL}/usr/share/man/man8/mount_ext2.8"
 
 #strip binaries for prod build here
 
@@ -62,6 +76,9 @@ cp "${EXT2BUILD}/src/mount_ext2fs/mount_ext2fs.8" "${INSTALL}/usr/share/man/man8
 find "${INSTALL}" -name "\.DS_Store" -exec rm {} \;
 find "${INSTALL}" -name "pbdevelopment.plist" -exec rm {} \;
 find "${INSTALL}" -name "CVS" -type d -exec rm -fr {} \;
+
+#e2fsprogs copyright
+cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/E2FSPROGS_COPYRIGHT"
 
 sudo chown -R root:wheel "${INSTALL}"
 sudo chmod -R go-w "${INSTALL}"
