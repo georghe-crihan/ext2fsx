@@ -191,32 +191,6 @@ vrefcnt(struct vnode *vp)
 	return (usecnt);
 }
 
-/* VNode Ops */
-
-/*
- * Lock a node.
- */
-__private_extern__ int
-ext2_lock(ap)
-	struct vop_lock_args /* {
-		struct vnode *a_vp;
-		int a_flags;
-		struct proc *a_p;
-	} */ *ap;
-{
-	struct vnode *vp = ap->a_vp;
-
-	if (VTOI(vp) == (struct inode *) NULL)
-		panic ("ext2_lock: null node");
-   
-   ext2_debug("locking inode %lu for pid %ld -- cur pid:%ld, cur ex: %d, cur shr: %d, cur wait:%d\n",
-      (unsigned long)VTOI(vp)->i_number, (long)ap->a_p->p_pid, 
-      (long)VTOI(vp)->i_lock.lk_lockholder, VTOI(vp)->i_lock.lk_exclusivecount,
-      VTOI(vp)->i_lock.lk_sharecount, VTOI(vp)->i_lock.lk_waitcount);
-   
-	return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags, &vp->v_interlock,ap->a_p));
-}
-
 __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
 {
    struct vnode *vp = ap->a_vp;
@@ -286,6 +260,37 @@ __private_extern__ int vop_stdfsync(struct vop_fsync_args *ap)
    return (0);
 }
 
+/* VNode Ops */
+
+#define EXT_NO_ILOCKS 0
+
+/*
+ * Lock a node.
+ */
+__private_extern__ int
+ext2_lock(ap)
+	struct vop_lock_args /* {
+		struct vnode *a_vp;
+		int a_flags;
+		struct proc *a_p;
+	} */ *ap;
+{
+	struct vnode *vp = ap->a_vp;
+
+	if (VTOI(vp) == (struct inode *) NULL)
+		panic ("ext2_lock: null node");
+   
+   ext2_trace("locking inode %lu for pid %ld -- cur pid:%ld, cur ex: %d, cur shr: %d, cur wait:%d\n",
+      (unsigned long)VTOI(vp)->i_number, (long)ap->a_p->p_pid, 
+      (long)VTOI(vp)->i_lock.lk_lockholder, VTOI(vp)->i_lock.lk_exclusivecount,
+      VTOI(vp)->i_lock.lk_sharecount, VTOI(vp)->i_lock.lk_waitcount);
+   
+#if EXT_NO_ILOCKS
+   return (0);
+#endif
+	return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags, &vp->v_interlock,ap->a_p));
+}
+
 /*
  * Unlock an node.
  */
@@ -299,8 +304,12 @@ ext2_unlock(ap)
 {
 	struct vnode *vp = ap->a_vp;
    
-   ext2_debug("unlocking inode %lu\n", (unsigned long)VTOI(vp)->i_number);
-
+   ext2_trace("unlocking inode %lu for pid:%ld\n", (unsigned long)VTOI(vp)->i_number,
+      (long)ap->a_p->p_pid);
+   
+#if EXT_NO_ILOCKS
+   return (0);
+#endif
 	return (lockmgr(&VTOI(vp)->i_lock, ap->a_flags | LK_RELEASE, &vp->v_interlock,ap->a_p));
 }
 
