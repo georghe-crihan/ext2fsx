@@ -75,6 +75,7 @@ NSString *ExtFSMediaNotificationChildChange = @"ExtFSMediaNotificationChildChang
 struct attr_volinfo {
    size_t v_size;
    /* Fixed storage */
+   u_long v_signature;
    off_t v_availspace;
    u_long v_filecount;
    u_long v_dircount;
@@ -121,6 +122,7 @@ do { \
 @implementation ExtFSMedia
 
 /* Private */
+#define kHFSPlusSigWord 0x482B
 
 - (int)fsInfo
 {
@@ -155,7 +157,8 @@ do { \
    bzero(&vinfo, sizeof(vinfo));
    bzero(&alist, sizeof(alist));
    alist.bitmapcount = ATTR_BIT_MAP_COUNT;
-   alist.volattr = ATTR_VOL_INFO|ATTR_VOL_SPACEAVAIL|ATTR_VOL_FILECOUNT|ATTR_VOL_DIRCOUNT;
+   alist.volattr = ATTR_VOL_INFO|ATTR_VOL_SIGNATURE|ATTR_VOL_SPACEAVAIL|
+      ATTR_VOL_FILECOUNT|ATTR_VOL_DIRCOUNT;
    if (!_volName)
       alist.volattr |= ATTR_VOL_CAPABILITIES|ATTR_VOL_NAME;
    
@@ -168,6 +171,8 @@ do { \
          _volName = [NSSTR(vinfo.vinfo.v_name) retain];
       if (alist.volattr & ATTR_VOL_CAPABILITIES)
          _volCaps = vinfo.vinfo.v_caps.capabilities[0];
+      if (fsTypeHFS == _fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
+            _fsType = fsTypeHFSPlus;
       goto exit;
    }
    
@@ -210,7 +215,7 @@ exit:
          _attributeFlags |= kfsLeafDisk;
       
       hint = [_media objectForKey:NSSTR(kIOMediaContentHintKey)];
-      r = [hint rangeOfString:@"Apple_partition"];
+      r = [hint rangeOfString:@"partition"];
       if (hint && NSNotFound != r.location)
          _attributeFlags |= kfsNoMount;
          
@@ -219,6 +224,15 @@ exit:
          _attributeFlags |= kfsNoMount;
          
       r = [hint rangeOfString:@"Patches"];
+      if (hint && NSNotFound != r.location)
+         _attributeFlags |= kfsNoMount;
+      
+      r = [hint rangeOfString:@"CD_DA"]; /* Digital Audio tracks */
+      if (hint && NSNotFound != r.location)
+         _attributeFlags |= kfsNoMount;
+         
+      hint = [_media objectForKey:NSSTR(kIOMediaContentKey)];
+      r = [hint rangeOfString:@"Apple_partition"];
       if (hint && NSNotFound != r.location)
          _attributeFlags |= kfsNoMount;
       
@@ -278,13 +292,13 @@ exit:
 
 - (void)remChild:(ExtFSMedia*)media
 {
+   if (NO == [_children containsObject:media]) {
 #ifdef DIAGNOSTIC
-   if ([_children containsObject:media]) {
       NSLog(@"ExtFS: Oops! Parent %@ does not contain child %@.\n",
          [self bsdName], [media bsdName]);
+#endif
       return;
    };
-#endif
 
    [_children removeObject:media];
    [[NSNotificationCenter defaultCenter]
@@ -354,10 +368,10 @@ exit:
                }
             }
             CFRelease(kexts);
-         }
+         } /* kexts */
          CFRelease(url);
-      }
-   }
+      } /* url */
+   } /* FSFindFolder */
    
    if (_icon)
       [_mediaIconCache setObject:_icon forKey:bundleid];
@@ -376,7 +390,7 @@ exit:
 - (BOOL)canMount
 {
    // We assume a parent disk cannot be mounted
-   if (_children || (_attributeFlags & kfsNoMount))
+   if ((_attributeFlags & kfsNoMount))
       return (NO);
    
    return (YES);
@@ -562,6 +576,11 @@ exit:
 }
 
 /* Super */
+
+- (NSString*)description
+{
+   return ([self bsdName]);
+}
 
 - (unsigned)hash
 {
