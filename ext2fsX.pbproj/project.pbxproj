@@ -23,8 +23,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				OPTIMIZATION_CFLAGS = "\U0001-O0";
-				OTHER_CFLAGS = "\U0001-DEXT2FS_DEBUG -DOSX -D_KERNEL -DDIAGNOSTIC";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "\U0001-DEXT2FS_DEBUG -DOSX -DDIAGNOSTIC";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -34,8 +34,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				OPTIMIZATION_CFLAGS = "\U0001-O2";
-				OTHER_CFLAGS = "\U0001-D_KERNEL";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "\U0001";
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -74,6 +74,7 @@
 			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
+				D30B790A040599D500A80164,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -81,6 +82,8 @@
 				247142CAFF3F8F9811CA285C,
 				F5E7E349035BD34B01A80165,
 				F53BA31103CBEF8D01A80164,
+				D33D91670405A28700A80164,
+				D30B790D04059A6B00A80164,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
 			);
@@ -109,7 +112,7 @@
 				MODULE_STOP = ext2fs_stop;
 				MODULE_VERSION = 1.0.0d1;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-DREADONLY";
+				OTHER_CFLAGS = "\U0001-D_KERNEL -DREADONLY";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2fs;
@@ -263,6 +266,7 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0A5A7D55FFB780D811CA28AA,
+				D30B790B040599D500A80164,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -296,14 +300,131 @@
 			);
 			isa = PBXGroup;
 			name = ext2fs;
-			path = gnu/ext2fs;
-			refType = 4;
+			path = src/gnu/ext2fs;
+			refType = 2;
 		};
 //240
 //241
 //242
 //243
 //244
+//D30
+//D31
+//D32
+//D33
+//D34
+		D30B7906040599D500A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+				D33D91680405A28700A80164,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D30B7907040599D500A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+				D30B791104059A6B00A80164,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D30B7908040599D500A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D30B7909040599D500A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D30B790A040599D500A80164 = {
+			buildPhases = (
+				D30B7906040599D500A80164,
+				D30B7907040599D500A80164,
+				D30B7908040599D500A80164,
+				D30B7909040599D500A80164,
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DAPPLE";
+				OTHER_LDFLAGS = "-ldisk";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = mount_ext2fs;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = mount_ext2fs;
+			productName = mount_ext2fs;
+			productReference = D30B790B040599D500A80164;
+		};
+		D30B790B040599D500A80164 = {
+			isa = PBXExecutableFileReference;
+			path = mount_ext2fs;
+			refType = 3;
+		};
+		D30B790D04059A6B00A80164 = {
+			children = (
+				D30B790E04059A6B00A80164,
+				D30B790F04059A6B00A80164,
+				D30B791004059A6B00A80164,
+			);
+			isa = PBXGroup;
+			name = mount_ext2fs;
+			path = src/mount_ext2fs;
+			refType = 4;
+		};
+		D30B790E04059A6B00A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Makefile;
+			refType = 4;
+		};
+		D30B790F04059A6B00A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = mount_ext2fs.8;
+			refType = 4;
+		};
+		D30B791004059A6B00A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = mount_ext2fs.c;
+			refType = 4;
+		};
+		D30B791104059A6B00A80164 = {
+			fileRef = D30B791004059A6B00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D33D91670405A28700A80164 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = mntopts.h;
+			path = src/mntopts.h;
+			refType = 4;
+		};
+		D33D91680405A28700A80164 = {
+			fileRef = D33D91670405A28700A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//D30
+//D31
+//D32
+//D33
+//D34
 //F50
 //F51
 //F52
@@ -360,7 +481,8 @@
 		F53BA31103CBEF8D01A80164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
-			path = ext2_apple.c;
+			name = ext2_apple.h;
+			path = src/ext2_apple.h;
 			refType = 4;
 		};
 		F53BA31203CBEF8D01A80164 = {
@@ -444,7 +566,8 @@
 		F5E7E349035BD34B01A80165 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
-			path = ext2_apple.h;
+			name = ext2_apple.c;
+			path = src/ext2_apple.c;
 			refType = 2;
 		};
 		F5E7E34A035BD34B01A80165 = {
