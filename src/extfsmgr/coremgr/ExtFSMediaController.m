@@ -67,16 +67,21 @@ static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
 #define HFS_NAME "hfs"
 #define UFS_NAME "ufs"
 #define CD9660_NAME "cd9660"
+#define CDAUDIO_NAME "cddafs"
 #define UDF_NAME "udf"
 #define MSDOS_NAME "msdos"
 #define NTFS_NAME "ntfs"
 
-char *fsNameTable[] = {
+static char *_fsNames[] = {
    EXT2FS_NAME,
    EXT3FS_NAME,
    HFS_NAME,
+   HFS_NAME,
+   HFS_NAME,
+   HFS_NAME,
    UFS_NAME,
    CD9660_NAME,
+   CDAUDIO_NAME,
    UDF_NAME,
    MSDOS_NAME,
    NTFS_NAME,
@@ -95,7 +100,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 
 @interface ExtFSMediaController (Private)
 - (void)updateMountStatus;
-- (ExtFSMedia*)createMediaObjectWithProperties:(NSDictionary*)props;
+- (ExtFSMedia*)createMediaWithIOService:(io_service_t)service properties:(NSDictionary*)props;
 - (int)updateMedia:(io_iterator_t)iter remove:(BOOL)remove;
 - (BOOL)volumeDidUnmount:(NSString*)name;
 @end
@@ -106,6 +111,8 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 - (NSDictionary*)iconDescription;
 /* Implemented in ExtFSMedia -- this just gets rid of the compiler warning. */
 - (int)fsInfo;
+- (void)addChild:(ExtFSMedia*)media;
+- (void)remChild:(ExtFSMedia*)media;
 @end
 
 @implementation ExtFSMediaController : NSObject
@@ -146,13 +153,21 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    return (NO);
 }
 
-- (ExtFSMedia*)createMediaObjectWithProperties:(NSDictionary*)props
+- (ExtFSMedia*)createMediaWithIOService:(io_service_t)service properties:(NSDictionary*)props
 {
-   ExtFSMedia *e2media;
+   ExtFSMedia *e2media, *parent;
    
    e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
    if (e2media) {
       [_media setObject:e2media forKey:[e2media bsdName]];
+      
+      [e2media updateAttributesFromIOService:service];
+      if ((parent = [e2media parent]))
+         [parent addChild:e2media];
+   #ifdef DIAGNOSTIC
+      NSLog(@"ExtFS: Media %@ created with parent %@.\n", [e2media bsdName], parent);
+   #endif
+      
       [[NSNotificationCenter defaultCenter]
          postNotificationName:ExtFSMediaNotificationAppeared object:e2media
          userInfo:nil];
@@ -165,7 +180,6 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    }
    return (e2media);
 }
-
 
 - (void)removeMedia:(ExtFSMedia*)e2media device:(NSString *)device
 {
@@ -193,8 +207,8 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 {
    io_service_t iomedia;
    kern_return_t kr = 0;
+   ExtFSMedia *e2media;
    CFMutableDictionaryRef properties;
-   ExtFSMedia *e2media, *parent;
    NSString *device;
    
    /* Init all media devices */
@@ -215,10 +229,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
             continue;
          }
          
-         e2media = [self createMediaObjectWithProperties:(NSDictionary*)properties];
-         [e2media updateAttributesFromIOService:iomedia];
-         if ((parent = [e2media parent]))
-            [parent addChild:e2media];
+         (void)[self createMediaWithIOService:iomedia properties:(NSDictionary*)properties];
          
          CFRelease(properties);
       }
@@ -302,8 +313,10 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
    if (force)
       flags |= kDiskArbForceUnmountFlag;
    
-   if ([media isEjectable] && eject)
+   if ([media isEjectable] && eject) {
       flags |= kDiskArbUnmountAndEjectFlag;
+      flags &= ~kDiskArbUnmountOneFlag;
+   }
    
    return (DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags));
 }
@@ -445,9 +458,8 @@ exit:
             parent = [mc mediaWithBSDName:pdevice];
             if (!parent) {
                /* Parent does not exist */
-               parent = 
-                  [mc createMediaObjectWithProperties:(NSDictionary*)props];
-               [parent updateAttributesFromIOService:ioparent];
+               parent = [mc createMediaWithIOService:ioparent
+                  properties:(NSDictionary*)props];
             }
             _parent = [parent retain];
             
@@ -476,6 +488,9 @@ exit:
 
 - (void)setIsMounted:(struct statfs*)stat
 {
+   NSDictionary *fsTypes;
+   NSNumber *fstype;
+   
    if (!stat) {
       _attributeFlags &= ~kfsMounted;
       _fsBlockSize = 0;
@@ -496,31 +511,26 @@ exit:
       return;
    }
    
-   if (!strncmp(stat->f_fstypename, EXT2FS_NAME, sizeof(EXT2FS_NAME)))
-      _fsType = fsTypeExt2;
-   else
-   if (!strncmp(stat->f_fstypename, EXT3FS_NAME, sizeof(EXT3FS_NAME)))
-      _fsType = fsTypeExt3;
-   else
-   if (!strncmp(stat->f_fstypename, HFS_NAME, sizeof(HFS_NAME)))
-      _fsType = fsTypeHFS;
-   else
-   if (!strncmp(stat->f_fstypename, UFS_NAME, sizeof(UFS_NAME)))
-      _fsType = fsTypeUFS;
-   else
-   if (!strncmp(stat->f_fstypename, CD9660_NAME, sizeof(CD9660_NAME)))
-      _fsType = fsTypeCD9660;
-   else
-   if (!strncmp(stat->f_fstypename, UDF_NAME, sizeof(UDF_NAME)))
-      _fsType = fsTypeUDF;
-   else
-   if (!strncmp(stat->f_fstypename, MSDOS_NAME, sizeof(MSDOS_NAME)))
-      _fsType = fsTypeMSDOS;
-   else
-   if (!strncmp(stat->f_fstypename, NTFS_NAME, sizeof(NTFS_NAME)))
-      _fsType = fsTypeNTFS;
+   fsTypes = [[NSDictionary alloc] initWithObjectsAndKeys:
+      [NSNumber numberWithInt:fsTypeExt2], NSSTR(EXT2FS_NAME),
+      [NSNumber numberWithInt:fsTypeExt3], NSSTR(EXT3FS_NAME),
+      [NSNumber numberWithInt:fsTypeHFS], NSSTR(HFS_NAME),
+      [NSNumber numberWithInt:fsTypeUFS], NSSTR(UFS_NAME),
+      [NSNumber numberWithInt:fsTypeCD9660], NSSTR(CD9660_NAME),
+      [NSNumber numberWithInt:fsTypeCDAudio], NSSTR(CDAUDIO_NAME),
+      [NSNumber numberWithInt:fsTypeUDF], NSSTR(UDF_NAME),
+      [NSNumber numberWithInt:fsTypeMSDOS], NSSTR(MSDOS_NAME),
+      [NSNumber numberWithInt:fsTypeNTFS], NSSTR(NTFS_NAME),
+      [NSNumber numberWithInt:fsTypeUnknown], NSSTR("Unknown"),
+      nil];
+   
+   fstype = [fsTypes objectForKey:NSSTR(stat->f_fstypename)];
+   if (fstype)
+      _fsType = [fstype intValue];
    else
       _fsType = fsTypeUnknown;
+   
+   [fsTypes release];
    
    _attributeFlags |= kfsMounted;
    if (stat->f_flags & MNT_RDONLY)
@@ -532,6 +542,18 @@ exit:
    [_where release];
    _where = [[NSString alloc] initWithCString:stat->f_mntonname];
    (void)[self fsInfo];
+   
+   if (fsTypeExt2 == _fsType && ([self hasJournal]))
+      _fsType = fsTypeExt3;
+   
+   if (fsTypeHFSPlus == _fsType) {
+      if ([self isJournaled]) {
+         _fsType = fsTypeHFSJ;
+         if ([self isCaseSensitive])
+            _fsType = fsTypeHFSJCS;
+      }
+   }
+   
    [[NSNotificationCenter defaultCenter]
          postNotificationName:ExtFSMediaNotificationMounted object:self
          userInfo:nil];
@@ -543,6 +565,22 @@ exit:
 }
 
 @end
+
+/* Helpers */
+
+char* FSNameFromType(int type)
+{
+   if (type > fsTypeUnknown)
+      type = fsTypeUnknown;
+   return (_fsNames[(type)]);
+}
+
+NSString* NSFSNameFromType(int type)
+{
+   if (type > fsTypeUnknown)
+      type = fsTypeUnknown;
+   return ([NSString stringWithCString:_fsNames[(type)]]);
+}
 
 /* Callbacks */
 
