@@ -433,6 +433,11 @@ exit:
    return (_fsType);
 }
 
+- (NSString*)fsName
+{
+    return (NSFSPrettyNameFromType(_fsType));
+}
+
 - (NSString*)mountPoint
 {
    return (_where);

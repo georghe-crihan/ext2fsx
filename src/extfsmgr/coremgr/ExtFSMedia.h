@@ -249,6 +249,14 @@ be fsTypeUnknown.
 */
 - (ExtFSType)fsType;
 /*!
+@method fsName
+@abstract Get the filesystem name in a format suitable for display to a user.
+@discussion If the media is not mounted, the result will always
+be nil.
+@result The filesystem name or nil if there was an error.
+*/
+- (NSString*)fsName;
+/*!
 @method mountPoint
 @abstract Determine the directory that the filesystem is mounted on.
 @result String containing mount path, or nil if the media is not mounted.
