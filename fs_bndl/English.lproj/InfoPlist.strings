@@ -9,7 +9,7 @@
 		<key>EXT2</key>
 		<dict>
 			<key>FSName</key>
-			<string>Ext2 Filesystem</string>
+			<string>Ext2 File System</string>
 		</dict>
 	</dict>
 </dict>
