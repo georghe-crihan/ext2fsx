@@ -446,22 +446,8 @@ ext2_mount(mp, path, data, ndp, td)
 		}
 		VOP_UNLOCK(devvp, 0, td);
 	}
-
-	if ((mp->mnt_flag & MNT_UPDATE) == 0) {
-		error = ext2_mountfs(devvp, mp, td);
-	} else {
-		if (devvp != ump->um_devvp)
-			error = EINVAL;	/* needs translation */
-		else
-			vrele(devvp);
-	}
-	if (error) {
-		vrele(devvp);
-		return (error);
-	}
-	ump = VFSTOEXT2(mp);
-	fs = ump->um_e2fs;
-	/*
+   
+   /*
 	 * Note that this strncpy() is ok because of a check at the start
 	 * of ext2_mount().
 	 */
@@ -478,6 +464,21 @@ ext2_mount(mp, path, data, ndp, td)
 	(void)copystr(fspec, mp->mnt_stat.f_mntfromname, MNAMELEN - 1, &size);
 	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
    #endif
+
+	if ((mp->mnt_flag & MNT_UPDATE) == 0) {
+		error = ext2_mountfs(devvp, mp, td);
+	} else {
+		if (devvp != ump->um_devvp)
+			error = EINVAL;	/* needs translation */
+		else
+			vrele(devvp);
+	}
+	if (error) {
+		vrele(devvp);
+		return (error);
+	}
+	ump = VFSTOEXT2(mp);
+	fs = ump->um_e2fs;
 	(void)ext2_statfs(mp, &mp->mnt_stat, td);
 	return (0);
 }
