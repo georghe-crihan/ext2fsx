@@ -433,7 +433,7 @@ data = [data stringByAppendingString:@"\n"]; \
       ExtInfoInsert(ExtLocalizedString(@"Case Preserved Names", ""),
          ([media isCasePreserving] ? e_yes : e_no));
       
-      size = [media size];
+      size = [media size]; // expensive conversion on G5
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
       data = e_monikers[i];
@@ -441,7 +441,7 @@ data = [data stringByAppendingString:@"\n"]; \
          ExtFmtFloat(size), data, ExtFmtQuad([media size]), e_bytes];
       ExtInfoInsert(ExtLocalizedString(@"Size", ""), data);
       
-      size = [media availableSize];
+      size = [media availableSize];  // expensive conversion on G5
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
       data = e_monikers[i];
@@ -476,7 +476,7 @@ data = [data stringByAppendingString:@"\n"]; \
       }
       
    } else {// mounted
-      size = [media size];
+      size = [media size]; // expensive conversion on G5
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
       data = e_monikers[i];
