@@ -26,7 +26,7 @@ cd "${SRCROOT}/src/e2fsprogs"
 
 if [ ! -f ./.e2configdone ]; then
 	./configure --prefix=/usr/local --mandir=/usr/local/share/man \
---disable-fsck --enable-bsd-shlibs --with-ccopts="-DAPPLE_DARWIN=1"
+--disable-fsck --enable-bsd-shlibs --with-ccopts="-DAPPLE_DARWIN=1 -pipe"
 	if [ $? -ne 0 ]; then
 		echo "configure failed!"
 		exit $?
@@ -35,7 +35,7 @@ if [ ! -f ./.e2configdone ]; then
 fi
 
 #set no prebind
-#since the exec's are linked against the libs using a relative path,
+#since the exec's are linked against the shared libs using a relative path,
 #pre-binding will never work anyway. Setting tells the loader to not
 #even try pre-binding.
 export LD_FORCE_NO_PREBIND=1
