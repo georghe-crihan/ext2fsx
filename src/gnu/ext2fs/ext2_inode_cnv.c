@@ -230,16 +230,7 @@ ext2_i2ei(ip, ei)
             EXT2_SB(sb)->s_es->s_rev_level == cpu_to_le32(EXT2_GOOD_OLD_REV)) {
             /* First large file, add the flag to the superblock. */
             lock_super (sb);
-            
-            if (EXT2_SB(sb)->s_es->s_rev_level == cpu_to_le32(EXT2_GOOD_OLD_REV)) {
-               log(LOG_WARNING,
-                  "ext2: updating to rev %d because of new feature flag, "
-                  "running e2fsck is recommended", EXT2_DYNAMIC_REV);
-               sb->s_es->s_first_ino = cpu_to_le32(EXT2_GOOD_OLD_FIRST_INO);
-               sb->s_es->s_inode_size = cpu_to_le16(EXT2_GOOD_OLD_INODE_SIZE);
-               sb->s_es->s_rev_level = cpu_to_le32(EXT2_DYNAMIC_REV);
-            }
-            
+            ext3_update_dynamic_rev(sb);
             EXT2_SET_RO_COMPAT_FEATURE(sb, EXT2_FEATURE_RO_COMPAT_LARGE_FILE);
             sb->s_dirt = 1;
             unlock_super (sb);
