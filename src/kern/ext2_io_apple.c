@@ -422,7 +422,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			osize = fragroundup(fs, blkoff(fs, ip->i_size));
 			nsize = fragroundup(fs, size);
 			if (nsize > osize) {
-				panic("ffs_allocblk: trying to extend a fragment \n");
+				panic("ext2_allocblk: Something is terribly wrong \n");
 			}
 			return(0);
 		} else {
@@ -447,7 +447,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	if (error = ext2_getlbns(vp, lbn, indirs, &num))
 		return(error);
 
-	if(num == 0) {
+	if(num < 1) {
 		panic("ext2_blkalloc: file with direct blocks only\n"); 
 	}
 
@@ -459,7 +459,12 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	allocib = NULL;
 	allocblk = allociblk;
 	if (nb == 0) {
+#if 0
 		pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
+#else
+      pref = ext2_blkpref(ip, lbn, indirs[0].in_off +
+         EXT2_NDIR_BLOCKS, &ip->i_db[0], 0);
+#endif
 	        if (error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs),
 		    cred, &newb))
 			return (error);
@@ -499,7 +504,11 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			continue;
 		}
 		if (pref == 0)
+#if 0
 			pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
+#else
+         pref = ext2_blkpref(ip, lbn, indirs[i].in_off, bap, bp->b_lblkno);
+#endif
 		if (error =
 		    ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb)) {
 			brelse(bp);
@@ -535,7 +544,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	 * Get the data block, allocating if necessary.
 	 */
 	if (nb == 0) {
-		pref = ext2_blkpref(ip, lbn, indirs[i].in_off, &bap[0], 0);
+		pref = ext2_blkpref(ip, lbn, indirs[i].in_off, &bap[0], bp->b_lblkno);
 		if (error = ext2_alloc(ip,
 		    lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb)) {
 			brelse(bp);
@@ -571,14 +580,7 @@ fail:
 	if (allocib != NULL)
 		*allocib = 0;
 	if (deallocated) {
-	VOP_DEVBLOCKSIZE(ip->i_devvp,&devBlockSize);
-
-#if QUOTA
-		/*
-		 * Restore user's disk quota because allocation failed.
-		 */
-		(void) chkdq(ip, (int64_t)-deallocated, cred, FORCE);
-#endif /* QUOTA */
+      VOP_DEVBLOCKSIZE(ip->i_devvp,&devBlockSize);
 		ip->i_blocks -= btodb(deallocated, devBlockSize);
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
