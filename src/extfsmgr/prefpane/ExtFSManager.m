@@ -352,6 +352,18 @@ data = [data stringByAppendingString:@"\n"]; \
       data = [@" " stringByAppendingString:([media isJournaled] ? yes : no)];
       ExtInfoInsert();
       
+      line = ExtMakeInfoTitle(ExtLocalizedString(@"Supports Sparse Files", ""));
+      data = [@" " stringByAppendingString:([media hasSparseFiles] ? yes : no)];
+      ExtInfoInsert();
+      
+      line = ExtMakeInfoTitle(ExtLocalizedString(@"Case Sensitive Names", ""));
+      data = [@" " stringByAppendingString:([media isCaseSensitive] ? yes : no)];
+      ExtInfoInsert();
+      
+      line = ExtMakeInfoTitle(ExtLocalizedString(@"Case Preserved Names", ""));
+      data = [@" " stringByAppendingString:([media isCasePreserving] ? yes : no)];
+      ExtInfoInsert();
+      
       size = [media size];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
