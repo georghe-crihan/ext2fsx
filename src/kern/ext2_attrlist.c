@@ -64,51 +64,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/inode.h>
 #include "ext2_apple.h"
 
-/* Extra VOL CAPS in Panther */
-#ifndef VOL_CAP_FMT_JOURNAL
-#define VOL_CAP_FMT_JOURNAL 0x00000008
-#endif
-#ifndef VOL_CAP_FMT_JOURNAL_ACTIVE
-#define VOL_CAP_FMT_JOURNAL_ACTIVE 0x00000010
-#endif
-#ifndef VOL_CAP_FMT_NO_ROOT_TIMES
-#define VOL_CAP_FMT_NO_ROOT_TIMES 0x00000020
-#endif
-#ifndef VOL_CAP_FMT_SPARSE_FILES
-#define VOL_CAP_FMT_SPARSE_FILES 0x00000040
-#endif
-#ifndef VOL_CAP_FMT_ZERO_RUNS
-#define VOL_CAP_FMT_ZERO_RUNS 0x00000080
-#endif
-#ifndef VOL_CAP_FMT_CASE_SENSITIVE
-#define VOL_CAP_FMT_CASE_SENSITIVE 0x00000100
-#endif
-#ifndef VOL_CAP_FMT_CASE_PRESERVING
-#define VOL_CAP_FMT_CASE_PRESERVING 0x00000200
-#endif
-#ifndef VOL_CAP_FMT_FAST_STATFS
-#define VOL_CAP_FMT_FAST_STATFS 0x00000400
-#endif
-
-#ifndef VOL_CAP_INT_EXCHANGEDATA
-#define VOL_CAP_INT_EXCHANGEDATA 0x00000010
-#endif
-#ifndef VOL_CAP_INT_COPYFILE
-#define VOL_CAP_INT_COPYFILE 0x00000020
-#endif
-#ifndef VOL_CAP_INT_ALLOCATE
-#define VOL_CAP_INT_ALLOCATE 0x00000040
-#endif
-#ifndef VOL_CAP_INT_VOL_RENAME
-#define VOL_CAP_INT_VOL_RENAME 0x00000080
-#endif
-#ifndef VOL_CAP_INT_ADVLOCK
-#define VOL_CAP_INT_ADVLOCK 0x00000100
-#endif
-#ifndef VOL_CAP_INT_FLOCK
-#define VOL_CAP_INT_FLOCK 0x00000200
-#endif
-
 /* Ext2 supported attributes */
 #define EXT2_ATTR_CMN_NATIVE ( \
    ATTR_CMN_DEVID | ATTR_CMN_FSID | ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | \
