@@ -68,14 +68,24 @@ copydir() {
 
 # copy missing kernel headers
 SYS_KERNF=/System/Library/Frameworks/Kernel.framework
-echo -N "Determining missing kernel headers path... "
-# future work this might be better served by a switch statement
-if [ ${SYSVER} -eq 6 ]; then
-    KERNH=./src/depend/jaguar/kern/Headers
-else 
-# the assumption is this is a Panther based install
-    KERNH=./src/depend/panther/kern/Headers
-fi
+echo -n "Determining missing kernel headers path... "
+
+KERNH=0
+case ${SYSVER} in
+	6 )
+		KERNH=./src/depend/jaguar/kern/Headers
+	;;
+	7 )
+		KERNH=./src/depend/panther/kern/Headers
+	;;
+	#8 )
+	#	KERNH=./src/depend/tiger/kern/Headers
+	#;;
+	* )
+		echo "Warning: Support for kernel version ${SYSVER} is not available. Bailing."
+		exit 1
+	;;
+esac
 echo $KERNH
 
 if [ ! -d ${SYS_KERNF} ]; then
