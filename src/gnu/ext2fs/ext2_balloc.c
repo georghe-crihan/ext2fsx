@@ -82,21 +82,23 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	struct indir indirs[NIADDR + 2];
 	int32_t newb, lbn, *bap, pref;
 	int osize, nsize, num, i, error;
-   int alloc_buf = 1;
-/*
-ext2_debug("ext2_balloc called (%d, %d, %d)\n", 
-	ip->i_number, (int)bn, (int)size);
-*/
+    int alloc_buf = 1;
+
+#ifdef EXT2FS_TRACE
+    ext2_debug("ext2_balloc entered: (%d, %d, %d)\n", 
+        ip->i_number, (int)bn, (int)size);
+#endif
+
 	*bpp = NULL;
 	if (bn < 0)
 		return (EFBIG);
 	fs = ip->i_e2fs;
 	lbn = bn;
    
-   if (flags & B_NOBUFF) 
+    if (flags & B_NOBUFF) 
 		alloc_buf = 0;
    
-   if (blk_alloc)
+    if (blk_alloc)
       *blk_alloc = 0;
 
 	/*
@@ -104,7 +106,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 	 * If so, increment next_alloc fields to allow ext2_blkpref 
 	 * to make a good guess
 	 */
-        if (lbn == ip->i_next_alloc_block + 1) {
+    if (lbn == ip->i_next_alloc_block + 1) {
 		ip->i_next_alloc_block++;
 		ip->i_next_alloc_goal++;
 	}
@@ -118,14 +120,14 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		   the file */
 		if (nb != 0 && ip->i_size >= (bn + 1) * fs->s_blocksize) {
 			if (alloc_buf) {
-         error = bread(vp, bn, fs->s_blocksize, NOCRED, &bp);
-			if (error) {
-				brelse(bp);
-				return (error);
-			}
-			bp->b_blkno = fsbtodb(fs, nb);
-			*bpp = bp;
-         } /* allocbuf */
+                error = bread(vp, bn, fs->s_blocksize, NOCRED, &bp);
+                if (error) {
+                    brelse(bp);
+                    return (error);
+                }
+                bp->b_blkno = fsbtodb(fs, nb);
+                *bpp = bp;
+            } /* allocbuf */
 			return (0);
 		}
 		if (nb != 0) {
@@ -174,10 +176,10 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		}
 		ip->i_db[bn] = newb;
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
-      if (blk_alloc)
-         *blk_alloc = nsize;
-      if (alloc_buf)
-         *bpp = bp;
+        if (blk_alloc)
+           *blk_alloc = nsize;
+        if (alloc_buf)
+           *bpp = bp;
 		return (0);
 	} /* (bn < NDADDR) */
 	/*
@@ -213,7 +215,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		pref = ext2_blkpref(ip, lbn, indirs[0].in_off + 
 					     EXT2_NDIR_BLOCKS, &ip->i_db[0], 0);
 #endif
-	        if ((error = ext2_alloc(ip, lbn, pref, (int)fs->s_blocksize,
+        if ((error = ext2_alloc(ip, lbn, pref, (int)fs->s_blocksize,
 		    cred, &newb)) != 0)
 			return (error);
 		nb = newb;
@@ -328,18 +330,18 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		return (0);
 	}
 	brelse(bp);
-   if (alloc_buf) {
-	if (flags & B_CLRBUF) {
-		error = bread(vp, lbn, (int)fs->s_blocksize, NOCRED, &nbp);
-		if (error) {
-			brelse(nbp);
-			return (error);
-		}
-	} else {
-		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
-		nbp->b_blkno = fsbtodb(fs, nb);
-	}
-	*bpp = nbp;
-   } /* alloc_buf */
+    if (alloc_buf) {
+        if (flags & B_CLRBUF) {
+            error = bread(vp, lbn, (int)fs->s_blocksize, NOCRED, &nbp);
+            if (error) {
+                brelse(nbp);
+                return (error);
+            }
+        } else {
+            nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
+            nbp->b_blkno = fsbtodb(fs, nb);
+        }
+        *bpp = nbp;
+    } /* alloc_buf */
 	return (0);
 }
