@@ -3,6 +3,21 @@
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
+#src root
+if [ -z "${EXT2BUILD}" ]; then
+	echo "EXT2BUILD is not defined, using current directory"
+	EXT2BUILD=`pwd`
+fi
+
+BUILD="${EXT2BUILD}/build"
+
+if [ ! -d "${BUILD}" ]; then
+	echo "Invalid source directory."
+	exit 1
+fi
+
+SYMS="${BUILD}/.symbols.tgz"
+
 usage() {
 	echo "Usage: $0 [options] 'version string'"
 	echo "	-i Only build the disk image (using the current package repository)"
@@ -18,19 +33,7 @@ VER=
 
 build_package() {
 
-#src root
-if [ -z "${EXT2BUILD}" ]; then
-	echo "EXT2BUILD is not defined, using current directory"
-	EXT2BUILD=`pwd`
-fi
-
-BUILD="${EXT2BUILD}/build"
 INSTALL="${BUILD}/install"
-
-if [ ! -d "${BUILD}" ]; then
-	echo "Invalid source directory."
-	exit 1
-fi
 
 if [ ! -d "${INSTALL}" ]; then
 	mkdir "${INSTALL}"
@@ -38,6 +41,10 @@ else
 	sudo rm -rf "${INSTALL}"
 	mkdir "${INSTALL}"
 fi
+
+BUILDLOG=`basename ${0}`
+BUILDLOG=/tmp/Ext2${BUILDLOG}.log
+touch ${BUILDLOG}
 
 mkdir -p "${INSTALL}/System/Library/Extensions"
 mkdir -p "${INSTALL}/System/Library/Filesystems"
@@ -50,10 +57,12 @@ mkdir -p "${INSTALL}/usr/local/man"
 
 #install e2fsprogs
 cd "${EXT2BUILD}/src/e2fsprogs"
-DESTDIR="${INSTALL}" make install
+echo "Installing e2fsprogs..."
+DESTDIR="${INSTALL}" make install >> ${BUILDLOG} 2>&1
 
 cd "${EXT2BUILD}"
 
+echo "Installing other userland utils..."
 cd "${INSTALL}/usr/local/share/man/man8"
 ln -f e2fsck.8 ./fsck_ext2.8
 ln -f mke2fs.8 ./newfs_ext2.8
@@ -103,10 +112,13 @@ cp -p "${BUILD}/fsck_ext2" "${INSTALL}/sbin"
 cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
 cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
 
-# build the jag version of the kext if needed
+echo "Installing kernel driver(s)..."
 PANK="${BUILD}/ext2fs_panther.kext"
 JAGK="${BUILD}/ext2fs_jag.kext"
 KMOD="Contents/MacOS/ext2fs"
+# XXX -- hack to determine if we are building a debug version
+DBG=`nm -m "${BUILD}/ext2fs.kext/${KMOD}" | grep logwakeup`
+# build the jag version of the kext if needed
 if [ ! -d "${JAGK}" ] || [ ! `find "${JAGK}/${KMOD}" -newer "${BUILD}/ext2fs.kext/${KMOD}"` ]; then
 mv "${BUILD}/ext2fs.kext" "${PANK}"
 BUILDER=pbxbuild
@@ -116,27 +128,25 @@ if [ -d "${EXT2BUILD}/ext2fsX.xcode" ]; then
 else
 	cd "${EXT2BUILD}/ext2fsX.pbproj"
 fi
-# XXX hack to determine if we are building a debug version
 BUILDSTYLE="JagDeployment"
-DBG=`nm -m "${PANK}/Contents/MacOS/ext2fs" | grep logwakeup`
 if [ "${DBG}" != "" ]; then
 	BUILDSTYLE="JagDevelopment"
 fi
-BUILDLOG=`basename ${0}`
-BUILDLOG=/tmp/Ext2${BUILDLOG}.log
 echo "Building Jaguar Kext..."
-${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean > ${BUILDLOG} 2>&1
+${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean >> ${BUILDLOG} 2>&1
 ${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} build >> ${BUILDLOG} 2>&1
 if [ ! -d "${BUILD}/ext2fs.kext" ]; then
 	mv "${PANK}" "${BUILD}/ext2fs.kext"
 	echo "Jag Kext build failed! Stopping. See ${BUILDLOG}."
 	exit 1
 fi
-rm ${BUILDLOG}
 # Set the correct kernel dependency version
 sed -f "${EXT2BUILD}/inst/infover.sed" "${PANK}/Contents/Info.plist" \
 > "${BUILD}/ext2fs.kext/Contents/Info.plist"
 #save jag kext
+if [ -d "${JAGK}" ]; then
+	rm -rf "${JAGK}"
+fi
 mv "${BUILD}/ext2fs.kext" "${JAGK}"
 #build clean, so rebuilding from XCode/PB won't pick up stale object files.
 ${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean > /dev/null 2>&1
@@ -149,21 +159,45 @@ fi # -newer test
 #copy to install
 cp -pR "${JAGK}" "${INSTALL}/System/Library/Extensions/ext2fs_jag.kext"
 
+echo "Removing unwanted files..."
 #get rid of unwanted files
-find "${INSTALL}" -name "\.DS_Store" | xargs rm
+find "${INSTALL}" -name ".DS_Store" | xargs rm
 find "${INSTALL}" -name "pbdevelopment.plist" | xargs rm
 find "${INSTALL}" -name "CVS" -type d | xargs rm -fr
 
 #e2fsprogs copyright
 cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSPROGS_COPYRIGHT"
 
+# strip for prod build
+if [ "${DBG}" == "" ]; then
+	echo "Stripping driver symbols..."
+	# make archive of full symbols
+	cd "${INSTALL}/System/Library/Extensions"
+	if [ -f "${SYMS}" ]; then
+		rm "${SYMS}"
+	fi
+	tar -czf "${SYMS}" .
+	for i in `ls -Fd *.kext`
+	do
+		strip -S "${i}${KMOD}"
+	done
+	cd "${EXT2BUILD}"
+fi
+
 # set perms
+echo "Setting permissions..."
 chmod -R go-w "${INSTALL}"
-chmod 775 "${INSTALL}/Library/" "${INSTALL}/Library/PreferencePanes/"
+chmod 775 "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes"
 chmod -R u-w "${INSTALL}"/sbin/* "${INSTALL}"/usr/local/bin/* "${INSTALL}"/usr/local/sbin/* \
 "${INSTALL}"/usr/local/lib/*
 sudo chown -R root:wheel "${INSTALL}"
-sudo chgrp -R admin "${INSTALL}/Library/"
+sudo chgrp -R admin "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes"
+
+echo "Build done."
+
+if [ -f ${BUILDLOG} ]; then
+	rm ${BUILDLOG}
+fi
 
 }
 
@@ -208,27 +242,18 @@ cp -p "${EXT2DIR}/Changes.rtf" "${VOL}"
 cp -p "${EXT2DIR}/Ext2Uninstall.command" "${VOL}"
 chmod 555 "${VOL}/Ext2Uninstall.command"
 
+if [ -f "${SYMS}" ]; then
+	cp "${SYMS}" "${VOL}"
+	rm "${SYMS}"
+fi
+
 echo "Finishing..."
 
 hdiutil eject ${DEVICE}
 
 #convert to compressed image
-hdiutil convert "${TMP}" -format UDCO -o "${IMAGE}"
+hdiutil convert "${TMP}" -format UDZO -o "${IMAGE}"
 rm "${TMP}"
-
-echo "Gzip the image? [n]"
-read GZ
-
-case "${GZ}" in
-	"y" | "Y" )
-		gzip -9 "${IMAGE}"
-		IMAGE="${IMAGE}.gz"
-		break
-	;;
-	* )
-		break
-	;;
-esac
 
 md5 "${IMAGE}"
 

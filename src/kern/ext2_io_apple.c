@@ -110,7 +110,6 @@ ext2_pagein(ap)
 	vm_offset_t pl_offset = ap->a_pl_offset;
 	int flags  = ap->a_flags;
 	register struct inode *ip;
-	int devBlockSize=0;
 	int error;
    
    ext2_trace_enter();
@@ -131,10 +130,8 @@ ext2_pagein(ap)
 		panic("%s: type %d", "ext2_pagein", vp->v_type);
 #endif
 
-	VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
-
   	error = cluster_pagein(vp, pl, pl_offset, f_offset, size,
-			    (off_t)ip->i_size, devBlockSize, flags);
+			    (off_t)ip->i_size,  ip->i_e2fs->s_d_blocksize, flags);
 	/* ip->i_flag |= IN_ACCESS; */
 	ext2_trace_return(error);
 }
@@ -212,7 +209,7 @@ ext2_pageout(ap)
 	else
 	        xfer_size = size;
 
-	VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+	devBlockSize = fs->s_d_blocksize;
 
 	if (xfer_size & (PAGE_SIZE - 1)) {
 	        /* if not a multiple of page size
@@ -292,29 +289,31 @@ ext2_cmap(ap)
 	int nblks;
 	register struct inode *ip;
 	int32_t daddr = 0;
-	int devBlockSize=0;
+	int devBlockSize;
 	FS *fs;
 	int retsize=0;
-	int error=0;
+	int error;
 
 	ip = VTOI(vp);
 	fs = ip->i_e2fs;
 	
    ext2_trace_enter();
 
-	if (blkoff(fs, ap->a_foffset)) {
-		panic("ext2_cmap: allocation requested inside a block (inode=%d, offset=%d)",
-         ip->i_number, ap->a_foffset);
+	if ((error = blkoff(fs, ap->a_foffset))) {
+		panic("ext2_cmap: allocation requested inside a block (possible filesystem corruption): "
+         "qbmask=%qd, inode=%u, offset=%qd, blkoff=%d",
+         fs->s_qbmask, ip->i_number, ap->a_foffset, error);
 	}
+   error = 0;
 
 	bn = (daddr_t)lblkno(fs, ap->a_foffset);
-	VOP_DEVBLOCKSIZE(ip->i_devvp, &devBlockSize);
+   devBlockSize = fs->s_d_blocksize;
 
 	if (size % devBlockSize) {
 		panic("ext2_cmap: size is not multiple of device block size\n");
 	}
 
-	if (error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks)) {
+	if ((error = VOP_BMAP(vp, bn, (struct vnode **) 0, &daddr, &nblks))) {
 			ext2_trace_return(error);
 	}
 
@@ -392,7 +391,6 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	int32_t newb, *bap, pref;
 	int deallocated, osize, nsize, num, i, error;
 	int32_t *allocib, *blkp, *allocblk, allociblk[NIADDR + 1];
-	int devBlockSize=0;
 
 	fs = ip->i_e2fs;
    
@@ -584,8 +582,7 @@ fail:
 	if (allocib != NULL)
 		*allocib = 0;
 	if (deallocated) {
-      VOP_DEVBLOCKSIZE(ip->i_devvp,&devBlockSize);
-		ip->i_blocks -= btodb(deallocated, devBlockSize);
+		ip->i_blocks -= btodb(deallocated, fs->s_d_blocksize);
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
 	ext2_trace_return(error);

@@ -135,7 +135,7 @@ ext2_truncate(vp, length, flags, cred, td)
 	int offset, size, level;
 	long count, nblocks, blocksreleased = 0;
 	int aflags, error, i, allerror;
-   int devBlockSize=0, vflags;
+	int devBlockSize, vflags;
 	off_t osize;
 /*
 printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
@@ -148,7 +148,10 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 
 	oip = VTOI(ovp);
    
-   VOP_DEVBLOCKSIZE(oip->i_devvp, &devBlockSize);
+	/* Note, it is possible to get here with an inode that is not completely
+	   initialized. This can happen when ext2_vget() fails and calls vput() on
+	   an inode that is only partially setup.
+	 */
    
 	if (ovp->v_type == VLNK &&
 	    oip->i_size < ovp->v_mount->mnt_maxsymlinklen) {
@@ -166,6 +169,7 @@ printf("ext2_truncate called %d to %d\n", VTOI(ovp)->i_number, length);
 		return (ext2_update(ovp, 0));
 	}
 	fs = oip->i_e2fs;
+	devBlockSize = fs->s_d_blocksize;
 	osize = oip->i_size;
 	ext2_discard_prealloc(oip);
 	/*

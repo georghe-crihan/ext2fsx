@@ -595,9 +595,11 @@ data = [data stringByAppendingString:@"\n"]; \
       [_curSelection bsdName]);
 #endif
    
-   if (mount)
+   if (mount) {
+      // Save the prefs so mount will behave correctly if an Ext2 disk was changed.
+      [self savePrefs];
       err = [[ExtFSMediaController mediaController] mount:_curSelection on:nil];
-   else
+   } else
       err = [[ExtFSMediaController mediaController] unmount:_curSelection
          force:NO eject:NO];
    if (!err)
@@ -824,6 +826,12 @@ info_alt_switch:
 }
 
 - (void)didUnselect
+{
+   [self savePrefs];
+}
+
+// Private
+- (void)savePrefs
 {
    NSArray *paths;
    NSString *path;

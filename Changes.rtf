@@ -5,10 +5,13 @@
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
 \f0\fs24 \cf0 1.1\
+Fixed a rare kernel panic that happened on an error path where an inode was not completely initialized. (Thanks to R. Marsh for the panic data that helped track this down.)\
 \
 ExtFS Manager (EFSM) includes a German localization. (Also, fixed some localization issues exposed by this.)\
 \
 EFSM now recognizes the CD Audio filesystem.\
+\
+You no longer need to exit the EFSM preferences pane before re-mounting an Ext2/3 disk that you have changed the preferences for.\
 \
 Fixed a bug in EFSM that prevented multi-mode CD-ROM partitions from being detected correctly.\
 \
@@ -26,7 +29,6 @@ Fixed a problem with Ext2 drives not mounting after being unmounted on Panther (
 Initial French support for ExtFS Manager (not complete).\
 \
 1.1d4\
-\
 Now includes a Preference Pane for managing Ext2/3 volumes. You can control whether a volume mounts read-only, doesn't automount, etc..\
 \
 Fixed a bug in the kernel driver that caused a query for the volume name (via getattrlist) to return a zero length name. This fixes volumes mounting as "?" in Panther (bug # 850144).\

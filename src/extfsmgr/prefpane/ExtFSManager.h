@@ -58,7 +58,7 @@
 - (void)doEject:(id)sender;
 - (void)doOptions:(id)sender;
 
-- (void)didUnselect;
+- (void)savePrefs;
 
 - (void)doMediaSelection:(ExtFSMedia*)media;
 
