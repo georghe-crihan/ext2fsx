@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003-2004 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -27,13 +27,46 @@
 #define EXTFSMGR_H
 
 #ifdef __OBJC__
+/*!
+@defined EXT_PREF_ID
+@abstract Name of preference file.
+@discussion This is used to store a copy of the local user preferences
+in the global preferences. Only the global copy affects mount_ext2fs.
+*/
 #define EXT_PREF_ID @"net.sourceforge.ext2fsx.ExtFSManager"
+/*!
+@defined EXT_PREF_KEY_GLOBAL
+@abstract Dictionary key to get the preferences common to any media.
+*/
 #define EXT_PREF_KEY_GLOBAL @"Global"
+/*!
+@defined EXT_PREF_KEY_GLOBAL
+@abstract Dictionary key to get the preferences specific to a single disk/partition.
+@discussion The list is stored as a dictionary keyed on the filesystem UUID.
+*/
 #define EXT_PREF_KEY_MEDIA @"Media"
+/*!
+@defined EXT_PREF_KEY_MGR
+@abstract Dictionary key to get the preferences for the manager application.
+*/
 #define EXT_PREF_KEY_MGR @"ExtFS Manager"
 
+/*!
+@defined EXT_PREF_KEY_RDONLY
+@abstract Dictionary key to determine if the media should be mounted read-only.
+*/
 #define EXT_PREF_KEY_RDONLY @"Read Only"
+/*!
+@defined EXT_PREF_KEY_NOAUTO
+@abstract Dictionary key to determine if automount requests
+for the media should be ignored by mount_ext2fs.
+*/
 #define EXT_PREF_KEY_NOAUTO @"Ignore Automount"
+/*!
+@defined EXT_PREF_KEY_DIRINDEX
+@abstract Dictionary key to determine if media should be mounted with the
+indexed directories option. This is only valid for Ext2/Ext3 filesystems.
+*/
 #define EXT_PREF_KEY_DIRINDEX @"Index Directories"
 #else
 #define EXT_PREF_ID CFSTR("net.sourceforge.ext2fsx.ExtFSManager")
