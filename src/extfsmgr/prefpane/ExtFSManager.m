@@ -234,7 +234,7 @@ e_curSelection = nil; \
 
 - (void)mediaError:(NSNotification*)notification
 {
-   NSString *op, *device, *errStr, *msg;
+   NSString *op, *device, *errStr, *msg, *errMsg;
    NSNumber *err;
    ExtFSMedia *media = [notification object];
    NSDictionary *info = [notification userInfo];
@@ -249,11 +249,11 @@ e_curSelection = nil; \
    err = [info objectForKey:ExtMediaKeyOpFailureError];
    op = [info objectForKey:ExtMediaKeyOpFailureType];
    errStr = [info objectForKey:ExtMediaKeyOpFailureErrorString];
-   msg = [info objectForKey:ExtMediaKeyOpFailureMsgString];
+   errMsg = [info objectForKey:ExtMediaKeyOpFailureMsgString];
    
    msg = [NSString stringWithFormat:
             ExtLocalizedString(@"Command: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),
-            op, device, errStr, [err intValue]];
+            op, device, (errMsg ? errMsg : errStr), [err intValue]];
    
    win = [NSApp keyWindow];
    if (nil == [win attachedSheet]) {
