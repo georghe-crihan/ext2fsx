@@ -54,11 +54,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/dirent.h>
 #include <sys/sysctl.h>
 
-/* Temp. disable KERNEL so we don't bring in some dup macros. */
-#undef KERNEL
-//#include <ufs/ufs/dir.h>
-#define KERNEL
-
 /* From kernel */
 extern struct nchstats nchstats;
 
