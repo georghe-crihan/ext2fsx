@@ -1,0 +1,38 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {"click_automount" = id; "click_indexedDirs" = id; "click_readOnly" = id; }; 
+            CLASS = ExtFSManager; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                "_diskIconView" = id; 
+                "_dontAutomountBox" = id; 
+                "_ejectButton" = id; 
+                "_indexedDirsBox" = id; 
+                "_infoButton" = id; 
+                "_infoText" = id; 
+                "_mountButton" = id; 
+                "_mountReadOnlyBox" = id; 
+                "_optionNoteText" = id; 
+                "_startupProgress" = id; 
+                "_startupText" = id; 
+                "_tabs" = id; 
+                "_vollist" = id; 
+            }; 
+            SUPERCLASS = NSPreferencePane; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = NSPreferencePane; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                "_firstKeyView" = id; 
+                "_initialKeyView" = id; 
+                "_lastKeyView" = id; 
+                "_window" = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}
