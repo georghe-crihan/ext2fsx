@@ -67,7 +67,7 @@ ln -f mke2fs.8 ./newfs_ext2.8
 cd "${INSTALL}/usr/local/lib"
 
 ln -sf ./libblkid.2.0.dylib ./libblkid.dylib
-ln -sf ./libcom_err.1.0.dylib ./libcom_err.dylib
+ln -sf ./libcom_err.1.1.dylib ./libcom_err.dylib
 ln -sf ./libe2p.2.1.dylib ./libe2p.dylib
 ln -sf ./libext2fs.2.1.dylib ./libext2fs.dylib
 ln -sf ./libss.1.0.dylib ./libss.dylib

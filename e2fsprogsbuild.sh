@@ -24,15 +24,30 @@ cd "${SRCROOT}/src/e2fsprogs"
 #	touch ./.e2patchdone
 #fi
 
+E2VER=`sed -n -e "s/^.*E2FSPROGS_VERSION[^0-9]*\([0-9]*\.[0-9]*\).*$/\1/p" ./version.h`
+
+if [ -f ./.e2configdone ]; then
+	#make sure the version is the same
+	CONFVER=`cat ./.e2configdone`
+	if [ "$E2VER" != "$CONFVER" ]; then
+		rm ./.e2configdone
+		make clean
+	fi
+fi
+
 if [ ! -f ./.e2configdone ]; then
-	./configure --prefix=/usr/local --mandir=/usr/local/share/man \
---disable-fsck --enable-bsd-shlibs --with-ccopts="-DAPPLE_DARWIN=1 -pipe"
+	./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
+--without-libintl-prefix --disable-fsck --enable-bsd-shlibs \
+--with-ccopts="-DAPPLE_DARWIN=1 -pipe -traditional-cpp"
 	if [ $? -ne 0 ]; then
 		echo "configure failed!"
 		exit $?
 	fi
-	touch ./.e2configdone
+	echo "$E2VER" > ./.e2configdone
 fi
+
+# Certain files in intl are 444, and this can cause cp to fail
+chmod -R u+w ./intl
 
 #set no prebind
 #since the exec's are linked against the shared libs using a relative path,
@@ -40,7 +55,6 @@ fi
 #even try pre-binding.
 export LD_FORCE_NO_PREBIND=1
 
-#make clean
 make
 
 exit 0
