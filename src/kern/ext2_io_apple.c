@@ -252,7 +252,7 @@ ext2_pageout(ap)
 		xfer_size -= save_size;
 	}
 
-	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page32(xfer_size), ip->i_size, devBlockSize, flags);
+	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page_32(xfer_size), ip->i_size, devBlockSize, flags);
 
 	if(save_error) {
 		lupl_offset = size - save_size;
