@@ -176,7 +176,8 @@ enum {
                     transType = efsIOTransportTypeUSB | (transType & efsIOTransportTypeMask);
                 else if (0 == strncmp(parentClass, "IOSCSIBlockCommandsDevice", sizeof(parentClass) /*"IOSCSIProtocolServices"*/))
                     transType = efsIOTransportTypeSCSI | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "KDIDiskImageNub", sizeof(parentClass))) {
+                else if (0 == strncmp(parentClass, "KDIDiskImageNub", sizeof(parentClass)) ||
+                     0 == strncmp(parentClass, "IOHDIXController", sizeof(parentClass))) {
                     transType = efsIOTransportTypeImage | efsIOTransportTypeVirtual;
                     break;
                 }
