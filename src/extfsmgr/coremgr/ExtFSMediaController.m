@@ -685,7 +685,7 @@ exit:
    // Get transport properties
     transType = efsIOTransportTypeUnknown | efsIOTransportTypeInternal;
     if (nil != parent) {
-        transType = [parent transportType];
+        transType = [parent transportType] | [parent transportBus];
         dvd = [parent isDVDROM];
         cd = [parent isCDROM];
     } else {
