@@ -4,7 +4,12 @@
 \margl1440\margr1440\vieww9000\viewh9000\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.1d2\
+\f0\fs24 \cf0 1.1d3\
+Added e2undel utility. See /usr/local/share/doc/E2UNDEL_README.\
+\
+Implemented ext2_ioctl() in the KEXT so lsattr and chattr work with the extended EXT2 flags.\
+\
+1.1d2\
 Volumes can now be re-named in the Finder. This is only supported in Panther.\
 \
 Group buffers are now sync'd to disk during a sync() call. Previous versions did not sync the group buffers until a filesystem unmount.\
