@@ -100,6 +100,18 @@ static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
     _prefsChanged = YES;
 }
 
+static int _operations = 0;
+#define BeginOp() do { \
+if (0 == _operations) [_opProgress startAnimation:nil]; \
+++_operations; \
+} while(0)
+
+#define EndOp() do { \
+--_operations; \
+if (0 == _operations) [_opProgress stopAnimation:nil]; \
+if (_operations < 0) _operations = 0; \
+} while(0)
+
 @implementation ExtFSManager : NSPreferencePane
 
 /* Private */
@@ -188,6 +200,7 @@ _curSelection = nil; \
 {
    ExtFSMedia *media, *parent;
    
+   EndOp();
    media = [notification object];
    
 #ifdef DIAGNOSTIC
@@ -212,6 +225,7 @@ _curSelection = nil; \
 {
    ExtFSMedia *media;
    
+   EndOp();
    media = [notification object];
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFS: **** Media '%s' mounted ***\n", BSDNAMESTR(media));
@@ -225,6 +239,7 @@ _curSelection = nil; \
 {
    ExtFSMedia *media;
    
+   EndOp();
    media = [notification object];
 #ifdef DIAGNOSTIC
    NSLog(@"ExtFS: **** Media '%s' unmounted ***\n", BSDNAMESTR([notification object]));
@@ -252,20 +267,33 @@ _curSelection = nil; \
 
 - (void)mediaError:(NSNotification*)notification
 {
-   NSString *op, *device, *msg;
+   NSString *op, *device, *errStr, *msg;
    NSNumber *err;
+   NSDictionary *info = [notification userInfo];
+   NSWindow *win;
    
+   EndOp();
    device = [[notification object] bsdName];
-   err = [[notification userInfo] objectForKey:ExtMediaKeyOpFailureError];
-   op = [[notification userInfo] objectForKey:ExtMediaKeyOpFailureType];
-   msg = [[notification userInfo] objectForKey:ExtMediaKeyOpFailureErrorString];
+   err = [info objectForKey:ExtMediaKeyOpFailureError];
+   op = ExtLocalizedString([info objectForKey:ExtMediaKeyOpFailureType], "");
+   errStr = ExtLocalizedString([info objectForKey:ExtMediaKeyOpFailureErrorString], "");
+   msg = [info objectForKey:ExtMediaKeyOpFailureMsgString];
    
-   NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""),
-      @"OK", nil, nil, [NSApp keyWindow], nil, nil, nil, nil,
-      [NSString stringWithFormat:
-         ExtLocalizedString(@"Command: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),
-         ExtLocalizedString(op, ""), device, ExtLocalizedString(msg, ""),
-         [err intValue]]);
+   if (msg)
+    errStr = [NSString stringWithFormat:@"%@: %@", errStr, ExtLocalizedString(msg, "")];
+   
+   msg = [NSString stringWithFormat:
+            ExtLocalizedString(@"Command: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),
+            op, device, errStr, [err intValue]];
+   
+   win = [NSApp keyWindow];
+   if (nil == [win attachedSheet]) {
+        NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""), @"OK",
+            nil, nil, win, nil, nil, nil, nil, msg);
+   } else {
+        NSRunCriticalAlertPanel(ExtLocalizedString(@"Disk Error", ""),
+            msg, @"OK", nil, nil);
+   }
 }
 
 - (void)startup
@@ -603,15 +631,17 @@ data = [data stringByAppendingString:@"\n"]; \
    else
       err = [[ExtFSMediaController mediaController] unmount:_curSelection
          force:NO eject:NO];
-   if (!err)
+   if (0 == err) {
+      BeginOp();
       [self updateMountState:_curSelection];
-   else {
+   } else {
       NSString *op = (mount ? @"mount" : @"unmount");
       op = ExtLocalizedString(op, "");
       NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""),
          @"OK", nil, nil, [NSApp keyWindow], nil, nil, nil, nil,
-         [NSString stringWithFormat:@"%@ %@ '%@'",
-            ExtLocalizedString(@"Could not", ""), op, [_curSelection bsdName]]);
+         [NSString stringWithFormat:@"%@ %@ '%@'. Error = %d.",
+            ExtLocalizedString(@"Could not", ""), op,
+            [_curSelection bsdName]], err);
    }
 }
 
@@ -624,8 +654,10 @@ data = [data stringByAppendingString:@"\n"]; \
    
    err = [[ExtFSMediaController mediaController] unmount:_curSelection
       force:NO eject:YES];
-   if (err) {
-      NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""),
+   if (!err) {
+      BeginOp();
+   } else {
+         NSBeginCriticalAlertSheet(ExtLocalizedString(@"Disk Error", ""),
          @"OK", nil, nil, [NSApp keyWindow], nil, nil, nil, nil,
          [NSString stringWithFormat:@"%@ '%@'",
             ExtLocalizedString(@"Could not eject", ""), [_curSelection bsdName]]);
@@ -788,6 +820,11 @@ info_alt_switch:
       
       [button setEnabled:NO];
    }
+   
+   [_opProgress setUsesThreadedAnimation:YES];
+   [_opProgress setDisplayedWhenStopped:NO];
+   [_opProgress displayIfNeeded];
+   _operations = 0;
    
    [_mountReadOnlyBox setTitle:
       ExtLocalizedString(@"Mount Read Only", "")];
