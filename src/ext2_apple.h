@@ -1,5 +1,5 @@
 /*	
- * Copyright (c) 2002
+ * Copyright (c) 2002-2003
  *	Brian Bergstrand.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -122,5 +122,7 @@ static __inline void * memscan(void * addr, int c, size_t size)
  */
 #define	GENERIC_DIRSIZ(dp) \
     ((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((dp)->d_namlen+1 + 3) &~ 3))
+    
+int groupmember(gid_t, register struct ucred *);
 
 #endif /* EXT2_APPLE_H */
