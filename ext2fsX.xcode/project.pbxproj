@@ -746,6 +746,22 @@
 			isa = PBXBuildStyle;
 			name = JagDeployment;
 		};
+		D33B8CED061F57DE0019AA16 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = fr;
+			path = fr.lproj/InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D33B8CFB061F59920019AA16 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = de;
+			path = de.lproj/InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
 		D33C06890418779900A80164 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -1959,6 +1975,8 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>1.0.3</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.2.0</string>
 	<key>NSMainNibFile</key>
 	<string>ExtFSManager</string>
 	<key>NSPrefPaneIconFile</key>
@@ -2037,6 +2055,8 @@
 		D3D4AF3A057915F800A80164 = {
 			children = (
 				D3D4AF3B057915F800A80164,
+				D33B8CED061F57DE0019AA16,
+				D33B8CFB061F59920019AA16,
 			);
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
