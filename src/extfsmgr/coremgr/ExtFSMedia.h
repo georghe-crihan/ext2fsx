@@ -61,10 +61,30 @@ typedef enum {
 }ExtFSType;
 
 /*!
-@defined fsTypeHFSJCS
-@abstract Alias for fsTypeHFSX. HFSX in its Panther form implements case sensitivity only.
+@enum ExtFSType
+@abstract I/O Transport type id's.
+@constant efsIOTransportTypeInternal Internal transport type id.
+@constant efsIOTransportTypeExternal External transport type id.
+@constant efsIOTransportTypeVirtual Virtual (software) transport type id.
+@constant efsIOTransportTypeATA ATA bus transport id.
+@constant efsIOTransportTypeFirewire Firewire bus transport id.
+@constant efsIOTransportTypeUSB USB bus transport id.
+@constant efsIOTransportTypeSCSI SCSI bus transport id.
+@constant efsIOTransportTypeImage Disk Image (virtual) transport id.
+@constant efsIOTransportTypeUnknown Unknown bus transport id.
 */
-#define fsTypeHFSJCS fsTypeHFSX
+typedef enum {
+    efsIOTransportTypeInternal = (1<<0),
+    efsIOTransportTypeExternal = (1<<1),
+    efsIOTransportTypeVirtual  = (1<<2),
+    efsIOTransportTypeATA      = (1<<3),
+    efsIOTransportTypeATAPI    = (1<<4),
+    efsIOTransportTypeFirewire = (1<<5),
+    efsIOTransportTypeUSB      = (1<<6),
+    efsIOTransportTypeSCSI     = (1<<7),
+    efsIOTransportTypeImage    = (1<<8),
+    efsIOTransportTypeUnknown  = (1<<31)
+}ExtFSIOTransportType;
 
 // Forward declaration for an ExtFSMedia private type.
 struct superblock;
@@ -89,6 +109,7 @@ a filesystem or device for its properties.
    u_int32_t e_devBlockSize, e_fsBlockSize, e_attributeFlags,
       e_volCaps, e_lastFSUpdate, e_fileCount, e_dirCount;
    ExtFSType e_fsType;
+   ExtFSIOTransportType e_ioTransport;
    NSImage *e_icon;
    unsigned char e_reserved[32];
 }
@@ -392,6 +413,26 @@ Always NO if the media is not mounted or the filesystem is not Ext2/3.
 @result Max file size or 0 if the filesystem is not mounted.
 */
 - (u_int64_t)maxFileSize;
+
+/*!
+@method transportType
+@abstract Determine how the device is connected.
+@result An ExtFSConnectionType id.
+*/
+- (ExtFSIOTransportType)transportType;
+/*!
+@method transportType
+@abstract Determine the type of bus the device is connected to.
+@result An ExtFSConnectionType id.
+*/
+- (ExtFSIOTransportType)transportBus;
+/*!
+@method transportName
+@abstract Determine the name of the device bus.
+@result A string containing a name suitable for display to a user
+or nil if there was an error.
+*/
+- (NSString*)transportName;
 
 /*!
 @method compare:

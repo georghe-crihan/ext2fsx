@@ -205,7 +205,7 @@ extern NSString * const ExtMediaKeyOpFailureMsgString;
 @abstract Converts a filesystem type id to a C string
 containing the filesystem name.
 @param type A valid ExtFSType id.
-@result Filesystem name or nil, if the type is invalid.
+@result Filesystem name or nil if the type is invalid.
 */
 const char* EFSNameFromType(int type);
 /*!
@@ -213,9 +213,9 @@ const char* EFSNameFromType(int type);
 @abstract Converts a filesystem type id to a NSString
 containing the filesystem name.
 @param type A valid ExtFSType id.
-@result Filesystem name or nil, if the type is invalid.
+@result Filesystem name or nil if the type is invalid.
 */
-NSString* EFSNSNameFromType(int type);
+NSString* EFSNSNameFromType(unsigned long type);
 
 /*!
 @function EFSNSPrettyNameFromType
@@ -223,6 +223,16 @@ NSString* EFSNSNameFromType(int type);
 containing the filesystem name in a suitable format for display
 to a user.
 @param type A valid ExtFSType id.
-@result Filesystem name or nil, if the type is invalid.
+@result Filesystem name or nil if the type is invalid.
 */
-NSString* EFSNSPrettyNameFromType(int type);
+NSString* EFSNSPrettyNameFromType(unsigned long type);
+
+/*!
+@function EFSIOTransportNameFromType
+@abstract Converts an I/O transport type id to an NSString
+containing the transport name in a suitable format for display
+to a user.
+@param type A valid ExtFSIOTransportType id.
+@result I/O transport name or nil if the type is invalid.
+*/
+NSString* EFSIOTransportNameFromType(unsigned long type);

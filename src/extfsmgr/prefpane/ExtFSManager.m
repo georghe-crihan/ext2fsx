@@ -393,6 +393,13 @@ data = [data stringByAppendingString:@"\n"]; \
    ExtInfoInsert(ExtLocalizedString(@"Device", ""),
       [media bsdName]);
    
+   if (NO == mounted) {
+      ExtInfoInsert(ExtLocalizedString(@"Connection Bus", ""),
+         [media transportName]);
+      ExtInfoInsert(ExtLocalizedString(@"Connection Type", ""),
+         EFSIOTransportNameFromType([media transportType]));
+   }
+   
    ExtInfoInsert(ExtLocalizedString(@"Ejectable", ""),
       ([media isEjectable] ? e_yes : e_no));
    

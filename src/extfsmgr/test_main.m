@@ -72,9 +72,11 @@ int threadID = 0;
       parent = [obj parent];
       if (parent)
          pinfo ("\tParent Device: %s\n", [[parent bsdName] cString]);
+      pinfo ("\tBus: %s\n", [[obj transportName] cString]);
+      pinfo ("\tBus Type: %s\n", [EFSIOTransportNameFromType([obj transportType]) cString]);
       pinfo ("\tEjectable: %s\n", ([obj isEjectable] ? "Yes" : "No"));
       pinfo ("\tDVD/CD ROM: %s\n", (([obj isDVDROM] || [obj isCDROM]) ? "Yes" : "No"));
-      pinfo ("\tFS Type: %s\n", FSNameFromType([obj fsType]));
+      pinfo ("\tFS Type: %s\n", EFSNameFromType([obj fsType]));
       pinfo ("\tMounted: %s\n", (mounted ? [[obj mountPoint] cString] : "Not mounted"));
       if (mounted) {
          tmp = [obj volName];

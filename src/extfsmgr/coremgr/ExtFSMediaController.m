@@ -46,6 +46,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #import "ExtFSLock.h"
 #import "ExtFSMedia.h"
 #import "ExtFSMediaController.h"
+#import "ExtFSMediaPrivate.h"
 
 NSString * const ExtFSMediaNotificationAppeared = @"ExtFSMediaNotificationAppeared";
 NSString * const ExtFSMediaNotificationDisappeared = @"ExtFSMediaNotificationDisappeared";
@@ -621,6 +622,7 @@ exit:
 #endif
    int iterations;
    kern_return_t kr;
+   ExtFSIOTransportType transType;
    BOOL dvd, cd, wholeDisk;
    
    mc = [ExtFSMediaController mediaController];
@@ -680,16 +682,60 @@ exit:
       }
    }
    
+   // Get transport properties
+    transType = efsIOTransportTypeUnknown | efsIOTransportTypeInternal;
+    if (nil != parent) {
+        transType = [parent transportType];
+        dvd = [parent isDVDROM];
+        cd = [parent isCDROM];
+    } else {
+        io_name_t parentClass;
+        ioparent = nil;
+        kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &ioparent);
+        while (0 == kr && ioparent &&
+             (efsIOTransportTypeUnknown == (transType & efsIOTransportBusMask) ||
+             efsIOTransportTypeExternal != (transType & efsIOTransportTypeMask))) {
+            
+            if (0 == IOObjectGetClass(ioparent, parentClass)) {
+                if (0 == strncmp(parentClass, "IOATABlockStorageDevice", sizeof(parentClass)))
+                    transType = efsIOTransportTypeATA | (transType & efsIOTransportTypeMask);
+                else if (0 == strncmp(parentClass, "IOATAPIProtocolTransport", sizeof(parentClass)))
+                    transType = efsIOTransportTypeATAPI | (transType & efsIOTransportTypeMask); 
+                else if (0 == strncmp(parentClass, "IOFireWireDevice", sizeof(parentClass)))
+                    transType = efsIOTransportTypeFirewire | (transType & efsIOTransportTypeMask);
+                else if (0 == strncmp(parentClass, "IOUSBMassStorageClass", sizeof(parentClass)))
+                    transType = efsIOTransportTypeUSB | (transType & efsIOTransportTypeMask);
+                else if (0 == strncmp(parentClass, "IOSCSIBlockCommandsDevice", sizeof(parentClass) /*"IOSCSIProtocolServices"*/))
+                    transType = efsIOTransportTypeSCSI | (transType & efsIOTransportTypeMask);
+                else if (0 == strncmp(parentClass, "KDIDiskImageNub", sizeof(parentClass))) {
+                    transType = efsIOTransportTypeImage | efsIOTransportTypeVirtual;
+                    break;
+                }
+
+                if (0 == strncmp(parentClass, "IOSCSIPeripheralDeviceNub", sizeof(parentClass))) {
+                    transType |= efsIOTransportTypeExternal;
+                    transType &= ~efsIOTransportTypeInternal;
+                }
+            }
+            ioparentold = ioparent;
+            ioparent = nil;
+            kr = IORegistryEntryGetParentEntry(ioparentold, kIOServicePlane, &ioparent);
+            IOObjectRelease(ioparentold);
+        }
+        //NSLog(@"dbg: type = %x", transType); if (ioparent)
+            IOObjectRelease(ioparent);
+        dvd = IOObjectConformsTo(service, kIODVDMediaClass);
+        cd = IOObjectConformsTo(service, kIOCDMediaClass);
+    }
+   
    /* Find the icon description */
    if (!parent || !(iconDesc = [parent iconDescription]))
       iconDesc = IORegistryEntrySearchCFProperty(service, kIOServicePlane,
          CFSTR(kIOMediaIconKey), kCFAllocatorDefault,
          kIORegistryIterateParents | kIORegistryIterateRecursively);
    
-   dvd = IOObjectConformsTo(service, kIODVDMediaClass);
-   cd = IOObjectConformsTo(service, kIOCDMediaClass);
-   
    ewlock(e_lock);
+   e_ioTransport = transType;
    if (regName && nil == e_ioregName)
       e_ioregName = [regName retain];
    if (parent && nil == e_parent)
@@ -803,30 +849,30 @@ const char* EFSNameFromType(int type)
    return (e_fsNames[(type)]);
 }
 
-NSString* EFSNSNameFromType(int type)
+NSString* EFSNSNameFromType(unsigned long type)
 {
    if (type > fsTypeUnknown)
       type = fsTypeUnknown;
    return ([NSString stringWithCString:e_fsNames[(type)]]);
 }
 
-static NSDictionary *e_fsPrettyNames = nil;
-static pthread_mutex_t e_fsPrettyMutex = PTHREAD_MUTEX_INITIALIZER;
+static NSDictionary *e_fsPrettyNames = nil, *e_fsTransportNames = nil;
+static pthread_mutex_t e_fsTableInitMutex = PTHREAD_MUTEX_INITIALIZER;
 
-NSString* EFSNSPrettyNameFromType(int type)
+NSString* EFSNSPrettyNameFromType(unsigned long type)
 {
     if (nil == e_fsPrettyNames) {
         NSBundle *me;
-        pthread_mutex_lock(&e_fsPrettyMutex);
+        pthread_mutex_lock(&e_fsTableInitMutex);
         // Make sure the global is still nil once we hold the lock
         if (nil != e_fsPrettyNames) {
-            pthread_mutex_unlock(&e_fsPrettyMutex);
+            pthread_mutex_unlock(&e_fsTableInitMutex);
             goto fspretty_lookup;
         }
         
         me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
         if (nil == me) {
-            pthread_mutex_unlock(&e_fsPrettyMutex);
+            pthread_mutex_unlock(&e_fsTableInitMutex);
             NSLog(@"ExtFS: Could not find bundle!\n");
             return (nil);
         }
@@ -835,34 +881,79 @@ NSString* EFSNSPrettyNameFromType(int type)
           get the FSName value for each personality. This turns out to be more
           work than it's worth though. */
         e_fsPrettyNames = [[NSDictionary alloc] initWithObjectsAndKeys:
-            @"Linux Ext2", [NSNumber numberWithInt:fsTypeExt2],
+            @"Linux Ext2", [NSNumber numberWithUnsignedInt:fsTypeExt2],
             [me localizedStringForKey:@"Linux Ext3 (Journaled)" value:nil table:nil],
-                [NSNumber numberWithInt:fsTypeExt3],
-            @"Mac OS Standard", [NSNumber numberWithInt:fsTypeHFS],
+                [NSNumber numberWithUnsignedInt:fsTypeExt3],
+            @"Mac OS Standard", [NSNumber numberWithUnsignedInt:fsTypeHFS],
             [me localizedStringForKey:@"Mac OS Extended" value:nil table:nil],
-                [NSNumber numberWithInt:fsTypeHFSPlus],
+                [NSNumber numberWithUnsignedInt:fsTypeHFSPlus],
             [me localizedStringForKey:@"Mac OS Extended (Journaled)" value:nil table:nil],
-                [NSNumber numberWithInt:fsTypeHFSJ],
+                [NSNumber numberWithUnsignedInt:fsTypeHFSJ],
             [me localizedStringForKey:@"Mac OS Extended (Journaled/Case Sensitive)" value:nil table:nil],
-                [NSNumber numberWithInt:fsTypeHFSX],
-            @"UNIX", [NSNumber numberWithInt:fsTypeUFS],
-            @"ISO 9660", [NSNumber numberWithInt:fsTypeCD9660],
+                [NSNumber numberWithUnsignedInt:fsTypeHFSX],
+            @"UNIX", [NSNumber numberWithUnsignedInt:fsTypeUFS],
+            @"ISO 9660", [NSNumber numberWithUnsignedInt:fsTypeCD9660],
             [me localizedStringForKey:@"CD Audio" value:nil table:nil],
-                [NSNumber numberWithInt:fsTypeCDAudio],
-            @"Universal Disk Format (UDF)", [NSNumber numberWithInt:fsTypeUDF],
-            @"MSDOS (FAT)", [NSNumber numberWithInt:fsTypeMSDOS],
-            @"Windows NTFS", [NSNumber numberWithInt:fsTypeNTFS],
+                [NSNumber numberWithUnsignedInt:fsTypeCDAudio],
+            @"Universal Disk Format (UDF)", [NSNumber numberWithUnsignedInt:fsTypeUDF],
+            @"MSDOS (FAT)", [NSNumber numberWithUnsignedInt:fsTypeMSDOS],
+            @"Windows NTFS", [NSNumber numberWithUnsignedInt:fsTypeNTFS],
             [me localizedStringForKey:@"Unknown" value:nil table:nil],
-                [NSNumber numberWithInt:fsTypeUnknown],
+                [NSNumber numberWithUnsignedInt:fsTypeUnknown],
           nil];
-        pthread_mutex_unlock(&e_fsPrettyMutex);
+        pthread_mutex_unlock(&e_fsTableInitMutex);
     }
 
 fspretty_lookup:
     // Once allocated, the name table is considered read-only
     if (type > fsTypeUnknown)
       type = fsTypeUnknown;
-    return ([e_fsPrettyNames objectForKey:[NSNumber numberWithInt:type]]);
+    return ([e_fsPrettyNames objectForKey:[NSNumber numberWithUnsignedInt:type]]);
+}
+
+NSString* EFSIOTransportNameFromType(unsigned long type)
+{
+    if (nil == e_fsTransportNames) {
+        NSBundle *me;
+        pthread_mutex_lock(&e_fsTableInitMutex);
+        // Make sure the global is still nil once we hold the lock
+        if (nil != e_fsTransportNames) {
+            pthread_mutex_unlock(&e_fsTableInitMutex);
+            goto fstrans_lookup;
+        }
+        
+        me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
+        if (nil == me) {
+            pthread_mutex_unlock(&e_fsTableInitMutex);
+            NSLog(@"ExtFS: Could not find bundle!\n");
+            return (nil);
+        }
+
+        e_fsTransportNames = [[NSDictionary alloc] initWithObjectsAndKeys:
+            [me localizedStringForKey:@"Internal" value:nil table:nil],
+                [NSNumber numberWithUnsignedInt:efsIOTransportTypeInternal],
+            [me localizedStringForKey:@"External" value:nil table:nil],
+                [NSNumber numberWithUnsignedInt:efsIOTransportTypeExternal],
+            [me localizedStringForKey:@"Virtual" value:nil table:nil],
+                [NSNumber numberWithUnsignedInt:efsIOTransportTypeVirtual],
+            @"ATA", [NSNumber numberWithUnsignedInt:efsIOTransportTypeATA],
+            @"ATAPI", [NSNumber numberWithUnsignedInt:efsIOTransportTypeATAPI],
+            @"FireWire", [NSNumber numberWithUnsignedInt:efsIOTransportTypeFirewire],
+            @"USB", [NSNumber numberWithUnsignedInt:efsIOTransportTypeUSB],
+            @"SCSI", [NSNumber numberWithUnsignedInt:efsIOTransportTypeSCSI],
+            [me localizedStringForKey:@"Disk Image" value:nil table:nil],
+                [NSNumber numberWithUnsignedInt:efsIOTransportTypeImage],
+            [me localizedStringForKey:@"Unknown" value:nil table:nil],
+                [NSNumber numberWithUnsignedInt:efsIOTransportTypeUnknown],
+            nil];
+        pthread_mutex_unlock(&e_fsTableInitMutex);
+    }
+
+fstrans_lookup:
+    // Once allocated, the name table is considered read-only
+    if (type > efsIOTransportTypeUnknown)
+      type = efsIOTransportTypeUnknown;
+    return ([e_fsTransportNames objectForKey:[NSNumber numberWithUnsignedInt:type]]);
 }
 
 /* Callbacks */

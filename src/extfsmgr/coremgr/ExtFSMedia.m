@@ -41,6 +41,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #import "ExtFSLock.h"
 #import "ExtFSMedia.h"
 #import "ExtFSMediaController.h"
+#import "ExtFSMediaPrivate.h"
 
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/IOBSD.h>
@@ -609,7 +610,7 @@ emicon_exit:
 
 - (NSString*)fsName
 {
-    return (NSFSPrettyNameFromType(e_fsType));
+    return (EFSNSPrettyNameFromType(e_fsType));
 }
 
 - (NSString*)mountPoint
@@ -788,6 +789,21 @@ emicon_exit:
 - (u_int64_t)maxFileSize
 {
     return (0);
+}
+
+- (ExtFSIOTransportType)transportType
+{
+    return (e_ioTransport & efsIOTransportTypeMask);
+}
+
+- (ExtFSIOTransportType)transportBus
+{
+    return (e_ioTransport & efsIOTransportBusMask);
+}
+
+- (NSString*)transportName
+{
+    return (EFSIOTransportNameFromType((e_ioTransport & efsIOTransportBusMask)));
 }
 
 - (NSComparisonResult)compare:(ExtFSMedia *)media
