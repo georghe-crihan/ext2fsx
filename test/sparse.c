@@ -48,7 +48,15 @@ int main (int argc, char *argv[])
 		off_t blksz, total=len, where = 0;
 		printf("writing %d bytes at offset %qu\n", len, where);
 		(void)write(fd, path, (size_t)len);
-		
+
+//where = 12288;
+where = 2048;
+printf("writing %d bytes at offset %qu\n", len, where);
+(void)lseek(fd, where, SEEK_SET);
+(void)write(fd, path, (size_t)len);
+total += len;
+goto close;
+
 		for (blkct=12; blkct<13; ++blkct) {
 			for (blksz=1024; blksz<=4096; blksz<<=1) {
 				again = 1;
@@ -66,6 +74,7 @@ int main (int argc, char *argv[])
 				}
 			}
 		}
+close:
 		close(fd);
 		printf ("wrote %qu bytes total\n", total);
 	} else
