@@ -2,7 +2,10 @@
  * getsize.c --- get the size of a partition.
  * 
  * Copyright (C) 1995, 1995 Theodore Ts'o.
+ * Copyright (C) 2003 VMware, Inc.
  *
+ * Windows version of ext2fs_get_device_size by Chris Li, VMware.
+ * 
  * %Begin-Header%
  * This file may be redistributed under the terms of the GNU Public
  * License.
@@ -25,23 +28,74 @@
 #include <linux/fd.h>
 #endif
 #ifdef HAVE_SYS_DISKLABEL_H
+#include <sys/param.h> /* for __FreeBSD_version */
 #include <sys/ioctl.h>
 #include <sys/disklabel.h>
 #endif /* HAVE_SYS_DISKLABEL_H */
-
-#ifdef APPLE_DARWIN
-#include <sys/ioctl.h>
+#ifdef HAVE_SYS_DISK_H
+#include <sys/queue.h> /* for LIST_HEAD */
 #include <sys/disk.h>
-
-#define BLKGETSIZE DKIOCGETBLOCKCOUNT32
-#endif /* APPLE_DARWIN */
+#endif /* HAVE_SYS_DISK_H */
 
 #if defined(__linux__) && defined(_IO) && !defined(BLKGETSIZE)
 #define BLKGETSIZE _IO(0x12,96)	/* return device size */
 #endif
 
+#ifdef APPLE_DARWIN
+#include <sys/ioctl.h>
+#include <sys/disk.h>
+
+#define BLKGETSIZE64 DKIOCGETBLOCKCOUNT
+#endif /* APPLE_DARWIN */
+
 #include "ext2_fs.h"
 #include "ext2fs.h"
+
+#if defined(__CYGWIN__) || defined (WIN32)
+#include "windows.h"
+#include "winioctl.h"
+
+errcode_t ext2fs_get_device_size(const char *file, int blocksize,
+				 blk_t *retblocks)
+{
+	HANDLE dev;
+	PARTITION_INFORMATION pi;
+	DISK_GEOMETRY gi;
+	DWORD retbytes;
+	LARGE_INTEGER filesize;
+
+	dev = CreateFile(file, GENERIC_READ, 
+			 FILE_SHARE_READ | FILE_SHARE_WRITE ,
+                	 NULL,  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,  NULL); 
+ 
+	if (dev == INVALID_HANDLE_VALUE)
+		return EBADF;
+	if (DeviceIoControl(dev, IOCTL_DISK_GET_PARTITION_INFO,
+			    &pi, sizeof(PARTITION_INFORMATION),
+			    &pi, sizeof(PARTITION_INFORMATION),
+			    &retbytes, NULL)) {
+
+		*retblocks = pi.PartitionLength.QuadPart / blocksize;
+	
+	} else if (DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY,
+				&gi, sizeof(DISK_GEOMETRY),
+				&gi, sizeof(DISK_GEOMETRY),
+				&retbytes, NULL)) {
+
+		*retblocks = gi.BytesPerSector *
+			     gi.SectorsPerTrack *
+			     gi.TracksPerCylinder *
+			     gi.Cylinders.QuadPart / blocksize;
+
+	} else if (GetFileSizeEx(dev, &filesize)) {
+		*retblocks = filesize.QuadPart / blocksize;
+	}
+
+	CloseHandle(dev);
+	return 0;
+}
+
+#else
 
 static int valid_offset (int fd, ext2_loff_t offset)
 {
@@ -61,7 +115,9 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 				 blk_t *retblocks)
 {
 	int	fd;
-#ifdef BLKGETSIZE
+#ifdef BLKGETSIZE64
+   unsigned long long size;
+#elif defined(BLKGETSIZE)
 	unsigned long	size;
 #endif
 	ext2_loff_t high, low;
@@ -83,8 +139,15 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 	if (fd < 0)
 		return errno;
 
+#if defined(BLKGETSIZE) || defined(BLKGETSIZE64)
 #ifdef BLKGETSIZE
 	if (ioctl(fd, BLKGETSIZE, &size) >= 0) {
+#elif defined(BLKGETSIZE64)
+	if (ioctl(fd, BLKGETSIZE64, &size) >= 0) {
+      if ((sizeof(*retblocks) < sizeof(unsigned long long))
+          && ((size / (blocksize / 512)) > 0xFFFFFFFF))
+         return EFBIG;
+#endif
 		close(fd);
 		*retblocks = size / (blocksize / 512);
 		return 0;
@@ -98,6 +161,8 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 	}
 #endif
 #ifdef HAVE_SYS_DISKLABEL_H
+#if (defined(__FreeBSD__) && __FreeBSD_version < 500040) || defined(APPLE_DARWIN) 
+	/* old disklabel interface */
 	part = strlen(file) - 1;
 	if (part >= 0) {
 		ch = file[part];
@@ -116,6 +181,16 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 			return 0;
 		}
 	}
+#else /* __FreeBSD_version < 500040 */
+	{
+	    off_t ms;
+	    u_int bs;
+	    if (ioctl(fd, DIOCGMEDIASIZE, &ms) >= 0) {
+		*retblocks = ms / blocksize;
+		return 0;
+	    }
+	}
+#endif /* __FreeBSD_version < 500040 */
 #endif /* HAVE_SYS_DISKLABEL_H */
 
 	/*
@@ -140,6 +215,8 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 	*retblocks = (low + 1) / blocksize;
 	return 0;
 }
+
+#endif /* WIN32 */
 
 #ifdef DEBUG
 int main(int argc, char **argv)

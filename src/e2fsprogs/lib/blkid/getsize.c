@@ -40,7 +40,7 @@
 #include <sys/ioctl.h>
 #include <sys/disk.h>
 
-#define BLKGETSIZE DKIOCGETBLOCKCOUNT32
+#define BLKGETSIZE64 DKIOCGETBLOCKCOUNT
 #endif /* APPLE_DARWIN */
 
 static int valid_offset(int fd, blkid_loff_t offset)
@@ -59,7 +59,9 @@ static int valid_offset(int fd, blkid_loff_t offset)
  */
 blkid_loff_t blkid_get_dev_size(int fd)
 {
-#ifdef BLKGETSIZE
+#ifdef BLKGETSIZE64
+   unsigned long long size;
+#elif defined(BLKGETSIZE)
 	unsigned long size;
 #endif
 	blkid_loff_t high, low;
@@ -77,6 +79,13 @@ blkid_loff_t blkid_get_dev_size(int fd)
 #ifdef BLKGETSIZE
 	if (ioctl(fd, BLKGETSIZE, &size) >= 0)
 		return (blkid_loff_t)size << 9;
+#elif defined(BLKGETSIZE64)
+	if (ioctl(fd, BLKGETSIZE64, &size) >= 0) {
+      if (size <= 0x003FFFFFFFFFFFFF)
+         return (blkid_loff_t)size << 9;
+      else
+         return 0; // EFBIG
+   }
 #endif
 #ifdef FDGETPRM
 	if (ioctl(fd, FDGETPRM, &this_floppy) >= 0)
