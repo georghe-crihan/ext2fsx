@@ -117,14 +117,14 @@ ExtFSMediaNotificationOpFailure notification will be sent.
 @abstract This notification is sent to the default Notification center
 when new media appears. The new media object is attached.
 */
-extern NSString *ExtFSMediaNotificationAppeared;
+extern NSString * const ExtFSMediaNotificationAppeared;
 /*!
 @const ExtFSMediaNotificationDisappeared
 @abstract This notification is sent to the default Notification center
 when new media disappears (ie it's ejected). The vanishing 
 media object is attached.
 */
-extern NSString *ExtFSMediaNotificationDisappeared;
+extern NSString * const ExtFSMediaNotificationDisappeared;
 /*!
 @const ExtFSMediaNotificationMounted
 @abstract This notification is sent to the default Notification center
@@ -132,7 +132,7 @@ when a device has been mounted (either by explicit request of
 the application or by some other means). The mounted media object
 is attached.
 */
-extern NSString *ExtFSMediaNotificationMounted;
+extern NSString * const ExtFSMediaNotificationMounted;
 /*!
 @const ExtFSMediaNotificationUnmounted
 @abstract This notification is sent to the default Notification center
@@ -140,14 +140,14 @@ when a device has been unmounted (either by explicit request of
 the application or by some other means). The unmounted media object
 is attached.
 */
-extern NSString *ExtFSMediaNotificationUnmounted;
+extern NSString * const ExtFSMediaNotificationUnmounted;
 /*!
 @const ExtFSMediaNotificationOpFailure
 @abstract This notification is sent to the default Notification center
 when an asynchronous operation fails. The media object that failed is
 attached and the user info dictionary contains the error information.
 */
-extern NSString *ExtFSMediaNotificationOpFailure;
+extern NSString * const ExtFSMediaNotificationOpFailure;
 
 /*!
 @const ExtFSMediaNotificationCreationFailed
@@ -155,34 +155,34 @@ extern NSString *ExtFSMediaNotificationOpFailure;
 when ExtFSMediaController fails to create a media object for a device.
 A string containing the device name is attached.
 */
-extern NSString *ExtFSMediaNotificationCreationFailed;
+extern NSString * const ExtFSMediaNotificationCreationFailed;
 
 /*!
 @const ExtMediaKeyOpFailureType
 @abstract Key for ExtFSMediaNotificationOpFailure to determine
 the type of failure (as an NSString -- Unknown, Unmount, Eject, etc).
 */
-extern NSString *ExtMediaKeyOpFailureType;
+extern NSString * const ExtMediaKeyOpFailureType;
 /*!
 @const ExtMediaKeyOpFailureError
 @abstract Key for ExtFSMediaNotificationOpFailure to determine
 the error code (as an NSNumber).
 */
-extern NSString *ExtMediaKeyOpFailureError;
+extern NSString * const ExtMediaKeyOpFailureError;
 /*!
 @const ExtMediaKeyOpFailureErrorString
 @abstract Key for ExtFSMediaNotificationOpFailure to access
 a human-readable description of the error suitable for display
 to a user.
 */
-extern NSString *ExtMediaKeyOpFailureErrorString;
+extern NSString * const ExtMediaKeyOpFailureErrorString;
 /*!
 @const ExtMediaKeyOpFailureMsgString
 @abstract Key for ExtFSMediaNotificationOpFailure to access
 a human-readable message describing further details about an
 error code. This key may not be available for all errors.
 */
-extern NSString *ExtMediaKeyOpFailureMsgString;
+extern NSString * const ExtMediaKeyOpFailureMsgString;
 
 /*!
 @function FSNameFromType

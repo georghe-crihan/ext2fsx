@@ -26,9 +26,8 @@
 static const char whatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
+#import <ExtFSDiskManager/ExtFSDiskManager.h>
 #import "ExtFSManager.h"
-#import "ExtFSMedia.h"
-#import "ExtFSMediaController.h"
 
 /* Note: For the "Options" button, the image/title
       is the reverse of the actual action. */
@@ -272,12 +271,9 @@ _curSelection = nil; \
    EndOp();
    device = [[notification object] bsdName];
    err = [info objectForKey:ExtMediaKeyOpFailureError];
-   op = ExtLocalizedString([info objectForKey:ExtMediaKeyOpFailureType], "");
-   errStr = ExtLocalizedString([info objectForKey:ExtMediaKeyOpFailureErrorString], "");
+   op = [info objectForKey:ExtMediaKeyOpFailureType];
+   errStr = [info objectForKey:ExtMediaKeyOpFailureErrorString];
    msg = [info objectForKey:ExtMediaKeyOpFailureMsgString];
-   
-   if (msg)
-    errStr = [NSString stringWithFormat:@"%@: %@", errStr, ExtLocalizedString(msg, "")];
    
    msg = [NSString stringWithFormat:
             ExtLocalizedString(@"Command: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),

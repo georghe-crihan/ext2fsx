@@ -43,8 +43,8 @@ static const char whatid[] __attribute__ ((unused)) =
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/IOBSD.h>
 
-NSString *ExtFSMediaNotificationUpdatedInfo = @"ExtFSMediaNotificationUpdatedInfo";
-NSString *ExtFSMediaNotificationChildChange = @"ExtFSMediaNotificationChildChange";
+NSString * const ExtFSMediaNotificationUpdatedInfo = @"ExtFSMediaNotificationUpdatedInfo";
+NSString * const ExtFSMediaNotificationChildChange = @"ExtFSMediaNotificationChildChange";
 
 struct attr_volinfo {
    size_t v_size;
@@ -65,9 +65,7 @@ union volinfo {
 };
 #define VOL_INFO_CACHE_TIME 60
 
-#ifdef EXT_MGR_GUI
 static NSMutableDictionary *_mediaIconCache = nil;
-#endif
 
 #ifndef SYS_fsctl
 #define SYS_fsctl 242
@@ -212,12 +210,10 @@ exit:
       if (hint && NSNotFound != r.location)
          _attributeFlags |= kfsNoMount;
       
-   #ifdef EXT_MGR_GUI
       if (_mediaIconCache)
          [_mediaIconCache retain];
       else
          _mediaIconCache = [[NSMutableDictionary alloc] init];
-   #endif
    }
    return (self);
 }
@@ -292,7 +288,6 @@ exit:
    return ([_media objectForKey:NSSTR(kIOBSDNameKey)]);
 }
 
-#ifdef EXT_MGR_GUI
 - (NSImage*)icon
 {
    NSString *bundleid, *iconName;
@@ -356,7 +351,6 @@ exit:
    
    return (_icon);
 }
-#endif
 
 - (BOOL)isEjectable
 {
@@ -585,14 +579,14 @@ exit:
       [_media objectForKey:NSSTR(kIOBSDNameKey)]);
 #endif
    e2super_free;
-#ifdef EXT_MGR_GUI
    unsigned count;
+
    [_icon release];
    count = [_mediaIconCache retainCount];
    [_mediaIconCache release];
    if (1 == count)
       _mediaIconCache = nil;
-#endif
+
    [_iconDesc release];
    [_ioregName release];
    [_volName release];

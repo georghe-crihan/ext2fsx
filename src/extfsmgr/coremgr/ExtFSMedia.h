@@ -23,11 +23,7 @@
 *
 */
 
-#ifdef EXT_MGR_GUI
 #import <Cocoa/Cocoa.h>
-#else
-#import <Foundation/Foundation.h>
-#endif
 
 /*!
 @enum ExtFSType
@@ -86,9 +82,7 @@ a filesystem or device for its properties.
    u_int32_t _devBlockSize, _fsBlockSize, _attributeFlags,
       _volCaps, _lastFSUpdate, _fileCount, _dirCount;
    ExtFSType _fsType;
-#ifdef EXT_MGR_GUI
    NSImage *_icon;
-#endif
 }
 
 /*!
@@ -157,16 +151,14 @@ BSD kernel identifies it.
 @result String containing the kernel device name.
 */
 - (NSString*)bsdName;
-#ifdef EXT_MGR_GUI
+
 /*!
 @method icon
 @abstract Access the icon of the object as determined by the IO Registry.
-@discussion This method is only present if EXT_MGR_GUI was defined at
-compile time.
 @result Preferred device image for the target object.
 */
 - (NSImage*)icon;
-#endif
+
 /*!
 @method isEjectable
 @abstract Determine if the media is ejectable from it's enclosure.
@@ -389,13 +381,13 @@ Always NO if the media is not mounted or the filesystem is not Ext2/3.
 when the filesystem information has been updated (available space, file count, etc).
 The affected media object is attached.
 */
-extern NSString *ExtFSMediaNotificationUpdatedInfo;
+extern NSString * const ExtFSMediaNotificationUpdatedInfo;
 /*!
 @const ExtFSMediaNotificationChildChange
 @abstract This notification is sent to the default Notification center
 when a child is added or removed. The parent object is attached.
 */
-extern NSString *ExtFSMediaNotificationChildChange;
+extern NSString * const ExtFSMediaNotificationChildChange;
 
 /*!
 @defined BSDNAMESTR

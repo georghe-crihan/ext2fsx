@@ -47,12 +47,12 @@ static const char whatid[] __attribute__ ((unused)) =
 #import "ExtFSMediaController.h"
 
 static ExtFSMediaController *_instance;
-NSString *ExtFSMediaNotificationAppeared = @"ExtFSMediaNotificationAppeared";
-NSString *ExtFSMediaNotificationDisappeared = @"ExtFSMediaNotificationDisappeared";
-NSString *ExtFSMediaNotificationMounted = @"ExtFSMediaNotificationMounted";
-NSString *ExtFSMediaNotificationUnmounted = @"ExtFSMediaNotificationUnmounted";
-NSString *ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotificationCreationFailed";
-NSString *ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
+NSString * const ExtFSMediaNotificationAppeared = @"ExtFSMediaNotificationAppeared";
+NSString * const ExtFSMediaNotificationDisappeared = @"ExtFSMediaNotificationDisappeared";
+NSString * const ExtFSMediaNotificationMounted = @"ExtFSMediaNotificationMounted";
+NSString * const ExtFSMediaNotificationUnmounted = @"ExtFSMediaNotificationUnmounted";
+NSString * const ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotificationCreationFailed";
+NSString * const ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
 
 static IONotificationPortRef notify_port_ref=0;
 static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
@@ -719,14 +719,14 @@ static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device
 #endif
 }
 
-NSString *ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
-NSString *ExtMediaKeyOpFailureDevice = @"ExtMediaKeyOpFailureBSDName";
-NSString *ExtMediaKeyOpFailureError = @"ExtMediaKeyOpFailureError";
-NSString *ExtMediaKeyOpFailureErrorString = @"ExtMediaKeyOpFailureErrorString";
-NSString *ExtMediaKeyOpFailureMsgString = @"ExtMediaKeyOpFailureMsgString";
+NSString * const ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
+NSString * const ExtMediaKeyOpFailureDevice = @"ExtMediaKeyOpFailureBSDName";
+NSString * const ExtMediaKeyOpFailureError = @"ExtMediaKeyOpFailureError";
+NSString * const ExtMediaKeyOpFailureErrorString = @"ExtMediaKeyOpFailureErrorString";
+NSString * const ExtMediaKeyOpFailureMsgString = @"ExtMediaKeyOpFailureMsgString";
 
 // Error codes are defined in DiskArbitration/DADissenter.h
-static NSString *_DiskArbErrorTable[] = {
+static NSString * const _DiskArbErrorTable[] = {
    @"", // Empty
    @"Unknown Error", // kDAReturnError
    @"Device is busy", // kDAReturnBusy
@@ -749,6 +749,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
 {
    NSString *bsd = NSSTR(device), *err, *op, *msg;
    ExtFSMedia *emedia;
+   NSBundle *me;
    ExtFSMediaController *ctl = [ExtFSMediaController mediaController];
    
    if ((emedia = [ctl mediaWithBSDName:bsd])) {
@@ -774,7 +775,7 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
             break;
         case kDiskArbUnmountAndEjectRequestFailed:
         case kDiskArbUnmountRequestFailed:
-            op = @"Unmount";;
+            op = @"Unmount";
             break;
         case kDiskArbEjectRequestFailed:
             op = @"Eject";
@@ -785,6 +786,24 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
         default:
             op = @"Unknown";
             break;
+      }
+      
+      // Get a ref to ourself so we can load our localized strings.
+      me = [NSBundle bundleWithIdentifier:@"net.sourceforge.ext2fsx.ExtFSDiskManager"];
+      if (me) {
+        NSString *errl, *opl, *msgl;
+        
+        errl = [me localizedStringForKey:err value:nil table:nil];
+        if (errl)
+            err = errl;
+        
+        opl = [me localizedStringForKey:op value:nil table:nil];
+        if (opl)
+            op = opl;
+        
+        msgl = [me localizedStringForKey:msg value:nil table:nil];
+        if (msgl)
+            msg = msgl;
       }
       
       dict = [NSDictionary dictionaryWithObjectsAndKeys:
