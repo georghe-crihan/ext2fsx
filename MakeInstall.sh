@@ -230,7 +230,12 @@ else
 fi
 
 echo "Building Package..."
+# Jag tools location
 PKGMKR=/Developer/Applications/PackageMaker.app/Contents/MacOS/PackageMaker
+if [ ! -f ${PKGMKR} ]; then
+# Panther tools location
+PKGMKR=/Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker
+fi
 "${PKGMKR}" -build -p "${VOL}/Ext2FS.pkg" -f "${EXT2DIR}/build/install" \
 -r "${EXT2DIR}/Resources" -i "${EXT2DIR}/pkginfo/Info.plist" \
 -d "${EXT2DIR}/pkginfo/Description.plist"
