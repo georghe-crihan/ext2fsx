@@ -51,8 +51,14 @@ extern NSString *ExtFSMediaNotificationAppeared;
 extern NSString *ExtFSMediaNotificationDisappeared;
 extern NSString *ExtFSMediaNotificationMounted;
 extern NSString *ExtFSMediaNotificationUnmounted;
+extern NSString *ExtFSMediaNotificationOpFailure; // User info == NSDictionary
 /* NSString object containing device name */
 extern NSString *ExtFSMediaNotificationCreationFailed;
+
+// Keys for OpFailure notification
+extern NSString *ExtMediaKeyOpFailureType; // NSString
+extern NSString *ExtMediaKeyOpFailureError; // NSNumber
+extern NSString *ExtMediaKeyOpFailureErrorString; // NSString suitable for display to user
 
 extern char* fsNameTable[];
 #define FSNameFromType(type) fsNameTable[(type)]
