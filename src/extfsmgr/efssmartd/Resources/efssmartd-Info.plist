@@ -21,11 +21,11 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>10.2.0</string>
-    <key>LSUIElement</key>
-    <string>1</string>
+	<string>1.0.1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.2.0</string>
+	<key>LSUIElement</key>
+	<string>1</string>
 	<key>NSMainNibFile</key>
 	<string></string>
 	<key>NSPrincipalClass</key>
