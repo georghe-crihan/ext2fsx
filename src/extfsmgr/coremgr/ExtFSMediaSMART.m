@@ -172,7 +172,7 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
                 [NSNumber numberWithInt:efsSMARTInvalidTransport],
             [me localizedStringForKey:@"The status query failed due to an OS error." value:nil table:nil],
                 [NSNumber numberWithInt:efsSMARTOSError],
-            [me localizedStringForKey:@"Drive operation verified." value:nil table:nil],
+            [me localizedStringForKey:@"Disk verified." value:nil table:nil],
                 [NSNumber numberWithInt:efsSMARTVerified],
             [me localizedStringForKey:@"Test aborted." value:nil table:nil],
                 [NSNumber numberWithInt:efsSMARTTestAbort],
