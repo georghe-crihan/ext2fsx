@@ -71,7 +71,7 @@ struct superblock;
 @class ExtFSMedia
 @abstract Representation of filesystem and/or device.
 @discussion Instances of this class can be used to query
-a filesystem or device for it's properties.
+a filesystem or device for its properties.
 */
 @interface ExtFSMedia : NSObject
 {
@@ -170,7 +170,7 @@ compile time.
 /*!
 @method isEjectable
 @abstract Determine if the media is ejectable from it's enclosure.
-@result YES if the can be ejected, otherwise NO.
+@result YES if the media can be ejected, otherwise NO.
 */
 - (BOOL)isEjectable;
 /*!
@@ -303,7 +303,7 @@ Always NO if the media is not mounted.
 @method isJournaled
 @abstract Determine if the filesystem journal is active.
 @discussion A filesystem may have a journal on disk, but it
-may not be currently using it.
+may not be currently in use.
 @result YES if the journal is active, otherwise NO.
 Always NO if the media is not mounted.
 */
@@ -316,9 +316,9 @@ Always NO if the media is not mounted.
 - (BOOL)isCaseSensitive;
 /*!
 @method isCasePreserving
-@abstract Determine if the filesystem preserves the file name case.
-@discussion HFS is case-preserving, but not case-sensitive --
-Ext2 is both and FAT12/16 is neither.
+@abstract Determine if the filesystem preserves file name case.
+@discussion HFS is case-preserving, but not case-sensitive, 
+Ext2/UFS is both and FAT is neither.
 @result YES or NO. Always NO if the media is not mounted.
 */
 - (BOOL)isCasePreserving;
@@ -392,12 +392,12 @@ extern NSString *ExtFSMediaNotificationChildChange;
 
 /*!
 @defined BSDNAMESTR
-@abstract Convenience macro to get the object's device name as a C string.
+@abstract Convenience macro to get an object's device name as a C string.
 */
 #define BSDNAMESTR(media) (char *)[[(media) bsdName] UTF8String]
 /*!
 @defined MOUNTPOINTSTR
-@abstract Convenience macro to get the object's mount point name as a C string.
+@abstract Convenience macro to get an object's mount point name as a C string.
 */
 #define MOUNTPOINTSTR(media) (char *)[[(media) mountPoint] UTF8String]
 
