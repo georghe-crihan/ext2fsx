@@ -467,6 +467,7 @@ enum {
 exit:
    _instance = nil;
    [_media release];
+   [_pending release];
    if (notify_add_iter) IOObjectRelease(notify_add_iter);
    if (notify_rem_iter) IOObjectRelease(notify_rem_iter);
    if (notify_port_ref) IONotificationPortDestroy(notify_port_ref);
