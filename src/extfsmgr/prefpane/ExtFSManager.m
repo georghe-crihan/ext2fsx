@@ -71,13 +71,14 @@ static id ExtMakeInfoTitle(NSString *title)
 
 #import "extfsmgr.h"
 
-static NSMutableDictionary *_prefRoot, *_prefGlobal, *_prefMedia, *_prefMgr = nil;
-static NSString *_bundleid = nil;
-static BOOL _prefsChanged = NO;
+static NSMutableDictionary *e_prefRoot = nil, *e_prefGlobal = nil,
+    *e_prefMedia = nil, *e_prefMgr = nil, *e_iconCache = nil;;
+static NSString *e_bundleid = nil;
+static BOOL e_prefsChanged = NO;
 
 /* Localized strings */
-static NSString *_yes, *_no, *_bytes;
-static NSString *_monikers[] =
+static NSString *e_yes, *e_no, *e_bytes;
+static NSString *e_monikers[] =
       {@"bytes", @"KB", @"MB", @"GB", @"TB", @"PB", @"EB", @"ZB", @"YB", nil};
 //     KiloByte, MegaByte, GigaByte, TeraByte, PetaByte, ExaByte, ZetaByte, YottaByte
 //bytes  2^10,     2^20,     2^30,     2^40,     2^50,     2^60,    2^70,     2^80
@@ -88,13 +89,13 @@ static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
     NSMutableDictionary *dict;
     
     uuid = [media uuidString];
-    dict = [_prefMedia objectForKey:uuid];
+    dict = [e_prefMedia objectForKey:uuid];
     if (!dict) {
         dict = [NSMutableDictionary dictionary];
-        [_prefMedia setObject:dict forKey:uuid];
+        [e_prefMedia setObject:dict forKey:uuid];
     }
     [dict setObject:val forKey:key];
-    _prefsChanged = YES;
+    e_prefsChanged = YES;
 }
 
 static int _operations = 0;
@@ -173,7 +174,7 @@ unmount_state:
             [_vollist reloadItem:parent reloadChildren:NO];
          return;
       }
-   } else {
+   } else if (NO == [_volData containsObject:media]){
       [_volData addObject:media];
    }
 
@@ -209,10 +210,12 @@ _curSelection = nil; \
       return;
    }
    
-   [_volData removeObject:media];
-   [_vollist reloadData];
-   if (-1 == [_vollist selectedRow])
-      ExtSetDefaultState();
+   if (YES == [_volData containsObject:media]) {
+      [_volData removeObject:media];
+      [_vollist reloadData];
+      if (-1 == [_vollist selectedRow])
+         ExtSetDefaultState();
+   }
 }
 
 - (void)volMount:(NSNotification*)notification
@@ -391,17 +394,17 @@ data = [data stringByAppendingString:@"\n"]; \
       [media bsdName]);
    
    ExtInfoInsert(ExtLocalizedString(@"Ejectable", ""),
-      ([media isEjectable] ? _yes : _no));
+      ([media isEjectable] ? e_yes : e_no));
    
    ExtInfoInsert(ExtLocalizedString(@"DVD/CD-ROM", ""),
-      ([media isDVDROM] || [media isCDROM] ? _yes : _no));
+      ([media isDVDROM] || [media isCDROM] ? e_yes : e_no));
    
    data = ExtLocalizedString(@"Not Mounted", "");
    ExtInfoInsert(ExtLocalizedString(@"Mount Point", ""),
       (mounted ? [media mountPoint] : data));
    
    ExtInfoInsert(ExtLocalizedString(@"Writable", ""),
-      ([media isWritable] ? _yes : _no));
+      ([media isWritable] ? e_yes : e_no));
    
    if (mounted) {
       ExtInfoInsert(ExtLocalizedString(@"Filesystem", ""),
@@ -416,40 +419,40 @@ data = [data stringByAppendingString:@"\n"]; \
          (data ? data : @""));
       
       ExtInfoInsert(ExtLocalizedString(@"Permissions Enabled", ""),
-         ([media hasPermissions] ? _yes : _no));
+         ([media hasPermissions] ? e_yes : e_no));
       
       ExtInfoInsert(ExtLocalizedString(@"Supports Journaling", ""),
-         ([media hasJournal] ? _yes : _no));
+         ([media hasJournal] ? e_yes : e_no));
       
       ExtInfoInsert(ExtLocalizedString(@"Journaled", ""),
-         ([media isJournaled] ? _yes : _no));
+         ([media isJournaled] ? e_yes : e_no));
       
       ExtInfoInsert(ExtLocalizedString(@"Supports Sparse Files", ""),
-         ([media hasSparseFiles] ? _yes : _no));
+         ([media hasSparseFiles] ? e_yes : e_no));
       
       ExtInfoInsert(ExtLocalizedString(@"Case Sensitive Names", ""),
-         ([media isCaseSensitive] ? _yes : _no));
+         ([media isCaseSensitive] ? e_yes : e_no));
       
       ExtInfoInsert(ExtLocalizedString(@"Case Preserved Names", ""),
-         ([media isCasePreserving] ? _yes : _no));
+         ([media isCasePreserving] ? e_yes : e_no));
       
       size = [media size];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
-      data = _monikers[i];
+      data = e_monikers[i];
       data = [NSString stringWithFormat:@"%@ %@ (%@ %@)",
-         ExtFmtFloat(size), data, ExtFmtQuad([media size]), _bytes];
+         ExtFmtFloat(size), data, ExtFmtQuad([media size]), e_bytes];
       ExtInfoInsert(ExtLocalizedString(@"Size", ""), data);
       
       size = [media availableSize];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
-      data = _monikers[i];
+      data = e_monikers[i];
       data = [NSString stringWithFormat:@"%@ %@ (%@ %@)",
-         ExtFmtFloat(size), data, ExtFmtQuad([media availableSize]), _bytes];
+         ExtFmtFloat(size), data, ExtFmtQuad([media availableSize]), e_bytes];
       ExtInfoInsert(ExtLocalizedString(@"Available Space", ""), data);
       
-      data = [NSString stringWithFormat:@"%@ %@", ExtFmtInt([media blockSize]), _bytes];
+      data = [NSString stringWithFormat:@"%@ %@", ExtFmtInt([media blockSize]), e_bytes];
       ExtInfoInsert(ExtLocalizedString(@"Block Size", ""), data);
       
       data = [NSString stringWithFormat:@"%@", ExtFmtQuad([media blockCount])];
@@ -469,22 +472,22 @@ data = [data stringByAppendingString:@"\n"]; \
          [_infoText insertText:@"\n\n"];
          
          ExtInfoInsert(ExtLocalizedString(@"Indexed Directories", ""),
-            ([media hasIndexedDirs] ? _yes : _no));
+            ([media hasIndexedDirs] ? e_yes : e_no));
          
          ExtInfoInsert(ExtLocalizedString(@"Large Files", ""),
-            ([media hasLargeFiles] ? _yes : _no));
+            ([media hasLargeFiles] ? e_yes : e_no));
       }
       
    } else {// mounted
       size = [media size];
       for (i=0; size > 1024.0; ++i)
          size /= 1024.0;
-      data = _monikers[i];
+      data = e_monikers[i];
       data = [NSString stringWithFormat:@"%@ %@ (%@ %@)",
-         ExtFmtFloat(size), data, ExtFmtQuad([media size]), _bytes];
+         ExtFmtFloat(size), data, ExtFmtQuad([media size]), e_bytes];
       ExtInfoInsert(ExtLocalizedString(@"Device Size", ""), data);
       
-      data = [NSString stringWithFormat:@"%@ %@", ExtFmtInt([media blockSize]), _bytes];
+      data = [NSString stringWithFormat:@"%@ %@", ExtFmtInt([media blockSize]), e_bytes];
       ExtInfoInsert(ExtLocalizedString(@"Device Block Size", ""), data);
    }
    
@@ -510,7 +513,7 @@ data = [data stringByAppendingString:@"\n"]; \
    
    mediaRO = [media isDVDROM] || [media isCDROM];
    
-   dict = [_prefMedia objectForKey:[media uuidString]];
+   dict = [e_prefMedia objectForKey:[media uuidString]];
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_DIRINDEX];
    state = ([media hasIndexedDirs] || (boolVal && [boolVal boolValue]) ? NSOnState : NSOffState);
@@ -741,6 +744,9 @@ info_alt_switch:
    
    _infoButtonAlt = NO; // Used to deterimine state
    
+   [[_vollist tableColumnWithIdentifier:@"vols"]
+      setDataCell:[[[NSBrowserCell alloc] init] autorelease]];
+   
    // Change controls for startup
    [_startupProgress setStyle:NSProgressIndicatorSpinningStyle];
    [_startupProgress sizeToFit];
@@ -757,39 +763,39 @@ info_alt_switch:
    
    /* Get our prefs */
    plist = [[self bundle] infoDictionary];
-   _bundleid = [plist objectForKey:@"CFBundleIdentifier"];
+   e_bundleid = [plist objectForKey:@"CFBundleIdentifier"];
    
-   _prefRoot = [[NSMutableDictionary alloc] initWithDictionary:
-      [[NSUserDefaults standardUserDefaults] persistentDomainForName:_bundleid]];
-   if (![_prefRoot count]) {
+   e_prefRoot = [[NSMutableDictionary alloc] initWithDictionary:
+      [[NSUserDefaults standardUserDefaults] persistentDomainForName:e_bundleid]];
+   if (![e_prefRoot count]) {
    #ifdef TRACE
       NSLog(@"ExtFSM: Creating preferences\n");
    #endif
       // Create the defaults
-      [_prefRoot setObject:[NSMutableDictionary dictionary] forKey:EXT_PREF_KEY_GLOBAL];
-      [_prefRoot setObject:[NSMutableDictionary dictionary] forKey:EXT_PREF_KEY_MEDIA];
-      [_prefRoot setObject:[NSMutableDictionary dictionary] forKey:EXT_PREF_KEY_MGR];
+      [e_prefRoot setObject:[NSMutableDictionary dictionary] forKey:EXT_PREF_KEY_GLOBAL];
+      [e_prefRoot setObject:[NSMutableDictionary dictionary] forKey:EXT_PREF_KEY_MEDIA];
+      [e_prefRoot setObject:[NSMutableDictionary dictionary] forKey:EXT_PREF_KEY_MGR];
       // Save them
       [self didUnselect];
    }
-   _prefGlobal = [[NSMutableDictionary alloc] initWithDictionary:
-      [_prefRoot objectForKey:EXT_PREF_KEY_GLOBAL]];
-   _prefMedia = [[NSMutableDictionary alloc] initWithDictionary:
-      [_prefRoot objectForKey:EXT_PREF_KEY_MEDIA]];
-   _prefMgr = [[NSMutableDictionary alloc] initWithDictionary:
-      [_prefRoot objectForKey:EXT_PREF_KEY_MGR]];
-   [_prefRoot setObject:_prefGlobal forKey:EXT_PREF_KEY_GLOBAL];
-   [_prefRoot setObject:_prefMedia forKey:EXT_PREF_KEY_MEDIA];
-   [_prefRoot setObject:_prefMgr forKey:EXT_PREF_KEY_MGR];
+   e_prefGlobal = [[NSMutableDictionary alloc] initWithDictionary:
+      [e_prefRoot objectForKey:EXT_PREF_KEY_GLOBAL]];
+   e_prefMedia = [[NSMutableDictionary alloc] initWithDictionary:
+      [e_prefRoot objectForKey:EXT_PREF_KEY_MEDIA]];
+   e_prefMgr = [[NSMutableDictionary alloc] initWithDictionary:
+      [e_prefRoot objectForKey:EXT_PREF_KEY_MGR]];
+   [e_prefRoot setObject:e_prefGlobal forKey:EXT_PREF_KEY_GLOBAL];
+   [e_prefRoot setObject:e_prefMedia forKey:EXT_PREF_KEY_MEDIA];
+   [e_prefRoot setObject:e_prefMgr forKey:EXT_PREF_KEY_MGR];
 #ifdef notnow
-   NSLog(@"ExtFSM: Prefs = %@\n", _prefRoot);
+   NSLog(@"ExtFSM: Prefs = %@\n", e_prefRoot);
 #endif
    
    /* Setup localized string globals */
-   _yes = [ExtLocalizedString(@"Yes", "") retain];
-   _no = [ExtLocalizedString(@"No", "") retain];
-   _bytes = [ExtLocalizedString(@"bytes", "") retain];
-   _monikers[0] = _bytes;
+   e_yes = [ExtLocalizedString(@"Yes", "") retain];
+   e_no = [ExtLocalizedString(@"No", "") retain];
+   e_bytes = [ExtLocalizedString(@"bytes", "") retain];
+   e_monikers[0] = e_bytes;
    
    [_tabs setTabViewType:NSNoTabsNoBorder];
    
@@ -876,16 +882,16 @@ info_alt_switch:
    NSArray *paths;
    NSString *path;
    
-   if (!_prefsChanged)
+   if (!e_prefsChanged)
       return;
    
    // Save the prefs
    [[NSUserDefaults standardUserDefaults]
-      removePersistentDomainForName:_bundleid];
-   [[NSUserDefaults standardUserDefaults] setPersistentDomain:_prefRoot
-      forName:_bundleid];
+      removePersistentDomainForName:e_bundleid];
+   [[NSUserDefaults standardUserDefaults] setPersistentDomain:e_prefRoot
+      forName:e_bundleid];
    
-   _prefsChanged = NO;
+   e_prefsChanged = NO;
    
    /* Copy the plist to the /Library/Preferences dir. This is needed,
       because mount will run as root 99% of the time, and therefore won't
@@ -897,7 +903,7 @@ info_alt_switch:
       // Remove it since we may not have write access to the file itself
       (void)[[NSFileManager defaultManager] removeFileAtPath:path handler:nil];
    }
-   if (![_prefRoot writeToFile:path atomically:YES]) {
+   if (![e_prefRoot writeToFile:path atomically:YES]) {
       NSLog(@"ExtFSM: Could not copy preferences to %@."
          @" This is most likely because you do not have write permissions."
          @" Changes made will have no effect when mounting volumes.", path);
@@ -934,35 +940,15 @@ info_alt_switch:
 #ifdef TRACE
    NSLog(@"ExtFSM: outline get child at index %d for %@", index, item);
 #endif
-   if (!item) {
+   if (nil == item && index < [_volData count]) {
       return ([_volData objectAtIndex:index]);
    }
    
    if (index < [item childCount])
       return ([[item children] objectAtIndex:index]);
-      
-   return (nil);
-}
-
-- (id)outlineView:(NSOutlineView *)outlineView
-   objectValueForTableColumn:(NSTableColumn *)tableColumn byItem:(id)item
-{
-   NSString *name;
-#ifdef TRACE
-   NSLog(@"ExtFSM: outline obj val for %@", item);
-#endif
    
-   NS_DURING
-   name = [item volName];
-   if (!name)
-      name = [[item mountPoint] lastPathComponent];
-   NS_HANDLER
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFSM: Item (0x%08X) is not a valid media object.\n", item);
-#endif
+   NSLog(@"ExtFSM: -%s- index is outside of range for object %@\n", item);
    return (nil);
-   NS_ENDHANDLER
-   return (name ? name : [item ioRegistryName]);
 }
 
 - (void)outlineViewSelectionDidChange:(NSNotification *)notification
@@ -971,6 +957,78 @@ info_alt_switch:
    NSLog(@"ExtFSM: outline selection row = %u", [_vollist selectedRow]);
 #endif
    [self doMediaSelection:[_vollist itemAtRow:[_vollist selectedRow]]];
+}
+
+- (id)outlineView:(NSOutlineView *)outlineView
+   objectValueForTableColumn:(NSTableColumn *)tableColumn byItem:(id)item
+{
+    return (nil);
+}
+
+- (void)outlineView:(NSOutlineView *)outlineView willDisplayCell:(id)cell
+    forTableColumn:(NSTableColumn *)tableColumn item:(id)item
+{    
+    NSString *name;
+    NSAttributedString *value;
+    NSImage *icon;
+
+    NS_DURING
+        name = [item volName];
+        if (!name)
+            name = [[item mountPoint] lastPathComponent];
+    NS_HANDLER
+#ifdef DIAGNOSTIC
+        NSLog(@"ExtFSM: Item (0x%08X) is not a valid media object.\n", item);
+#endif
+        return;
+    NS_ENDHANDLER
+    if (nil == name)
+        name = [item ioRegistryName];
+   
+    icon = [item icon];
+    if (nil != icon) {
+        NSImage *cellIcon = nil;
+        NSString *iname = [[icon name] stringByAppendingString:@".small"];
+        
+        if (nil != e_iconCache)
+            cellIcon = [e_iconCache objectForKey:iname];
+        else
+            e_iconCache = [[NSMutableDictionary alloc] init];
+        
+        if (nil == cellIcon) {
+            // Not found in cache
+            cellIcon = [icon copy];
+            [cellIcon setName:iname];
+            [cellIcon setScalesWhenResized:YES];
+            [cellIcon setSize:NSMakeSize(16,16)];
+            [e_iconCache setObject:cellIcon forKey:iname];
+            [cellIcon release];
+        }
+        [cell setImage:cellIcon];
+    }
+    
+    if ([_volData containsObject:item]) {
+        // Root disks get a bold name
+        value = [[NSAttributedString alloc] initWithString:name attributes:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                        [[NSFontManager sharedFontManager] convertFont:
+                            [cell font] toHaveTrait:NSBoldFontMask],
+                        NSFontAttributeName, nil]];
+        [cell setAttributedStringValue:value];
+        [value release];
+    } else {
+        [cell setLeaf:YES];
+        if (YES == [item isMounted])
+            [cell setStringValue:name];
+        else {
+            value = [[NSAttributedString alloc] initWithString:name attributes:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                        [NSColor disabledControlTextColor],
+                        NSForegroundColorAttributeName, nil]];
+            [cell setAttributedStringValue:value];
+            [value release];
+        }
+    }
 }
 
 @end
