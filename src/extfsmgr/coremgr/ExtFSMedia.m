@@ -339,15 +339,19 @@ init_err:
 
 - (id)representedObject
 {
-   return ([[e_object retain] autorelease]);
+   id tmp;
+   erlock(e_lock);
+   tmp = [e_object retain];
+   eulock(e_lock);
+   return ([tmp autorelease]);
 }
 
 - (void)setRepresentedObject:(id)object
 {
    id tmp;
    (void)[object retain];
-   tmp = e_object;
    ewlock(e_lock);
+   tmp = e_object;
    e_object = object;
    eulock(e_lock);
    [tmp release];
