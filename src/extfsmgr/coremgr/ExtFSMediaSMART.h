@@ -64,7 +64,7 @@ typedef enum {
 @enum ExtFSMARTStatusSeverity
 @constant efsSMARTSeverityInformational The S.M.A.R.T. status is not an error condition.
 @constant efsSMARTSeverityWarning The S.M.A.R.T. status is a possible error condition.
-@constant efsSMARTSeverityCritical The S.M.A.R.T. status is a critical error condition, and disk failure is eminent.
+@constant efsSMARTSeverityCritical The S.M.A.R.T. status is a critical error condition, and disk failure is imminent.
 */
 typedef enum {
     efsSMARTSeverityInformational = 0,
