@@ -270,8 +270,10 @@ void ext2_free_inode (struct inode * inode)
 	else {
 		gdp = get_group_desc (ITOV(inode)->v_mount, block_group, &bh2);
 		gdp->bg_free_inodes_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_inodes_count) + 1);
-		if (S_ISDIR(inode->i_mode)) 
+		if (S_ISDIR(inode->i_mode)) {
 			gdp->bg_used_dirs_count = cpu_to_le16(le16_to_cpu(gdp->bg_used_dirs_count) - 1);
+			sb->s_dircount -= 1;
+		}
 		mark_buffer_dirty(bh2);
 		es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) + 1);
 	}
@@ -496,8 +498,10 @@ repeat:
 		return 0;
 	}
 	gdp->bg_free_inodes_count = cpu_to_le16(le16_to_cpu(gdp->bg_free_inodes_count) - 1);
-	if (S_ISDIR(mode))
+	if (S_ISDIR(mode)) {
 		gdp->bg_used_dirs_count = cpu_to_le16(le16_to_cpu(gdp->bg_used_dirs_count) + 1);
+		sb->s_dircount += 1;
+	}
 	mark_buffer_dirty(bh2);
 	es->s_free_inodes_count = cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) - 1);
 	/* mark_buffer_dirty(sb->u.ext2_sb.s_sbh, 1); */

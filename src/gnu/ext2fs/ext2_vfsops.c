@@ -425,51 +425,52 @@ ext2_mount(mp, path, data, ndp, td)
  */
 static int ext2_check_descriptors (struct ext2_sb_info * sb)
 {
-        int i;
-        int desc_block = 0;
-        unsigned long block = le32_to_cpu(sb->s_es->s_first_data_block);
-        struct ext2_group_desc * gdp = NULL;
-
-        /* ext2_debug ("Checking group descriptors"); */
-
-        for (i = 0; i < sb->s_groups_count; i++)
-        {
+	int i;
+	int desc_block = 0;
+	unsigned long block = le32_to_cpu(sb->s_es->s_first_data_block);
+	struct ext2_group_desc * gdp = NULL;
+	
+	sb->s_dircount = 0;
+	
+	/* ext2_debug ("Checking group descriptors"); */
+	for (i = 0; i < sb->s_groups_count; i++) {
 		/* examine next descriptor block */
-                if ((i % EXT2_DESC_PER_BLOCK(sb)) == 0)
-                        gdp = (struct ext2_group_desc *) 
-				sb->s_group_desc[desc_block++]->b_data;
-                if (le32_to_cpu(gdp->bg_block_bitmap) < block ||
-                    le32_to_cpu(gdp->bg_block_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
-                {
-                        printf ("ext2_check_descriptors: "
-                                    "Block bitmap for group %d"
-                                    " not in group (block %lu)!\n",
-                                    i, (unsigned long) le32_to_cpu(gdp->bg_block_bitmap));
-                        return 0;
-                }
-                if (le32_to_cpu(gdp->bg_inode_bitmap) < block ||
-                    le32_to_cpu(gdp->bg_inode_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
-                {
-                        printf ("ext2_check_descriptors: "
-                                    "Inode bitmap for group %d"
-                                    " not in group (block %lu)!\n",
-                                    i, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
-                        return 0;
-                }
-                if (le32_to_cpu(gdp->bg_inode_table) < block ||
-                    le32_to_cpu(gdp->bg_inode_table) + sb->s_itb_per_group >=
-                    block + EXT2_BLOCKS_PER_GROUP(sb))
-                {
-                        printf ("ext2_check_descriptors: "
-                                    "Inode table for group %d"
-                                    " not in group (block %lu)!\n",
-                                    i, (unsigned long) le32_to_cpu(gdp->bg_inode_table));
-                        return 0;
-                }
-                block += EXT2_BLOCKS_PER_GROUP(sb);
-                gdp++;
-        }
-        return 1;
+		if ((i % EXT2_DESC_PER_BLOCK(sb)) == 0)
+		gdp = (struct ext2_group_desc *)sb->s_group_desc[desc_block++]->b_data;
+		if (le32_to_cpu(gdp->bg_block_bitmap) < block ||
+			le32_to_cpu(gdp->bg_block_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
+		{
+			printf ("ext2_check_descriptors: "
+				"Block bitmap for group %d"
+				" not in group (block %lu)!\n",
+				i, (unsigned long) le32_to_cpu(gdp->bg_block_bitmap));
+			return 0;
+		}
+		if (le32_to_cpu(gdp->bg_inode_bitmap) < block ||
+			le32_to_cpu(gdp->bg_inode_bitmap) >= block + EXT2_BLOCKS_PER_GROUP(sb))
+		{
+			printf ("ext2_check_descriptors: "
+				"Inode bitmap for group %d"
+				" not in group (block %lu)!\n",
+				i, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
+			return 0;
+		}
+		if (le32_to_cpu(gdp->bg_inode_table) < block ||
+			le32_to_cpu(gdp->bg_inode_table) + sb->s_itb_per_group >=
+			block + EXT2_BLOCKS_PER_GROUP(sb))
+		{
+			printf ("ext2_check_descriptors: "
+				"Inode table for group %d"
+				" not in group (block %lu)!\n",
+				i, (unsigned long) le32_to_cpu(gdp->bg_inode_table));
+			return 0;
+		}
+		block += EXT2_BLOCKS_PER_GROUP(sb);
+		/* Compute initial directory count */
+		sb->s_dircount += le16_to_cpu(gdp->bg_used_dirs_count);
+		gdp++;
+	}
+	return 1;
 }
 
 static int
