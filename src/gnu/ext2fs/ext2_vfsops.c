@@ -77,7 +77,10 @@
 
 static int vn_isdisk(struct vnode *, int *);
 
+/* Temp. disable KERNEL so we don't bring in some dup macros. */
+#undef KERNEL
 #include <ufs/ufs/ufsmount.h>
+#define KERNEL
 
 typedef struct ufs_args ext2_args;
 #endif /* !APPLE */
