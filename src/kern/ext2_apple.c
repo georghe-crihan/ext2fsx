@@ -301,3 +301,48 @@ struct vop_abortop_args /* {
     return (0);
 }
 
+__private_extern__ int
+ext2_ioctl(ap)
+	struct vop_ioctl_args /* {
+      struct vnode *a_vp;
+      u_long a_command;
+      caddr_t a_data;
+      int a_fflag;
+      struct ucred *a_cred;
+      struct proc *a_p;
+   } */ *ap;
+{
+   struct inode *ip = VTOI(ap->a_vp);
+   int err = 0;
+   u_int32_t flags;
+   
+   switch (ap->a_command) {
+      case IOCBASECMD(EXT2_IOC_GETFLAGS):
+         flags = ip->i_e2flags & EXT2_FL_USER_VISIBLE;
+         bcopy(&flags, ap->a_data, sizeof(u_int32_t));
+      break;
+      
+      case IOCBASECMD(EXT2_IOC_SETFLAGS):
+         err = ENOTSUP;
+      break;
+      
+      case IOCBASECMD(EXT2_IOC_GETVERSION):
+         bcopy(&ip->i_gen, ap->a_data, sizeof(int32_t));
+      break;
+      
+      case IOCBASECMD(EXT2_IOC_SETVERSION):
+         if (ap->a_cred->cr_uid != ip->i_uid ||
+               !suser(ap->a_cred, &ap->a_p->p_acflag))
+            err = EPERM;
+         break;
+         err = ENOTSUP;
+      break;
+      
+      default:
+         err = ENOTTY;
+      break;
+   }
+   
+   nop_ioctl(ap);
+   return (err);
+}

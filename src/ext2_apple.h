@@ -56,6 +56,7 @@ __private_extern__ int ext2_lock __P((struct vop_lock_args *));
 __private_extern__ int ext2_unlock __P((struct vop_unlock_args *));
 __private_extern__ int ext2_islocked __P((struct vop_islocked_args *));
 __private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
+__private_extern__ int ext2_ioctl __P((struct vop_ioctl_args *));
 
 #define UNKNOWNUID ((uid_t)99)
 
