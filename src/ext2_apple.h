@@ -36,10 +36,15 @@
 #ifndef EXT2_APPLE_H
 #define EXT2_APPLE_H
 
+// In kernel, but not defined in headers
+extern int groupmember(gid_t gid, struct ucred *cred);
+
 #define M_EXT2NODE M_MISCFSNODE
 #define M_EXT2MNT M_MISCFSMNT
 
-typedef int vop_t __P((void *)); 
+typedef int vop_t __P((void *));
+
+#define EXT2FS_NAME "ext2fs"
 
 /* Process stuff */
 #define curproc (current_proc())
