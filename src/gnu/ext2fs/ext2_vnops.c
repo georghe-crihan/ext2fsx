@@ -106,29 +106,6 @@ static const char vwhatid[] __attribute__ ((unused)) =
 
 #include <kern/ext2_lockf.h>
 
-#if defined(EXT_KNOTE) && !defined(VOP_KQFILT_ADD)
-
-/* From vnode_if.h */
-struct vop_kqfilt_add_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	struct knote *a_kn;
-	struct proc *a_p;
-};
-extern struct vnodeop_desc vop_kqfilt_add_desc;
-#define VOP_KQFILT_ADD(vp, kn, p) _VOP_KQFILT_ADD(vp, kn, p)
-static __inline int _VOP_KQFILT_ADD(struct vnode *vp, struct knote *kn, struct proc *p)
-{
-	struct vop_kqfilt_add_args a;
-	a.a_desc = VDESC(vop_kqfilt_add);
-	a.a_vp = vp;
-	a.a_kn = kn;
-	a.a_p = p;
-	return (VCALL(vp, VOFFSET(vop_kqfilt_add), &a));
-}
-
-#endif /* EXT_KNOTE && VOP_KQFILT_ADD */
-
 #define vop_kqfilter_args vop_kqfilt_add_args
 #define vop_kqfilter_desc vop_kqfilt_add_desc
 #define vop_kqfilter vop_kqfilt_add
