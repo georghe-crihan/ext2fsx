@@ -41,7 +41,9 @@
 #include <machine/spl.h>
 
 #include "ext2_apple.h"
-#endif
+#else
+#define meta_bread bread
+#endif /* APPLE */
 
 #include <ext2_byteorder.h>
 #include <gnu/ext2fs/inode.h>
@@ -77,7 +79,7 @@ static void read_block_bitmap (struct mount * mp,
 	int    error;
 	
 	gdp = get_group_desc (mp, block_group, NULL);
-	if ((error = bread (VFSTOEXT2(mp)->um_devvp,
+	if ((error = meta_bread (VFSTOEXT2(mp)->um_devvp,
 		fsbtodb(sb, le32_to_cpu(gdp->bg_block_bitmap)),sb->s_blocksize, NOCRED, &bh)) != 0)
 		panic ( "read_block_bitmap: "
 			    "Cannot read block bitmap - "
@@ -403,10 +405,16 @@ got_block:
 	if (/* test_opt (sb, CHECK_STRICT) && we are always strict. */
 	    (tmp == le32_to_cpu(gdp->bg_block_bitmap) ||
 	     tmp == le32_to_cpu(gdp->bg_inode_bitmap) ||
-	     in_range (tmp, le32_to_cpu(gdp->bg_inode_table), sb->s_itb_per_group)))
+	     in_range (tmp, le32_to_cpu(gdp->bg_inode_table), sb->s_itb_per_group))) {
 		panic ( "ext2_new_block: "
 			    "Allocating block in system zone - "
 			    "%dth block = %u in group %u", j, tmp, i);
+      /* Instead of panicing, Linux does the following (after logging the panic msg) */
+      /*
+      ext2_set_bit(j, bh->b_data);
+		goto repeat;
+      */
+   }
    
    if (ext2_set_bit (j, bh->b_data)) {
 		printf ( "ext2_new_block: "
@@ -421,10 +429,15 @@ got_block:
 	 */
 #ifdef EXT2_PREALLOCATE
 	if (prealloc_block) {
+      int prealloc_goal;
 		*prealloc_count = 0;
 		*prealloc_block = tmp + 1;
+      
+      prealloc_goal = es->s_prealloc_blocks ?
+			es->s_prealloc_blocks : EXT2_DEFAULT_PREALLOC_BLOCKS;
+      
 		for (k = 1;
-		     k < 8 && (j + k) < EXT2_BLOCKS_PER_GROUP(sb); k++) {
+		     k < prealloc_goal && (j + k) < EXT2_BLOCKS_PER_GROUP(sb); k++) {
          if (ext2_set_bit (j + k, bh->b_data))
 				break;
 			(*prealloc_count)++;
@@ -449,8 +462,8 @@ got_block:
 ****/
 	if (j >= le32_to_cpu(es->s_blocks_count)) {
 		printf ( "ext2_new_block: "
-			    "block >= blocks count - "
-			    "block_group = %d, block=%d", i, j);
+			    "block(%d) >= blocks count(%d) - "
+			    "block_group = %d", j, le32_to_cpu(es->s_blocks_count), i);
 		unlock_super (VFSTOEXT2(mp)->um_devvp);
 		return 0;
 	}
