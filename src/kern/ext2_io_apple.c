@@ -111,9 +111,9 @@ ext2_pagein(ap)
 	int flags  = ap->a_flags;
 	register struct inode *ip;
 	int error;
-   
-    ext2_trace_enter();
 
+    ext2_trace_enter();
+//return (ENOTSUP);
 	ip = VTOI(vp);
 
 	/* check pageins for reg file only  and ubc info is present*/
@@ -162,7 +162,7 @@ ext2_pageout(ap)
 	register struct inode *ip;
 	register FS *fs;
 	int error ;
-	int devBlockSize=0;
+	int devBlockSize;
 	size_t xfer_size = 0;
 	int local_flags=0;
 	off_t local_offset;
@@ -172,10 +172,9 @@ ext2_pageout(ap)
 	int save_error =0, save_size=0;
 	vm_offset_t lupl_offset;
 	int nocommit = flags & UPL_NOCOMMIT;
-	/*struct buf *bp;*/
-   
-    ext2_trace_enter();
 
+    ext2_trace_enter();
+//return (ENOTSUP);
 	ip = VTOI(vp);
 
 	/* check pageouts for reg file only  and ubc info is present*/
@@ -284,7 +283,7 @@ ext2_cmap(ap)
 	struct vnode * vp = ap->a_vp;
 	int32_t *bnp = ap->a_bpn;
 	size_t *runp = ap->a_run;
-	int size = ap->a_size;
+	size_t size = ap->a_size;
 	daddr_t bn;
 	int nblks;
 	register struct inode *ip;
@@ -296,8 +295,6 @@ ext2_cmap(ap)
 
 	ip = VTOI(vp);
 	fs = ip->i_e2fs;
-	
-    ext2_trace_enter();
 
 	if ((error = blkoff(fs, ap->a_foffset))) {
 		panic("ext2_cmap: allocation requested inside a block (possible filesystem corruption): "
@@ -309,7 +306,9 @@ ext2_cmap(ap)
 	bn = (daddr_t)lblkno(fs, ap->a_foffset);
     devBlockSize = fs->s_d_blocksize;
 
-	if (size % devBlockSize) {
+	ext2_trace("inode=%u, lbn=%u, off=%qu, size=%u\n", ip->i_number, bn, ap->a_foffset, size);
+    
+    if (size % devBlockSize) {
 		panic("ext2_cmap: size is not multiple of device block size\n");
 	}
 
@@ -367,7 +366,7 @@ ext2_cmap(ap)
 /*
  * ext2_blkalloc allocates a disk block for ext2_pageout(), as a consequence
  * it does no breads (that could lead to deadblock as the page may be already
- * marked busy as it is being paged out. Also important to note that we are not
+ * marked busy as it is being paged out. Also it's important to note that we are not
  * growing the file in pageouts. So ip->i_size  cannot increase by this call
  * due to the way UBC works.  
  * This code is derived from ext2_balloc and many cases of that are  dealt
@@ -375,7 +374,7 @@ ext2_cmap(ap)
  * Do not call with B_CLRBUF flags as this should only be called only 
  * from pageouts
  */
-int
+static int
 ext2_blkalloc(ip, lbn, size, cred, flags)
 	register struct inode *ip;
 	int32_t lbn;
@@ -414,7 +413,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	if (lbn < NDADDR) {
 		nb = ip->i_db[lbn];
 		if (nb != 0 && ip->i_size >= (lbn + 1) * EXT2_BLOCK_SIZE(fs)) {
-		/* TBD: trivial case; the block  is already allocated */
+            /* TBD: trivial case; the block  is already allocated */
 			return (0);
 		}
 		if (nb != 0) {
@@ -424,7 +423,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			osize = fragroundup(fs, blkoff(fs, ip->i_size));
 			nsize = fragroundup(fs, size);
 			if (nsize > osize) {
-				panic("ext2_allocblk: Something is terribly wrong \n");
+				panic("ext2_allocblk: Something is terribly wrong\n");
 			}
 			return(0);
 		} else {
@@ -613,7 +612,7 @@ ext2_blktooff (ap)
 {
    
    struct inode *ip;
-	struct ext2_sb_info *fs;
+   struct ext2_sb_info *fs;
    daddr_t bn = ap->a_lblkno; 
    
    ext2_trace_enter();
@@ -636,7 +635,7 @@ ext2_offtoblk (ap)
 {
    
    struct inode *ip;
-	struct ext2_sb_info *fs;
+   struct ext2_sb_info *fs;
    
    ext2_trace_enter();
    
@@ -644,8 +643,8 @@ ext2_offtoblk (ap)
 		ext2_trace_return(EINVAL);
    
    ip = VTOI(ap->a_vp);
-	fs = ip->i_e2fs;
-	*ap->a_lblkno = lblkno(fs, ap->a_offset);
+   fs = ip->i_e2fs;
+   *ap->a_lblkno = (daddr_t)lblkno(fs, ap->a_offset);
    
    return (0);
 }
@@ -693,7 +692,7 @@ ext2_cache_lookup(ap)
 	 * fails, a status of zero is returned.
 	 */
 	error = cache_lookup(dvp, vpp, cnp);
-	if (error == 0)  {		/* Unsuccessfull */
+	if (error == 0)  {		/* Unsuccessful */
 		error = ext2_lookup((struct vop_cachedlookup_args*)ap);
 		ext2_trace_return(error);
 	}
@@ -703,9 +702,9 @@ ext2_cache_lookup(ap)
 	
 	/* We have a name that matched */
 	vp = *vpp;
-   vpid = vp->v_id;
+    vpid = vp->v_id;
    
-   if (dvp == vp) {	/* lookup on "." */
+    if (dvp == vp) {	/* lookup on "." */
 		VREF(vp);
 		error = 0;
 	} else if (flags & ISDOTDOT) {
