@@ -109,7 +109,7 @@ ext2_pagein(ap)
 	int error;
 
     ext2_trace_enter();
-//return (ENOTSUP);
+
 	ip = VTOI(vp);
 
 	/* check pageins for reg file only  and ubc info is present*/
@@ -170,7 +170,7 @@ ext2_pageout(ap)
 	int nocommit = flags & UPL_NOCOMMIT;
 
     ext2_trace_enter();
-//return (ENOTSUP);
+
 	ip = VTOI(vp);
 
 	/* check pageouts for reg file only  and ubc info is present*/
@@ -291,7 +291,12 @@ ext2_cmap(ap)
 	ip = VTOI(vp);
 	fs = ip->i_e2fs;
 
-	if ((error = blkoff(fs, ap->a_foffset))) {
+#if 0
+// For bug #965119. It stops the constant calls to VOP_CMAP(), but doesn't seem to fix the overall problem.
+	if (ap->a_foffset > roundup(ip->i_size, (u_int64_t)EXT2_BLOCK_SIZE(fs)))
+        return (EFBIG);
+#endif
+    if ((error = blkoff(fs, ap->a_foffset))) {
 		panic("ext2_cmap: allocation requested inside a block (possible filesystem corruption): "
          "qbmask=%qd, inode=%u, offset=%qd, blkoff=%d",
          fs->s_qbmask, ip->i_number, ap->a_foffset, error);
@@ -301,7 +306,7 @@ ext2_cmap(ap)
 	bn = (ext2_daddr_t)lblkno(fs, ap->a_foffset);
     devBlockSize = fs->s_d_blocksize;
 
-	ext2_trace("inode=%u, lbn=%d, off=%qu, size=%u\n", ip->i_number, bn, ap->a_foffset, size);
+	//ext2_trace("inode=%u, lbn=%d, off=%qu, size=%u\n", ip->i_number, bn, ap->a_foffset, size);
     
     if (size % devBlockSize) {
 		panic("ext2_cmap: size is not multiple of device block size\n");
