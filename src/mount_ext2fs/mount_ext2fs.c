@@ -70,7 +70,9 @@ static const char whatid[] __attribute__ ((unused)) =
 int checkLoadable();
 int load_kmod();
 
+#ifndef __dead2
 #define __dead2 __dead
+#endif
 
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,
