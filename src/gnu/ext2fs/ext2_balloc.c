@@ -229,7 +229,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			return (error);
 		nb = newb;
 		bp = getblk(vp, indirs[1].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
-		bp->b_blkno = fsbtodb(fs, newb);
+		bp->b_blkno = fsbtodb(fs, nb);
 		vfs_bio_clrbuf(bp);
 		/*
 		 * Write synchronously so that indirect blocks
@@ -239,7 +239,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			ext2_blkfree(ip, nb, fs->s_blocksize);
 			return (error);
 		}
-		ip->i_ib[indirs[0].in_off] = newb;
+		ip->i_ib[indirs[0].in_off] = nb;
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
 	/*
@@ -315,16 +315,7 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 			return (error);
 		}
 		nb = newb;
-      if (alloc_buf) {
-		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
-		nbp->b_blkno = fsbtodb(fs, nb);
-		if (flags & B_CLRBUF)
-			vfs_bio_clrbuf(nbp);
-      } /* alloc_buf */
-      
 		bap[indirs[i].in_off] = cpu_to_le32(nb);
-      if (blk_alloc)
-         *blk_alloc = fs->s_blocksize;
 		/*
 		 * If required, write synchronously, otherwise use
 		 * delayed write.
@@ -334,6 +325,15 @@ ext2_debug("ext2_balloc called (%d, %d, %d)\n",
 		} else {
 			bdwrite(bp);
 		}
+      if (alloc_buf) {
+		nbp = getblk(vp, lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
+		nbp->b_blkno = fsbtodb(fs, nb);
+		if (flags & B_CLRBUF)
+			vfs_bio_clrbuf(nbp);
+      } /* alloc_buf */
+      if (blk_alloc) {
+         *blk_alloc = fs->s_blocksize;
+      }
       if (alloc_buf)
          *bpp = nbp;
 		return (0);
