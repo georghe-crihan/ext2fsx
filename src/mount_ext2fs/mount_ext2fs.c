@@ -31,13 +31,14 @@
  * SUCH DAMAGE.
  */
 
+
 #ifndef lint
 static char copyright[] __attribute__ ((unused)) =
 "@(#) Copyright (c) 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#ifndef lint
+#ifndef notnow //lint
 /*
 static char sccsid[] = "@(#)mount_lfs.c	8.3 (Berkeley) 3/27/94";
 */
@@ -63,7 +64,6 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #include "mntopts.h"
 
-#ifdef APPLE
 #include "ext2_apple.h"
 
 /* KEXT support */
@@ -71,7 +71,6 @@ int checkLoadable();
 int load_kmod();
 
 #define __dead2 __dead
-#endif
 
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,
@@ -88,69 +87,65 @@ struct mntopt e2_mopts[] = {
 
 static void	usage(void) __dead2;
 
+static char *progname;
+
+#include "mount_extmgr.c"
+
 int
 main(argc, argv)
-	int argc;
-	char *argv[];
+   int argc;
+   char *argv[];
 {
-	#ifndef APPLE
-   struct iovec iov[6];
-   #else
    struct ext2_args args;
-   #endif
-	int ch, mntflags, e2_mntflags;
-	char *fs_name, *fspec, mntpath[MAXPATHLEN];
+   int ch, mntflags, e2_mntflags, x=0;
+   char *fs_name, *fspec, mntpath[MAXPATHLEN];
    
-	mntflags = e2_mntflags = 0;
-	while ((ch = getopt(argc, argv, "o:")) != -1)
-		switch (ch) {
-		case 'o':
-			getmntopts(optarg, mopts, &mntflags, 0);
+   progname = argv[0];
+   
+   mntflags = e2_mntflags = 0;
+   while ((ch = getopt(argc, argv, "o:x")) != -1)
+      switch (ch) {
+      case 'o':
+         getmntopts(optarg, mopts, &mntflags, 0);
          getmntopts(optarg, e2_mopts, &e2_mntflags, 0);
-			break;
-		case '?':
-		default:
-			usage();
-		}
-	argc -= optind;
-	argv += optind;
-
-	if (argc != 2)
-		usage();
-
-	fspec = argv[0];	/* the name of the device file */
-	fs_name = argv[1];	/* the mount point */
-
-	/*
-	 * Resolve the mountpoint with realpath(3) and remove unnecessary
-	 * slashes from the devicename if there are any.
-	 */
-	(void)checkpath(fs_name, mntpath);
-	(void)rmslashes(fspec, fspec);
-
-#ifndef APPLE
-	iov[0].iov_base = "fstype";
-	iov[0].iov_len = sizeof("fstype");
-	iov[1].iov_base = "ext2fs";
-	iov[1].iov_len = strlen(iov[1].iov_base) + 1;
-	iov[2].iov_base = "fspath";
-	iov[2].iov_len = sizeof("fspath");
-	iov[3].iov_base = mntpath;
-	iov[3].iov_len = strlen(mntpath) + 1;
-	iov[4].iov_base = "from";
-	iov[4].iov_len = sizeof("from");
-	iov[5].iov_base = fspec;
-	iov[5].iov_len = strlen(fspec) + 1;
-	if (nmount(iov, 6, mntflags) < 0)
-		err(EX_OSERR, "%s", fspec);
-#else
+         break;
+      case 'x':
+         /* Special flag to include ExtFSManager prefs */
+         x = 1;
+         break;
+      case '?':
+      default:
+         usage();
+      }
+   argc -= optind;
+   argv += optind;
+   
+   if (argc != 2)
+      usage();
+   
+   fspec = argv[0];	/* the name of the device file */
+   fs_name = argv[1];	/* the mount point */
+   
+   /*
+      * Resolve the mountpoint with realpath(3) and remove unnecessary
+      * slashes from the devicename if there are any.
+      */
+   (void)checkpath(fs_name, mntpath);
+   (void)rmslashes(fspec, fspec);
+   
+   if (x) {
+      extmgr_mntopts(fspec, &mntflags, &e2_mntflags, &x);
+      if (x)
+         err(EX_SOFTWARE, "canceled automount on %s on %s", fspec, mntpath);
+   }
+   
    args.fspec = fspec;
    args.e2_mnt_flags = e2_mntflags;
    args.export.ex_root = 0;
    if (mntflags & MNT_RDONLY)
-		args.export.ex_flags = MNT_EXRDONLY;
-	else
-		args.export.ex_flags = 0;
+      args.export.ex_flags = MNT_EXRDONLY;
+   else
+      args.export.ex_flags = 0;
    
    /* Force NODEV for now. */
    /* mntflags |= MNT_NODEV; */
@@ -160,15 +155,15 @@ main(argc, argv)
          errx(EX_OSERR, EXT2FS_NAME " filesystem is not available");
    }
    if (mount(EXT2FS_NAME, mntpath, mntflags, &args) < 0)
-		err(EX_OSERR, "%s on %s", args.fspec, mntpath);
-#endif
-	exit(0);
+      err(EX_OSERR, "%s on %s", args.fspec, mntpath);
+   
+   exit(0);
 }
 
 void
 usage()
 {
-	(void)fprintf(stderr,
-		"usage: mount_ext2fs [-o options] special node\n");
-	exit(EX_USAGE);
+   (void)fprintf(stderr,
+      "usage: mount_ext2fs [-x] [-o options] special node\n");
+   exit(EX_USAGE);
 }
