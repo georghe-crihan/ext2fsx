@@ -74,6 +74,7 @@ static inline id ExtMakeInfoTitle(NSString *title)
 
 static NSMutableDictionary *_prefRoot, *_prefGlobal, *_prefMedia, *_prefMgr = nil;
 static NSString *_bundleid = nil;
+static BOOL _prefsChanged = NO;
 
 @implementation ExtFSManager : NSPreferencePane
 
@@ -424,13 +425,16 @@ data = [data stringByAppendingString:@"\n"]; \
    NSCellStateValue state;
    NSMutableDictionary *dict;
    NSNumber *boolVal;
+   BOOL mediaRO;
+   
+   mediaRO = [media isDVDROM] || [media isCDROM];
    
    dict = [_prefMedia objectForKey:[media uuidString]];
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_DIRINDEX];
    state = ([media hasIndexedDirs] || [boolVal boolValue] ? NSOnState : NSOffState);
    [_indexedDirsBox setState:state];
-   if (NSOnState == state || NO == [media isWritable])
+   if (NSOnState == state || mediaRO)
       [_indexedDirsBox setEnabled:NO];
    else
       [_indexedDirsBox setEnabled:YES];
@@ -443,10 +447,9 @@ data = [data stringByAppendingString:@"\n"]; \
    [_dontAutomountBox setState:state];
    
    boolVal = [dict objectForKey:EXT_PREF_KEY_RDONLY];
-   state = ([boolVal boolValue] || NO == [media isWritable] ?
-      NSOnState : NSOffState);
+   state = ([boolVal boolValue] || mediaRO ? NSOnState : NSOffState);
    [_mountReadOnlyBox setState:state];
-   if ([media isWritable])
+   if (!mediaRO)
       [_mountReadOnlyBox setEnabled:YES];
    else
       [_mountReadOnlyBox setEnabled:NO];
@@ -514,6 +517,7 @@ data = [data stringByAppendingString:@"\n"]; \
    boolVal = [NSNumber numberWithBool:
       (NSOnState == [_mountReadOnlyBox state] ? YES : NO)];
    [dict setObject:boolVal forKey:EXT_PREF_KEY_RDONLY];
+   _prefsChanged = YES;
 }
 
 - (IBAction)click_automount:(id)sender
@@ -536,6 +540,7 @@ data = [data stringByAppendingString:@"\n"]; \
    boolVal = [NSNumber numberWithBool:
       (NSOnState == [_dontAutomountBox state] ? YES : NO)];
    [dict setObject:boolVal forKey:EXT_PREF_KEY_NOAUTO];
+   _prefsChanged = YES;
 }
 
 - (IBAction)click_indexedDirs:(id)sender
@@ -558,6 +563,7 @@ data = [data stringByAppendingString:@"\n"]; \
    boolVal = [NSNumber numberWithBool:
       (NSOnState == [_dontAutomountBox state] ? YES : NO)];
    [dict setObject:boolVal forKey:EXT_PREF_KEY_DIRINDEX];
+   _prefsChanged = YES;
 }
 
 - (void)doMount:(id)sender
@@ -748,14 +754,38 @@ info_alt_switch:
 {
 }
 
-
 - (void)didUnselect
 {
+   NSArray *paths;
+   NSString *path;
+   
+   if (!_prefsChanged)
+      return;
+   
    // Save the prefs
    [[NSUserDefaults standardUserDefaults]
       removePersistentDomainForName:_bundleid];
    [[NSUserDefaults standardUserDefaults] setPersistentDomain:_prefRoot
       forName:_bundleid];
+   
+   _prefsChanged = NO;
+   
+   /* Copy the plist to the /Library/Preferences dir. This is needed,
+      because mount will run as root 99% of the time, and therefore won't
+      have access to the user specific prefs. */
+   paths = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSLocalDomainMask, NO);
+   path = [[paths objectAtIndex:0] stringByAppendingPathComponent:
+      @"Preferences/" EXT_PREF_ID @".plist"];
+   if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+      // Remove it since we may not have write access to the file itself
+      (void)[[NSFileManager defaultManager] removeFileAtPath:path handler:nil];
+   }
+   if (![_prefRoot writeToFile:path atomically:YES]) {
+      NSLog(@"ExtFS: Could not copy preferences to %@."
+         @" This is most likely because you do not have write permissions."
+         @" Changes made will have no effect when mounting volumes.", path);
+      NSBeep();
+   }
 }
 
 /* Delegate */
