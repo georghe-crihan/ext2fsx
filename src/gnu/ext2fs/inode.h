@@ -116,6 +116,9 @@ struct inode {
 	int32_t		i_gen;		/* Generation number. */
 	u_int32_t	i_uid;		/* File owner. */
 	u_int32_t	i_gid;		/* File group. */
+   #ifdef APPLE
+   u_int32_t   i_e2flags; /* copy of on disk ext2 inode flags */
+   #endif
 };
 
 /*
