@@ -22,6 +22,8 @@
 * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 */
+static const char niwhatid[] __attribute__ ((unused)) =
+"@(#) $Id$";
 
 /* This is meant to be included in ext2_lookup.c only. */
 
@@ -39,12 +41,13 @@
 #define u16 __u16
 #define u8 __u8
 
-/* XXX - Define i_flags to i_e2flags -- this overrides access to
-the real i_flags field in an inode.*/
-#define i_flags i_e2flags
 #define EXT3_FT_UNKNOWN EXT2_FT_UNKNOWN
 
 #define i_version i_gen
+
+/* XXX - The EXT2_BLOCK_SIZE_BITS macro expects the on disk superblock
+   This macro expects the in core superblock. */
+#define EXT3_BLOCK_SIZE_BITS(s) ((s)->s_blocksize_bits)
 
 #define super_block ext2_sb_info
 #define i_sb i_e2fs
@@ -78,8 +81,6 @@ struct dentry {
 #define EXT3_SB(fs) (fs)->s_es
 
 #define BUFFER_TRACE(bh,msg)
-#define wait_on_buffer(bh)
-#define buffer_uptodate(bh) 1
 
 static __inline__
 int ext3_journal_get_write_access(handle_t *handle, struct buf *bh) {return (0);}
@@ -105,11 +106,14 @@ int ext3_check_dir_entry (const char * function, struct inode * dir,
 			  struct buffer_head * bh,
 			  unsigned long offset)
 {
-   return -(ext2_dirbadentry(ITOV(dir), de, offset));
+   if (!dirchk && de->rec_len)
+      return (1);
+   /* The return value needs to be reversed for the Linux routines. */
+   return (!(ext2_dirbadentry(ITOV(dir), de, offset)));
 }
 
 static
-struct buffer_head *ext3_getblk(handle_t *handle, struct inode * inode,
+struct buffer_head *ext3_bread(handle_t *handle, struct inode * inode,
 				long block, int create, int * errp)
 {
    struct buf *bp;
@@ -133,16 +137,7 @@ struct buffer_head *ext3_getblk(handle_t *handle, struct inode * inode,
 
    bp = NULL;
    *errp = -(bread(ITOV(inode), block, blksize, cred, &bp));
-   if (bp)
-      *errp = 0;
    return (bp);
-}
-
-static __inline__ struct buffer_head *
-ext3_bread(handle_t *handle, struct inode * inode,
-			       int block, int create, int *errp)
-{
-   return (ext3_getblk(handle, inode, (long)block, create, errp));
 }
 
 /* dx_dir.c support */

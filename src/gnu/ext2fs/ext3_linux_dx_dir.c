@@ -20,7 +20,10 @@
  * Hash Tree Directory indexing (c) 2001  Daniel Phillips
  *
  */
-
+/*
+ * Darwin/BSD support (c) 2003 Brian Bergstrand
+ */ 
+ 
 /*
  * These functions convert from the major/minor hash to an f_pos
  * value.
@@ -227,9 +230,9 @@ do { \
  (ip)->i_flag |= IN_ACCESS; \
  ext2_itimes(ITOV((ip))); \
 } while(0)
+#endif /* linux */
 
 static int ext3_release_dir (struct vnode *, struct inode *);
-#endif /* linux */
 
 static int ext3_dx_readdir(struct vnode * filp,
 			 void * dirent, filldir_t filldir)
@@ -254,7 +257,7 @@ static int ext3_dx_readdir(struct vnode * filp,
 /* --BDB --
    Not sure why linux does the above, but if we do, then re-read's of
    a directory will not work. So we take a different behavior. */
-   if ((inode->f_pos == EXT3_HTREE_EOF) || (inode->i_flag & IN_DX_UPDATE)) {
+   if (inode->f_pos == EXT3_HTREE_EOF) {
       info->last_pos = EXT3_HTREE_EOF;
       inode->f_pos = 0;
    } 

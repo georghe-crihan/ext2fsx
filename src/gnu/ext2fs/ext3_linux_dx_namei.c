@@ -29,13 +29,13 @@
 static const char dxwhatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
-/*
- * define how far ahead to read directories while searching them.
- */
-#define NAMEI_RA_CHUNKS  2
-#define NAMEI_RA_BLOCKS  4
-#define NAMEI_RA_SIZE        (NAMEI_RA_CHUNKS * NAMEI_RA_BLOCKS)
-#define NAMEI_RA_INDEX(c,b)  (((c) * NAMEI_RA_BLOCKS) + (b))
+#ifndef linux
+/* XXX - Define i_flags to i_e2flags -- this overrides access to
+the real i_flags field in an inode.*/
+#define i_flags i_e2flags
+/* XXX - Same thing for i_ino */
+#define i_ino i_number
+#endif
 
 static struct buffer_head *ext3_append(handle_t *handle,
 					struct inode *inode,
@@ -731,172 +731,6 @@ static inline int ext3_match (int len, const char * const name,
 	return !memcmp(name, de->name, len);
 }
 
-/*
- * Returns 0 if not found, -1 on failure, and 1 on success
- */
-static inline int search_dirblock(struct buffer_head * bh,
-				  struct inode *dir,
-				  struct dentry *dentry,
-				  unsigned long offset,
-				  struct ext3_dir_entry_2 ** res_dir)
-{
-	struct ext3_dir_entry_2 * de;
-	char * dlimit;
-	int de_len;
-	const char *name = dentry->d_name.name;
-	int namelen = dentry->d_name.len;
-
-	de = (struct ext3_dir_entry_2 *) bh->b_data;
-	dlimit = bh->b_data + dir->i_sb->s_blocksize;
-	while ((char *) de < dlimit) {
-		/* this code is executed quadratically often */
-		/* do minimal checking `by hand' */
-
-		if ((char *) de + namelen <= dlimit &&
-		    ext3_match (namelen, name, de)) {
-			/* found a match - just to be sure, do a full check */
-			if (!ext3_check_dir_entry("ext3_find_entry",
-						  dir, de, bh, offset))
-				return -1;
-			*res_dir = de;
-			return 1;
-		}
-		/* prevent looping on a bad block */
-		de_len = le16_to_cpu(de->rec_len);
-		if (de_len <= 0)
-			return -1;
-		offset += de_len;
-		de = (struct ext3_dir_entry_2 *) ((char *) de + de_len);
-	}
-	return 0;
-}
-
-#if 0
-/*
- *	ext3_find_entry()
- *
- * finds an entry in the specified directory with the wanted name. It
- * returns the cache buffer in which the entry was found, and the entry
- * itself (as a parameter - res_dir). It does NOT read the inode of the
- * entry - you'll have to do that yourself if you want to.
- *
- * The returned buffer_head has ->b_count elevated.  The caller is expected
- * to brelse() it when appropriate.
- */
-static struct buffer_head * ext3_find_entry (struct dentry *dentry,
-					struct ext3_dir_entry_2 ** res_dir)
-{
-	struct super_block * sb;
-	//struct buffer_head * bh_use[NAMEI_RA_SIZE];
-	struct buffer_head * bh, *ret = NULL;
-#if 0
-   unsigned long start, block, b;
-	int ra_max = 0;		/* Number of bh's in the readahead
-				   buffer, bh_use[] */
-	int ra_ptr = 0;		/* Current index into readahead
-				   buffer */
-	int num = 0;
-#endif
-	int /*nblocks, i,*/ err;
-	struct inode *dir = dentry->d_parent->d_inode;
-	int namelen;
-	const u8 *name;
-	unsigned blocksize;
-
-	*res_dir = NULL;
-	sb = dir->i_sb;
-	blocksize = sb->s_blocksize;
-	namelen = dentry->d_name.len;
-	name = dentry->d_name.name;
-	if (namelen > EXT2_NAME_LEN)
-		return NULL;
-	if (is_dx(dir)) {
-		bh = ext3_dx_find_entry(dentry, res_dir, &err);
-		/*
-		 * On success, or if the error was file not found,
-		 * return.  Otherwise, fall back to doing a search the
-		 * old fashioned way.
-		 */
-		if (bh || (err != ERR_BAD_DX_DIR))
-			return bh;
-		dxtrace(printk("ext3_find_entry: dx failed, falling back\n"));
-	}
-#if 0
-	nblocks = dir->i_size >> EXT3_BLOCK_SIZE_BITS(sb);
-	start = dir->i_dir_start_lookup;
-	if (start >= nblocks)
-		start = 0;
-	block = start;
-restart:
-	do {
-		/*
-		 * We deal with the read-ahead logic here.
-		 */
-		if (ra_ptr >= ra_max) {
-			/* Refill the readahead buffer */
-			ra_ptr = 0;
-			b = block;
-			for (ra_max = 0; ra_max < NAMEI_RA_SIZE; ra_max++) {
-				/*
-				 * Terminate if we reach the end of the
-				 * directory and must wrap, or if our
-				 * search has finished at this block.
-				 */
-				if (b >= nblocks || (num && block == start)) {
-					bh_use[ra_max] = NULL;
-					break;
-				}
-				num++;
-				bh = ext3_getblk(NULL, dir, b++, 0, &err);
-				bh_use[ra_max] = bh;
-				if (bh)
-					ll_rw_block(READ, 1, &bh);
-			}
-		}
-		if ((bh = bh_use[ra_ptr++]) == NULL)
-			goto next;
-		wait_on_buffer(bh);
-		if (!buffer_uptodate(bh)) {
-			/* read error, skip block & hope for the best */
-			brelse(bh);
-			goto next;
-		}
-		i = search_dirblock(bh, dir, dentry,
-			    block << EXT3_BLOCK_SIZE_BITS(sb), res_dir);
-		if (i == 1) {
-			dir->i_dir_start_lookup = block;
-			ret = bh;
-			goto cleanup_and_exit;
-		} else {
-			brelse(bh);
-			if (i < 0)
-				goto cleanup_and_exit;
-		}
-	next:
-		if (++block >= nblocks)
-			block = 0;
-	} while (block != start);
-
-	/*
-	 * If the directory has grown while we were searching, then
-	 * search the last part of the directory before giving up.
-	 */
-	block = nblocks;
-	nblocks = dir->i_size >> EXT3_BLOCK_SIZE_BITS(sb);
-	if (block < nblocks) {
-		start = 0;
-		goto restart;
-	}
-
-cleanup_and_exit:
-	/* Clean up the read-ahead blocks */
-	for (; ra_ptr < ra_max; ra_ptr++)
-		brelse (bh_use[ra_ptr]);
-#endif
-	return ret;
-}
-#endif
-
 static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
 		       struct ext3_dir_entry_2 **res_dir, int *err)
 {
@@ -927,7 +761,13 @@ static struct buffer_head * ext3_dx_find_entry(struct dentry *dentry,
 		if (ext3_match (namelen, name, de)) {
 			if (!ext3_check_dir_entry("ext3_find_entry",
 						  dir, de, bh,
+         #ifdef linux
 				  (block<<EXT3_BLOCK_SIZE_BITS(sb))
+         #else
+            /* Darwin check routine expects offsets from the block,
+               not the dir. */
+               0
+         #endif
 					  +((char *)de - bh->b_data))) {
 				brelse (bh);
 				goto errout;
@@ -1457,3 +1297,9 @@ static int ext3_delete_entry (handle_t *handle,
 	}
 	return -ENOENT;
 }
+
+#ifndef linux
+/* XXX - Undefine these, so ext2_lookup.c isn't polluted. */
+#undef i_flags
+#undef i_ino
+#endif
