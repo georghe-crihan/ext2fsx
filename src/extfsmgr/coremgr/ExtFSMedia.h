@@ -77,12 +77,12 @@ typedef enum {
     efsIOTransportTypeInternal = (1<<0),
     efsIOTransportTypeExternal = (1<<1),
     efsIOTransportTypeVirtual  = (1<<2),
-    efsIOTransportTypeATA      = (1<<3),
-    efsIOTransportTypeATAPI    = (1<<4),
-    efsIOTransportTypeFirewire = (1<<5),
-    efsIOTransportTypeUSB      = (1<<6),
-    efsIOTransportTypeSCSI     = (1<<7),
-    efsIOTransportTypeImage    = (1<<8),
+    efsIOTransportTypeATA      = (1<<8),
+    efsIOTransportTypeATAPI    = (1<<9),
+    efsIOTransportTypeFirewire = (1<<10),
+    efsIOTransportTypeUSB      = (1<<11),
+    efsIOTransportTypeSCSI     = (1<<12),
+    efsIOTransportTypeImage    = (1<<13),
     efsIOTransportTypeUnknown  = (1<<31)
 }ExtFSIOTransportType;
 
