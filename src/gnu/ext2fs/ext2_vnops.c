@@ -163,7 +163,7 @@ static int ext2_strategy(struct vop_strategy_args *);
 static int ext2_symlink(struct vop_symlink_args *);
 static int ext2_write(struct vop_write_args *);
 static int ext2fifo_close(struct vop_close_args *);
-#if EXT_KNOTE
+#ifdef EXT_KNOTE
 static int ext2fifo_kqfilter(struct vop_kqfilter_args *);
 #endif
 static int ext2fifo_read(struct vop_read_args *);
@@ -206,7 +206,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
 	{ &vop_mknod_desc,		(vop_t *) ext2_mknod },
 	{ &vop_open_desc,		(vop_t *) ext2_open },
 	{ &vop_pathconf_desc,		(vop_t *) ext2_pathconf },
-   #if EXT_KNOTE
+   #ifdef EXT_KNOTE
 	{ &vop_kqfilter_desc,		(vop_t *) ext2_kqfilter },
    #endif
 	{ &vop_print_desc,		(vop_t *) ext2_print },
@@ -306,7 +306,7 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
 	{ &vop_fsync_desc,		(vop_t *) ext2_fsync },
 	{ &vop_getattr_desc,		(vop_t *) ext2_getattr },
 	{ &vop_inactive_desc,		(vop_t *) ext2_inactive },
-   #if EXT_KNOTE
+   #ifdef EXT_KNOTE
 	{ &vop_kqfilter_desc,		(vop_t *) ext2fifo_kqfilter },
    #endif
 	{ &vop_print_desc,		(vop_t *) ext2_print },
@@ -1964,7 +1964,7 @@ ext2fifo_close(ap)
 	ext2_trace_return(VOCALL(fifo_vnodeop_p, VOFFSET(vop_close), ap));
 }
 
-#if EXT_KNOTE
+#ifdef EXT_KNOTE
 
 /*
  * Kqfilter wrapper for fifos.
