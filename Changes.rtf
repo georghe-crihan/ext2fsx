@@ -4,9 +4,18 @@
 \margl1440\margr1440\vieww9000\viewh9000\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.0d3\
+\f0\fs24 \cf0 1.0d4\
+Write support is now enabled. This may corrupt filesystems!!\
+\
+The complete set of e2fsprogs commands are now included. This includes e2fsck, mke2fs, dump2fs, debugfs, etc. This is basically all ext2 userland tools that are available in Linux.\
+\
+Updated fs bundle to handle fsck and mkfs.\
+\
+1.0d3\
 Fixed d2 read problems. The indirect block addresses were not being byte swapped.\
+\
 Fixed 30 second mount delay problem. This was due to some errant debug code.\
+\
 extfs.util now responds to -k to return the volume's UUID.\
 \
 1.0d2\
