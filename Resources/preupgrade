@@ -1,4 +1,4 @@
 #! /bin/sh
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-umount -f -t ext2
+umount -At ext2
