@@ -504,6 +504,7 @@ struct ext2_super_block {
  * macros from user land. */
 #define EXT2_SB(sb)	(sb)
 #endif
+#define EXT3_SB EXT2_SB
 
 /*
  * Codes for operating systems
