@@ -1381,24 +1381,73 @@ ext2_sbupdate(mp, waitfor)
 	struct ext2_super_block *es = fs->s_es;
 	struct buf *bp;
 	int error = 0;
-   int devBlockSize=0;
+   int devBlockSize=0, i;
    
    VOP_DEVBLOCKSIZE(mp->um_devvp, &devBlockSize);
 /*
 printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 */
+	/* BDB - We don't want to unlock/release the buffers here, just sync them. Also,
+		we can't use b[ad]write on group/cache buffers because they are locked (and 
+		B_NORELSE is only respected on a sync write).
+		*/
+	
+	/* group descriptors */
+	lock_super(fs);
+	for(i = 0; i < fs->s_db_per_group; i++) {
+		bp = fs->s_group_desc[i];
+		if (!(bp->b_flags & B_DIRTY)) {
+			continue;
+		} 
+		bp->b_flags |= (B_NORELSE|B_BUSY);
+		bp->b_flags &= ~B_DIRTY;
+		bwrite(bp);
+		bp->b_flags &= ~B_BUSY;
+	}
+	unlock_super(fs);
+	
+#if EXT2_SB_BITMAP_CACHE
+	/* cached inode/block bitmaps */
+	lock_super(fs);
+	for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++) {
+		bp = fs->s_inode_bitmap[i];
+		if (bp) {
+			if (!(bp->b_flags & B_DIRTY)) {
+				continue;
+			} 
+			bp->b_flags |= (B_NORELSE|B_BUSY);
+			bp->b_flags &= ~B_DIRTY;
+			bwrite(bp);
+			bp->b_flags &= ~B_BUSY;
+		}
+	}
+	unlock_super(fs);
+	
+	lock_super(fs);
+	for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++) {
+		bp = fs->s_block_bitmap[i];
+		if (bp) {
+			if (!(bp->b_flags & B_DIRTY)) {
+				continue;
+			} 
+			bp->b_flags |= (B_NORELSE|B_BUSY);
+			bp->b_flags &= ~B_DIRTY;
+			bwrite(bp);
+			bp->b_flags &= ~B_BUSY;
+		}
+	}
+	unlock_super(fs);
+#endif
+	
+	/* superblock */
 	bp = getblk(mp->um_devvp, SBLOCK, SBSIZE, 0, 0, BLK_META);
+	lock_super(fs);
 	bcopy((caddr_t)es, (bp->b_data+SBOFF), (u_int)sizeof(struct ext2_super_block));
+	unlock_super(fs);
 	if (waitfor == MNT_WAIT)
 		error = bwrite(bp);
 	else
 		bawrite(bp);
-
-	/*
-	 * The buffers for group descriptors, inode bitmaps and block bitmaps
-	 * are not busy at this point and are (hopefully) written by the
-	 * usual sync mechanism. No need to write them here
-    */
 
 	ext2_trace_return(error);
 }
