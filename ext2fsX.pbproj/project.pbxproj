@@ -491,7 +491,7 @@
 			);
 			buildSettings = {
 				HEADER_SEARCH_PATHS = "src/ src/e2fsprogs/lib src/gnu/ext2fs/linux/include";
-				LIBRARY_SEARCH_PATHS = "/Users/brian/Projects/Sourceforge/ext2fsx/src/e2fsprogs/lib/ext2fs /Users/brian/Projects/Sourceforge/ext2fsx/src/e2fsprogs/lib/et";
+				LIBRARY_SEARCH_PATHS = "src/e2fsprogs/lib/ext2fs src/e2fsprogs/lib/et";
 				OTHER_CFLAGS = "-DBSD -DWITH_FILE -traditional-cpp";
 				OTHER_LDFLAGS = "-lext2fs -lcom_err_e2 -lss -flat_namespace";
 				OTHER_REZFLAGS = "";
