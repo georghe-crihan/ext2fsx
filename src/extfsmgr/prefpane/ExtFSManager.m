@@ -77,11 +77,13 @@ static NSString *_bundleid = nil;
 static BOOL _prefsChanged = NO;
 
 /* Localized strings */
-NSString *_yes, *_no, *_bytes;
-NSString *_monikers[] =
+static NSString *_yes, *_no, *_bytes;
+static NSString *_monikers[] =
       {@"bytes", @"KB", @"MB", @"GB", @"TB", @"PB", @"EB", @"ZB", @"YB", nil};
 //     KiloByte, MegaByte, GigaByte, TeraByte, PetaByte, ExaByte, ZetaByte, YottaByte
 //bytes  2^10,     2^20,     2^30,     2^40,     2^50,     2^60,    2^70,     2^80
+
+static NSDictionary *_fsPrettyNames;
 
 @implementation ExtFSManager : NSPreferencePane
 
@@ -137,7 +139,7 @@ unmount_state:
 #endif
 
    if ((parent = [media parent])) {
-      if (![_volData containsObject:parent]) {
+      if (![_volData containsObject:parent] && nil == [parent parent]) {
          [_volData addObject:parent];
          goto exit;
       } else {
@@ -351,7 +353,7 @@ data = [data stringByAppendingString:@"\n"]; \
    
    if (mounted) {
       ExtInfoInsert(ExtLocalizedString(@"Filesystem", ""),
-         ExtLocalizedString(NSFSNameFromType([media fsType]), ""));
+         [_fsPrettyNames objectForKey:[NSNumber numberWithInt:[media fsType]]]);
       
       data = [media volName];
       ExtInfoInsert(ExtLocalizedString(@"Volume Name", ""),
@@ -692,11 +694,12 @@ info_alt_switch:
    [_startupProgress setIndeterminate:YES];
    [_startupProgress setUsesThreadedAnimation:YES];
    [_startupProgress startAnimation:self]; // Stopped in [startup]
-   [_startupProgress displayIfNeeded];
+   [_startupProgress display];
    [_tabs selectTabViewItemWithIdentifier:@"Startup"];
    title = [ExtLocalizedString(@"Please wait, gathering disk information",
       "Startup Message") stringByAppendingString:@"É"];
    [_startupText setStringValue:title];
+   [_startupText display];
    
    /* Get our prefs */
    plist = [[self bundle] infoDictionary];
@@ -789,6 +792,26 @@ info_alt_switch:
    
    [_optionNoteText setStringValue:
       ExtLocalizedString(@"Changes to these options will take effect during the next mount.", "")];
+   
+   /* The correct way to get these names is to enum the FS bundles and
+      get the FSName value for each personality. This turns out to be more
+      work than it's worth though. */
+   _fsPrettyNames = [[NSDictionary alloc] initWithObjectsAndKeys:
+      @"Ext2", [NSNumber numberWithInt:fsTypeExt2],
+      @"Ext3", [NSNumber numberWithInt:fsTypeExt3],
+      @"HFS", [NSNumber numberWithInt:fsTypeHFS],
+      @"HFS Plus", [NSNumber numberWithInt:fsTypeHFSPlus],
+      @"HFS Plus Journaled", [NSNumber numberWithInt:fsTypeHFSJ],
+      ExtLocalizedString(@"HFS Plus Journaled Case Sensitive", ""),
+         [NSNumber numberWithInt:fsTypeHFSJCS],
+      @"UFS", [NSNumber numberWithInt:fsTypeUFS],
+      @"ISO 9660", [NSNumber numberWithInt:fsTypeCD9660],
+      ExtLocalizedString(@"CD Audio", ""), [NSNumber numberWithInt:fsTypeCDAudio],
+      @"UDF", [NSNumber numberWithInt:fsTypeUDF],
+      @"FAT (MSDOS)", [NSNumber numberWithInt:fsTypeMSDOS],
+      @"NTFS", [NSNumber numberWithInt:fsTypeNTFS],
+      ExtLocalizedString(@"Unknown", ""), [NSNumber numberWithInt:fsTypeUnknown],
+      nil];
 
    [self performSelector:@selector(startup) withObject:nil afterDelay:0.3];
 }
