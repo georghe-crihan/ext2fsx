@@ -145,6 +145,8 @@ unmount_state:
       } else {
          if ([_vollist isItemExpanded:parent])
             [_vollist reloadItem:parent reloadChildren:YES];
+         else
+            [_vollist reloadItem:parent reloadChildren:NO];
          return;
       }
    } else {
@@ -152,6 +154,7 @@ unmount_state:
    }
 
 exit:
+   [_volData sortUsingSelector:@selector(compare:)];
    [_vollist reloadData];
 }
 
@@ -179,13 +182,13 @@ _curSelection = nil; \
    if ((parent = [media parent])) {
       if ([_volData containsObject:parent] && [_vollist isItemExpanded:parent])
          [_vollist reloadItem:parent reloadChildren:YES];
+      else
+         [_vollist reloadItem:parent reloadChildren:NO];
       return;
-   } else {
-      [_volData removeObject:media];
    }
    
+   [_volData removeObject:media];
    [_vollist reloadData];
-   
    if (-1 == [_vollist selectedRow])
       ExtSetDefaultState();
 }
@@ -333,7 +336,7 @@ data = [data stringByAppendingString:@"\n"]; \
    [_infoText setString:@""];
    
    ExtInfoInsert(ExtLocalizedString(@"IOKit Name", ""),
-      [media ioRegistryName]);
+      ExtLocalizedString([media ioRegistryName], ""));
    
    ExtInfoInsert(ExtLocalizedString(@"Device", ""),
       [media bsdName]);
@@ -800,9 +803,9 @@ info_alt_switch:
       @"Ext2", [NSNumber numberWithInt:fsTypeExt2],
       @"Ext3", [NSNumber numberWithInt:fsTypeExt3],
       @"HFS", [NSNumber numberWithInt:fsTypeHFS],
-      @"HFS Plus", [NSNumber numberWithInt:fsTypeHFSPlus],
-      @"HFS Plus Journaled", [NSNumber numberWithInt:fsTypeHFSJ],
-      ExtLocalizedString(@"HFS Plus Journaled Case Sensitive", ""),
+      ExtLocalizedString(@"HFS Plus", ""), [NSNumber numberWithInt:fsTypeHFSPlus],
+      ExtLocalizedString(@"HFS Plus Journaled", ""), [NSNumber numberWithInt:fsTypeHFSJ],
+      ExtLocalizedString(@"HFS Plus Journaled/Case Sensitive", ""),
          [NSNumber numberWithInt:fsTypeHFSJCS],
       @"UFS", [NSNumber numberWithInt:fsTypeUFS],
       @"ISO 9660", [NSNumber numberWithInt:fsTypeCD9660],
