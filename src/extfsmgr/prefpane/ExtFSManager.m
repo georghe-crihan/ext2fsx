@@ -82,8 +82,6 @@ static NSString *_monikers[] =
 //     KiloByte, MegaByte, GigaByte, TeraByte, PetaByte, ExaByte, ZetaByte, YottaByte
 //bytes  2^10,     2^20,     2^30,     2^40,     2^50,     2^60,    2^70,     2^80
 
-static NSDictionary *_fsPrettyNames;
-
 static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
 {
     NSString *uuid;
@@ -392,7 +390,7 @@ data = [data stringByAppendingString:@"\n"]; \
    
    if (mounted) {
       ExtInfoInsert(ExtLocalizedString(@"Filesystem", ""),
-         [_fsPrettyNames objectForKey:[NSNumber numberWithInt:[media fsType]]]);
+         [media fsName]);
       
       data = [media volName];
       ExtInfoInsert(ExtLocalizedString(@"Volume Name", ""),
@@ -838,26 +836,6 @@ info_alt_switch:
       [[[self bundle] localizedInfoDictionary] objectForKey:@"CFBundleGetInfoString"]];
    [_copyrightText setTextColor:[NSColor disabledControlTextColor]];
    
-   /* The correct way to get these names is to enum the FS bundles and
-      get the FSName value for each personality. This turns out to be more
-      work than it's worth though. */
-   _fsPrettyNames = [[NSDictionary alloc] initWithObjectsAndKeys:
-      @"Ext2", [NSNumber numberWithInt:fsTypeExt2],
-      @"Ext3", [NSNumber numberWithInt:fsTypeExt3],
-      @"HFS", [NSNumber numberWithInt:fsTypeHFS],
-      ExtLocalizedString(@"HFS Plus", ""), [NSNumber numberWithInt:fsTypeHFSPlus],
-      ExtLocalizedString(@"HFS Plus Journaled", ""), [NSNumber numberWithInt:fsTypeHFSJ],
-      ExtLocalizedString(@"HFS Plus Journaled/Case Sensitive", ""),
-         [NSNumber numberWithInt:fsTypeHFSJCS],
-      @"UFS", [NSNumber numberWithInt:fsTypeUFS],
-      @"ISO 9660", [NSNumber numberWithInt:fsTypeCD9660],
-      ExtLocalizedString(@"CD Audio", ""), [NSNumber numberWithInt:fsTypeCDAudio],
-      @"UDF", [NSNumber numberWithInt:fsTypeUDF],
-      @"FAT (MSDOS)", [NSNumber numberWithInt:fsTypeMSDOS],
-      @"NTFS", [NSNumber numberWithInt:fsTypeNTFS],
-      ExtLocalizedString(@"Unknown", ""), [NSNumber numberWithInt:fsTypeUnknown],
-      nil];
-
    [self performSelector:@selector(startup) withObject:nil afterDelay:0.3];
 }
 
