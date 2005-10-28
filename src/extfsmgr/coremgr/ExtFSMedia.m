@@ -179,7 +179,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
       e_dirCount = vinfo.vinfo.v_dircount;
       e_blockAvail = vinfo.vinfo.v_availspace / e_fsBlockSize;
       if (0 != vinfo.vinfo.v_name[VOL_CAPABILITIES_FORMAT])
-         e_volName = [NSSTR(vinfo.vinfo.v_name) retain];
+         e_volName = [[NSString alloc] initWithUTF8String:vinfo.vinfo.v_name];
       if (alist.volattr & ATTR_VOL_CAPABILITIES)
          e_volCaps = vinfo.vinfo.v_caps.capabilities[0];
       if (fsTypeHFS == e_fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
