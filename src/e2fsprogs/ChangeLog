@@ -1,3 +1,126 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-03-31  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Add tests for __secure_getenv(), prctl(),
+		and sys/prctl.h
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Make util/gen-tarball executable after it is created.
+
+2005-02-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Remove support for --enable-clear-htree; this was
+		only needed during the early development of the htree patch.
+
+	* configure.in, MCONFIG.in: Add support for --enable-maintainer-mode;
+		only rebuild configure from configure.in if it is enabled.
+
+2005-02-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Remove support for the (very old) sparc old-bitops
+		configure option.
+
+2005-01-19  Matthias Andree <matthias.andree@gmx.de>
+
+	* configure.in: Clean up checks for dirent.d_reclen, ssize_t,
+		llseek, lseek64, sockaddr.sa_len and make the lseek checks
+		immune to compiler warnings, so that they can be compiled
+		with Intel C++ 8.1.
+
+2005-01-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Make configure.in script check for prerequisite
+		headers when checking for the presence of sys/disk.h,
+		sys/mount.h, and net/if.h, to improve the configure script
+		on Solaris and *BSD systems. 
+
+2005-01-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Use AC_PROG_AWK instead of AC_PATH_PROG so that we
+		use nawk in preference to awk for Solaris systems.  Use
+		AC_PROG_EGREP because Solaris doesn't support "grep -E".
+
+2005-01-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Use AC_CHECK_TYPES instead of the autoconf 2.13
+		"broken by design" AC_CHECK_TYPE to look for intptr_t.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Add install-strip and install-shlibs-strip targets
+
+	* MCONFIG.in: Add configure-defined variables for MKINSTALLDIRS
+		and INSTALL_SCRIPT.  Filter out comments inserted by newer
+		versions of gcc when using -M in make depend.
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Delete autom4te.cache, e2fsprogs.spec,
+		ext2ed/Makefile, and po/stamp-po on make distclean
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+	* MCONFIG.in: Add definition for ARGEN
+
+2004-09-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Add --disable-e2initrd-helper flag to control
+		whether or not e2initrd_helper program should be
+		built/installed.
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Remove XSI:isms for greater portability.
+		(Addresses Debian Bug #255589)
+
+	* config.guess, config.sub: Update to newer version from the FSF
+		(2004-06-11)
+
+	* configure.in, configure: Add test for the sys/queue.h header file.
+
+2004-05-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsprogs.spec.in: Fix up e2fsprogs.spec file so it should work
+		on a RH 9.0 system.  Based off of changes proposed by
+		Andreas Dilger.
+
+	* configure.in, configure: Enable the fsck wrapper for the Debian
+		FreeBSD kernel / GNU userspace port.  (Addresses Debian
+		Bug #246738)
+
+	* config.guess, config.sub: Update to newer version from the FSF
+		(2004-01-05)
+
+2004-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* MCONFIG.in (SUBSTITUTE_UPTIME): New definition which passes the
+		-t option to subst.
+
+	* configure.in: Add test for stdint.h
+
+2004-03-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* configure.in: Add tests for sa_len in struct sockaddr and test
+		for net/if_dl.h for better Darwin support.
+
+2004-03-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsprogs.spec.in: Mostly synchronize spec file with the one
+		found in Fedora core 2.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

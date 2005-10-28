@@ -41,7 +41,7 @@ int ext2fs_bg_has_super(ext2_filsys fs, int group_block)
 	if (test_root(group_block, 3) || (test_root(group_block, 5)) ||
 	    test_root(group_block, 7))
 		return 1;
-	
+
 	return 0;
 }
 
@@ -63,7 +63,8 @@ int ext2fs_super_and_bgd_loc(ext2_filsys fs,
 	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
 		old_desc_blocks = fs->super->s_first_meta_bg;
 	else
-		old_desc_blocks = fs->desc_blocks;
+		old_desc_blocks = 
+			fs->desc_blocks + fs->super->s_reserved_gdt_blocks;
 
 	if (group == fs->group_desc_count-1) {
 		numblocks = (fs->super->s_blocks_count -
@@ -234,10 +235,6 @@ errcode_t ext2fs_flush(ext2_filsys fs)
 		memset(group_shadow, 0, (size_t) fs->blocksize *
 		       fs->desc_blocks);
 
-		/* swap the superblock */
-		*super_shadow = *fs->super;
-		ext2fs_swap_super(super_shadow);
-
 		/* swap the group descriptors */
 		for (j=0, s=fs->group_desc, t=group_shadow;
 		     j < fs->group_desc_count; j++, t++, s++) {
@@ -254,28 +251,17 @@ errcode_t ext2fs_flush(ext2_filsys fs)
 #endif
 	
 	/*
-	 * Write out master superblock.  This has to be done
-	 * separately, since it is located at a fixed location
-	 * (SUPERBLOCK_OFFSET).
-	 */
-	retval = write_primary_superblock(fs, super_shadow);
-	if (retval)
-		goto errout;
-
-	/*
 	 * If this is an external journal device, don't write out the
 	 * block group descriptors or any of the backup superblocks
 	 */
 	if (fs->super->s_feature_incompat &
-	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
-		retval = 0;
-		goto errout;
-	}
+	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV)
+		goto write_primary_superblock_only;
 
 	/*
 	 * Set the state of the FS to be non-valid.  (The state has
-	 * already been backed up earlier, and will be restored when
-	 * we exit.)
+	 * already been backed up earlier, and will be restored after
+	 * we write out the backup superblocks.)
 	 */
 	fs->super->s_state &= ~EXT2_VALID_FS;
 #ifdef EXT2FS_ENABLE_SWAPFS
@@ -326,6 +312,13 @@ errcode_t ext2fs_flush(ext2_filsys fs)
 		}
 	}
 	fs->super->s_block_group_nr = 0;
+	fs->super->s_state = fs_state;
+#ifdef EXT2FS_ENABLE_SWAPFS
+	if (fs->flags & EXT2_FLAG_SWAP_BYTES) {
+		*super_shadow = *fs->super;
+		ext2fs_swap_super(super_shadow);
+	}
+#endif
 
 	/*
 	 * If the write_bitmaps() function is present, call it to
@@ -339,11 +332,21 @@ errcode_t ext2fs_flush(ext2_filsys fs)
 			goto errout;
 	}
 
+write_primary_superblock_only:
+	/*
+	 * Write out master superblock.  This has to be done
+	 * separately, since it is located at a fixed location
+	 * (SUPERBLOCK_OFFSET).  We flush all other pending changes
+	 * out to disk first, just to avoid a race condition with an
+	 * insy-tinsy window....
+	 */
+	retval = io_channel_flush(fs->io);
+	retval = write_primary_superblock(fs, super_shadow);
+	if (retval)
+		goto errout;
+
 	fs->flags &= ~EXT2_FLAG_DIRTY;
 
-	/*
-	 * Flush the blocks out to disk
-	 */
 	retval = io_channel_flush(fs->io);
 errout:
 	fs->super->s_state = fs_state;

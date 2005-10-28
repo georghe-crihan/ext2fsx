@@ -36,6 +36,10 @@
 #include <inttypes.h>
 #endif
 
+#ifndef HAVE_INTPTR_T
+typedef long intptr_t
+#endif
+
 /* Needed for architectures where sizeof(int) != sizeof(void *) */
 #define INT_TO_VOIDPTR(val)  ((void *)(intptr_t)(val))
 #define VOIDPTR_TO_INT(ptr)  ((int)(intptr_t)(ptr))
@@ -428,7 +432,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 		shared_len = 0;
 		file_ok = 1;
 		ino = (ext2_ino_t)VOIDPTR_TO_INT(dnode_getkey(n));
-		if (ino == EXT2_BAD_INO)
+		if (ino == EXT2_BAD_INO || ino == EXT2_RESIZE_INO)
 			continue;
 
 		/*
@@ -591,7 +595,7 @@ static void delete_file(e2fsck_t ctx, ext2_ino_t ino,
 	/* Inode may have changed by block_iterate, so reread it */
 	e2fsck_read_inode(ctx, ino, &inode, "delete_file");
 	inode.i_links_count = 0;
-	inode.i_dtime = time(0);
+	inode.i_dtime = ctx->now;
 	if (inode.i_file_acl &&
 	    (fs->super->s_feature_compat & EXT2_FEATURE_COMPAT_EXT_ATTR)) {
 		count = 1;

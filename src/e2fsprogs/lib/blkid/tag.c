@@ -29,6 +29,18 @@ static blkid_tag blkid_new_tag(void)
 	return tag;
 }
 
+#ifdef CONFIG_BLKID_DEBUG
+void blkid_debug_dump_tag(blkid_tag tag)
+{
+	if (!tag) {
+		printf("    tag: NULL\n");
+		return;
+	}
+
+	printf("    tag: %s=\"%s\"\n", tag->bit_name, tag->bit_val);
+}
+#endif
+
 void blkid_free_tag(blkid_tag tag)
 {
 	if (!tag)
@@ -36,7 +48,7 @@ void blkid_free_tag(blkid_tag tag)
 
 	DBG(DEBUG_TAG, printf("    freeing tag %s=%s\n", tag->bit_name,
 		   tag->bit_val ? tag->bit_val : "(NULL)"));
-	DEB_DUMP_TAG(DEBUG_TAG, tag);
+	DBG(DEBUG_TAG, blkid_debug_dump_tag(tag));
 
 	list_del(&tag->bit_tags);	/* list of tags for this device */
 	list_del(&tag->bit_names);	/* list of tags with this type */
@@ -68,6 +80,22 @@ blkid_tag blkid_find_tag_dev(blkid_dev dev, const char *type)
 			return tmp;
 	}
 	return NULL;
+}
+
+extern int blkid_dev_has_tag(blkid_dev dev, const char *type, 
+			     const char *value)
+{
+	blkid_tag		tag;
+
+	if (!dev || !type || !value)
+		return -1;
+
+	tag = blkid_find_tag_dev(dev, type);
+	if (!value)
+		return(tag != NULL);
+	if (!tag || strcmp(tag->bit_val, value))
+		return 0;
+	return 1;
 }
 
 /*
@@ -288,9 +316,6 @@ extern void blkid_tag_iterate_end(blkid_tag_iterate iter)
  * type/value pair.  If there is more than one device that matches the
  * search specification, it returns the one with the highest priority
  * value.  This allows us to give preference to EVMS or LVM devices.
- *
- * XXX there should also be an interface which uses an iterator so we
- * can get all of the devices which match a type/value search parameter.
  */
 extern blkid_dev blkid_find_dev_with_tag(blkid_cache cache,
 					 const char *type,
@@ -300,6 +325,7 @@ extern blkid_dev blkid_find_dev_with_tag(blkid_cache cache,
 	blkid_dev	dev;
 	int		pri;
 	struct list_head *p;
+	int		probe_new = 0;
 
 	if (!cache || !type || !value)
 		return NULL;
@@ -326,9 +352,16 @@ try_again:
 		}
 	}
 	if (dev && !(dev->bid_flags & BLKID_BID_FL_VERIFIED)) {
-		dev = blkid_verify_devname(cache, dev);
+		dev = blkid_verify(cache, dev);
 		if (dev && (dev->bid_flags & BLKID_BID_FL_VERIFIED))
 			goto try_again;
+	}
+
+	if (!dev && !probe_new) {
+		if (blkid_probe_all_new(cache) < 0)
+			return NULL;
+		probe_new++;
+		goto try_again;
 	}
 
 	if (!dev && !(cache->bic_flags & BLKID_BIC_FL_PROBED)) {
@@ -338,3 +371,90 @@ try_again:
 	}
 	return dev;
 }
+
+#ifdef TEST_PROGRAM
+#ifdef HAVE_GETOPT_H
+#include <getopt.h>
+#else
+extern char *optarg;
+extern int optind;
+#endif
+
+void usage(char *prog)
+{
+	fprintf(stderr, "Usage: %s [-f blkid_file] [-m debug_mask] device "
+		"[type value]\n", 
+		prog);
+	fprintf(stderr, "\tList all tags for a device and exit\n", prog);
+	exit(1);
+}
+
+int main(int argc, char **argv)
+{
+	blkid_tag_iterate	iter;
+	blkid_cache 		cache = NULL;
+	blkid_dev		dev;
+	int			c, ret, found;
+	int			flags = BLKID_DEV_FIND;
+	char			*tmp;
+	char			*file = NULL;
+	char			*devname = NULL;
+	char			*search_type = NULL;
+	char			*search_value = NULL;
+	const char		*type, *value;
+
+	while ((c = getopt (argc, argv, "m:f:")) != EOF)
+		switch (c) {
+		case 'f':
+			file = optarg;
+			break;
+		case 'm':
+			blkid_debug_mask = strtoul (optarg, &tmp, 0);
+			if (*tmp) {
+				fprintf(stderr, "Invalid debug mask: %d\n", 
+					optarg);
+				exit(1);
+			}
+			break;
+		case '?':
+			usage(argv[0]);
+		}
+	if (argc > optind)
+		devname = argv[optind++];
+	if (argc > optind)
+		search_type = argv[optind++];
+	if (argc > optind)
+		search_value = argv[optind++];
+	if (!devname || (argc != optind))
+		usage(argv[0]);
+
+	if ((ret = blkid_get_cache(&cache, file)) != 0) {
+		fprintf(stderr, "%s: error creating cache (%d)\n",
+			argv[0], ret);
+		exit(1);
+	}
+
+	dev = blkid_get_dev(cache, devname, flags);
+	if (!dev) {
+		fprintf(stderr, "%s: Can not find device in blkid cache\n");
+		exit(1);
+	}
+	if (search_type) {
+		found = blkid_dev_has_tag(dev, search_type, search_value);
+		printf("Device %s: (%s, %s) %s\n", blkid_dev_devname(dev),
+		       search_type, search_value ? search_value : "NULL", 
+		       found ? "FOUND" : "NOT FOUND");
+		return(!found);
+	}
+	printf("Device %s...\n", blkid_dev_devname(dev));
+
+	iter = blkid_tag_iterate_begin(dev);
+	while (blkid_tag_next(iter, &type, &value) == 0) {
+		printf("\tTag %s has value %s\n", type, value);
+	}
+	blkid_tag_iterate_end(iter);
+
+	blkid_put_cache(cache);
+	return (0);
+}
+#endif

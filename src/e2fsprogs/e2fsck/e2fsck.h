@@ -163,6 +163,7 @@ struct resource_track {
 #define E2F_FLAG_SB_SPECIFIED	0x0100 /* The superblock was explicitly 
 					* specified by the user */
 #define E2F_FLAG_RESTARTED	0x0200 /* E2fsck has been restarted */
+#define E2F_FLAG_RESIZE_INODE	0x0400 /* Request to recreate resize inode */
 
 /*
  * Defines for indicating the e2fsck pass number
@@ -189,6 +190,7 @@ struct e2fsck_struct {
 	const char *program_name;
 	char *filesystem_name;
 	char *device_name;
+	char *io_options;
 	int	flags;		/* E2fsck internal flags */
 	int	options;
 	blk_t	use_superblock;	/* sb requested by user */
@@ -319,6 +321,8 @@ struct e2fsck_struct {
 	int large_files;
 	int fs_ext_attr_inodes;
 	int fs_ext_attr_blocks;
+
+	time_t now;
 
 	int ext_attr_ver;
 

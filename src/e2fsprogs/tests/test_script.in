@@ -4,7 +4,7 @@
 #
 
 if test "$1"x = x ; then
-  TESTS=`ls -d $SRCDIR/[a-zA-Z]_* | egrep -v "\.failed|\.new"`
+  TESTS=`ls -d $SRCDIR/[a-zA-Z]_* | $EGREP -v "\.failed|\.new"`
 else
   TESTS=
   for i 
@@ -59,3 +59,4 @@ num_failed=`ls *.failed 2>/dev/null | wc -l`
 
 echo "$num_ok tests succeeded	$num_failed tests failed"
 
+test "$num_failed" -eq 0 || exit 1

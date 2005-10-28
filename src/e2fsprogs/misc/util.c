@@ -97,7 +97,7 @@ void check_plausibility(const char *device)
 				"did you specify it correctly?\n"), stderr);
 		exit(1);
 	}
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 	/* On FreeBSD, all disk devices are character specials */
 	if (!S_ISBLK(s.st_mode) && !S_ISCHR(s.st_mode))
 #else
@@ -152,16 +152,25 @@ void check_mount(const char *device, int force, const char *type)
 			device);
 		return;
 	}
-	if (!(mount_flags & EXT2_MF_MOUNTED))
-		return;
-
-	fprintf(stderr, _("%s is mounted; "), device);
-	if (force) {
-		fputs(_("mke2fs forced anyway.  Hope /etc/mtab is "
-			"incorrect.\n"), stderr);
-	} else {
+	if (mount_flags & EXT2_MF_MOUNTED) {
+		fprintf(stderr, _("%s is mounted; "), device);
+		if (force) {
+			fputs(_("mke2fs forced anyway.  Hope /etc/mtab is "
+				"incorrect.\n"), stderr);
+			return;
+		}
+	abort_mke2fs:
 		fprintf(stderr, _("will not make a %s here!\n"), type);
 		exit(1);
+	}
+	if (mount_flags & EXT2_MF_BUSY) {
+		fprintf(stderr, _("%s is apparently in use by the system; "),
+			device);
+		if (force) {
+			fputs(_("mke2fs forced anyway.\n"), stderr);
+			return;
+		}
+		goto abort_mke2fs;
 	}
 }
 
@@ -267,10 +276,15 @@ int figure_journal_size(int size, ext2_filsys fs)
 
 	if (fs->super->s_blocks_count < 32768)
 		j_blocks = 1024;
-	else if (fs->super->s_blocks_count < 262144)
+	else if (fs->super->s_blocks_count < 256*1024)
 		j_blocks = 4096;
-	else
+	else if (fs->super->s_blocks_count < 512*1024)
 		j_blocks = 8192;
+	else if (fs->super->s_blocks_count < 1024*1024)
+		j_blocks = 16384;
+	else
+		j_blocks = 32768;
+
 
 	return j_blocks;
 }

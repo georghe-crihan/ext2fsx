@@ -4,13 +4,13 @@ Pass 1: Checking inodes, blocks, and sizes
 Inode 12, i_blocks is 2, should be 0.  Fix? yes
 
 Pass 2: Checking directory structure
-Inode 12 (/motd) has a bad mode (0110444).
-Clear? yes
-
-i_fsize for inode 13 (/timings) is 4, should be zero.
+Inode 12 (/motd) has invalid mode (0110444).
 Clear? yes
 
 i_file_acl for inode 13 (/timings) is 39, should be zero.
+Clear? yes
+
+i_fsize for inode 13 (/timings) is 4, should be zero.
 Clear? yes
 
 Inode 14 (/block_dev) is an illegal block device.

@@ -4,7 +4,7 @@
  * Copyright (C) 1997, 1998 by Theodore Ts'o and
  * 	PowerQuest, Inc.
  *
- * Copyright (C) 1999, 2000, 2001 by Theosore Ts'o
+ * Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 by Theodore Ts'o
  * 
  * %Begin-Header%
  * This file may be redistributed under the terms of the GNU Public
@@ -21,15 +21,18 @@ extern int optind;
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include "e2p/e2p.h"
+
 #include "resize2fs.h"
 
 #include "../version.h"
 
-char *program_name, *device_name;
+char *program_name, *device_name, *io_options;
 
 static void usage (char *prog)
 {
-	fprintf (stderr, _("usage: %s [-d debug_flags] [-f] [-F] [-p] device [new-size]\n\n"), prog);
+	fprintf (stderr, _("Usage: %s [-d debug_flags] [-f] [-F] [-p] "
+			   "device [new_size]\n\n"), prog);
 
 	exit (1);
 }
@@ -106,23 +109,6 @@ static void check_mount(char *device)
 	exit(1);
 }
 
-static int get_units(const char *s)
-{
-	if (strlen(s) != 1)
-		return -1;
-	switch(s[0]) {
-	case 's':
-		return 512;
-	case 'K':
-		return 1024;
-	case 'M':
-		return 1024*1024;
-	case 'G':
-		return 1024*1024*1024;
-	}
-	return -1;
-}
-
 int main (int argc, char ** argv)
 {
 	errcode_t	retval;
@@ -134,9 +120,9 @@ int main (int argc, char ** argv)
 	int		fd;
 	blk_t		new_size = 0;
 	blk_t		max_size = 0;
-	int		units = 0;
 	io_manager	io_ptr;
 	char		*tmp;
+	char		*new_size_str = 0;
 	struct stat	st_buf;
 	unsigned int	sys_page_size = 4096;
 	long		sysval;
@@ -150,7 +136,7 @@ int main (int argc, char ** argv)
 
 	initialize_ext2_error_table();
 
-	fprintf (stderr, _("resize2fs %s (%s)\n"),
+	fprintf (stderr, "resize2fs %s (%s)\n",
 		 E2FSPROGS_VERSION, E2FSPROGS_DATE);
 	if (argc && *argv)
 		program_name = *argv;
@@ -180,21 +166,15 @@ int main (int argc, char ** argv)
 		usage(program_name);
 
 	device_name = argv[optind++];
-	if (optind < argc) {
-		new_size = strtoul(argv[optind++], &tmp, 0);
-		if (*tmp) {
-			units = get_units(tmp);
-			if (units < 0) {
-				com_err(program_name, 0, 
-					_("bad filesystem size - %s"),
-					argv[optind - 1]);
-				exit(1);
-			}
-		}
-	}
+	if (optind < argc)
+		new_size_str = argv[optind++];
 	if (optind < argc)
 		usage(program_name);
 	
+	io_options = strchr(device_name, '?');
+	if (io_options)
+		*io_options++ = 0;
+
 	check_mount(device_name);
 	
 	if (flush) {
@@ -222,8 +202,8 @@ int main (int argc, char ** argv)
 	} else 
 		io_ptr = unix_io_manager;
 
-	retval = ext2fs_open (device_name, EXT2_FLAG_RW, 0, 0,
-			      io_ptr, &fs);
+	retval = ext2fs_open2(device_name, io_options, EXT2_FLAG_RW, 
+			      0, 0, io_ptr, &fs);
 	if (retval) {
 		com_err (program_name, retval, _("while trying to open %s"),
 			 device_name);
@@ -264,13 +244,15 @@ int main (int argc, char ** argv)
 			_("while trying to determine filesystem size"));
 		exit(1);
 	}
-	if (units) {
-		if ((unsigned) units < fs->blocksize)
-			new_size = (new_size * units) / fs->blocksize;
-		else if ((unsigned) units > fs->blocksize)
-			new_size = new_size * (units / fs->blocksize);
-	}
-	if (!new_size) {
+	if (new_size_str) {
+		new_size = parse_num_blocks(new_size_str, 
+					    fs->super->s_log_block_size);
+		if (!new_size) {
+			com_err(program_name, 0, _("bad filesystem size - %s"),
+				new_size_str);
+			exit(1);
+		}
+	} else {
 		new_size = max_size;
 		/* Round down to an even multiple of a pagesize */
 		if (sys_page_size > fs->blocksize)

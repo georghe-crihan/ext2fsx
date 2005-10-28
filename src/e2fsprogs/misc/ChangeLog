@@ -1,3 +1,413 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS): Do not support filesystems with more 2**31-1
+		blocks, since there may be kernel bugs with such
+		filesystems.
+
+2005-06-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.8.in: Fix minor typos pointed out by Benno Schulenberg.
+
+2005-06-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* partinfo.c: Add ioctl definition for BLKGETSIZE so it can be
+		compiled cleanly.
+
+	* findsuper.c: Fix up comments for grammar.
+
+	* dumpe2fs.c (print_journal_information), partinfo.c (main): Add
+		missing _() so all strings can be internationalized.
+
+	* badblocks.c (main), mke2fs.c (parse_extended_opts, PRS),
+		partinfo.c (main), tune2fs.c (usage): Clean up printed
+		messages for grammar and consistency.
+
+	* e2image.8.in: Clean up e2image man page, mostly based on
+		suggestions from Benno Schulenberg.
+
+2005-06-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (PRS): Fix missing close parenthesis from bad inode
+		ratio error message.
+
+2005-06-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.8.in: Minor spelling fix.
+
+2005-05-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* util.c (check_mount): Check the new EXT2_MF_BUSY flag to
+		see if the device is in use by the system.
+
+	* badblocks.c (check_mount): Check the new EXT2_MF_BUSY flag to
+		see if the device is in use by the system.  (Works only
+		for Linux 2.6 systems, addresses Debian Bug #308594).
+
+2005-05-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* filefrag.c (frag_report, get_bmap): The FIBMAP and FIGETBSZ
+		ioctls return an integer, not an unsigned long.  Fix this
+		to avoid problems on 64-bit platforms where the size of an
+		integer != the size of a long.  (Addresses Debian Bug
+		#309655)
+
+2005-05-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* util.c (figure_journal_size): Change the default journal size to
+		be bigger for larger filesystems, given modern memory
+		sizes.  Now, for filesystems greater than 4GB, we use a
+		journal of 128 MB instead 32 MB.
+
+	* tune2fs.c (main): Fix grammar in message printed when setting
+		the check interval (tune2fs -i)
+
+	* chattr.c: Fix case on usage message.
+
+2005-05-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c (main): Use the new functions blkid_dev_set_search() and
+		blkid_dev_has_tag().  Remove compare_search_type() since
+		it has been obseleted by blkid_dev_has_tag().
+
+	* blkid.c (main): Add a new flag, -l, which will use a more
+		efficient method to find the device that matches a
+		particular tag specifier.
+
+2005-05-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c (main): Use an int instead of an char to store the
+		return value from getopt() for better portability on
+		systems where char types are unsigned.  (Addresses
+		Sourceforge Bug: #1180585)
+
+2005-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (main), mke2fs.c (PRS): Fix error messages by
+		substituting "bad" with "invalid" to avoid confusion with
+		"bad blocks".  Thanks to Benno Schulenberg for the patch.
+		(Addresses Sourceforge Bug: #1189803)
+
+	* mke2fs.c (test_disk): Fix grammatical error in error message.
+		Thanks to Benno Schulenberg.
+
+	* mke2fs.c (parse_extended_opts): Print the invalid stride
+		parameter in the error message.  Thanks to Benno
+		Schulenberg.
+
+	* fsck.8.in: Fix a few spelling/grammatical errors.  Thanks to
+		Benno Schulenberg.
+
+	* filefrag.c (frag_report): Fix so that when the first block to be
+		found is an indirect block, we don't falsely count an
+		extra discontinuity.  (Addresses Debian Bug: #307607)
+
+2005-04-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.8.in, dumpe2fs.8.in, fsck.8.in, tune2fs.8.in: Fix
+		spelling mistakes in man pages.  (Addresses Debian Bugs:
+		#304591, #304592, #304594, #304597)
+
+2005-04-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* filefrag.c (frag_report): Don't abort filefrag if
+		EXT3_IOC_GETFLAGS ioctl is not supported, so that filefrag
+		can work on non-ext2/3 filesystems, as advertised.
+		(Addresses Debian Bug: #303509)
+
+	* mke2fs.8.in: Fix minor spelling typo.  (Addresses SourceForge
+		Bug #1177804)
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (create_root_dir): Call ext2fs_write_new_inode() instead of
+		ext2fs_write_inode().
+
+2005-03-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (show_stats): Use the new e2p_os2string() function
+
+2005-03-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* filefrag.c (frag_report): Automatically detect files that are
+		stored using the new experimental file fragments format,
+		and use the non-ext2 algorithm for determing the number of
+		extents.  Avoid reporting a false discontinuity if there
+		is a non-allocated block (or extent) at the beginning of
+		the file.
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* filefrag.c (frag_report): In verbose mode, print the first and
+		last block numbers; may be useful for some folks.
+
+2005-02-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.c: Define _XOPEN_SOURCE to be 500 to fix compilation
+		problems on Solaris.
+
+2005-01-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (main): Only call create_resize_inode if the resize
+		feature is actually enabled.
+
+2005-01-27  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c (main, compare_search_type): Make blkid -t work more
+		consistently when the blkid cache file is explicitly set
+		to /dev/null.  (Addresses Debian Bug #292425)
+
+	* mke2fs.c (PRS): Don't use a blocksize greater than 4k, even on
+		2.6 kernels, unless explicitly requested by the user; not
+		all 2.6 kernels (includeing stock 2.6 kernels as of this
+		writing) don't support blocksizes > 4k.
+
+	* mke2fs.c (PRS): If the device size is too big to be expressed
+		using a 1k blocksize, retry with a 4k blocksize.
+		(Addresses Sourceforge bug #1106631)
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (uninstall): Make sure "make uninstall" removes
+		everything installed by the makefile.
+
+	* e2image.c (scramble_dir_block): Make sure the unused space
+		in the '.' and '..' directory entries are cleared when
+		e2image -rs is specified.
+
+2005-01-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.8.in: Clarified man page about the -c option.
+
+2005-01-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c (main): Make blkid -t display all devices that match the
+		specified criteria, not just the first one.  (Addresses
+		Debian Bug #290530)
+
+2005-01-20    <tytso@snap.thunk.org>
+
+	* filefrag.c (frag_report): Fix filefrag so that it works
+		correctly with sparse files; unallocated blocks should not
+		be treated as a discontinuity.
+
+2005-01-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (show_stats, set_os): Interpret OS Creator values for
+		FreeBSD and Lites.
+
+2005-01-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2image.c, e2image.8.in: Add support for the -s option which
+		scrambles directory entries for raw image files.
+
+2005-01-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.c: On Solaris, defining _XOPEN_SOURCE inexplicably
+		causes struct timeval to be undefined, breaking system
+		header files left and right.  But glibc requires
+		_XOPEN_SOURCE in order for strptime() to be defined.  So
+		don't define _XOPEN_SOURCE on Solaris systems.
+
+	* filefrag.c (frag_report): Applied patch from Francois Petillon
+		(fantec at proxad.net) to avoid a file descriptor leak.
+
+2005-01-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (alarm_intr): Increase the number of spaces reserved
+		for printing block numbers, so we can correctly display
+		block numbers numbers greater than 999,999,999.
+		(Addresses SourceForge bug #1016163)
+
+	* tune2fs.c (main): When specifying the number of reservered
+		blocks that can only be allocated by root, enforce a 50%
+		limit so that the user can't accidentally make a
+		superblock which e2fsck will think is insane.
+
+2005-01-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c (PRS): Apply Fedora's e2fsprogs-1.35-progress.patch from
+		e2fsprogs-1.35-11.2.  Fixed multiple command-line parsing
+		bugs so that backwards compatibility is maintained, and so
+		that certain command-line options wouldn't be ignored.
+
+	* mke2fs.c (parse_extended_opts): Rename the -R option to -E.  Fix
+		the resize= raid/extended option so it actually works.
+		(The patch from Fedora e2fsprogs-1.35-11.2 claimed it
+		worked, but it was a placebo option, despite the claim
+		that it worked in the usage message.)
+
+	* e2initrd_helper.c: Fix gcc -Wall nits.
+
+	* e2image.c (main): Fix gcc -Wall nits.  Fix e2image so that
+		e2image -I has an exit code of 0 when it is successful.
+
+	* mke2fs.c (PRS, parse_r_opts): Use parse_num_blocks() from the
+		e2p library to parse the number of blocks from the command
+		line.
+
+2004-12-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* dumpe2fs.c (list_desc): If reserved GDT blocks are present,
+		display them along with the other filesystem meta blocks.
+
+2004-12-22  Theodore Ts'o  <tytso@mit.edu>
+
+	* fsck.c (main): Check return from malloc of fsck_path string.
+
+2004-12-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.c (parse_time): Fix minor buglet; the parse_time routine
+		should use the passed-in argument, not optarg, even though
+		the two are the same in the case of the current caller of
+		said function.
+
+2004-12-15  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c: Applied resize inode patch from Andreas Dilger to add
+		support for creating filesystems with reserved space for
+		on-line expansion.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Move strip command to install-strip target.
+		Use Linux-kernel-style makefile output for "make install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro
+
+2004-12-01  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2image.8.in: Fix minor glitches in man page.
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Delete e2initrd_helper when doing a make clean.
+
+	* tune2fs.c: If there is a question mark in the device name,
+		separate out the options to the IO layer, and pass it on
+		to ext2fs_open2().
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-11-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.8.in: Removed the word "destructive" when describing the
+		read-write test, since it can confuse people.
+
+2004-10-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.8.in: Add an explanation about why reserved blocks in a
+		filesystem is a good thing.
+
+2004-09-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.8.in: Document the default block size.  (Addresses
+		Debian Bug #273679)
+
+2004-09-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* mke2fs.c (set_fs_defaults): Only use blocksizes > 4k on Linux
+		2.6 and newer systems.  (Addresses Debian Bug #271064)
+
+2004-09-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* lsattr.c (lsattr_dir_proc): Avoid double // when listing the
+		root directory, or when there is a trailing '/' in the
+		directory name.  (Addresses Debian Bug #272943)
+
+	* Makefile.in: Make sure /usr/lib is created for when we install
+		e2initrd_helper.
+
+2004-09-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c: Use _() around done_string, so that it gets
+		correctly translated.  (Addresses Debian Bug #252836)
+
+	* tune2fs.8.in: Add a description of the .journal file, why it
+		is created, and how e2fsck converts it to an invisible
+		journal.  (Addresses Debian Bug #256760)
+
+2004-09-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2initrd_helper.c: New program which allows initrd scripts to
+		check on the contents of /etc/fstab without (a) needing to
+		mount the root filesystem, and (b) needing /bin/awk in the
+		initrd environment.  (Addresses Debian Bug #247775)
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.8.in: Mention that e2fsck -D might be useful after
+		setting the dir_index filesystem feature.  (Addresses
+		Debian Bug #268148)
+
+2004-07-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2image.c, e2image.8.in: Add new option -I which allows the
+		administrator to install an metadata stored in an e2image
+		file to a filesystem.  Obviously, this can be very
+		dangerous!
+
+2004-06-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (mke2fs.static): Add the blkid library to so
+		mke2fs.static builds correctly.
+
+2004-04-11  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.8.in: Fixed spelling error (Addresses Debian Bug #242995)
+
+	* mke2fs.8.in: Clarify man page's description of the '-O' option.
+		(Addresses Debian Bug #241940)
+
+2004-04-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* tune2fs.c (update_feature_set): If the compatibility bitmasks
+		were not modified, don't set the superblock dirty bit.
+
+2004-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Update the modtime even if subst doesn't need to
+		update the man pages, to avoid always re-running
+		subst, especially since there are no dependencies on these
+		generated files.
+
+2004-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c: Remove the partially implemented -p option (it never
+		did anything, but was documented in the man page and the
+		usage display).
+
+2004-03-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid.c (main, print_tags): Add new option -o which allows the
+		user to control the output format of blkid.
+
+	* mke2fs.8.in: Fix spelling typos (Addresses Debian Bug #238741)
+
+2004-03-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2image.8.in: Update manpage to detail that writing to stdout is
+		currently only supported when writing a raw image dump.
+		(Addresses Debian bug #236383)
+
+2004-03-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* logsave.c (main): Use setsid() to avoid getting killed by init
+		(run_program): Add a newline after reporting the exit code
+		or signal when the program exits.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

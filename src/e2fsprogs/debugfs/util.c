@@ -76,12 +76,12 @@ static const char *find_pager(char *buf)
 FILE *open_pager(void)
 {
 	FILE *outfile = 0;
-	const char *pager = getenv("PAGER");
+	const char *pager = getenv("DEBUGFS_PAGER");
 	char buf[80];
 
 	signal(SIGPIPE, SIG_IGN);
 	if (!pager)
-		pager = getenv("DEBUGFS_PAGER");
+		pager = getenv("PAGER");
 	if (!pager)
 		pager = find_pager(buf);
 	if (!pager || 
@@ -186,9 +186,19 @@ int check_fs_bitmaps(char *name)
  */
 char *time_to_string(__u32 cl)
 {
-	time_t	t = (time_t) cl;
+	static int	do_gmt = -1;
+	time_t		t = (time_t) cl;
+	char *		tz;
 
-	return ctime(&t);
+	if (do_gmt == -1) {
+		/* The diet libc doesn't respect the TZ environemnt variable */
+		tz = getenv("TZ");
+		if (!tz)
+			tz = "";
+		do_gmt = !strcmp(tz, "GMT");
+	}
+
+	return asctime((do_gmt) ? gmtime(&t) : localtime(&t));
 }
 
 /*
@@ -297,6 +307,19 @@ int common_block_args_process(int argc, char *argv[],
 	return 0;
 }
 
+int debugfs_read_inode_full(ext2_ino_t ino, struct ext2_inode * inode,
+			const char *cmd, int bufsize)
+{
+	int retval;
+
+	retval = ext2fs_read_inode_full(current_fs, ino, inode, bufsize);
+	if (retval) {
+		com_err(cmd, retval, "while reading inode %u", ino);
+		return 1;
+	}
+	return 0;
+}
+
 int debugfs_read_inode(ext2_ino_t ino, struct ext2_inode * inode,
 			const char *cmd)
 {
@@ -323,3 +346,15 @@ int debugfs_write_inode(ext2_ino_t ino, struct ext2_inode * inode,
 	return 0;
 }
 
+int debugfs_write_new_inode(ext2_ino_t ino, struct ext2_inode * inode,
+			    const char *cmd)
+{
+	int retval;
+
+	retval = ext2fs_write_new_inode(current_fs, ino, inode);
+	if (retval) {
+		com_err(cmd, retval, "while creating inode %u", ino);
+		return 1;
+	}
+	return 0;
+}

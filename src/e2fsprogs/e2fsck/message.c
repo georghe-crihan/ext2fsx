@@ -25,6 +25,7 @@
  * 	%g	<group>			integer
  * 	%i	<ino>			inode number
  * 	%Is	<inode> -> i_size
+ * 	%IS	<inode> -> i_extra_isize
  * 	%Ib	<inode> -> i_blocks
  * 	%Il	<inode> -> i_links_count
  * 	%Im	<inode> -> i_mode
@@ -69,6 +70,8 @@
  * 	@j	journal
  * 	@l	lost+found
  * 	@L	is a link
+ *	@m	multiply-claimed
+ *	@n	invalid
  * 	@o	orphaned
  * 	@p	problem in
  * 	@r	root inode
@@ -121,6 +124,8 @@ static const char *abbrevs[] = {
 	N_("hHTREE @d @i"),
 	N_("llost+found"),
 	N_("Lis a link"),
+	N_("mmultiply-claimed"),
+	N_("ninvalid"),
 	N_("oorphaned"),
 	N_("pproblem in"),
 	N_("rroot @i"),
@@ -231,18 +236,21 @@ static _INLINE_ void expand_at_expression(e2fsck_t ctx, char ch,
 /*
  * This function expands '%IX' expressions
  */
-static _INLINE_ void expand_inode_expression(char ch,
-					       struct problem_context *ctx)
+static _INLINE_ void expand_inode_expression(char ch, 
+					     struct problem_context *ctx)
 {
 	struct ext2_inode	*inode;
+	struct ext2_inode_large	*large_inode;
 	char *			time_str;
 	time_t			t;
+	int			do_gmt = -1;
 
 	if (!ctx || !ctx->inode)
 		goto no_inode;
 	
 	inode = ctx->inode;
-	
+	large_inode = (struct ext2_inode_large *) inode;
+
 	switch (ch) {
 	case 's':
 		if (LINUX_S_ISDIR(inode->i_mode))
@@ -260,6 +268,9 @@ static _INLINE_ void expand_inode_expression(char ch,
 #endif
 		}
 		break;
+	case 'S':
+		printf("%u", large_inode->i_extra_isize);
+		break;
 	case 'b':
 		printf("%u", inode->i_blocks);
 		break;
@@ -270,8 +281,15 @@ static _INLINE_ void expand_inode_expression(char ch,
 		printf("0%o", inode->i_mode);
 		break;
 	case 'M':
+		/* The diet libc doesn't respect the TZ environemnt variable */
+		if (do_gmt == -1) {
+			time_str = getenv("TZ");
+			if (!time_str)
+				time_str = "";
+			do_gmt = !strcmp(time_str, "GMT");
+		}
 		t = inode->i_mtime;
-		time_str = ctime(&t);
+		time_str = asctime(do_gmt ? gmtime(&t) : localtime(&t));
 		printf("%.24s", time_str);
 		break;
 	case 'F':

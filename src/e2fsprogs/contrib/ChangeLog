@@ -1,3 +1,19 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2004-04-19  Andreas Dilger  <adilger@clusterfs.com>
+
+	* build-rpm: use rpmbuild if it is installed instead of rpm
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

@@ -78,37 +78,66 @@ static void set_uuid(blkid_dev dev, uuid_t uuid)
 	}
 }
 
-static int probe_ext2(int fd __BLKID_ATTR((unused)), 
-		      blkid_cache cache __BLKID_ATTR((unused)), 
-		      blkid_dev dev,
-		      struct blkid_magic *id, unsigned char *buf)
+static void get_ext2_info(blkid_dev dev, unsigned char *buf)
 {
-	struct ext2_super_block *es;
-	const char *sec_type = 0, *label = 0;
-
-	es = (struct ext2_super_block *)buf;
+	struct ext2_super_block *es = (struct ext2_super_block *) buf;
+	const char *label = 0;
 
 	DBG(DEBUG_PROBE, printf("ext2_sb.compat = %08X:%08X:%08X\n", 
 		   blkid_le32(es->s_feature_compat),
 		   blkid_le32(es->s_feature_incompat),
 		   blkid_le32(es->s_feature_ro_compat)));
 
-	/* Distinguish between jbd and ext2/3 fs */
-	if (id && (blkid_le32(es->s_feature_incompat) &
-		   EXT3_FEATURE_INCOMPAT_JOURNAL_DEV))
-		return -BLKID_ERR_PARAM;
-
 	if (strlen(es->s_volume_name))
 		label = es->s_volume_name;
 	blkid_set_tag(dev, "LABEL", label, sizeof(es->s_volume_name));
 
 	set_uuid(dev, es->s_uuid);
+}
 
-	if (blkid_le32(es->s_feature_compat) &
-	    EXT3_FEATURE_COMPAT_HAS_JOURNAL)
-		sec_type = "ext3";
-	
-	blkid_set_tag(dev, "SEC_TYPE", sec_type, 0);
+static int probe_ext3(int fd __BLKID_ATTR((unused)), 
+		      blkid_cache cache __BLKID_ATTR((unused)), 
+		      blkid_dev dev,
+		      struct blkid_magic *id __BLKID_ATTR((unused)), 
+		      unsigned char *buf)
+{
+	struct ext2_super_block *es;
+
+	es = (struct ext2_super_block *)buf;
+
+	/* Distinguish between jbd and ext2/3 fs */
+	if (blkid_le32(es->s_feature_incompat) & 
+	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV)
+		return -BLKID_ERR_PARAM;
+
+	/* Distinguish between ext3 and ext2 */
+	if (!(blkid_le32(es->s_feature_compat) &
+	      EXT3_FEATURE_COMPAT_HAS_JOURNAL))
+		return -BLKID_ERR_PARAM;
+
+	get_ext2_info(dev, buf);
+
+	blkid_set_tag(dev, "SEC_TYPE", "ext2", sizeof("ext2"));
+
+	return 0;
+}
+
+static int probe_ext2(int fd __BLKID_ATTR((unused)), 
+		      blkid_cache cache __BLKID_ATTR((unused)), 
+		      blkid_dev dev,
+		      struct blkid_magic *id __BLKID_ATTR((unused)), 
+		      unsigned char *buf)
+{
+	struct ext2_super_block *es;
+
+	es = (struct ext2_super_block *)buf;
+
+	/* Distinguish between jbd and ext2/3 fs */
+	if (blkid_le32(es->s_feature_incompat) & 
+	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV)
+		return -BLKID_ERR_PARAM;
+
+	get_ext2_info(dev, buf);
 
 	return 0;
 }
@@ -125,7 +154,9 @@ static int probe_jbd(int fd __BLKID_ATTR((unused)),
 	      EXT3_FEATURE_INCOMPAT_JOURNAL_DEV))
 		return -BLKID_ERR_PARAM;
 
-	return (probe_ext2(fd, cache, dev, 0, buf));
+	get_ext2_info(dev, buf);
+
+	return 0;
 }
 
 static int probe_vfat(int fd __BLKID_ATTR((unused)), 
@@ -137,6 +168,7 @@ static int probe_vfat(int fd __BLKID_ATTR((unused)),
 	struct vfat_super_block *vs;
 	char serno[10];
 	const char *label = 0;
+	int label_len = 0;
 
 	vs = (struct vfat_super_block *)buf;
 
@@ -145,14 +177,16 @@ static int probe_vfat(int fd __BLKID_ATTR((unused)),
 
 		while (*end == ' ' && end >= vs->vs_label)
 			--end;
-		if (end >= vs->vs_label)
+		if (end >= vs->vs_label) {
 			label = vs->vs_label;
-		blkid_set_tag(dev, "LABEL", label, end - vs->vs_label + 1);
+			label_len = end - vs->vs_label + 1;
+		}
 	}
 
 	/* We can't just print them as %04X, because they are unaligned */
 	sprintf(serno, "%02X%02X-%02X%02X", vs->vs_serno[3], vs->vs_serno[2],
 		vs->vs_serno[1], vs->vs_serno[0]);
+	blkid_set_tag(dev, "LABEL", label, label_len);
 	blkid_set_tag(dev, "UUID", serno, sizeof(serno));
 
 	return 0;
@@ -167,21 +201,25 @@ static int probe_msdos(int fd __BLKID_ATTR((unused)),
 	struct msdos_super_block *ms = (struct msdos_super_block *) buf;
 	char serno[10];
 	const char *label = 0;
+	int label_len = 0;
 
 	if (strncmp(ms->ms_label, "NO NAME", 7)) {
 		char *end = ms->ms_label + sizeof(ms->ms_label) - 1;
 
 		while (*end == ' ' && end >= ms->ms_label)
 			--end;
-		if (end >= ms->ms_label)
+		if (end >= ms->ms_label) {
 			label = ms->ms_label;
-		blkid_set_tag(dev, "LABEL", label, end - ms->ms_label + 1);
+			label_len = end - ms->ms_label + 1;
+		}
 	}
 
 	/* We can't just print them as %04X, because they are unaligned */
 	sprintf(serno, "%02X%02X-%02X%02X", ms->ms_serno[3], ms->ms_serno[2],
 		ms->ms_serno[1], ms->ms_serno[0]);
 	blkid_set_tag(dev, "UUID", serno, 0);
+	blkid_set_tag(dev, "LABEL", label, label_len);
+	blkid_set_tag(dev, "SEC_TYPE", "msdos", sizeof("msdos"));
 
 	return 0;
 }
@@ -224,9 +262,9 @@ static int probe_reiserfs(int fd __BLKID_ATTR((unused)),
 	    !strcmp(id->bim_magic, "ReIsEr3Fs")) {
 		if (strlen(rs->rs_label))
 			label = rs->rs_label;
-		blkid_set_tag(dev, "LABEL", label, sizeof(rs->rs_label));
 		set_uuid(dev, rs->rs_uuid);
 	}
+	blkid_set_tag(dev, "LABEL", label, sizeof(rs->rs_label));
 
 	return 0;
 }
@@ -262,7 +300,70 @@ static int probe_romfs(int fd __BLKID_ATTR((unused)),
 
 	if (strlen((char *) ros->ros_volume))
 		label = (char *) ros->ros_volume;
-	blkid_set_tag(dev, "LABEL", label, strlen(label));
+	blkid_set_tag(dev, "LABEL", label, 0);
+	return 0;
+}
+
+static int probe_cramfs(int fd __BLKID_ATTR((unused)), 
+		       blkid_cache cache __BLKID_ATTR((unused)), 
+		       blkid_dev dev,
+		       struct blkid_magic *id __BLKID_ATTR((unused)), 
+		       unsigned char *buf)
+{
+	struct cramfs_super_block *csb;
+	const char *label = 0;
+
+	csb = (struct cramfs_super_block *)buf;
+
+	if (strlen((char *) csb->name))
+		label = (char *) csb->name;
+	blkid_set_tag(dev, "LABEL", label, 0);
+	return 0;
+}
+
+static int probe_swap0(int fd __BLKID_ATTR((unused)),
+		       blkid_cache cache __BLKID_ATTR((unused)),
+		       blkid_dev dev,
+		       struct blkid_magic *id __BLKID_ATTR((unused)),
+		       unsigned char *buf __BLKID_ATTR((unused)))
+{
+	blkid_set_tag(dev, "UUID", 0, 0);
+	blkid_set_tag(dev, "LABEL", 0, 0);
+	return 0;
+}
+
+static int probe_swap1(int fd,
+		       blkid_cache cache __BLKID_ATTR((unused)),
+		       blkid_dev dev,
+		       struct blkid_magic *id __BLKID_ATTR((unused)),
+		       unsigned char *buf __BLKID_ATTR((unused)))
+{
+	struct swap_id_block *sws;
+
+	probe_swap0(fd, cache, dev, id, buf);
+	/*
+	 * Version 1 swap headers are always located at offset of 1024
+	 * bytes, although the swap signature itself is located at the
+	 * end of the page (which may vary depending on hardware
+	 * pagesize).
+	 */
+	if (lseek(fd, 1024, SEEK_SET) < 0) return 1;
+	if (!(sws = (struct swap_id_block *)malloc(1024))) return 1;
+	if (read(fd, sws, 1024) != 1024) {
+		free(sws);
+		return 1;
+	}
+
+	/* arbitrary sanity check.. is there any garbage down there? */
+	if (sws->sws_pad[32] == 0 && sws->sws_pad[33] == 0)  {
+		if (sws->sws_volume[0])
+			blkid_set_tag(dev, "LABEL", sws->sws_volume, 
+				      sizeof(sws->sws_volume));
+		if (sws->sws_uuid[0])
+			set_uuid(dev, sws->sws_uuid);
+	}
+	free(sws);
+
 	return 0;
 }
 
@@ -312,6 +413,60 @@ static int probe_udf(int fd, blkid_cache cache __BLKID_ATTR((unused)),
 	return 1;
 }
 
+static int probe_ocfs(int fd __BLKID_ATTR((unused)), 
+		      blkid_cache cache __BLKID_ATTR((unused)), 
+		      blkid_dev dev,
+		      struct blkid_magic *id __BLKID_ATTR((unused)), 
+		      unsigned char *buf)
+{
+	struct ocfs_volume_header ovh;
+	struct ocfs_volume_label ovl;
+	__u32 major;
+
+	memcpy(&ovh, buf, sizeof(ovh));
+	memcpy(&ovl, buf+512, sizeof(ovl));
+
+	major = ocfsmajor(ovh);
+	if (major == 1)
+		blkid_set_tag(dev,"SEC_TYPE","ocfs1",sizeof("ocfs1"));
+	else if (major >= 9)
+		blkid_set_tag(dev,"SEC_TYPE","ntocfs",sizeof("ntocfs"));
+	
+	blkid_set_tag(dev, "LABEL", ovl.label, ocfslabellen(ovl));
+	blkid_set_tag(dev, "MOUNT", ovh.mount, ocfsmountlen(ovh));
+	set_uuid(dev, ovl.vol_id);
+	return 0;
+}
+
+static int probe_ocfs2(int fd __BLKID_ATTR((unused)), 
+		       blkid_cache cache __BLKID_ATTR((unused)), 
+		       blkid_dev dev,
+		       struct blkid_magic *id __BLKID_ATTR((unused)), 
+		       unsigned char *buf)
+{
+	struct ocfs2_super_block *osb;
+
+	osb = (struct ocfs2_super_block *)buf;
+
+	blkid_set_tag(dev, "LABEL", osb->s_label, sizeof(osb->s_label));
+	set_uuid(dev, osb->s_uuid);
+	return 0;
+}
+
+static int probe_oracleasm(int fd __BLKID_ATTR((unused)), 
+			   blkid_cache cache __BLKID_ATTR((unused)), 
+			   blkid_dev dev,
+			   struct blkid_magic *id __BLKID_ATTR((unused)), 
+			   unsigned char *buf)
+{
+	struct oracle_asm_disk_label *dl;
+
+	dl = (struct oracle_asm_disk_label *)buf;
+
+	blkid_set_tag(dev, "LABEL", dl->dl_id, sizeof(dl->dl_id));
+	return 0;
+}
+
 /*
  * BLKID_BLK_OFFS is at least as large as the highest bim_kboff defined
  * in the type_array table below + bim_kbalign.
@@ -328,19 +483,21 @@ static int probe_udf(int fd, blkid_cache cache __BLKID_ATTR((unused)),
  */
 static struct blkid_magic type_array[] = {
 /*  type     kboff   sboff len  magic			probe */
+  { "oracleasm", 0,	32,  8, "ORCLDISK",		probe_oracleasm },
+  { "ntfs",      0,      3,  8, "NTFS    ",             0 },
   { "jbd",	 1,   0x38,  2, "\123\357",		probe_jbd },
+  { "ext3",	 1,   0x38,  2, "\123\357",		probe_ext3 },
   { "ext2",	 1,   0x38,  2, "\123\357",		probe_ext2 },
   { "reiserfs",	 8,   0x34,  8, "ReIsErFs",		probe_reiserfs },
   { "reiserfs", 64,   0x34,  9, "ReIsEr2Fs",		probe_reiserfs },
   { "reiserfs", 64,   0x34,  9, "ReIsEr3Fs",		probe_reiserfs },
   { "reiserfs", 64,   0x34,  8, "ReIsErFs",		probe_reiserfs },
   { "reiserfs",	 8,	20,  8, "ReIsErFs",		probe_reiserfs },
-  { "ntfs",      0,      3,  8, "NTFS    ",             0 },
   { "vfat",      0,   0x52,  5, "MSWIN",                probe_vfat },
   { "vfat",      0,   0x52,  8, "FAT32   ",             probe_vfat },
-  { "msdos",     0,   0x36,  5, "MSDOS",                probe_msdos },
-  { "msdos",     0,   0x36,  8, "FAT16   ",             probe_msdos },
-  { "msdos",     0,   0x36,  8, "FAT12   ",             probe_msdos },
+  { "vfat",      0,   0x36,  5, "MSDOS",                probe_msdos },
+  { "vfat",      0,   0x36,  8, "FAT16   ",             probe_msdos },
+  { "vfat",      0,   0x36,  8, "FAT12   ",             probe_msdos },
   { "minix",     1,   0x10,  2, "\177\023",             0 },
   { "minix",     1,   0x10,  2, "\217\023",             0 },
   { "minix",	 1,   0x10,  2, "\150\044",		0 },
@@ -349,7 +506,7 @@ static struct blkid_magic type_array[] = {
   { "xfs",	 0,	 0,  4, "XFSB",			probe_xfs },
   { "romfs",	 0,	 0,  8, "-rom1fs-",		probe_romfs },
   { "bfs",	 0,	 0,  4, "\316\372\173\033",	0 },
-  { "cramfs",	 0,	 0,  4, "E=\315\034",		0 },
+  { "cramfs",	 0,	 0,  4, "E=\315\050",		probe_cramfs },
   { "qnx4",	 0,	 4,  6, "QNX4FS",		0 },
   { "udf",	32,	 1,  5, "BEA01",		probe_udf },
   { "udf",	32,	 1,  5, "BOOT2",		probe_udf },
@@ -365,12 +522,21 @@ static struct blkid_magic type_array[] = {
   { "ufs",	 8,  0x55c,  4, "T\031\001\000",	0 },
   { "hpfs",	 8,	 0,  4, "I\350\225\371",	0 },
   { "sysv",	 0,  0x3f8,  4, "\020~\030\375",	0 },
-  { "swap",	 0,  0xff6, 10, "SWAP-SPACE",		0 },
-  { "swap",	 0,  0xff6, 10, "SWAPSPACE2",		0 },
-  { "swap",	 0, 0x1ff6, 10, "SWAP-SPACE",		0 },
-  { "swap",	 0, 0x1ff6, 10, "SWAPSPACE2",		0 },
-  { "swap",	 0, 0x3ff6, 10, "SWAP-SPACE",		0 },
-  { "swap",	 0, 0x3ff6, 10, "SWAPSPACE2",		0 },
+  { "swap",	 0,  0xff6, 10, "SWAP-SPACE",		probe_swap0 },
+  { "swap",	 0,  0xff6, 10, "SWAPSPACE2",		probe_swap1 },
+  { "swap",	 0, 0x1ff6, 10, "SWAP-SPACE",		probe_swap0 },
+  { "swap",	 0, 0x1ff6, 10, "SWAPSPACE2",		probe_swap1 },
+  { "swap",	 0, 0x3ff6, 10, "SWAP-SPACE",		probe_swap0 },
+  { "swap",	 0, 0x3ff6, 10, "SWAPSPACE2",		probe_swap1 },
+  { "swap",	 0, 0x7ff6, 10, "SWAP-SPACE",		probe_swap0 },
+  { "swap",	 0, 0x7ff6, 10, "SWAPSPACE2",		probe_swap1 },
+  { "swap",	 0, 0xfff6, 10, "SWAP-SPACE",		probe_swap0 },
+  { "swap",	 0, 0xfff6, 10, "SWAPSPACE2",		probe_swap1 },
+  { "ocfs",	 0,	 8,  9,	"OracleCFS",		probe_ocfs },
+  { "ocfs2",	 1,	 0,  6,	"OCFSV2",		probe_ocfs2 },
+  { "ocfs2",	 2,	 0,  6,	"OCFSV2",		probe_ocfs2 },
+  { "ocfs2",	 4,	 0,  6,	"OCFSV2",		probe_ocfs2 },
+  { "ocfs2",	 8,	 0,  6,	"OCFSV2",		probe_ocfs2 },
   {   NULL,	 0,	 0,  0, NULL,			NULL }
 };
 
@@ -383,22 +549,25 @@ static struct blkid_magic type_array[] = {
  * If we are unable to revalidate the data, we return the old data and
  * do not set the BLKID_BID_FL_VERIFIED flag on it.
  */
-blkid_dev blkid_verify_devname(blkid_cache cache, blkid_dev dev)
+blkid_dev blkid_verify(blkid_cache cache, blkid_dev dev)
 {
 	struct blkid_magic *id;
 	unsigned char *bufs[BLKID_BLK_OFFS + 1], *buf;
 	const char *type;
 	struct stat st;
-	time_t diff;
+	time_t diff, now;
 	int fd, idx;
 
 	if (!dev)
 		return NULL;
 
-	diff = time(0) - dev->bid_time;
+	now = time(0);
+	diff = now - dev->bid_time;
 
-	if (diff < BLKID_PROBE_MIN || (dev->bid_flags & BLKID_BID_FL_VERIFIED &&
-				       diff < BLKID_PROBE_INTERVAL))
+	if ((now < dev->bid_time) ||
+	    (diff < BLKID_PROBE_MIN) || 
+	    (dev->bid_flags & BLKID_BID_FL_VERIFIED &&
+	     diff < BLKID_PROBE_INTERVAL))
 		return dev;
 
 	DBG(DEBUG_PROBE,
@@ -406,7 +575,7 @@ blkid_dev blkid_verify_devname(blkid_cache cache, blkid_dev dev)
 		   dev->bid_name, diff));
 
 	if (((fd = open(dev->bid_name, O_RDONLY)) < 0) ||
-	    (fstat(fd, &st) < 0) || !S_ISBLK(st.st_mode)) {
+	    (fstat(fd, &st) < 0)) {
 		if (errno == ENXIO || errno == ENODEV || errno == ENOENT) {
 			blkid_free_dev(dev);
 			return NULL;
@@ -496,7 +665,7 @@ found_type:
 
 		blkid_set_tag(dev, "TYPE", type, 0);
 				
-		DBG(DEBUG_PROBE, printf("%s: devno 0x%04Lx, type %s\n",
+		DBG(DEBUG_PROBE, printf("%s: devno 0x%04llx, type %s\n",
 			   dev->bid_name, st.st_rdev, type));
 	}
 

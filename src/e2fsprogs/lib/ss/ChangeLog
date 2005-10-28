@@ -1,3 +1,63 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-05-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* pager.c (ss_safe_getenv): Fix bug so it would fetch the right
+		environment variable.
+
+2005-03-31  Theodore Ts'o  <tytso@mit.edu>
+
+	* get_readline.c (ss_get_readline), pager.c (ss_page_stdin): If
+		called by a setuid/setgid or an otherwise privileged
+		program, be paranoid and ignore the PAGER and
+		SS_READLINE_PATH environment variables.
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Remove ss.pc on a "make distclean"
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* ss.pc.in: Add pkg-config files.
+
+2005-01-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Fix the kernel compile-time echo commands to be
+		consistent and portable
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output for "make
+		install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro
+		Update dependencies.
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* mk_cmds.sh.in: Remove XSI:isms for greater portability.
+		(Addresses Debian Bug #255589)
+
+2004-02-29  Brian Bergstrand  <brian@bergstrand.org>
+
+	* Makefile.in: Use $(BSDLIB_PIC_FLAG) to determine whether to use
+		-fpic or -fPIC
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

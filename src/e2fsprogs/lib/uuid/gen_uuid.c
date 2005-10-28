@@ -4,8 +4,31 @@
  * Copyright (C) 1996, 1997, 1998, 1999 Theodore Ts'o.
  *
  * %Begin-Header%
- * This file may be redistributed under the terms of the GNU 
- * Library General Public License.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, and the entire permission notice in its entirety,
+ *    including the disclaimer of warranties.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote
+ *    products derived from this software without specific prior
+ *    written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
+ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
  * %End-Header%
  */
 
@@ -42,6 +65,9 @@
 #endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
+#endif
+#ifdef HAVE_NET_IF_DL_H
+#include <net/if_dl.h>
 #endif
 
 #include "uuidP.h"
@@ -117,7 +143,10 @@ static int get_node_id(unsigned char *node_id)
 	char buf[1024];
 	int		n, i;
 	unsigned char 	*a;
-	
+#ifdef HAVE_NET_IF_DL_H
+	struct sockaddr_dl *sdlp;
+#endif
+
 /*
  * BSD 4.4 defines the size of an ifreq to be
  * max(sizeof(ifreq), sizeof(ifreq.ifr_name)+ifreq.ifr_addr.sa_len
@@ -146,7 +175,7 @@ static int get_node_id(unsigned char *node_id)
 		return -1;
 	}
 	n = ifc.ifc_len;
-	for (i = 0; i < n; i+= ifreq_size(*ifr) ) {
+	for (i = 0; i < n; i+= ifreq_size(*ifrp) ) {
 		ifrp = (struct ifreq *)((char *) ifc.ifc_buf+i);
 		strncpy(ifr.ifr_name, ifrp->ifr_name, IFNAMSIZ);
 #ifdef SIOCGIFHWADDR
@@ -159,12 +188,19 @@ static int get_node_id(unsigned char *node_id)
 			continue;
 		a = (unsigned char *) ifr.ifr_enaddr;
 #else
+#ifdef HAVE_NET_IF_DL_H
+		sdlp = (struct sockaddr_dl *) &ifrp->ifr_addr;
+		if ((sdlp->sdl_family != AF_LINK) || (sdlp->sdl_alen != 6))
+			continue;
+		a = (unsigned char *) &sdlp->sdl_data[sdlp->sdl_nlen];
+#else
 		/*
 		 * XXX we don't have a way of getting the hardware
 		 * address
 		 */
 		close(sd);
 		return 0;
+#endif /* HAVE_NET_IF_DL_H */
 #endif /* SIOCGENADDR */
 #endif /* SIOCGIFHWADDR */
 		if (!a[0] && !a[1] && !a[2] && !a[3] && !a[4] && !a[5])
@@ -183,11 +219,11 @@ static int get_node_id(unsigned char *node_id)
 /* Assume that the gettimeofday() has microsecond granularity */
 #define MAX_ADJUSTMENT 10
 
-static int get_clock(__u32 *clock_high, __u32 *clock_low, __u16 *ret_clock_seq)
+static int get_clock(uint32_t *clock_high, uint32_t *clock_low, uint16_t *ret_clock_seq)
 {
 	static int			adjustment = 0;
 	static struct timeval		last = {0, 0};
-	static __u16			clock_seq;
+	static uint16_t			clock_seq;
 	struct timeval 			tv;
 	unsigned long long		clock_reg;
 	
@@ -195,14 +231,14 @@ try_again:
 	gettimeofday(&tv, 0);
 	if ((last.tv_sec == 0) && (last.tv_usec == 0)) {
 		get_random_bytes(&clock_seq, sizeof(clock_seq));
-		clock_seq &= 0x1FFF;
+		clock_seq &= 0x3FFF;
 		last = tv;
 		last.tv_sec--;
 	}
 	if ((tv.tv_sec < last.tv_sec) ||
 	    ((tv.tv_sec == last.tv_sec) &&
 	     (tv.tv_usec < last.tv_usec))) {
-		clock_seq = (clock_seq+1) & 0x1FFF;
+		clock_seq = (clock_seq+1) & 0x3FFF;
 		adjustment = 0;
 		last = tv;
 	} else if ((tv.tv_sec == last.tv_sec) &&
@@ -230,7 +266,7 @@ void uuid_generate_time(uuid_t out)
 	static unsigned char node_id[6];
 	static int has_init = 0;
 	struct uuid uu;
-	__u32	clock_mid;
+	uint32_t	clock_mid;
 
 	if (!has_init) {
 		if (get_node_id(node_id) <= 0) {
@@ -246,8 +282,8 @@ void uuid_generate_time(uuid_t out)
 	}
 	get_clock(&clock_mid, &uu.time_low, &uu.clock_seq);
 	uu.clock_seq |= 0x8000;
-	uu.time_mid = (__u16) clock_mid;
-	uu.time_hi_and_version = (clock_mid >> 16) | 0x1000;
+	uu.time_mid = (uint16_t) clock_mid;
+	uu.time_hi_and_version = ((clock_mid >> 16) & 0x0FFF) | 0x1000;
 	memcpy(uu.node, node_id, 6);
 	uuid_pack(&uu, out);
 }

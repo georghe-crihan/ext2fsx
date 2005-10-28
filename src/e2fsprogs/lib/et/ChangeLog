@@ -1,3 +1,61 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-06-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* error_message.c, init_et.c: Segregate error tables registered
+		via add_error_table() and the other dynamic methods from
+		the ones allocated via initialize_xxx_error_table() so
+		that we won't fail even for error tables created using old
+		versions of compile_et.  Thanks to Nalin Dahyabhai for
+		this suggested patch.
+
+	* et_c.awk: Use a dynamically allocated structure in
+		initialize_xxx_error_table(), to prevent segfaults if an
+		old library calls initialize_xxx_error_table, and another
+		library/application calls add_error_table() on the same
+		error table, and then calls remove_error_table().
+		(Addresses Sourcefroge Bug #1150146)
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Remove com_err.pc on a "make distclean"
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* com_err.pc.in: Add pkg-config files.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output for "make
+		install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* compile_et.sh.in: Remove XSI:isms for greater portability.
+		(Addresses Debian Bug #255589)
+
+2004-02-29  Brian Bergstrand  <brian@bergstrand.org>
+
+	* Makefile.in: Use $(BSDLIB_PIC_FLAG) to determine whether to use
+		-fpic or -fPIC
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

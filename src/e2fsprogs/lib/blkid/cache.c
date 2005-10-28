@@ -10,11 +10,67 @@
  * %End-Header%
  */
 
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#else
+#define PR_GET_DUMPABLE 3
+#endif
+#if (!defined(HAVE_PRCTL) && defined(linux))
+#include <sys/syscall.h>
+#endif
 #include "blkidP.h"
 
 int blkid_debug_mask = 0;
+
+
+static char *safe_getenv(const char *arg)
+{
+	if ((getuid() != geteuid()) || (getgid() != getegid()))
+		return NULL;
+#if HAVE_PRCTL
+	if (prctl(PR_GET_DUMPABLE) == 0)
+		return NULL;
+#else
+#if (defined(linux) && defined(SYS_prctl))
+	if (syscall(SYS_prctl, PR_GET_DUMPABLE) == 0)
+		return NULL;
+#endif
+#endif
+
+#ifdef HAVE___SECURE_GETENV
+	return __secure_getenv(arg);
+#else
+	return getenv(arg);
+#endif
+}
+
+#if 0 /* ifdef CONFIG_BLKID_DEBUG */
+static blkid_debug_dump_cache(int mask, blkid_cache cache)
+{
+	struct list_head *p;
+
+	if (!cache) {
+		printf("cache: NULL\n");
+		return;
+	}
+
+	printf("cache: time = %lu\n", cache->bic_time);
+	printf("cache: flags = 0x%08X\n", cache->bic_flags);
+
+	list_for_each(p, &cache->bic_devs) {
+		blkid_dev dev = list_entry(p, struct blkid_struct_dev, bid_devs);
+		blkid_debug_dump_dev(dev);
+	}
+}
+#endif
 
 int blkid_get_cache(blkid_cache *ret_cache, const char *filename)
 {
@@ -39,7 +95,11 @@ int blkid_get_cache(blkid_cache *ret_cache, const char *filename)
 	INIT_LIST_HEAD(&cache->bic_devs);
 	INIT_LIST_HEAD(&cache->bic_tags);
 
-	if (!filename || !strlen(filename))
+	if (filename && !strlen(filename))
+		filename = 0;
+	if (!filename) 
+		filename = safe_getenv("BLKID_FILE");
+	if (!filename)
 		filename = BLKID_CACHE_FILE;
 	cache->bic_filename = blkid_strdup(filename);
 	
@@ -58,7 +118,7 @@ void blkid_put_cache(blkid_cache cache)
 
 	DBG(DEBUG_CACHE, printf("freeing cache struct\n"));
 	
-	/* DEB_DUMP_CACHE(cache); */
+	/* DBG(DEBUG_CACHE, blkid_debug_dump_cache(cache)); */
 
 	while (!list_empty(&cache->bic_devs)) {
 		blkid_dev dev = list_entry(cache->bic_devs.next,

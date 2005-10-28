@@ -10,27 +10,28 @@
 blkid \- command\-line utility to locate/print block device attributes
 .SH SYNOPSIS
 .B blkid 
-]...
 [
-.B \-h
+.B \-hlv
 ]
 [
 [
 .B \-c
 .I cachefile
 ]
-.B \-s
-.I savecachefile
+.B \-w
+.I writecachefile
 ]
 [
-.B \-p
+.B \-o
+.I format
+]
+[
+.B \-s
+.I tag
 ]
 [
 .B \-t
-.I token
-]...
-[
-.B \-v
+.IR NAME = value
 ]
 [
 .I device ...
@@ -51,7 +52,6 @@ more devices.
 .SH OPTIONS
 .TP
 .B \-c
-.I <cachefile>
 Read from
 .I cachefile
 instead of reading from the default cache file
@@ -63,21 +63,52 @@ scanned but not necessarily available at this time), specify
 .B \-h
 Display a usage message and exit.
 .TP
-.B \-p
-Probe all available devices.  This is the default when displaying
-tokens.  When searching for a token normally the cache file is
-used to locate the device and only that device is probed (to ensure
-cache coherency) and all devices are probed only if the token cannot
-be found in the cache.
+.B \-l
+Look up the device that matches the search parameter specified using
+the 
+.B \-t
+option, assuming that there is only one matching the search parameter.  
+For a system with a large number of disks, this will be more 
+efficient by avoiding the need to revalidate devices unless absolutely 
+necessary.  If this option is not specified, 
+.B blkid
+will use a less efficient approach, which allows 
+.B blkid
+to print all of the devices that match the search parameter.
+.IP
+This option is best used for tag searches such as 
+.I LABEL=data_vol
+or
+.IR UUID=e280469a-d06f-4c0b-b068-44f3b576029e .
+If you want 
+.B blkid
+to print all of the ext3 filesystems using a search parameter 
+such as
+.IR TYPE=ext3 ,
+then this option should 
+.I not
+be used.
+.TP
+.B \-o 
+Display 
+.BR blkid 's
+output using the specified format.  The
+.I format
+parameter may be 
+.IR full ,
+(the default), 
+.IR  value ,
+(only print the value of any tags printed by 
+.BR blkid)
+or 
+.I device
+(only print the device name).
 .TP
 .B \-s
-.I tag
-.I tag
-is of the form
-.I NAME
-and the resulting token is shown for each (specified) device that has
-such a tag.  It is possible to specify multiple
-.I tag
+Show only the tags for each (specified) device that match
+.IR tag .
+It is possible to specify multiple
+.B \-s 
 options.  If no tag is specified, then all tokens are shown for all
 (specified) devices.
 In order to just refresh the cache without showing any tokens use
@@ -85,26 +116,23 @@ In order to just refresh the cache without showing any tokens use
 with no other options.
 .TP
 .B \-t
-.I token
-.I token
-is of the form
-.IB NAME = value
-and that specific token is searched for in the cache or among all visible
-block devices and additionally any specified devices.  If that token is
-not found, no output is shown.  Common values for
+Search for block devices with tokens named
+.I NAME
+that have the value 
+.IR value ,
+and display any devices which are found.
+Common values for
 .I NAME
 include
 .BR TYPE ,
 .BR LABEL ,
 and
 .BR UUID .
+If there are no devices specified on the command line, all block devices 
+will be searched; otherwise, only search the devices specified by the user.
 .TP
 .B \-v
 Display version number and exit.
-.SH RETURN VALUE
-The UUID of the form 1b4e28ba-2fa1-11d2-883f-b9a761bde3fb (in
-.BR printf (3)
-format "%08x-%04x-%04x-%04x-%012x") is output to the standard output.
 .TP
 .B \-w
 .I <writecachefile>
@@ -115,7 +143,7 @@ instead of writing it to the default cache file
 If you don't want to save the cache to the default file, specify
 .IR /dev/null.
 If not specified it will be the same file as that given by the
-.B -c
+.B \-c
 option.
 .TP
 .I <device>
@@ -129,8 +157,8 @@ are shown, if they are recognized.
 .SH "RETURN CODE"
 If the specified token was found, or if any tags were shown from (specified)
 devices 0 is returned.  If the specified token was not found, or no
-(specified) devices could be identified return 2.  For usage or other errors
-return 4.
+(specified) devices could be identified, an exit code of 2 is returned.  
+For usage or other errors, an exit code of 4 is returned.
 .SH AUTHOR
 .B blkid
 was written by Andreas Dilger for libblkid.

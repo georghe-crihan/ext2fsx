@@ -19,6 +19,9 @@ extern char *optarg;
 extern int optind;
 #endif
 
+#define OUTPUT_VALUE_ONLY	0x0001
+#define OUTPUT_DEVICE_ONLY	0x0002
+
 #include "blkid/blkid.h"
 
 const char *progname = "blkid";
@@ -34,12 +37,13 @@ static void usage(int error)
 
 	print_version(out);
 	fprintf(out,
-		"usage:\t%s [-c <file>] [-h] "
-		"[-p] [-s <tag>] [-t <token>] [-v] [-w <file>] [dev ...]\n"
+		"usage:\t%s [-c <file>] [-hl] [-o format] "
+		"[-s <tag>] [-t <token>]\n    [-v] [-w <file>] [dev ...]\n"
 		"\t-c\tcache file (default: /etc/blkid.tab, /dev/null = none)\n"
 		"\t-h\tprint this usage message and exit\n"
 		"\t-s\tshow specified tag(s) (default show all tags)\n"
 		"\t-t\tfind device with a specific token (NAME=value pair)\n"
+		"\t-l\tlookup the the first device with arguments specified by -t\n"
 		"\t-v\tprint version and exit\n"
 		"\t-w\twrite cache to different file (/dev/null = no write)\n"
 		"\tdev\tspecify device(s) to probe (default: all devices)\n",
@@ -47,7 +51,7 @@ static void usage(int error)
 	exit(error);
 }
 
-static void print_tags(blkid_dev dev, char *show[], int numtag)
+static void print_tags(blkid_dev dev, char *show[], int numtag, int output)
 {
 	blkid_tag_iterate	iter;
 	const char		*type, *value;
@@ -55,6 +59,11 @@ static void print_tags(blkid_dev dev, char *show[], int numtag)
 
 	if (!dev)
 		return;
+
+	if (output & OUTPUT_DEVICE_ONLY) {
+		printf("%s\n", blkid_dev_devname(dev));
+		return;
+	}
 
 	iter = blkid_tag_iterate_begin(dev);
 	while (blkid_tag_next(iter, &type, &value) == 0) {
@@ -65,15 +74,18 @@ static void print_tags(blkid_dev dev, char *show[], int numtag)
 			if (i >= numtag)
 				continue;
 		}
-		if (first) {
+		if (first && !(output & OUTPUT_VALUE_ONLY)) {
 			printf("%s: ", blkid_dev_devname(dev));
 			first = 0;
 		}
-		printf("%s=\"%s\" ", type, value);
+		if ((output & OUTPUT_VALUE_ONLY))
+			printf("%s\n", value);
+		else
+			printf("%s=\"%s\" ", type, value);
 	}
 	blkid_tag_iterate_end(iter);
 
-	if (!first)
+	if (!first && !(output & OUTPUT_VALUE_ONLY))
 		printf("\n");
 }
 
@@ -89,9 +101,11 @@ int main(int argc, char **argv)
 	int version = 0;
 	int err = 4;
 	unsigned int i;
-	char c;
+	int output_format = 0;
+	int lookup = 0;
+	int c;
 
-	while ((c = getopt (argc, argv, "c:f:hps:t:w:v")) != EOF)
+	while ((c = getopt (argc, argv, "c:f:hlo:s:t:w:v")) != EOF)
 		switch (c) {
 		case 'c':
 			if (optarg && !*optarg)
@@ -100,6 +114,21 @@ int main(int argc, char **argv)
 				read = optarg;
 			if (!write)
 				write = read;
+			break;
+		case 'l':
+			lookup++;
+			break;
+		case 'o':
+			if (!strcmp(optarg, "value"))
+				output_format = OUTPUT_VALUE_ONLY;
+			else if (!strcmp(optarg, "device"))
+				output_format = OUTPUT_DEVICE_ONLY;
+			else if (!strcmp(optarg, "full"))
+				output_format = 0;
+			else {
+				fprintf(stderr, "Invalid output format %s.  Chose from value, device, or full\n", optarg);
+				exit(1);
+			}
 			break;
 		case 's':
 			if (numtag >= sizeof(show) / sizeof(*show)) {
@@ -148,17 +177,21 @@ int main(int argc, char **argv)
 		goto exit;
 
 	err = 2;
-	/* If looking for a specific NAME=value pair, print only that */
-	if (search_type) {
+	if (lookup) {
 		blkid_dev dev;
 
+		if (!search_type) {
+			fprintf(stderr, "The lookup option requires a "
+				"search type specified using -t\n");
+			exit(1);
+		}
 		/* Load any additional devices not in the cache */
 		for (i = 0; i < numdev; i++)
 			blkid_get_dev(cache, devices[i], BLKID_DEV_NORMAL);
 
 		if ((dev = blkid_find_dev_with_tag(cache, search_type,
 						   search_value))) {
-			print_tags(dev, show, numtag);
+			print_tags(dev, show, numtag, output_format);
 			err = 0;
 		}
 	/* If we didn't specify a single device, show all available devices */
@@ -169,8 +202,12 @@ int main(int argc, char **argv)
 		blkid_probe_all(cache);
 
 		iter = blkid_dev_iterate_begin(cache);
+		blkid_dev_set_search(iter, search_type, search_value);
 		while (blkid_dev_next(iter, &dev) == 0) {
-			print_tags(dev, show, numtag);
+			dev = blkid_verify(cache, dev);
+			if (!dev)
+				continue;
+			print_tags(dev, show, numtag, output_format);
 			err = 0;
 		}
 		blkid_dev_iterate_end(iter);
@@ -180,7 +217,11 @@ int main(int argc, char **argv)
 						  BLKID_DEV_NORMAL);
 
 		if (dev) {
-			print_tags(dev, show, numtag);
+			if (search_type && 
+			    !blkid_dev_has_tag(dev, search_type, 
+					       search_value))
+				continue;
+			print_tags(dev, show, numtag, output_format);
 			err = 0;
 		}
 	}

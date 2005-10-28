@@ -175,6 +175,15 @@ struct problem_context {
 /* Backup journal inode blocks */
 #define PR_0_BACKUP_JNL				0x00002D
 
+/* Reserved blocks w/o resize_inode */
+#define PR_0_NONZERO_RESERVED_GDT_BLOCKS	0x00002E
+
+/* Resize_inode not enabled, but resize inode is non-zero */
+#define PR_0_CLEAR_RESIZE_INODE			0x00002F
+
+/* Resize inode invalid */
+#define PR_0_RESIZE_INODE_INVALID		0x000030
+
 /*
  * Pass 1 errors
  */
@@ -410,6 +419,27 @@ struct problem_context {
 /* Bad block has indirect block that conflicts with filesystem block */
 #define PR_1_BB_FS_BLOCK		0x01004D
 
+/* Resize inode failed */
+#define PR_1_RESIZE_INODE_CREATE	0x01004E
+
+/* inode->i_size is too long */	
+#define PR_1_EXTRA_ISIZE		0x01004F
+
+/* attribute name is too long */
+#define PR_1_ATTR_NAME_LEN		0x010050
+
+/* wrong EA value offset */
+#define PR_1_ATTR_VALUE_OFFSET		0x010051
+
+/* wrong EA blocknumber */
+#define PR_1_ATTR_VALUE_BLOCK		0x010052
+
+/* wrong EA value size */
+#define PR_1_ATTR_VALUE_SIZE		0x010053
+
+/* wrong EA hash value */
+#define PR_1_ATTR_HASH			0x010054
+
 /*
  * Pass 1b errors
  */
@@ -628,7 +658,7 @@ struct problem_context {
 #define PR_2_HTREE_CLEAR	0x020038
 
 /* Clear the htree flag forcibly */
-#define PR_2_HTREE_FCLR		0x020039
+/* #define PR_2_HTREE_FCLR	0x020039 */
 
 /* Bad block in htree interior node */
 #define PR_2_HTREE_BADBLK	0x02003A

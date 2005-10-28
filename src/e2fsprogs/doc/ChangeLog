@@ -1,3 +1,36 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-01-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Fix the kernel compile-time echo commands to be
+		consistent and portable
+
+2005-01-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* libblkid.txt: Fix minor typo's --- thanks to Mike Castle
+		(dalgoda at ix.netcom.com) for pointing them out --- and
+		clarify the text describing blkid_put_cache().
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (install-doc-libs): Use $(MKINSTALLDIRS) macro
+		Use Linux-kernel-style makefile output for "make install"
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

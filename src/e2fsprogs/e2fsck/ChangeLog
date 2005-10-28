@@ -1,3 +1,276 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-06-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (usage, parse_extended_opts): Clean up messages printed
+		by e2fsck for grammar and consistency.
+
+2005-06-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.8.in: Make it clear that the -c, -l, and -L options are
+		never safe to use on a mounted filesystem, and in general,
+		running e2fsck on mounted filesystems is a bad idea.
+
+2005-06-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* message.c: Add @m (multiply-claimed) and @n (invalid)
+		expansions.
+
+	* problem.c: Clean up the problem messages displayed by e2fsck,
+		mostly based on	suggestions from Benno Schulenberg.
+
+2005-06-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.8.in: Add a request to the REPORTING BUGS section of the
+		man page to make sure that e2fsck's messages are printed
+		in English, and to send a raw e2image filesystem dump if
+		possible.
+
+2005-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* badblocks.c (check_bb_inode_blocks): Clean up warning printf.
+		Thanks to Benno Schulenberg for the patch.  (Addresses
+		Sourceforge Bug: #1189803)
+
+2005-04-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.8.in: Fix spelling mistakes in man pages.  (Addresses
+		Debian Bugs: #304593)
+
+2005-04-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass1b.c (pass1d): Don't offer to clone or delete the resize
+		inode; it's not allowed!
+
+	* e2fsck.c, e2fsck.h, journal.c, pass1.c, pass1b.c, pass2.c,
+		pass3.c, pass4.c, super.c, unix.c: Use a centrally stored
+		current time for "now" which can be overridden using the
+		E2FSCK_TIME environment variable, for better
+		reproducibility for regression tests.
+
+2005-04-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass1.c (e2fsck_pass1): If the superblock last mount time (not
+		just the last write time) looks insane, then assume that
+		we can't do the LOW_DTIME checks.
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* message.c, pass1.c, problem.c, problem.h, util.c: Integrate code
+		from Alex Thomas at Clusterfs to check extended attributes
+		stored in inodes.
+
+	* message.c (expand_inode_expression): Add support for %IS in
+		problem descriptions.  Note that this only works if the
+		problem context has a pointer to a large inode!
+
+	* problem.h, problem.c (PR_1_EXTRA_ISIZE, PR_1_ATTR_NAME_LEN,
+		PR_1_ATTR_VALUE_OFFSET, PR_1_ATTR_VALUE_BLOCK,
+		PR_1_ATTR_VALUE_SIZE, PR_1_ATTR_HASH): Add new problem
+		codes.
+
+	* util.c (e2fsck_write_inode_full): New function.
+
+	* pass1.c (check_ea_in_inode, check_inode_extra_space): New
+		function which tests the validity of extended attributes
+		stored in a large inode.
+		(e2fsck_pass1): Call ext2fs_get_next_inode_full() instead
+		of get_next_inode(), and use an allocated inode which is
+		big enough to store extra portion of large inodes.
+
+2005-03-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* super.c (check_super_block): Add sanity checks for the
+		superblock's inode_size field.
+
+	* pass3.c (check_root, e2fsck_get_lost_and_found): Call
+		ext2fs_write_new_inode() instead of ext2fs_write_inode().
+
+	* pass1.c (check_blocks): Move counting the extended attribute
+		block earlier so that we don't have to worry about
+		num_blocks wrapping for files which are too big.
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass2.c (e2fsck_pass2), problem.c (PR_2_HTREE_FCLR), problem.h
+		(PR_2_HTREE_FCLR): Remove support for
+		--enable-clear-htree; this was only needed during the
+		early development of the htree patch.
+
+2005-01-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass2.c (e2fsck_process_bad_inode): Fix a corner case involving
+		big-endian systems, long symlinks and i_file_acl set when
+		it shouldn't be.  Without this bugfix, f_clear_xattr will
+		fail on big-endian machines.
+
+	* super.c (check_resize_inode): Deal with the case where the
+		resize inode can't be read; don't try to recreate the
+		resize inode unless the resize feature is actually
+		enabled.
+
+2005-01-27  Theodore Ts'o  <tytso@mit.edu>
+
+	* super.c (check_resize_inode): If the resize inode has a zero
+		i_links_count or isn't a regular file, consider the resize
+		inode as invalid, and offer to recreate it.
+
+	* pass2.c (e2fsck_process_bad_inode): Offer to clear i_file_acl
+		before checking to see if an invalid inode should be
+		removed, since otherwise the fast symlink detection code
+		can get confused.  Also clear the inode's entry in
+		inode_bad_map if the inode has been completely fixed.
+		(Addresses Red Hat Bugzilla #146284)
+
+2005-01-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (main, check_if_skip): Set the valid flag earlier, and if
+		it is cleared by the superblock tests, then assume that
+		the filesystem contains errors and must be checked.
+
+	* super.c (check_super_block): Check the individual block group
+		inode and block free counts, as well as the filesystem
+		inode and block free counts.  If any of the block/inode
+		free counts is too large, force a full filesystem check.
+		(Addresses Debian Bug: #291571)
+
+2005-01-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (e2fsck_simple_progress): Use fixed integer math
+		to check to see if we're at 0 or 100%
+		(is_on_batt): Clean up gcc -Wall warning
+		(main): Remove dead code
+
+2005-01-13  Matthias Andree  <matthias.andree@gmx.de>
+
+	* unix.c: Do not call closedir if the handle is zero, to avoid
+		crashes when the /proc/acpi/ac_adapter directory is
+		missing, for instance on non-ACPI or non-Linux systems.
+
+2005-01-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass1b.c: As part of converting configure.in from using the
+		"broken by design" 2.13 version of AC_CHECK_TYPE to
+		AC_CHECK_TYPES, if intptr_t isn't defined, manually
+		typedef it to long.  (Addresses Debian Bug #289133)
+
+2005-01-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* super.c (check_resize_inode): Use ext2fs_{read,write}_ind_block
+		so that byte swapping is handled on big-endian systems.
+		(check_super_block): Allow the number of reserved blocks
+		to be 50% of the number of blocks available, in order to
+		be consistent to what is allowed by tune2fs.
+
+2004-12-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass1.c (e2fsck_pass1): At the end of the pass 1 processing, if
+		we have been signalled to do so, recreate the resize inode.
+
+	* super.c (check_resize_inode): New function which checks to make
+		sure the resize inode is valid.  It is called by
+		check_super_block().  If it is invalid, it will signal to
+		pass1.c that the resize inode needs to recreate.
+
+	* e2fsck.h (E2F_FLAG_RESIZE_INODE): New flag
+
+	* problem.c, problem.h (PR_0_RESIZE_INODE_INVALID,
+		PR_1_RESIZE_INODE_CREATE): Add new problem codes.
+
+2004-12-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* swapfs.c (swap_inodes): Since swap_inodes bypasses the inode
+		cache for speed reasons, we must flush it to avoid cache
+		coherency problems.
+
+2004-12-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* super.c (check_super_block): If the resize_inode feature is not
+		set, check to make sure that s_reserved_gdt_blocks is
+		zero, and that the resize inode is clear.
+
+	* problem.h (PR_0_NONZERO_RESERVED_GDT_BLOCKS,
+		PR_0_CLEAR_RESIZE_INODE): Add new problem codes.
+
+2004-12-15  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass1.c (process_block): Applied resize inode patch.  Mark the
+		DIND block of the resize inode as being in use.
+	
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Move strip command to install-strip target.
+		Use Linux-kernel-style makefile output for "make install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro.
+		Remove sync in the "all" target.
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* message.c (expand_inode_expression): If the TZ environment
+		variable is set to GMT, use gmtime() instead of
+		localtime() or ctime() to force the use of GMT.  This is
+		because the dietlibc doesn't honor the TZ environment
+		variable.
+	
+	* e2fsck.h: Add io_options to e2fsck_struct
+
+	* unix.c: If there is a question mark in the device name, separate
+		out the options to the IO layer, and pass it on to
+		ext2fs_open2().
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-10-04  Richard Mortimer  <richm@oldelvet.org.uk>
+
+        * journal.c (e2fsck_check_ext3_journal): Attempt recovery of the
+		filesystem if the journal contains illegal block numbers.
+
+2004-07-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* pass1.c (process_block): Change the limit of directory size from
+		32 MB to 2GB.
+
+2004-05-11  Theodore Ts'o  <tytso@mit.edu>
+
+	* journal.c (sync_blockdev): Flush I/O caches to preserve ordering
+		constraints required by the journal recovery code.  Thanks
+		to Junfeng Yang from the Stanford Metacompilation group
+		for pointing this out.
+
+	* jfs_user.h: Define sync_blockdev() as an emulated function,
+		instead just being a no-op.
+
+2004-05-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (check_if_skip): If the checkinterval is zero, then
+		disregard it when calculating when the next check will
+		take place.
+
+2004-04-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (is_on_batt): Be more flexible about the name of the ACPI
+		device that corresponds to the AC adapter.  (Addresses
+		Debian bug #242136)
+
+2004-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Update the modtime even if subst doesn't need to
+		update the e2fsck man page, to avoid always re-running
+		subst, especially since there are no dependencies on the
+		man page.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

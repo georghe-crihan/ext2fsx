@@ -45,6 +45,8 @@ extern int debugfs_read_inode(ext2_ino_t ino, struct ext2_inode * inode,
 			      const char *cmd);
 extern int debugfs_write_inode(ext2_ino_t ino, struct ext2_inode * inode,
 			       const char *cmd);
+extern int debugfs_write_new_inode(ext2_ino_t ino, struct ext2_inode * inode,
+				   const char *cmd);
 
 /* ss command functions */
 
@@ -70,8 +72,9 @@ extern void do_icheck(int argc, char **argv);
 /* ncheck.c */
 extern void do_ncheck(int argc, char **argv);
 
-/* set_super.c */
+/* set_fields.c */
 extern void do_set_super(int argc, char **);
+extern void do_set_inode(int argc, char **);
 
 /* unused.c */
 extern void do_dump_unused(int argc, char **argv);

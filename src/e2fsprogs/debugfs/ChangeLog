@@ -1,3 +1,136 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-05-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c (do_stat): Check to make sure a filesystem is open
+		and abort if with an error if not, to prevent a seg fault
+		in that case.
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c (internal_dump_inode_extra): Print the size of
+		the inode's extra fields.
+
+2005-03-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* util.c (debugfs_write_new_inode): New function
+
+	* debgufs.c (do_write, do_mknod): Call ext2fs_write_new_inode()
+		instead of ext2fs_write_inode().
+
+	* debugfs.c (do_stat): Add support for dumping extended attributes
+		which are stored in the inode body.
+
+	* util.c (debugfs_read_inode_full): new function
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* set_fields.c: Define _XOPEN_SOURCE to be 500 to fix compilation
+		problems on Solaris.
+
+2005-01-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* set_fields.c: Add support for the jnl_blocks[] for set_super_value
+
+2005-01-19  Matthias Andree <matthias.andree@gmx.de>
+
+	* set_fields.c: Add _XOPEN_SOURCE #define on all but Solaris
+		systems so that strptime() gets defined.
+		(parse_bmap): Add missing return statement.
+
+2005-01-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* debug_cmds.ct: Make the official name of set_inode be
+		set_inode_field, since it is more intuitive.
+
+	* set_fields.c (print_possible_fields): Document bmap[] in
+		"set_inode_field -l" listing.  Change name of set_inode to
+		set_inode_field in usage message.
+
+2004-12-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* set_fields.c: Add support for array indexes, which we use for
+		the i_block[] array.  Also add the pseudo inode field
+		bmap, which can be used for setting logical->physical
+		mappings directly.
+
+2004-12-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* setfields.c: Renamed from setsuper.c
+		Added support to set date/time fields.
+		Added support for setting superblock values wtime, mtime,
+			lastcheck, and mkfs_time as date/time fields.
+		Added support for the set_inode command.
+	* debugfs.h, debug_cmds.ct, debugfs.8.in: Added set_inode command
+
+2004-12-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* setsuper.c: Add definitions for newer superblock fields:
+		reserved_gdt_blocks, jnl_backup_type, default_mount_opts,
+		first_meta_bg, and mkfs_time.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Move strip command to install-strip target.
+		Use Linux-kernel-style makefile output for "make install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* util.c (time_to_string): If the TZ environment variable is set
+		to GMT, use gmtime() instead of localtime() or ctime() to
+		force the use of GMT.  This is because the dietlibc
+		doesn't honor the TZ environment variable.
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-11-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c (do_open_filesys): Fix obvious uninitialized variable
+		buglet.
+
+2004-11-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c (kill_file_by_inode): Only iterate over the inode to
+		release blocks if the inode has them; otherwise attempting
+		to rm devices and fast symlinks will lead to errors.
+		(Addresses Sourceforge Bug #954741 and #957244)
+
+2004-07-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c, debugfs.8.in: Add new option -d which allows the
+		system administrator to specify data source of a
+		filesystem being opened via an e2image file.
+
+2004-04-11  Theodore Ts'o  <tytso@mit.edu>
+
+	* util.c (open_pager): Use DEBUGFS_PAGER in preference to PAGER
+		(Addresses Debian Bug #239547)
+
+2004-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Update the modtime even if subst doesn't need to
+		update the debugfs man page, to avoid always re-running
+		subst, especially since there are no dependencies on the
+		man page.
+
+2004-03-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c (make_link): Set the filetype information when
+		creating a link.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35
