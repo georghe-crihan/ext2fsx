@@ -23,29 +23,36 @@
 #include <errno.h>
 #endif
 #include <fcntl.h>
-#ifdef HAVE_LINUX_FD_H
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
+#endif
+#ifdef HAVE_LINUX_FD_H
 #include <linux/fd.h>
 #endif
 #ifdef HAVE_SYS_DISKLABEL_H
-#include <sys/param.h> /* for __FreeBSD_version */
-#include <sys/ioctl.h>
 #include <sys/disklabel.h>
-#endif /* HAVE_SYS_DISKLABEL_H */
+#endif
 #ifdef HAVE_SYS_DISK_H
+#ifdef HAVE_SYS_QUEUE_H
 #include <sys/queue.h> /* for LIST_HEAD */
+#endif
 #include <sys/disk.h>
-#endif /* HAVE_SYS_DISK_H */
+#endif
+#ifdef __linux__
+#include <sys/utsname.h>
+#endif
 
 #if defined(__linux__) && defined(_IO) && !defined(BLKGETSIZE)
 #define BLKGETSIZE _IO(0x12,96)	/* return device size */
 #endif
 
-#ifdef APPLE_DARWIN
-#include <sys/ioctl.h>
-#include <sys/disk.h>
+#if defined(__linux__) && defined(_IOR) && !defined(BLKGETSIZE64)
+#define BLKGETSIZE64 _IOR(0x12,114,size_t)	/* return device size in bytes (u64 *arg) */
+#endif
 
-#define BLKGETSIZE64 DKIOCGETBLOCKCOUNT
+/* Not availble in Darwin 8 (10.4) */
+#if defined(APPLE_DARWIN) && defined(DKIOCGETBLOCKCOUNT32)
+#define BLKGETSIZE DKIOCGETBLOCKCOUNT32
 #endif /* APPLE_DARWIN */
 
 #include "ext2_fs.h"
@@ -55,6 +62,10 @@
 #include "windows.h"
 #include "winioctl.h"
 
+#if (_WIN32_WINNT >= 0x0500)
+#define HAVE_GET_FILE_SIZE_EX 1
+#endif
+
 errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 				 blk_t *retblocks)
 {
@@ -62,7 +73,11 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 	PARTITION_INFORMATION pi;
 	DISK_GEOMETRY gi;
 	DWORD retbytes;
+#ifdef HAVE_GET_FILE_SIZE_EX
 	LARGE_INTEGER filesize;
+#else
+	DWORD filesize;
+#endif /* HAVE_GET_FILE_SIZE_EX */
 
 	dev = CreateFile(file, GENERIC_READ, 
 			 FILE_SHARE_READ | FILE_SHARE_WRITE ,
@@ -87,9 +102,18 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 			     gi.TracksPerCylinder *
 			     gi.Cylinders.QuadPart / blocksize;
 
+#ifdef HAVE_GET_FILE_SIZE_EX
 	} else if (GetFileSizeEx(dev, &filesize)) {
 		*retblocks = filesize.QuadPart / blocksize;
 	}
+#else
+	} else {
+		filesize = GetFileSize(dev, NULL);
+		if (INVALID_FILE_SIZE != filesize) {
+			*retblocks = filesize / blocksize;
+		}
+	}
+#endif /* HAVE_GET_FILE_SIZE_EX */
 
 	CloseHandle(dev);
 	return 0;
@@ -115,11 +139,12 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 				 blk_t *retblocks)
 {
 	int	fd;
-#ifdef BLKGETSIZE64
-   unsigned long long size;
-#elif defined(BLKGETSIZE)
-	unsigned long	size;
+	int valid_blkgetsize64 = 1;
+#ifdef __linux__
+	struct 		utsname ut;
 #endif
+	unsigned long long size64;
+	unsigned long	size;
 	ext2_loff_t high, low;
 #ifdef FDGETPRM
 	struct floppy_struct this_floppy;
@@ -139,20 +164,43 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 	if (fd < 0)
 		return errno;
 
-#if defined(BLKGETSIZE) || defined(BLKGETSIZE64)
+#ifdef DKIOCGETBLOCKCOUNT	/* For Apple Darwin */
+	if (ioctl(fd, DKIOCGETBLOCKCOUNT, &size64) >= 0) {
+		if ((sizeof(*retblocks) < sizeof(unsigned long long))
+		    && ((size64 / (blocksize / 512)) > 0xFFFFFFFF))
+			return EFBIG;
+		close(fd);
+		*retblocks = size64 / (blocksize / 512);
+		return 0;
+	}
+#endif
+
+#ifdef BLKGETSIZE64
+#ifdef __linux__
+	if ((uname(&ut) == 0) &&
+	    ((ut.release[0] == '2') && (ut.release[1] == '.') &&
+	     (ut.release[2] < '6') && (ut.release[3] == '.')))
+		valid_blkgetsize64 = 0;
+#endif
+	if (valid_blkgetsize64 &&
+	    ioctl(fd, BLKGETSIZE64, &size64) >= 0) {
+		if ((sizeof(*retblocks) < sizeof(unsigned long long))
+		    && ((size64 / blocksize) > 0xFFFFFFFF))
+			return EFBIG;
+		close(fd);
+		*retblocks = size64 / blocksize;
+		return 0;
+	}
+#endif
+
 #ifdef BLKGETSIZE
 	if (ioctl(fd, BLKGETSIZE, &size) >= 0) {
-#elif defined(BLKGETSIZE64)
-	if (ioctl(fd, BLKGETSIZE64, &size) >= 0) {
-      if ((sizeof(*retblocks) < sizeof(unsigned long long))
-          && ((size / (blocksize / 512)) > 0xFFFFFFFF))
-         return EFBIG;
-#endif
 		close(fd);
 		*retblocks = size / (blocksize / 512);
 		return 0;
 	}
 #endif
+
 #ifdef FDGETPRM
 	if (ioctl(fd, FDGETPRM, &this_floppy) >= 0) {
 		close(fd);
@@ -160,8 +208,18 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 		return 0;
 	}
 #endif
+
 #ifdef HAVE_SYS_DISKLABEL_H
-#if (defined(__FreeBSD__) && __FreeBSD_version < 500040) || defined(APPLE_DARWIN) 
+#if defined(DIOCGMEDIASIZE)
+	{
+	    off_t ms;
+	    u_int bs;
+	    if (ioctl(fd, DIOCGMEDIASIZE, &ms) >= 0) {
+		*retblocks = ms / blocksize;
+		return 0;
+	    }
+	}
+#elif defined(DIOCGDINFO)
 	/* old disklabel interface */
 	part = strlen(file) - 1;
 	if (part >= 0) {
@@ -181,16 +239,7 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 			return 0;
 		}
 	}
-#else /* __FreeBSD_version < 500040 */
-	{
-	    off_t ms;
-	    u_int bs;
-	    if (ioctl(fd, DIOCGMEDIASIZE, &ms) >= 0) {
-		*retblocks = ms / blocksize;
-		return 0;
-	    }
-	}
-#endif /* __FreeBSD_version < 500040 */
+#endif /* defined(DIOCG*) */
 #endif /* HAVE_SYS_DISKLABEL_H */
 
 	/*
@@ -212,7 +261,11 @@ errcode_t ext2fs_get_device_size(const char *file, int blocksize,
 	}
 	valid_offset (fd, 0);
 	close(fd);
-	*retblocks = (low + 1) / blocksize;
+	size64 = low + 1;
+	if ((sizeof(*retblocks) < sizeof(unsigned long long))
+	    && ((size64 / blocksize) > 0xFFFFFFFF))
+		return EFBIG;
+	*retblocks = size64 / blocksize;
 	return 0;
 }
 

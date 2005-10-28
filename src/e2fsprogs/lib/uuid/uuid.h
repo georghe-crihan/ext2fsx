@@ -39,7 +39,11 @@
 #include <sys/time.h>
 #include <time.h>
 
+/* Darwin 8 defines uuid_t in unistd.h */
+#ifndef _UUID_T
+#define _UUID_T
 typedef unsigned char uuid_t[16];
+#endif
 
 /* UUID Variant definitions */
 #define UUID_VARIANT_NCS 	0
