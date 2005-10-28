@@ -186,7 +186,7 @@ static int bsd_filldir (void *buf, const char *name, int namlen, loff_t offset,
    de.d_reclen = GENERIC_DIRSIZ(&de);
    
    /* Make sure there's enough room. */
-   if (uio->uio_resid <  de.d_reclen)
+   if (uio_resid(uio) <  de.d_reclen)
       return (EXT2_FILLDIR_ENOSPC);
    
    bcopy(name, de.d_name, de.d_namlen);

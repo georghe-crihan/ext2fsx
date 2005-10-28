@@ -747,7 +747,7 @@ static buf_t  ext3_dx_find_entry(struct dentry *dentry,
 	unsigned long block;
 	int retval;
 	int namelen = dentry->d_name.len;
-	const u8 *name = dentry->d_name.name;
+	const char *name = dentry->d_name.name;
 	struct inode *dir = dentry->d_parent->d_inode;
 
 	sb = dir->i_sb;
@@ -1092,7 +1092,7 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
 	memcpy (data1, de, len);
 	de = (struct ext3_dir_entry_2 *) data1;
 	top = data1 + len;
-	while (((char *) de2=(char*)de+le16_to_cpu(de->rec_len)) < top)
+	while ((char *)(de2=(struct ext3_dir_entry_2*)((char*)de+le16_to_cpu(de->rec_len))) < top)
 		de = de2;
 	de->rec_len = cpu_to_le16(data1 + blocksize - (char *) de);
 	/* Initialize the root; the dot dirents already exist */

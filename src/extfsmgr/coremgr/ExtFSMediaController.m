@@ -117,7 +117,7 @@ enum {
    ewlock(e_lock);
    pMounts = [e_pending objectAtIndex:kPendingMounts];
    for (i = 0; i < count; ++i) {
-      device = [NSSTR(stats[i].f_mntfromname) lastPathComponent];      
+      device = [[NSString stringWithUTF8String:stats[i].f_mntfromname] lastPathComponent];      
       e2media = [e_media objectForKey:device];
       if (!e2media || [e2media isMounted])
          continue;
@@ -400,7 +400,7 @@ enum {
    ke = DiskArbRequestMount_auto(BSDNAMESTR(media));
    if (0 == ke) {
         /* XXX -- This is a hack to detect a failed mount. It
-           seems DA does notify clients of failed mounts. (Why???)
+           seems DA doesn't notify clients of failed mounts. (Why???)
          */
         (void)[NSTimer scheduledTimerWithTimeInterval:EXT_MOUNT_ERROR_DELAY
             target:self selector:@selector(mountError:) userInfo:media
@@ -565,8 +565,8 @@ exit:
    e_instanceLock = nil;
    pthread_mutex_unlock(&e_initMutex);
    edlock(e_lock);
-   [super dealloc];
 #endif
+   [super dealloc];
 }
 
 @end
@@ -710,7 +710,7 @@ static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device
    int errorCode, pid_t dissenter)
 {
     if (0 == errorCode)
-        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
+        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:[NSString stringWithUTF8String:device]];
 #ifdef DIAGNOSTIC
     else
          NSLog(@"ExtFS: Device '%s' failed unmount with error: %d.\n", device, errorCode);

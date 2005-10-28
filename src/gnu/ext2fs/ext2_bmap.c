@@ -47,7 +47,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/resourcevar.h>
 #include <sys/stat.h>
 
-#include <sys/trace.h>
+//#include <sys/trace.h>
 #include "ext2_apple.h"
 
 #include <gnu/ext2fs/inode.h>
@@ -58,6 +58,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <ext2_byteorder.h>
 
+#ifdef obsolete
 /*
  * Bmap converts a the logical block number of a file to its physical block
  * number on the disk. The conversion is done by using the logical block
@@ -65,7 +66,7 @@ static const char whatid[] __attribute__ ((unused)) =
  */
 int
 ext2_bmap(ap)
-	struct vnop_blockmap_args /* {
+	struct vop_bmap_args /* {
 		vnode_t a_vp;
         off_t a_foffset;
         size_t a_size;
@@ -107,6 +108,7 @@ ext2_bmap(ap)
         VTOI(ap->a_vp)->i_number);
 	return (error);
 }
+#endif
 
 /*
  * Indirect blocks are now on the vnode for the file.  They are given negative
@@ -127,8 +129,8 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	vnode_t vp;
 	ext2_daddr_t bn;
 	ext2_daddr_t *bnp;
-	size_t *runp;
-	size_t *runb;
+	int *runp;
+	int *runb;
 {
 	struct vfsioattr vfsio;
     struct inode *ip;
@@ -170,7 +172,8 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 
 	num = *nump;
 	if (num == 0) {
-		*bnp = blkptrtodb(ump, ip->i_db[bn]);
+		ISLOCK(ip);
+        *bnp = blkptrtodb(ump, ip->i_db[bn]);
 		if (*bnp == 0) {
 			*bnp = -1;
 		} else if (runp) {
@@ -186,12 +189,15 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 						--bn, ++*runb);
 			}
 		}
+        IULOCK(ip);
 		return (0);
 	}
 
 
 	/* Get disk address out of indirect block array */
+    ISLOCK(ip);
 	daddr = ip->i_ib[ap->in_off];
+    IULOCK(ip);
 
 	for (bp = NULL, ++ap; --num; ++ap) {
 		/*
@@ -213,25 +219,35 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		ap->in_exists = 1;
 		bp = buf_getblk(vp, (daddr64_t)metalbn, iosize, 0, 0, BLK_META);
 
+#ifdef obsolete
         if (buf_flags(bp) & (/* B_DONE | */ B_DELWRI)) {
 			trace(TR_BREADHIT, pack(vp, iosize), metalbn);
 		}
+#endif
 
 #ifdef DIAGNOSTIC
-      else
+      //else
         if (!daddr)
             panic("ext2_bmaparray: indirect block not in cache");
 #endif
+
+#ifdef obsolete
         else {
             trace(TR_BREADMISS, pack(vp, iosize), metalbn);
-         
+#endif
+        {
             buf_setblkno(bp, (daddr64_t)blkptrtodb(ump, daddr));
             buf_setflags(bp, B_READ);
 #ifdef obsolete
             bp->b_flags &= ~B_ERROR;
 #endif
-			VNOP_STRATEGY(bp);
+			struct vnop_strategy_args vsargs;
+            vsargs.a_desc = &vnop_strategy_desc;
+            vsargs.a_bp = bp;
+            buf_strategy(vp, &vsargs);
+#ifdef obsolete
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
+#endif
 			error = bufwait(bp);
 			if (error) {
 				buf_brelse(bp);
@@ -239,6 +255,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			}
 		}
 
+        ISLOCK(ip);
 		bap = (ext2_daddr_t *)buf_dataptr(bp);
         daddr = le32_to_cpu(bap[ap->in_off]);
 		if (num == 1 && daddr && runp) {
@@ -257,6 +274,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			    		--bn, ++*runb);
 			}
 		}
+        IULOCK(ip);
 	}
 	if (bp)
 		bqrelse(bp);

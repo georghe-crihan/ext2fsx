@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2005 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -64,7 +64,9 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/time.h>
 #include <sys/vnode.h>
 #include <vfs/vfs_support.h>
-#include <machine/spl.h>
+//#include <machine/spl.h>
+#include <sys/kauth.h>
+#include <sys/sysctl.h>
 
 #include "ext2_apple.h"
 #include <gnu/ext2fs/ext2_fs.h>
@@ -73,6 +75,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
 
+#ifdef obsolete
 /* Cribbed from FreeBSD kern/vfs_subr.c */
 /* This will cause the KEXT to break if/when the kernel proper defines this routine.
  * (It's declared in <sys/vnode.h>, but is not actually in the 6.x kernels.)
@@ -90,14 +93,13 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 	uid_t file_uid;
 	gid_t file_gid;
 	mode_t acc_mode;
-	struct ucred *cred;
+	ucred_t cred;
 {
    mode_t dac_granted;
-   struct proc *p = curproc;
    /*
     * root always gets access
     */
-   if (0 == suser(cred, p ? &p->p_acflag : NULL))
+   if (0 == kauth_cred_issuser(cred))
       return (0);
 
 	/*
@@ -108,7 +110,7 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 	dac_granted = 0;
 
 	/* Check the owner. */
-	if (cred->cr_uid == file_uid) {
+	if (kauth_cred_getuid(cred) == file_uid) {
 		if (file_mode & S_IXUSR)
 			dac_granted |= VEXEC;
 		if (file_mode & S_IRUSR)
@@ -121,7 +123,7 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 	}
 
 	/* Otherwise, check the groups (first match) */
-	if (groupmember(file_gid, cred)) {
+	if (kauth_cred_ismember_gid(cred, file_gid, NULL)) {
 		if (file_mode & S_IXGRP)
 			dac_granted |= VEXEC;
 		if (file_mode & S_IRGRP)
@@ -144,6 +146,16 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 		return (0);
 
 	return (EACCES);
+}
+#endif
+
+__private_extern__
+int e2securelevel()
+{
+    int val = 0;
+    size_t sz = sizeof(val);
+    (void)sysctlbyname("securelevel", &val, &sz, NULL, 0);
+    return (val);
 }
 
 #ifdef obsolete
@@ -335,10 +347,9 @@ ext2_ioctl(ap)
    struct ext2_sb_info *fs;
    int err = 0, super;
    u_int32_t flags, oldflags;
-   proc_t p = vfs_context_proc(ap->a_context);
    ucred_t cred = vfs_context_ucred(ap->a_context);
    
-   super = (0 == suser(cred, &p->p_acflag));
+   super = (0 == kauth_cred_issuser(cred));
    fs = ip->i_e2fs;
    
    switch (ap->a_command) {
@@ -451,7 +462,6 @@ void print_clusters(vnode_t vp, char *msg)
         printf("EXT2-fs DEBUG %s: inode=%d, dirty=%d, no clusters\n",
             msg, ip->i_number, (0 != (vp->v_flag & VHASDIRTY)));
     }
-    logwakeup();
 }
 
 #endif
@@ -482,7 +492,7 @@ ext2_checkdirsize(dvp)
    size = 0;
    while (size < dp->i_size) {
       ep = (struct ext2_dir_entry_2 *)
-			((char *)bp->b_data + size);
+			((char *)buf_bdata(bp) + size);
       if (ep->rec_len == 0)
          break;
       size += le16_to_cpu(ep->rec_len);
@@ -492,6 +502,6 @@ ext2_checkdirsize(dvp)
       printf("ext2: dir (%d) entries do not match dir size! (%d,%qu)\n",
          dp->i_number, size, dp->i_size);
    
-   brelse(bp);
+   buf_brelse(bp);
 }
 #endif

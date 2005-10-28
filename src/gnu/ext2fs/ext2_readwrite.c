@@ -72,9 +72,9 @@ static const char whatid[] __attribute__ ((unused)) =
  * Vnode op for reading.
  */
 /* ARGSUSED */
-static int
+__private_extern__ int
 READ(ap)
-	struct vop_read_args /* {
+	struct vnop_read_args /* {
 		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_ioflag;
@@ -87,6 +87,7 @@ READ(ap)
 	FS *fs;
 	buf_t  bp;
 	ext2_daddr_t lbn, nextlbn;
+    daddr64_t lbn64;
 	off_t bytesinfile;
 	long size, xfersize, blkoffset;
 	int error, orig_resid;
@@ -100,56 +101,56 @@ READ(ap)
 	uio = ap->a_uio;
 
 #ifdef DIAGNOSTIC
-	if (uio->uio_rw != UIO_READ)
-		panic("%s: invalid uio_rw = %x", READ_S, uio->uio_rw);
+	if (uio_rw(uio) != UIO_READ)
+		panic("%s: invalid uio_rw = %x", READ_S, uio_rw(uio));
 
-	if (vp->v_type == VLNK) {
-		if ((int)ip->i_size < vp->v_mount->mnt_maxsymlinklen)
+	if (vnode_vtype(vp) == VLNK) {
+		if ((int)ip->i_size < vfs_maxsymlen(vnode_mount(vp)))
 			panic("%s: short symlink", READ_S);
-	} else if (vp->v_type != VREG && vp->v_type != VDIR)
-		panic("%s: invalid v_type %d", READ_S, vp->v_type);
+	} else if (vnode_vtype(vp) != VREG && vnode_vtype(vp) != VDIR)
+		panic("%s: invalid v_type %d", READ_S, vnode_vtype(vp));
 #endif
 	fs = ip->I_FS;
-    if (uio->uio_offset < 0)
+    if (uio_offset(uio)  < 0)
 		ext2_trace_return (EINVAL);
 
-	if ((u_quad_t)uio->uio_offset > fs->s_maxfilesize)
+	if ((u_quad_t)uio_offset(uio) > fs->s_maxfilesize)
 		ext2_trace_return (EFBIG);
 
-	orig_resid = uio->uio_resid;
+	orig_resid = uio_resid(uio);
     if (UBCISVALID(vp)) {
 		bp = NULL; /* So we don't try to free it later. */
-        error = cluster_read(vp, uio, (off_t)ip->i_size, 
-			ip->i_e2fs->s_d_blocksize, 0);
+        error = cluster_read(vp, uio, (off_t)ip->i_size, 0);
 	} else {
-	for (error = 0, bp = NULL; uio->uio_resid > 0; bp = NULL) {
-		if ((bytesinfile = ip->i_size - uio->uio_offset) <= 0)
+	for (error = 0, bp = NULL; uio_resid(uio) > 0; bp = NULL) {
+		if ((bytesinfile = ip->i_size - uio_offset(uio)) <= 0)
 			break;
-		lbn = lblkno(fs, uio->uio_offset);
+		lbn = lblkno(fs, uio_offset(uio));
 		nextlbn = lbn + 1;
 		size = BLKSIZE(fs, ip, lbn);
-		blkoffset = blkoff(fs, uio->uio_offset);
+		blkoffset = blkoff(fs, uio_offset(uio));
 
 		xfersize = EXT2_BLOCK_SIZE(fs) - blkoffset;
-		if (uio->uio_resid < xfersize)
-			xfersize = uio->uio_resid;
+		if (uio_resid(uio) < xfersize)
+			xfersize = uio_resid(uio);
 		if (bytesinfile < xfersize)
 			xfersize = bytesinfile;
 
 		if (lblktosize(fs, nextlbn) >= ip->i_size)
-			error = bread(vp, lbn, size, NOCRED, &bp);
-		else if (lbn - 1 == vp->v_lastr && !(vp->v_flag & VRAOFF)) {
+			error = buf_bread(vp, lbn, size, NOCRED, &bp);
+		else if (lbn - 1 == ip->i_lastr && !vnode_isnoreadahead(vp)) {
 			int nextsize = BLKSIZE(fs, ip, nextlbn);
-			error = breadn(vp, lbn,
-			    size, &nextlbn, &nextsize, 1, NOCRED, &bp);
+			error = buf_breadn(vp, (daddr64_t)lbn,
+			    size, &lbn64, &nextsize, 1, NOCRED, &bp);
+            nextlbn = (ext2_daddr_t)lbn64;
 		} else
-			error = bread(vp, lbn, size, NOCRED, &bp);
+			error = buf_bread(vp, lbn, size, NOCRED, &bp);
 		if (error) {
-			brelse(bp);
+			buf_brelse(bp);
 			bp = NULL;
 			break;
 		}
-        vp->v_lastr = lbn;
+        ip->i_lastr = lbn;
 
 		/*
 		 * We should only get non-zero b_resid when an I/O error
@@ -158,28 +159,28 @@ READ(ap)
 		 * then we want to ensure that we do not uiomove bad
 		 * or uninitialized data.
 		 */
-		size -= bp->b_resid;
+		size -= buf_resid(bp);
 		if (size < xfersize) {
 			if (size == 0)
 				break;
 			xfersize = size;
 		}
 		error =
-		    uiomove((char *)bp->b_data + blkoffset, (int)xfersize, uio);
+		    uiomove((char *)buf_dataptr(bp) + blkoffset, (int)xfersize, uio);
 		if (error)
 			break;
       
       if (S_ISREG(mode) && (xfersize + blkoffset == EXT2_BLOCK_SIZE(fs) ||
-		    uio->uio_offset == ip->i_size))
-			bp->b_flags |= B_AGE;
+		    uio_offset(uio) == ip->i_size))
+			buf_markaged(bp);
 
 		bqrelse(bp);
 	}
    } /* if (UBCISVALID(vp)) */
 	if (bp != NULL)
 		bqrelse(bp);
-	if (orig_resid > 0 && (error == 0 || uio->uio_resid != orig_resid) &&
-	    (vp->v_mount->mnt_flag & MNT_NOATIME) == 0)
+	if (orig_resid > 0 && (error == 0 || uio_resid(uio) != orig_resid) &&
+	    (vfs_flags(vnode_mount(vp)) & MNT_NOATIME) == 0)
 		ip->i_flag |= IN_ACCESS;
 	ext2_trace_return(error);
 }
@@ -187,9 +188,9 @@ READ(ap)
 /*
  * Vnode op for writing.
  */
-static int
+__private_extern__ int
 WRITE(ap)
-	struct vop_write_args /* {
+	struct vnop_write_args /* {
 		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_ioflag;
@@ -197,16 +198,16 @@ WRITE(ap)
 	} */ *ap;
 {
 	vnode_t vp;
-	struct uio *uio;
+	uio_t uio;
 	struct inode *ip;
 	FS *fs;
 	buf_t  bp;
-	struct thread *td;
 	ext2_daddr_t lbn;
 	off_t osize;
 	int blkoffset, error, flags, ioflag, resid, size, xfersize;
     int rsd, blkalloc=0, save_error=0, save_size=0;
     int file_extended = 0, dodir=0;
+    vfs_context_t context = ap->a_context;
 
 	ioflag = ap->a_ioflag;
 	uio = ap->a_uio;
@@ -214,15 +215,15 @@ WRITE(ap)
 	ip = VTOI(vp);
 
 #ifdef DIAGNOSTIC
-	if (uio->uio_rw != UIO_WRITE)
-		panic("%s: uio_rw = %x\n", WRITE_S, uio->uio_rw);
+	if (uio_rw(uio) != UIO_WRITE)
+		panic("%s: uio_rw = %x\n", WRITE_S, uio_rw(uio));
 #endif
 
-	switch (vp->v_type) {
+	switch (vnode_vtype(vp)) {
 	case VREG:
 		if (ioflag & IO_APPEND)
-			uio->uio_offset = ip->i_size;
-		if ((ip->i_flags & APPEND) && uio->uio_offset != ip->i_size)
+			uio_setoffset(uio, ip->i_size);
+		if ((ip->i_flags & APPEND) && uio_offset(uio) != ip->i_size)
 			ext2_trace_return(EPERM);
 		/* FALLTHROUGH */
 	case VLNK:
@@ -238,28 +239,30 @@ WRITE(ap)
 
 	fs = ip->I_FS;
 
-	ext2_trace(" nm=%s,inode=%d,isize=%qu,woff=%qu,wsize=%d\n",
-        VNAME(vp), ip->i_number, ip->i_size, uio->uio_offset, uio->uio_resid);
+	ext2_trace(" vn=%p,inode=%d,isize=%qu,woff=%qu,wsize=%d\n",
+        vp, ip->i_number, ip->i_size, uio_offset(uio), uio_resid(uio));
     
-    if (uio->uio_offset < 0 ||
-	    (u_quad_t)uio->uio_offset + uio->uio_resid > fs->s_maxfilesize)
+    if (uio_offset(uio) < 0 ||
+	    (u_quad_t)uio_offset(uio) + uio_resid(uio) > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
-    if (uio->uio_resid == 0)
+    if (uio_resid(uio) == 0)
         return (0);
    
+#ifdef obsolete
 	/*
 	 * Maybe this should be above the vnode op call, but so long as
 	 * file servers have no limits, I don't think it matters.
 	 */
-	td = uio->uio_td;
-	if (vp->v_type == VREG && td &&
-	    uio->uio_offset + uio->uio_resid >
+	td = vfs_context_proc(context);
+	if (vnode_v_type(vp) == VREG && td &&
+	    uio_offset(uio) + uio_resid(uio) >
         td->p_rlimit[RLIMIT_FSIZE].rlim_cur) {
-        psignal(td, SIGXFSZ);
+        proc_signal(td, SIGXFSZ);
 		ext2_trace_return(EFBIG);
 	}
+#endif
 
-	resid = uio->uio_resid;
+	resid = uio_resid(uio);
 	osize = ip->i_size;
 	flags = ioflag & IO_SYNC ? B_SYNC : 0;
    
@@ -267,7 +270,7 @@ WRITE(ap)
       off_t filesize, endofwrite, local_offset, head_offset;
       int local_flags, first_block, fboff, fblk, loopcount;
    
-      endofwrite = uio->uio_offset + uio->uio_resid;
+      endofwrite = uio_offset(uio) + uio_resid(uio);
    
       if (endofwrite > ip->i_size) {
          filesize = endofwrite;
@@ -278,8 +281,8 @@ WRITE(ap)
       head_offset = ip->i_size;
    
       /* Go ahead and allocate the blocks that are going to be written */
-      rsd = uio->uio_resid;
-      local_offset = uio->uio_offset;
+      rsd = uio_resid(uio);
+      local_offset = uio_offset(uio);
       local_flags = ioflag & IO_SYNC ? B_SYNC : 0;
       local_flags |= B_NOBUFF;
 
@@ -307,7 +310,7 @@ WRITE(ap)
          
          /* Allocate block without reading into a buf (B_NOBUFF) */
          error = ext2_balloc2(ip,
-            lbn, blkoffset + xfersize, ap->a_cred, 
+            lbn, blkoffset + xfersize, vfs_context_ucred(context), 
             &bp, local_flags, &blkalloc);
          if (error)
             break;
@@ -326,7 +329,7 @@ WRITE(ap)
       if(error) {
          save_error = error;
          save_size = rsd;
-         uio->uio_resid -= rsd;
+         uio_setresid(uio, uio_resid(uio) - rsd);
          if (file_extended)
             filesize -= rsd;
       }
@@ -342,7 +345,7 @@ WRITE(ap)
          if(fblk > EXT2_BLOCK_SIZE(fs)) 
             panic("ext2_write : ext2_balloc allocated more than bsize(head)");
          /* We need to zero out the head */
-         head_offset = uio->uio_offset - (off_t)fboff ;
+         head_offset = uio_offset(uio) - (off_t)fboff ;
          flags |= IO_HEADZEROFILL;
          flags &= ~IO_NOZEROVALID;
       }
@@ -365,29 +368,28 @@ WRITE(ap)
       * we we'll zero fill from the current EOF to where the write begins
       */
       
-      error = cluster_write(vp, uio, osize, filesize, head_offset, local_offset,
-         ip->i_e2fs->s_d_blocksize, flags);
+      error = cluster_write(vp, uio, osize, filesize, head_offset, local_offset, flags);
       
-      if (uio->uio_offset > osize) {
+      if (uio_offset(uio) > osize) {
          if (error && 0 == (ioflag & IO_UNIT))
-            (void)VOP_TRUNCATE(vp, uio->uio_offset,
-               ioflag & IO_SYNC, ap->a_cred, uio->uio_procp);
-         ip->i_size = uio->uio_offset; 
+            (void)ext2_truncate(vp, uio_offset(uio),
+               ioflag & IO_SYNC, vfs_context_ucred(context), vfs_context_proc(context));
+         ip->i_size = uio_offset(uio); 
          ubc_setsize(vp, (off_t)ip->i_size);
       }
       if(save_error) {
-         uio->uio_resid += save_size;
+         uio_setresid(uio, uio_resid(uio) + save_size);
          if(!error)
             error = save_error;	
       }
       ip->i_flag |= IN_CHANGE | IN_UPDATE;
    } else {
-	for (error = 0; uio->uio_resid > 0;) {
-		lbn = lblkno(fs, uio->uio_offset);
-		blkoffset = blkoff(fs, uio->uio_offset);
+	for (error = 0; uio_resid(uio) > 0;) {
+		lbn = lblkno(fs, uio_offset(uio));
+		blkoffset = blkoff(fs, uio_offset(uio));
 		xfersize = EXT2_BLOCK_SIZE(fs) - blkoffset;
-		if (uio->uio_resid < xfersize)
-			xfersize = uio->uio_resid;
+		if (uio_resid(uio) < xfersize)
+			xfersize = uio_resid(uio);
 
 		if (EXT2_BLOCK_SIZE(fs) > xfersize)
 			flags |= B_CLRBUF;
@@ -395,30 +397,30 @@ WRITE(ap)
 			flags &= ~B_CLRBUF;
 
 		error = ext2_balloc(ip,
-		    lbn, blkoffset + xfersize, ap->a_cred, &bp, flags);
+		    lbn, blkoffset + xfersize, vfs_context_ucred(context), &bp, flags);
 		if (error)
 			break;
 
-		if (uio->uio_offset + xfersize > ip->i_size) {
-			ip->i_size = uio->uio_offset + xfersize;
+		if (uio_offset(uio) + xfersize > ip->i_size) {
+			ip->i_size = uio_offset(uio) + xfersize;
             if (UBCISVALID(vp))
                 ubc_setsize(vp, (u_long)ip->i_size); /* XXX check errors */
 		}
 
-		size = BLKSIZE(fs, ip, lbn) - bp->b_resid;
+		size = BLKSIZE(fs, ip, lbn) - buf_resid(bp);
 		if (size < xfersize)
 			xfersize = size;
 
 		error =
-		    uiomove((char *)bp->b_data + blkoffset, (int)xfersize, uio);
+		    uiomove((char *)buf_dataptr(bp) + blkoffset, (int)xfersize, uio);
 
 		if (0 == dodir && (ioflag & IO_SYNC)) {
-            (void)bwrite(bp);
+            (void)buf_bwrite(bp);
 		} else if (xfersize + blkoffset == EXT2_BLOCK_SIZE(fs)) {
-            bp->b_flags |= B_AGE;
-            bawrite(bp);
+            buf_markaged(bp);
+            buf_bawrite(bp);
 		} else {
-			bdwrite(bp);
+			buf_bdwrite(bp);
 		}
 		if (error || xfersize == 0)
 			break;
@@ -432,18 +434,18 @@ WRITE(ap)
 	 * we clear the setuid and setgid bits as a precaution against
 	 * tampering.
 	 */
-    if (resid > uio->uio_resid && ap->a_cred && ap->a_cred->cr_uid != 0)
+    if (resid > uio_resid(uio) && !kauth_cred_issuser(vfs_context_ucred(context)))
 		ip->i_mode &= ~(ISUID | ISGID);
-    if (resid > uio->uio_resid)
+    if (resid > uio_resid(uio))
        VN_KNOTE(vp, NOTE_WRITE | (file_extended ? NOTE_EXTEND : 0));
 	if (error) {
 		if (ioflag & IO_UNIT) {
 			(void)ext2_truncate(vp, osize,
-			    ioflag & IO_SYNC, ap->a_cred, uio->uio_td);
-			uio->uio_offset -= resid - uio->uio_resid;
-			uio->uio_resid = resid;
+			    ioflag & IO_SYNC, vfs_context_ucred(context), vfs_context_proc(context));
+			uio_setoffset(uio, uio_offset(uio) - (resid - uio_resid(uio)));
+			uio_setresid(uio, resid);
 		}
-	} else if (resid > uio->uio_resid && (ioflag & IO_SYNC))
+	} else if (resid > uio_resid(uio) && (ioflag & IO_SYNC))
 		error = ext2_update(vp, 1);
       
     ext2_trace_return(error);

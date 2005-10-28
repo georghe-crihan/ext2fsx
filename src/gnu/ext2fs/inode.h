@@ -42,7 +42,58 @@
 #include <sys/event.h>
 #include <kern/locks.h>
 
-#include <kern/ext2_lockf.h>
+// These are missing from sys/event.h, but knote is exported by the BSD kpi,
+// so we will use it.
+#ifndef KNOTE
+struct knote {
+	int		kn_inuse;	/* inuse count */
+	struct kqtailq	*kn_tq;		/* pointer to tail queue */
+	TAILQ_ENTRY(knote)	kn_tqe;		/* linkage for tail queue */
+	struct kqueue	*kn_kq;	/* which kqueue we are on */
+	SLIST_ENTRY(knote)	kn_link;	/* linkage for search list */
+	SLIST_ENTRY(knote)	kn_selnext;	/* klist element chain */
+	union {
+		struct		fileproc *p_fp;	/* file data pointer */
+		struct		proc *p_proc;	/* proc pointer */
+	} kn_ptr;
+	struct			filterops *kn_fop;
+	int			kn_status;	/* status bits */
+	int			kn_sfflags;	/* saved filter flags */
+	struct 			kevent kn_kevent;
+	caddr_t			kn_hook;
+	int			kn_hookid;
+	int64_t			kn_sdata;	/* saved data field */
+
+#define KN_ACTIVE	0x01			/* event has been triggered */
+#define KN_QUEUED	0x02			/* event is on queue */
+#define KN_DISABLED	0x04			/* event is disabled */
+#define KN_DROPPING	0x08			/* knote is being dropped */
+#define KN_USEWAIT	0x10			/* wait for knote use */
+#define KN_DROPWAIT	0x20			/* wait for knote drop */
+
+#define kn_id		kn_kevent.ident
+#define kn_filter	kn_kevent.filter
+#define kn_flags	kn_kevent.flags
+#define kn_fflags	kn_kevent.fflags
+#define kn_data		kn_kevent.data
+#define kn_fp		kn_ptr.p_fp
+};
+
+struct filterops {
+	int	f_isfd;		/* true if ident == filedescriptor */
+	int	(*f_attach)(struct knote *kn);
+	void	(*f_detach)(struct knote *kn);
+	int	(*f_event)(struct knote *kn, long hint);
+};
+SLIST_HEAD(klist, knote);
+
+#define KNOTE(list, hint)	knote(list, hint)
+#define KNOTE_ATTACH(list, kn)	knote_attach(list, kn)
+#define KNOTE_DETACH(list, kn)	knote_detach(list, kn)
+extern void	knote(struct klist *list, long hint);
+extern int	knote_attach(struct klist *list, struct knote *kn);
+extern int	knote_detach(struct klist *list, struct knote *kn);
+#endif // KNOTE
 
 #define	ROOTINO	((ino_t)2)
 
@@ -70,13 +121,15 @@ typedef int (*inode_prv_relse_t)(vnode_t, struct inode*);
  * active, and is put back when the file is no longer being used.
  */
 struct inode {
-	lck_mtx_t i_lock;
+	lck_mtx_t *i_lock;
 	LIST_ENTRY(inode) i_hash;/* Hash chain. */
-	struct	vnode  *i_vnode;/* Vnode associated with this inode. */
-	struct	vnode  *i_devvp;/* Vnode for block I/O. */
+	vnode_t   i_vnode;/* Vnode associated with this inode. */
+	vnode_t   i_devvp;/* Vnode for block I/O. */
 	u_int32_t i_flag;	/* flags, see below */
 	dev_t	  i_dev;	/* Device associated with the inode. */
 	ino_t	  i_number;	/* The identity of the inode. */
+	u_int32_t i_refct;
+	ext2_daddr_t i_lastr; /* last read... read-ahead */
 	
 	/*
 	 * Various accounting
@@ -86,7 +139,6 @@ struct inode {
 	inode_prv_relse_t private_data_relse; /* Function to release private_data storage. */
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
-	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
 	/*
 	 * Side effects; used during directory lookup.
 	 */
@@ -157,15 +209,17 @@ struct inode {
 #define	IFWHT		0160000		/* Whiteout. */
 
 /* These flags are kept in i_flag. */
-#define	IN_ACCESS	0x0001		/* Access time update request. */
-#define	IN_CHANGE	0x0002		/* Inode change time update request. */
-#define	IN_UPDATE	0x0004		/* Modification time update request. */
-#define	IN_MODIFIED	0x0008		/* Inode has been modified. */
-#define	IN_RENAME	0x0010		/* Inode is being renamed. */
-#define	IN_HASHED	0x0020		/* Inode is on hash list */
-#define	IN_LAZYMOD	0x0040		/* Modified, but don't write yet. */
-#define	IN_SPACECOUNTED	0x0080		/* Blocks to be freed in free count. */
-#define	IN_DX_UPDATE	0x0100	/* In-core dir index needs to be sync'd with disk */
+#define	IN_ACCESS	0x00000001		/* Access time update request. */
+#define	IN_CHANGE	0x00000002		/* Inode change time update request. */
+#define	IN_UPDATE	0x00000004		/* Modification time update request. */
+#define	IN_MODIFIED	0x00000008		/* Inode has been modified. */
+#define	IN_RENAME	0x00000010		/* Inode is being renamed. */
+#define	IN_HASHED	0x00000020		/* Inode is on hash list */
+#define	IN_LAZYMOD	0x00000040		/* Modified, but don't write yet. */
+#define	IN_SPACECOUNTED	0x00000080	/* Blocks to be freed in free count. */
+#define	IN_DX_UPDATE	0x00000100	/* In-core dir index needs to be sync'd with disk */
+#define IN_INIT		0x00000200		/* inode is being created */
+#define IN_INITWAIT 0x00000400		/* waiting for creation */
 
 #ifdef _KERNEL
 /*
@@ -183,8 +237,52 @@ struct indir {
 #define ITOV(ip)	((ip)->i_vnode)
 #define ITOVFS(ip)  (vnode_mount((ip)->i_vnode))
 #define VN_KNOTE(vp,hint) KNOTE(&(VTOI(vp))->i_knotes, (hint))
-#define ILOCK(ip) lck_mtx_lock(&(ip)->i_lock)
-#define IULOCK(ip) lck_mtx_unlock(&(ip)->i_lock)
+
+/* Notes on locking:
+	1) If a function takes an inode, the inode is expected locked
+	2) If a function takes a vnode, the inode is expected unlocked
+	3) If locking 2 (or more) indoes, always lock from smallest to largest based on the inode #
+	4) If locking an inode and the superblock, the inode must be locked before the sb
+	5) Exceptions to the above are marked.
+*/
+#define EXT2_RW_ILOCK 0
+/* Exclusive lock */
+#define IXLOCK(ip) lck_mtx_lock((ip)->i_lock)
+/* Shared lock - In case we actually switch to a r/w lock */
+#define ISLOCK(ip) lck_mtx_lock((ip)->i_lock)
+/* Unlock */
+#define IULOCK(ip) lck_mtx_unlock((ip)->i_lock)
+/* */
+static __inline__
+void IXLOCK_WITH_LOCKED_INODE(struct inode *ip, struct inode *lip)
+{
+#ifdef DIAGNOSTIC
+	if (ip == lip || lip->i_number == ip->i_number)
+		panic("ext2: attempt to lock duplicate nodes!");
+#endif
+	if (lip->i_number < ip->i_number) {
+		IXLOCK(ip);
+		return;
+	}
+	
+	IULOCK(lip);
+	IXLOCK(ip);
+	IXLOCK(lip);
+}
+
+#define IREF(ip) (void)OSIncrementAtomic((SInt32*)&ip->i_refct)
+#define IRELSE(ip) (void)OSDecrementAtomic((SInt32*)&ip->i_refct);
+
+static __inline__
+int inosleep(struct inode *ip, void *chan, const char *wmsg, struct timespec *ts)
+{
+	int error;
+	IREF(ip);
+	error = msleep(chan, ip->i_lock, PINOD, wmsg, ts);
+	IRELSE(ip);
+	return (error);
+}
+#define ISLEEP(ip, field, ts) inosleep((ip), &(ip)->i_ ## field, __FUNCTION__, (ts))
 
 /* This overlays the fid structure (see mount.h). */
 struct ufid {

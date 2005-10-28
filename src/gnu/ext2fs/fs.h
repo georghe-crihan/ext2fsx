@@ -204,11 +204,7 @@ static __inline__ void e2_chk_buf_lck(buf_t  bp, buf_t  obp)
 } while(0)
 
 /* this is supposed to mark a buffer dirty on ready for delayed writing */
-static __inline__
-void mark_buffer_dirty (buf_t bp)
-{
-	BMETA_DIRTY(bp);
-}
+#define mark_buffer_dirty(bp) BMETA_DIRTY(bp)
 
 #define BMETA_CLEAN(bp) do { \
     buf_setdirtyoff(bp, 0); \

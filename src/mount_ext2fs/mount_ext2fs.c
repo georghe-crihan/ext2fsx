@@ -191,13 +191,15 @@ main(argc, argv)
     if (dynStoreRef)
         CFRelease(dynStoreRef);
    
-   args.fspec = fspec;
+   args.fspec = CAST_USER_ADDR_T(fspec);
    args.e2_mnt_flags = e2_mntflags;
+#ifdef obsolete
    args.export.ex_root = 0;
    if (mntflags & MNT_RDONLY)
       args.export.ex_flags = MNT_EXRDONLY;
    else
       args.export.ex_flags = 0;
+#endif
    
    if (checkLoadable()) {		/* Is it already loaded? */
       if (load_kmod())		/* Load it in */

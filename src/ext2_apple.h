@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2005 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -26,6 +26,8 @@
 #ifndef EXT2_APPLE_H
 #define EXT2_APPLE_H
 
+#include <libkern/OSAtomic.h>
+
 #define EXT2FS_NAME "ext2"
 #define EXT3FS_NAME "ext3"
 
@@ -41,11 +43,11 @@ int ext2_vol_label_len(char *label) {
 
 #include <sys/mount.h>
 struct ext2_args {
-	char	*fspec;			/* block special device to mount */
-    unsigned long e2_mnt_flags; /* Ext2 specific mount flags */
+	user_addr_t fspec;			/* block special device to mount */
+    unsigned int e2_mnt_flags; /* Ext2 specific mount flags */
     uid_t   e2_uid; /* Only active when MNT_UNKNOWNPERMISSIONS is set */
     gid_t   e2_gid; /* ditto */
-	struct	export_args export;	/* network export information */
+	//struct	export_args export;	/* network export information */
 };
 
 #define EXT2_MNT_INDEX 0x00000001
@@ -63,13 +65,13 @@ struct ext2_args {
 
 #include <sys/ubc.h>
 
-#include <xnu/bsd/miscfs/specfs/specdev.h>
+//#include <xnu/bsd/miscfs/specfs/specdev.h>
 
-/* In kernel, but not defined in headers */
+/* In BSD KPI, but not defined in headers */
 extern int groupmember(gid_t gid, struct ucred *cred);
 extern int vfs_init_io_attributes (struct vnode *, struct mount *);
-extern uid_t console_user;
-extern int prtactive; /* 1 => print out reclaim of active vnodes */
+//extern uid_t console_user; // in Unsupported KPI
+//extern int prtactive; /* 1 => print out reclaim of active vnodes */
 /**/
 
 #ifndef LCK_GRP_NULL
@@ -87,29 +89,56 @@ extern int prtactive; /* 1 => print out reclaim of active vnodes */
 __private_extern__ lck_grp_t *ext2_lck_grp;
 #define EXT2_LCK_GRP ext2_lck_grp
 
-#define M_EXT3DIRPRV M_MISCFSNODE
-#define M_EXT2NODE M_MISCFSNODE
-#define M_EXT2MNT M_MISCFSMNT
+#define M_EXT3DIRPRV M_TEMP
+#define M_EXT2NODE M_TEMP
+#define M_EXT2MNT M_TEMP
 #define VT_EXT2 VT_OTHER
 
-typedef int vop_t __P((void *));
+typedef int     vnop_t (void *);
 
-__private_extern__ int ext2_cache_lookup __P((struct vnop_lookup_args *));
-__private_extern__ int ext2_blktooff __P((struct vnop_blktooff_args *));
-__private_extern__ int ext2_offtoblk __P((struct vnop_offtoblk_args *));
-__private_extern__ int ext2_getattrlist __P((struct vnop_getattrlist_args *));
-__private_extern__ int ext2_pagein __P((struct vnop_pagein_args *));
-__private_extern__ int ext2_pageout __P((struct vnop_pageout_args *));
-__private_extern__ int ext2_cmap __P((struct vnop_cmap_args *));
-__private_extern__ int ext2_mmap __P((struct vnop_mmap_args *));
+#ifdef _VNODE_H_
+__private_extern__ int ext2_read(struct vnop_read_args*);
+__private_extern__ int ext2_write(struct vnop_write_args*);
+__private_extern__ int ext2_cache_lookup (struct vnop_lookup_args *);
+__private_extern__ int ext2_blktooff (struct vnop_blktooff_args *);
+__private_extern__ int ext2_offtoblk (struct vnop_offtoblk_args *);
+__private_extern__ int ext2_pagein (struct vnop_pagein_args *);
+__private_extern__ int ext2_pageout (struct vnop_pageout_args *);
+__private_extern__ int ext2_mmap (struct vnop_mmap_args *);
+__private_extern__ int ext2_ioctl (struct vnop_ioctl_args *);
+__private_extern__ int ext2_blockmap (struct vnop_blockmap_args *);
+
+static __inline__
+int EXT2_READ(vnode_t vp, uio_t uio, int flags, vfs_context_t context)
+{
+    struct vnop_read_args args;
+    args.a_desc = &vnop_write_desc;
+    args.a_vp = vp;
+    args.a_uio = uio;
+    args.a_ioflag = flags;
+    args.a_context = context;
+    return (ext2_read(&args));
+}
+static __inline__
+int EXT2_WRITE(vnode_t vp, uio_t uio, int flags, vfs_context_t context)
+{
+    struct vnop_write_args args;
+    args.a_desc = &vnop_write_desc;
+    args.a_vp = vp;
+    args.a_uio = uio;
+    args.a_ioflag = flags;
+    args.a_context = context;
+    return (ext2_write(&args));
+}
 #ifdef obsolete
-__private_extern__ int ext2_lock __P((struct vop_lock_args *));
-__private_extern__ int ext2_unlock __P((struct vop_unlock_args *));
-__private_extern__ int ext2_islocked __P((struct vop_islocked_args *));
-__private_extern__ int ext2_abortop __P((struct vop_abortop_args *));
+__private_extern__ int ext2_lock (struct vop_lock_args *);
+__private_extern__ int ext2_unlock (struct vop_unlock_args *);
+__private_extern__ int ext2_islocked (struct vop_islocked_args *);
+__private_extern__ int ext2_abortop (struct vop_abortop_args *);
+__private_extern__ int ext2_getattrlist (struct vop_getattrlist_args *);
+__private_extern__ int ext2_setattrlist (struct vop_setattrlist_args *);
 #endif
-__private_extern__ int ext2_ioctl __P((struct vnop_ioctl_args *));
-__private_extern__ int ext2_setattrlist __P((struct vnop_setattrlist_args *));
+#endif
 
 #if 0 //DIAGNOSTIC
 __private_extern__ void ext2_checkdirsize(struct vnode *dvp);
@@ -122,6 +151,7 @@ cause a panic situation when the filesystem is stressed. */
 #define EXT2_SB_BITMAP_CACHE 0
 
 /* Pre-Tiger emmulation support */
+#ifdef _SYS_BUF_H_
 
 static __inline__
 void clrbuf(buf_t bp)
@@ -137,6 +167,15 @@ buf_t incore(vnode_t vp, daddr64_t bn, int op)
     /* XXX Does the returned buffer need to be released? */
 }
 
+#endif
+
+#ifdef _VNODE_H_
+// This is exported by the BSD KPI, but is not in the headers
+int vn_rdwr(enum uio_rw rw, struct vnode *vp, caddr_t base,
+	    		int len, off_t offset, enum uio_seg segflg, int ioflg,
+	    		struct ucred *cred, int *aresid, struct proc *p);
+#endif
+
 /* vnode_t, u_int32_t*, vfs_context_t*/
 #define EVOP_DEVBLOCKSIZE(vp,size,ctx) \
 VNOP_IOCTL((vp), DKIOCGETBLOCKSIZE, (caddr_t)(size), FREAD, (ctx))
@@ -144,6 +183,7 @@ VNOP_IOCTL((vp), DKIOCGETBLOCKSIZE, (caddr_t)(size), FREAD, (ctx))
 /* vnode_t */
 /* XXX Is this really a correct assumption? */
 #define UBCINFOEXISTS(vp) (VREG == vnode_vtype((vp)))
+#define UBCISVALID(vp) (VREG == vnode_vtype((vp)))
 
 /* FreeBSD emulation support */
 
@@ -166,8 +206,9 @@ VNOP_IOCTL((vp), DKIOCGETBLOCKSIZE, (caddr_t)(size), FREAD, (ctx))
  *
  * Must call while holding kernel funnel for SMP safeness.
  */
-#define securelevel_gt(cr,level) ( securelevel > (level) ? EPERM : 0 )
-#define securelevel_ge(cr,level) ( securelevel >= (level) ? EPERM : 0 )
+__private_extern__ int e2securelevel();
+#define securelevel_gt(cr,level) ( e2securelevel > (level) ? EPERM : 0 )
+#define securelevel_ge(cr,level) ( e2securelevel >= (level) ? EPERM : 0 )
 
 /* dev_t */
 #define devtoname(d) "unknown"
@@ -177,6 +218,8 @@ VNOP_IOCTL((vp), DKIOCGETBLOCKSIZE, (caddr_t)(size), FREAD, (ctx))
 /* vnode_t */
 #define VI_MTX(vp) NULL
 /* #define VI_MTX(vp) (&(vp)->v_interlock) */
+
+#ifdef obsolete
 
 #if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
@@ -202,6 +245,11 @@ ext2_trace("dropped vp %lu lock\n", vnode_vid((vp))); \
 
 #endif /* defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE) */
 
+#endif /* obsolete */
+
+#define VI_LOCK(vp)
+#define VI_UNLOCK(vp)
+
 /* FreeBSD kern calls */
 
 /* vnode_t, u_int32_t */
@@ -214,13 +262,15 @@ do { \
 /* XXX Is 0 always right for thread use cnt? */
 #define vrefcnt(vp) vnode_isinuse((vp), 0)
 
+#if defined(_SYS_BUF_H_) && defined(_VNODE_H_)
 static __inline__
 int vop_stdfsync(struct vnop_fsync_args *ap)
 {
     buf_flushdirtyblks(ap->a_vp, (MNT_WAIT == ap->a_waitfor),
-        BUF_SKIP_LOCKED, "ext2: vop_stdfsync");
+        BUF_SKIP_LOCKED, "ext2_fsync");
     return (0);
 }
+#endif
 
 #ifdef obsolete
 __private_extern__ int vrefcnt(vnode_t);
@@ -246,6 +296,7 @@ __private_extern__ int vop_stdfsync(struct vnop_fsync_args *);
 #define NOUNLINK 0
 
 /* XXX Is this the correct fn to map? */
+#ifdef _VNODE_H_
 #define V_WAIT 1 // XXX
 #define V_NOWAIT 0 // XXX
 static __inline__
@@ -253,6 +304,7 @@ int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
 {
     return (vnode_waitforwrites(vp, 0, 0, 0, "vn_write_suspend_wait"));
 }
+#endif
 
 #define vfs_bio_clrbuf clrbuf
 
@@ -273,7 +325,7 @@ int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
 #define hashdestroy(tbl,type,cnt) FREE((tbl), (type))
 
 #ifndef mtx_destroy
-#define mtx_destroy(mp) lck_mtx_destroy((mp))
+#define mtx_destroy(mp) lck_mtx_free((mp))
 #endif
 #ifndef mtx_lock
 #define mtx_lock(mp) lck_mtx_lock((mp))
@@ -318,7 +370,7 @@ static __inline void * memscan(void * addr, int c, size_t size)
 
 /* Debug */
 
-#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
+#if defined(obsolete) && defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
 
 __private_extern__
 void print_clusters(struct vnode *, char *);

@@ -77,11 +77,15 @@ ext2_discard_prealloc(ip)
 {
 #ifdef EXT2_PREALLOCATE
         if (ip->i_prealloc_count) {
-                int i = ip->i_prealloc_count;
+                unsigned long i = ip->i_prealloc_count;
+                unsigned long blk = ip->i_prealloc_block;
                 ip->i_prealloc_count = 0;
-                ext2_free_blocks (ITOVFS(ip),
-                                  ip->i_prealloc_block,
-                                  i);
+                
+                mount_t mp = ITOVFS(ip);
+                
+                IULOCK(ip);
+                ext2_free_blocks (mp, blk, i);
+                IXLOCK(ip);
         }
 #endif
 }
@@ -149,15 +153,24 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
                 ext2_discard_prealloc (ip);
                 /* ext2_debug ("preallocation miss (%lu/%lu).\n",
                             alloc_hits, ++alloc_attempts); */
-                if (S_ISREG(ip->i_mode))
-                        bno = ext2_new_block (mp, bpref,
-                                 &ip->i_prealloc_count,
-                                 &ip->i_prealloc_block);
-                else
-			bno = (int32_t)ext2_new_block(mp, bpref, 0, 0);
+                if (S_ISREG(ip->i_mode)) {
+                        IULOCK(ip);
+                        typeof(ip->i_prealloc_count) icount;
+                        typeof(ip->i_prealloc_block) ibn;
+                        bno = ext2_new_block (mp, bpref, &icount, &ibn);
+                        IXLOCK(ip);
+                        ip->i_prealloc_count = icount;
+                        ip->i_prealloc_block = ibn;
+                } else {
+                    IULOCK(ip);
+                    bno = (ext2_daddr_t)ext2_new_block(mp, bpref, 0, 0);
+                    IXLOCK(ip);
+                }
         }
 #else
-	bno = (int32_t)ext2_new_block(mp, bpref, 0, 0);
+	IULOCK(ip);
+    bno = (int32_t)ext2_new_block(mp, bpref, 0, 0);
+    IXLOCK(ip);
 #endif
 
 	if (bno > 0) {
@@ -395,7 +408,7 @@ ext2_valloc(pvp, mode, vaargsp, vpp)
 		goto noinodes;
    
    vaargsp->va_ino = ino;
-   error = VFS_VGET(vnode_mount(pvp), vaargsp, vpp, vaargsp->va_vctx);
+   error = EXT2_VGET(vnode_mount(pvp), vaargsp, vpp, vaargsp->va_vctx);
    
 	if (error) {
 		ext2_vfree(pvp, ino, mode);
@@ -408,7 +421,8 @@ ext2_valloc(pvp, mode, vaargsp, vpp)
 	  Linux doesn't read the old inode in when it's allocating a
 	  new one. I will set at least i_size & i_blocks the zero. 
 	*/ 
-	ip->i_mode = 0;
+	IXLOCK(ip);
+    ip->i_mode = 0;
 	ip->i_size = 0;
 	ip->i_blocks = 0;
 	ip->i_flags = 0;
@@ -424,6 +438,7 @@ ext2_valloc(pvp, mode, vaargsp, vpp)
 	 */
 	if (ip->i_gen == 0 || ++ip->i_gen == 0)
 		ip->i_gen = random() / 2 + 1;
+    IULOCK(ip);
 /*
 printf("ext2_valloc: allocated inode %d\n", ino);
 */
@@ -543,7 +558,8 @@ ext2_vfree(pvp, ino, mode)
 
 /* ext2_debug("ext2_vfree (%d, %d) called\n", pip->i_number, mode);
  */
-	ext2_discard_prealloc(pip);
+	IXLOCK(pip);
+    ext2_discard_prealloc(pip);
 
 	/* we need to make sure that ext2_free_inode can adjust the
 	   used_dir_counts in the group summary information - I'd
@@ -554,6 +570,7 @@ ext2_vfree(pvp, ino, mode)
 	pip->i_mode = mode;
 	ext2_free_inode(pip);	
 	pip->i_mode = save_i_mode;
+    IULOCK(pip);
 	return (0);
 }
 

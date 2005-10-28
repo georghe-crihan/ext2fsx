@@ -53,6 +53,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/malloc.h>
 #include <sys/dirent.h>
 #include <sys/sysctl.h>
+#include <sys/fcntl.h>
 
 /* From kernel */
 extern struct nchstats nchstats;
@@ -144,35 +145,40 @@ static int	ext2_dirbadentry(vnode_t dp, struct ext2_dir_entry_2 *de,
  * XXX allocate a buffer, convert as many entries as possible, then send
  * the whole buffer to uiomove
  */
+#define a_ncookies a_numdirent
 int
 ext2_readdir(ap)
    struct vnop_readdir_args /* {
             vnode_t a_vp;
+            struct uio *a_uio;
+            int a_flags;
             int *a_eofflag;
-            int *a_ncookies;
-            u_long **a_cookies;
+            int *a_numdirent;
             vfs_context_t a_context;
    } */ *ap;
 {
     vfs_context_t context = ap->a_context;
-    struct uio *uio = ap->a_uio;
+    uio_t uio = ap->a_uio, auio = NULL;
     int count, error;
     struct ext2_dir_entry_2 *edp, *dp;
     struct inode *ip;
     int ncookies;
     struct dirent dstdp;
-    struct uio auio;
-    struct iovec aiov;
     caddr_t dirbuf;
     int DIRBLKSIZ;
     int readcnt, free_dirbuf = 1;
-    off_t startoffset = uio->uio_offset;
+    off_t startoffset;
+    user_ssize_t startresid;
     int *eof = ap->a_eofflag;
 
+    // XXX need to add support for this
+    if ((ap->a_flags & VNODE_READDIR_EXTENDED) || (ap->a_flags & VNODE_READDIR_REQSEEKOFF))
+        return (ENOTSUP);
+    
     ip = VTOI(ap->a_vp);
     DIRBLKSIZ = ip->i_e2fs->s_blocksize;
 
-    count = uio->uio_resid;
+    count = uio_resid(uio);
     /*
      * Avoid complications for partial directory entries by adjusting
      * the i/o to end at a block boundary.  Don't give up (like ufs
@@ -181,7 +187,7 @@ ext2_readdir(ap)
      * size is a little larger than DIRBLKSIZ to allow for expansion
      * of directory entries, but some callers just use 512.
      */
-    count -= (uio->uio_offset + count) & (DIRBLKSIZ -1);
+    count -= (uio_offset(uio) + count) & (DIRBLKSIZ -1);
     if (count <= 0)
 		count += DIRBLKSIZ;
 
@@ -193,6 +199,8 @@ ext2_readdir(ap)
    if (eof)
       *eof = 0;
    
+   startoffset = uio_offset(uio);
+   startresid = uio_resid(uio);
    /* Check for an indexed dir */
    if (EXT3_HAS_COMPAT_FEATURE(ip->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) &&
       ((ip->i_e2flags & EXT3_INDEX_FL) /*||
@@ -205,47 +213,34 @@ ext2_readdir(ap)
          or that it would even work. */
       
       struct filldir_args fda = {0, 0, 0};
-      struct iovec iovs[UIO_SMALLIOV];
       
       /* Make sure the caller is not trying to read more than
          they are allowed. */
-      if (uio->uio_offset && EXT3_HTREE_EOF == ip->f_pos)
+      if (uio_offset(uio) && EXT3_HTREE_EOF == ip->f_pos)
          return (EIO);
       
       /*ip->i_dir_start_lookup = lblkno(ip->i_e2fs, uio->uio_offset);*/
-      if (UIO_SYSSPACE == uio->uio_segflg) {
+      if (0 == uio_isuserspace(uio)) {
          /* Setup dirbuf so the cookie calc works */
-         dirbuf = uio->uio_iov->iov_base;
+         user_addr_t iov = uio_curriovbase(uio);
+         if (iov)
+            dirbuf = (caddr_t)((uintptr_t)iov);
+         else {
+            error = EINVAL;
+            goto io_done;
+         }
       } else
          dirbuf = 0;
       free_dirbuf = 0;
       
-      /* Copy uio so we don't ruin the original if something fails 
-         and we need to fallback. */
-      auio = *uio;
-      auio.uio_resid = 0;
-      for (readcnt=0; readcnt < UIO_SMALLIOV
-         && readcnt < uio->uio_iovcnt; readcnt++) {
-         iovs[readcnt] = uio->uio_iov[readcnt];
-         auio.uio_resid += iovs[readcnt].iov_len;
-      }
-      auio.uio_iov = iovs;
-      auio.uio_iovcnt = readcnt;
-      fda.uio = &auio;
-      
+      fda.uio = uio;
       error = ext3_dx_readdir(ap->a_vp, &fda, bsd_filldir);
       if (error != ERR_BAD_DX_DIR) {
          if (EXT2_FILLDIR_ENOSPC == error)
             error = 0;
          error = -error; /* Linux uses -ve codes */
-         /* Copy back the modified uio */
-         uio->uio_resid = auio.uio_resid;
-         for (readcnt=0; readcnt < UIO_SMALLIOV
-            && readcnt < uio->uio_iovcnt; readcnt++) {
-            uio->uio_iov[readcnt] = auio.uio_iov[readcnt];
-         }
          /* we need to correct uio_offset */
-         uio->uio_offset = startoffset + fda.count;
+         uio_setoffset(uio, startoffset + fda.count);
          ncookies = fda.cookies;
          
          /* Set EOF if needed */
@@ -253,6 +248,7 @@ ext2_readdir(ap)
             *eof = 1;
          goto io_done;
       }
+      
       /*
       * We don't set the inode dirty flag since it's not
       * critical that it get flushed back to the disk.
@@ -260,24 +256,36 @@ ext2_readdir(ap)
       ip->i_e2flags &= ~EXT3_INDEX_FL;
       /* Fall back to normal dir entries. */
    }
-
-	auio = *uio;
-	auio.uio_iov = &aiov;
-	auio.uio_iovcnt = 1;
-	auio.uio_resid = count;
-	auio.uio_segflg = UIO_SYSSPACE;
-	aiov.iov_len = count;
-	MALLOC(dirbuf, caddr_t, count, M_TEMP, M_WAITOK);
-	aiov.iov_base = dirbuf;
    
-	error = VNOP_READ(ap->a_vp, &auio, 0, context);
+    // Verify we didn't get some partial dx entries
+    if (startoffset != uio_offset(uio) || startresid != uio_resid(uio)) {
+        error = EINVAL;
+        goto io_done;
+    }
+
+	auio = uio_create(1, 0, UIO_SYSSPACE32, UIO_READ);
+    if (!auio) {
+        error = ENOMEM;
+        goto io_done;
+    }
+	MALLOC(dirbuf, caddr_t, count, M_TEMP, M_WAITOK);
+    if ((error = uio_addiov(auio, CAST_USER_ADDR_T(dirbuf), (user_size_t)count)))
+        goto io_done;
+   
+	struct vnop_read_args ra;
+    ra.a_desc =  &vnop_read_desc;
+    ra.a_vp = ap->a_vp;
+    ra.a_uio = auio;
+    ra.a_ioflag = 0;
+    ra.a_context = context;
+    error = ext2_read(&ra);
 	if (error == 0) {
-		readcnt = count - auio.uio_resid;
+		readcnt = count - uio_resid(auio);
 		edp = (struct ext2_dir_entry_2 *)&dirbuf[readcnt];
 		ncookies = 0;
 		bzero(&dstdp, offsetof(struct dirent, d_name));
 		for (dp = (struct ext2_dir_entry_2 *)dirbuf; 
-		    !error && uio->uio_resid > 0 && dp < edp; ) {
+		    !error && uio_resid(uio) > 0 && dp < edp; ) {
 			/*-
 			 * "New" ext2fs directory entries differ in 3 ways
 			 * from ufs on-disk ones:
@@ -304,7 +312,7 @@ ext2_readdir(ap)
 			    dstdp.d_namlen);
 
 			if (dp->rec_len > 0) {
-				if(dstdp.d_reclen <= uio->uio_resid) {
+				if(dstdp.d_reclen <= uio_resid(uio)) {
 					/* advance dp */
 					dp = (struct ext2_dir_entry_2 *)
 					    ((char *)dp + le16_to_cpu(dp->rec_len)); 
@@ -320,14 +328,16 @@ ext2_readdir(ap)
 			}
 		}
 		/* we need to correct uio_offset */
-		uio->uio_offset = startoffset + (caddr_t)dp - dirbuf;
+        uio_setoffset(uio, startoffset + (caddr_t)dp - dirbuf);
 
 io_done:
+;// How the hell are cookies done with KPI?
+#if 0
 		if (!error && ap->a_ncookies != NULL) {
 			u_long *cookiep, *cookies, *ecookies;
 			off_t off;
 
-			if (uio->uio_segflg != UIO_SYSSPACE || uio->uio_iovcnt != 1)
+			if (uio_isuserspace(uio) || uio_iovcnt(uio) != 1)
 				panic("ext2_readdir: unexpected uio from NFS server");
 			MALLOC(cookies, u_long *, ncookies * sizeof(u_long), M_TEMP,
 			       M_WAITOK);
@@ -342,11 +352,14 @@ io_done:
 			*ap->a_ncookies = ncookies;
 			*ap->a_cookies = cookies;
 		}
+#endif
 	}
-   if (free_dirbuf)
+    if (free_dirbuf && dirbuf)
       FREE(dirbuf, M_TEMP);
 	if (eof && 0 == *eof)
-		*eof = ip->i_size <= uio->uio_offset;
+		*eof = ip->i_size <= uio_offset(uio);
+    if (auio)
+        uio_free(auio);
    ext2_trace_return(error);
 }
 
@@ -434,6 +447,24 @@ ext2_lookup(ap)
 	wantparent = flags & (LOCKPARENT|WANTPARENT);
 
 	/*
+	 * Lookup an entry in the cache
+	 * If the lookup succeeds, the vnode is returned in *vpp, and a status of -1 is
+	 * returned. If the lookup determines that the name does not exist
+	 * (negative cacheing), a status of ENOENT is returned. If the lookup
+	 * fails, a status of zero is returned.
+     * If found, an extra ref is already taken, so there's no need for vnode_get.
+	 */
+	error = cache_lookup(vdp, vpp, cnp);
+	if (error == 0) /* Unsuccessful */
+        goto dolookup;
+	if (error == ENOENT)
+		ext2_trace_return(error);
+	
+	/* We have a name that matched */
+    return (0);
+    
+dolookup:
+    /*
 	 * We now have a segment name to search for, and a directory to search.
 	 */
 
@@ -502,10 +533,7 @@ dx_fallback:
 	 * profiling time and hence has been removed in the interest
 	 * of simplicity.
 	 */
-#ifdef obsolete
-    bmask = VFSTOEXT2(vdp->v_mount)->um_mountp->mnt_stat.f_iosize - 1;
-#endif
-	bmask = vfs_statfs(mp)->f_iosize;
+	bmask = vfs_statfs(mp)->f_iosize - 1;
     if (nameiop != LOOKUP || dp->i_diroff == 0 ||
 	    dp->i_diroff > dp->i_size) {
 		entryoffsetinblock = 0;
@@ -518,7 +546,7 @@ dx_fallback:
 		    &bp)))
 			ext2_trace_return(error);
 		numdirpasses = 2;
-		nchstats.ncs_2passes++;
+		//nchstats.ncs_2passes++;
 	}
 	prevoff = dp->i_offset;
 	endsearch = roundup(dp->i_size, DIRBLKSIZ);
@@ -679,9 +707,11 @@ notfound:
 		 * NB - if the directory is unlocked, then this
 		 * information cannot be used.
 		 */
+#ifdef obsolete
 		cnp->cn_flags |= SAVENAME;
 		if (!lockparent)
 			vnode_unlock(vdp);
+#endif
 		ext2_trace_return(EJUSTRETURN);
 	}
 	/*
@@ -693,7 +723,7 @@ notfound:
 
 found:
 	if (numdirpasses == 2)
-		nchstats.ncs_pass2++;
+		//nchstats.ncs_pass2++;
 	/*
 	 * Check that directory length properly reflects presence
 	 * of this entry.
@@ -747,7 +777,7 @@ found:
         vallocargs.va_parent = vdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
-        if ((error = VFS_VGET(mp, &vallocargs, &tdp, context)) != 0)
+        if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
 			ext2_trace_return(error);
 		/*
 		 * If directory is "sticky", then user must own
@@ -763,8 +793,10 @@ found:
 			ext2_trace_return(EPERM);
 		}
 		*vpp = tdp;
+#ifdef obsolete
 		if (!lockparent)
 			vnode_unlock(vdp);
+#endif
 		return (0);
 	}
 
@@ -788,12 +820,14 @@ found:
         vallocargs.va_parent = vdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
-        if ((error = VFS_VGET(mp, &vallocargs, &tdp, context)) != 0)
+        if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
 			ext2_trace_return(error);
 		*vpp = tdp;
+#ifdef obsolete
 		cnp->cn_flags |= SAVENAME;
 		if (!lockparent)
 			vnode_unlock(vdp);
+#endif
 		return (0);
 	}
 
@@ -818,24 +852,24 @@ found:
 	 */
 	pdp = vdp;
 	if (flags & ISDOTDOT) {
-		vnode_unlock(pdp);	/* race to get the inode */
+		//vnode_unlock(pdp);	/* race to get the inode */
         vallocargs.va_ino = dp->i_ino;
         vallocargs.va_parent = pdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
-        if ((error = VFS_VGET(mp, &vallocargs, &tdp, context)) != 0)
+        if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
         {
-			vnode_lock(pdp);
+			//vnode_lock(pdp);
 			ext2_trace_return(error);
 		}
+#ifdef obsolete
 		if (lockparent && (flags & ISLASTCN)) {
             vnode_lock(pdp);
-#ifdef obsolete
 		    && (error = vn_lock(pdp, LK_EXCLUSIVE, td))) {
 			vput(tdp);
 			ext2_trace_return(error);
-#endif
 		}
+#endif
 		*vpp = tdp;
 	} else if (dp->i_number == dp->i_ino) {
 		vnode_addfsref(vdp);	/* we want ourself, ie "." */
@@ -845,10 +879,12 @@ found:
       vallocargs.va_parent = pdp;
       vallocargs.va_vctx = context;
       vallocargs.va_cnp = cnp;
-      if ((error = VFS_VGET(mp, &vallocargs, &tdp, context)) != 0)
+      if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
 			ext2_trace_return(error);
-		if (!lockparent || !(flags & ISLASTCN))
+#ifdef obsolete
+        if (!lockparent || !(flags & ISLASTCN))
 			vnode_unlock(pdp);
+#endif
 		*vpp = tdp;
 	}
 
@@ -872,7 +908,7 @@ ext2_dirbad(ip, offset, how)
 	(void)printf("%s: bad dir ino %lu at offset %ld: %s\n",
 	    vfs_statfs(mp)->f_mntonname, (u_long)ip->i_number, (long)offset, how);
 	if (0 == vfs_isrdonly(mp))
-		panic("ext2_dirbad: bad dir");
+		panic("ext2_dirbad: bad dir (%s)", how);
 }
 
 /*
@@ -933,12 +969,12 @@ ext2_direnter(ip, dvp, cnp, context)
 	struct componentname *cnp;
     vfs_context_t context;
 {
-	struct ext2_dir_entry_2 *ep, *nep;
+	off_t offset;
+    struct ext2_dir_entry_2 *ep, *nep;
 	struct inode *dp;
 	buf_t  bp;
 	struct ext2_dir_entry_2 newdir;
-	struct iovec aiov;
-	struct uio auio;
+	uio_t auio;
 	u_int dsize;
 	int error, loc, newentrysize, spacefree;
 	char *dirbuf;
@@ -948,9 +984,11 @@ ext2_direnter(ip, dvp, cnp, context)
     struct dentry dentry, dparent = {NULL, {NULL, 0}, NULL};
     handle_t h = {cnp};
 
+#ifdef obsolete
 #if DIAGNOSTIC
 	if ((cnp->cn_flags & SAVENAME) == 0)
 		panic("ext2_direnter: missing name");
+#endif
 #endif
 	dp = VTOI(dvp);
     fs = dp->i_e2fs;
@@ -970,12 +1008,19 @@ ext2_direnter(ip, dvp, cnp, context)
    dentry.d_name.name = cnp->cn_nameptr;
    dentry.d_name.len = cnp->cn_namelen;
    dentry.d_inode = ip;
+   IXLOCK_WITH_LOCKED_INODE(dp, ip);
    if (is_dx(dp)) {
+        IULOCK(ip);
+        IULOCK(dp);
 		error = ext3_dx_add_entry(&h, &dentry, ip);
+        
+        IXLOCK(ip);
+        IXLOCK_WITH_LOCKED_INODE(dp, ip);
 		if (!error || (error != ERR_BAD_DX_DIR)) {
-         dp->i_flag |= IN_CHANGE | IN_UPDATE;
-			return -(error); /* Linux uses -ve errors */
-      }
+            dp->i_flag |= IN_CHANGE | IN_UPDATE;
+			IULOCK(dp);
+            return -(error); /* Linux uses -ve errors */
+        }
 		dp->i_flags &= ~EXT3_INDEX_FL;
 		dx_fallback++;
 		ext3_mark_inode_dirty(&h, dp);
@@ -1004,35 +1049,40 @@ ext2_direnter(ip, dvp, cnp, context)
       }
       if (spacefree == 1 && !dx_fallback &&
          EXT3_HAS_COMPAT_FEATURE(fs, EXT3_FEATURE_COMPAT_DIR_INDEX)) {
+         IULOCK(dp);
          if ((error = ext2_blkatoff(dvp, (off_t)0, &dirbuf, &bp)))
             return (error);
+         IXLOCK_WITH_LOCKED_INODE(dp, ip);
          dp->f_pos = 0;
          dp->i_flag |= IN_CHANGE;
+         IULOCK(dp);
          ext2_trace_return (make_indexed_dir(&h, &dentry, ip, bp));
       }
       
-		auio.uio_offset = dp->i_offset;
+		offset = dp->i_offset;
+        IULOCK(dp);
+        
+        auio = uio_create(1, offset, UIO_SYSSPACE32, UIO_WRITE);
+        if (!auio)
+            return (ENOMEM);
+        if ((error = uio_addiov(auio, CAST_USER_ADDR_T(&newdir), (user_size_t)newentrysize))) {
+            uio_free(auio);
+            return (error);
+        }
+        uio_setresid(auio, newentrysize);
 		newdir.rec_len = cpu_to_le16(DIRBLKSIZ);
-		auio.uio_resid = newentrysize;
-		aiov.iov_len = newentrysize;
-		aiov.iov_base = (caddr_t)&newdir;
-		auio.uio_iov = &aiov;
-		auio.uio_iovcnt = 1;
-		auio.uio_rw = UIO_WRITE;
-		auio.uio_segflg = UIO_SYSSPACE;
-		auio.uio_td = (struct thread *)0;
-		error = VNOP_WRITE(dvp, &auio, IO_SYNC, context);
-		if (DIRBLKSIZ >
-            vfs_statfs(vnode_mount(dvp))->f_bsize)
-#ifdef obsolete
-            VFSTOEXT2(dvp->v_mount)->um_mountp->mnt_stat.f_bsize)
-#endif
+	
+		error = EXT2_WRITE(dvp, auio, IO_SYNC, context);
+		if (DIRBLKSIZ > vfs_statfs(vnode_mount(dvp))->f_bsize)
 			/* XXX should grow with balloc() */
 			panic("ext2_direnter: frag size");
 		else if (!error) {
-			dp->i_size = roundup(dp->i_size, DIRBLKSIZ);
-			dp->i_flag |= IN_CHANGE | IN_DX_UPDATE;;
+			IXLOCK_WITH_LOCKED_INODE(dp, ip);
+            dp->i_size = roundup(dp->i_size, DIRBLKSIZ);
+			dp->i_flag |= IN_CHANGE | IN_DX_UPDATE;
+            IULOCK(dp);
 		}
+        uio_free(auio);
 		return (error);
 	}
 
@@ -1057,10 +1107,14 @@ ext2_direnter(ip, dvp, cnp, context)
 	/*
 	 * Get the block containing the space for the new directory entry.
 	 */
-	if ((error = ext2_blkatoff(dvp, (off_t)dp->i_offset, &dirbuf,
-	    &bp)) != 0)
+	offset = dp->i_offset;
+    IULOCK(dp);
+    
+    if ((error = ext2_blkatoff(dvp, offset, &dirbuf, &bp)) != 0)
 		return (error);
-	/*
+	
+    IXLOCK_WITH_LOCKED_INODE(dp, ip);
+    /*
 	 * Find space for the new entry. In the simple case, the entry at
 	 * offset base will have the space. If it does not, then namei
 	 * arranged that compacting the region dp->i_offset to
@@ -1101,10 +1155,15 @@ ext2_direnter(ip, dvp, cnp, context)
 		ep = (struct ext2_dir_entry_2 *)((char *)ep + dsize);
 	}
 	bcopy((caddr_t)&newdir, (caddr_t)ep, (u_int)newentrysize);
-	error = BUF_WRITE(bp);
-	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;;
-	if (!error && dp->i_endoff && dp->i_endoff < dp->i_size)
-		error = ext2_truncate(dvp, (off_t)dp->i_endoff, IO_SYNC,
+	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+    
+    offset = (off_t)dp->i_endoff;
+    off_t isize = dp->i_size;
+    IULOCK(dp);
+    
+    error = BUF_WRITE(bp);
+	if (!error && offset && offset < isize)
+		error = ext2_truncate(dvp, offset, IO_SYNC,
 		    vfs_context_ucred(context), vfs_context_proc(context));
 	return (error);
 }
@@ -1186,7 +1245,7 @@ ext2_dirremove(dvp, cnp)
  * set up by a call to namei.
  */
 int
-ext2_dirrewrite(dp, ip, cnp)
+ext2_dirrewrite_nolock(dp, ip, cnp)
 	struct inode *dp, *ip;
 	struct componentname *cnp;
 {
@@ -1194,9 +1253,14 @@ ext2_dirrewrite(dp, ip, cnp)
 	struct ext2_dir_entry_2 *ep;
 	vnode_t vdp = ITOV(dp);
 	int error;
+    off_t offset;
 
    /* Check for indexed dir */
-   if (is_dx(dp)) {
+   IXLOCK(dp);
+   int isdx = is_dx(dp);
+   offset = (off_t)dp->i_offset;
+   IULOCK(dp);
+   if (isdx) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
       
       dentry.d_parent = &dparent;
@@ -1208,18 +1272,19 @@ ext2_dirrewrite(dp, ip, cnp)
       if (!bp)
          return -(error); /* Linux uses -ve errors */
    } else {
-      if ((error = ext2_blkatoff(vdp, (off_t)dp->i_offset, (char **)&ep,
-         &bp)) != 0)
+      if ((error = ext2_blkatoff(vdp, offset, (char **)&ep, &bp)))
          return (error);
    }
-	ep->inode = cpu_to_le32(ip->i_number);
+	IXLOCK(dp);
+    ep->inode = cpu_to_le32(ip->i_number);
 	if (EXT2_HAS_INCOMPAT_FEATURE(ip->i_e2fs,
 	    EXT2_FEATURE_INCOMPAT_FILETYPE))
 		ep->file_type = DTTOFT(IFTODT(ip->i_mode));
 	else
 		ep->file_type = EXT2_FT_UNKNOWN;
-	error = BUF_WRITE(bp);
-	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+    dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+	IULOCK(dp);
+    error = BUF_WRITE(bp);
 	return (error);
 }
 
@@ -1246,9 +1311,11 @@ ext2_dirempty(ip, parentino, cred)
 #define	MINDIRSIZ (sizeof (struct dirtemplate) / 2)
 
 	for (off = 0; off < ip->i_size; off += le16_to_cpu(dp->rec_len)) {
-		error = vn_rdwr(UIO_READ, ITOV(ip), (caddr_t)dp, MINDIRSIZ,
+		IULOCK(ip);
+        error = vn_rdwr(UIO_READ, ITOV(ip), (caddr_t)dp, MINDIRSIZ,
 		    off, UIO_SYSSPACE, IO_NODELOCKED | IO_NOMACCHECK, cred,
           &count, (struct proc *)0);
+        IXLOCK(ip);
 		/*
 		 * Since we read MINDIRSIZ, residual must
 		 * be 0 unless we're at end of file.
@@ -1287,7 +1354,7 @@ ext2_dirempty(ip, parentino, cred)
  * The target is always vput before returning.
  */
 int
-ext2_checkpath(source, target, vallocp)
+ext2_checkpath_nolock(source, target, vallocp)
 	struct inode *source, *target;
 	evalloc_args_t *vallocp;
 {
@@ -1314,7 +1381,6 @@ ext2_checkpath(source, target, vallocp)
 			error = ENOTDIR;
 			break;
 		}
-		/* XXX vn_rdwr() is now private (why?) -- need replacment */
         error = vn_rdwr(UIO_READ, vp, (caddr_t)&dirbuf,
 			sizeof (struct dirtemplate), (off_t)0, UIO_SYSSPACE,
 			IO_NODELOCKED | IO_NOMACCHECK, vfs_context_ucred(context), 
@@ -1337,7 +1403,7 @@ ext2_checkpath(source, target, vallocp)
 			break;
 		vnode_put(vp);
         vallocp->va_ino = dotdot_ino;
-        if ((error = VFS_VGET(vnode_mount(vp), vallocp, &vp, context)) != 0)
+        if ((error = EXT2_VGET(vnode_mount(vp), vallocp, &vp, context)) != 0)
 		{
 			vp = NULL;
 			break;

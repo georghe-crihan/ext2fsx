@@ -55,7 +55,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/sysctl.h>
 #include <sys/loadable_fs.h>
 
-#include <dev/disk.h>
+//#include <dev/disk.h>
 
 #include <machine/byte_order.h>
 
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
                ret = FSUR_INVAL;
                uuid = extsuper_uuid(blockdevpath);
                if (uuid) {
-                  u_char pruuid[40];
+                  char pruuid[40];
                   ret = FSUR_IO_SUCCESS;
                   /* Convert to UTF8 */
                   (void) CFStringGetCString(uuid, pruuid, sizeof(pruuid),
@@ -425,8 +425,8 @@ report_exit_code(int ret)
 static void fs_set_label_file(char *labelPtr)
 {
     int 			fd;
-    unsigned char	filename[MAXPATHLEN];
-    unsigned char	label[EXT2_VOL_LABEL_LENGTH],
+    char	filename[MAXPATHLEN];
+    char	label[EXT2_VOL_LABEL_LENGTH],
         			labelUTF8[EXT2_VOL_LABEL_LENGTH*3],
         			*tempPtr;
     off_t			offset;

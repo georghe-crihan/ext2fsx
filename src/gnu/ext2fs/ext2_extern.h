@@ -40,6 +40,7 @@
 #define	_SYS_GNU_EXT2FS_EXT2_EXTERN_H_
 
 #include <sys/types.h>
+#include <sys/vnode.h>
 
 #ifndef __u32
 #define __u32 u_int32_t
@@ -59,6 +60,18 @@ typedef struct ext2_valloc_args {
 	vfs_context_t va_vctx;
 	struct componentname *va_cnp;
 } evalloc_args_t;
+//xxx this will break if kernel space ever goes 64bit
+#define EVALLOC_ARGS_MAGIC(eap) (ino64_t)(0x5000000000000000LL | (ino64_t)((uintptr_t)(eap)))
+#define IS_EVALLOC_ARGS(ino64) (((ino64_t)(ino64) & 0x5fffffff00000000LL) == 0x5000000000000000LL ? 1 : 0)
+#define EVALLOC_ARGS(ino64) (evalloc_args_t*)((uintptr_t)((ino64) & 0xffffffff00000000ULL))
+
+__private_extern__ struct vfsops ext2fs_vfsops;
+static __inline__
+int EXT2_VGET(mount_t mp, evalloc_args_t *eap, vnode_t *vpp, vfs_context_t cp)
+{
+    ino64_t arg = EVALLOC_ARGS_MAGIC(eap);
+    return (ext2fs_vfsops.vfs_vget(mp, arg, vpp, cp));
+}
 
 int	ext2_alloc(struct inode *,
 	    ext2_daddr_t, ext2_daddr_t, int, struct ucred *, ext2_daddr_t *);
@@ -68,7 +81,7 @@ int	ext2_blkatoff(vnode_t , off_t, char **, buf_t  *);
 void	ext2_blkfree(struct inode *, ext2_daddr_t, long);
 ext2_daddr_t	ext2_blkpref(struct inode *, ext2_daddr_t, int, ext2_daddr_t *, ext2_daddr_t);
 int	ext2_bmap(struct vnop_blockmap_args *);
-int	ext2_bmaparray(vnode_t , ext2_daddr_t, ext2_daddr_t *, size_t *, size_t *);
+int	ext2_bmaparray(vnode_t , ext2_daddr_t, ext2_daddr_t *, int *, int *);
 void	ext2_dirbad(struct inode *ip, doff_t offset, char *how);
 void	ext2_ei2i(struct ext2_inode *, struct inode *);
 int	ext2_getlbns(vnode_t , ext2_daddr_t, struct indir *, int *);
@@ -80,7 +93,7 @@ vnode_t
 	ext2_ihashlookup(dev_t, ino_t);
 void	ext2_ihashrem(struct inode *);
 void	ext2_ihashuninit(void);
-void	ext2_itimes(vnode_t vp);
+void	ext2_itimes(vnode_t);
 #ifdef FANCY_REALLOC
 int	ext2_reallocblks(struct vnop_reallocblks_args *);
 #endif
@@ -94,7 +107,7 @@ int	ext2_vfree(vnode_t, ino_t, int);
 typedef struct ext2_vinit_args {
 	evalloc_args_t *vi_vallocargs;
 	struct inode *vi_ip;
-	vop_t **vi_vnops, **vi_specops, **vi_fifoops;
+	vnop_t **vi_vnops, **vi_specops, **vi_fifoops;
 	u_int32_t vi_flags;
 } evinit_args_t;
 #define EXT2_VINIT_INO_LCKD 0x00000001
@@ -106,10 +119,10 @@ void	ext2_print_inode(struct inode *);
 int	ext2_direnter(struct inode *, 
 		vnode_t , struct componentname *, vfs_context_t);
 int	ext2_dirremove(vnode_t , struct componentname *);
-int	ext2_dirrewrite(struct inode *,
+int	ext2_dirrewrite_nolock(struct inode *,
 		struct inode *, struct componentname *);
 int	ext2_dirempty(struct inode *, ino_t, struct ucred *);
-int	ext2_checkpath(struct inode *, struct inode *, evalloc_args_t *);
+int	ext2_checkpath_nolock(struct inode *, struct inode *, evalloc_args_t *);
 struct  ext2_group_desc * get_group_desc(mount_t   , 
 		unsigned int , buf_t  * );
 int	ext2_group_sparse(int group);
@@ -150,9 +163,9 @@ extern int ext3fs_dirhash(const char *name, int len, struct
 #define B_NOWAIT	0x08	/* do not sleep to await lock */
 #define B_NOBUFF    0x10    /* do not allocate buffer */
 
-extern vop_t **ext2_vnodeop_p;
-extern vop_t **ext2_specop_p;
-extern vop_t **ext2_fifoop_p;
+extern vnop_t **ext2_vnodeop_p;
+extern vnop_t **ext2_specop_p;
+extern vnop_t **ext2_fifoop_p;
 
 /* Compatibility wrapper for ext2_balloc2 */
 static __inline__ int ext2_balloc(struct inode *ip,

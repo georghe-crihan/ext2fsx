@@ -48,7 +48,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #ifndef APPLE
 static MALLOC_DEFINE(M_EXT2IHASH, "EXT2 ihash", "EXT2 Inode hash tables");
 #else
-#define M_EXT2IHASH M_MISCFSNODE
+#define M_EXT2IHASH M_TEMP
 #endif
 /*
  * Structures associated with inode caching.
@@ -56,10 +56,10 @@ static MALLOC_DEFINE(M_EXT2IHASH, "EXT2 ihash", "EXT2 Inode hash tables");
 static LIST_HEAD(ihashhead, inode) *ihashtbl;
 static u_long	ihash;		/* size of hash table - 1 */
 #define	INOHASH(device, inum)	(&ihashtbl[(minor(device) + (inum)) & ihash])
-static lck_mtx_t ext2_ihash_lock;
+static lck_mtx_t *ext2_ihash_lock;
 
-#define hlock() do {lck_mtx_lock(&ext2_ihash_lock);} while(0)
-#define hulock() do {lck_mtx_unlock(&ext2_ihash_lock);} while(0)
+#define hlock() do {lck_mtx_lock(ext2_ihash_lock);} while(0)
+#define hulock() do {lck_mtx_unlock(ext2_ihash_lock);} while(0)
 
 /*
  * Initialize inode hash table.
@@ -69,7 +69,7 @@ ext2_ihashinit()
 {
 
 	KASSERT(ihashtbl == NULL, ("ext2_ihashinit called twice"));
-	lck_mtx_init(&ext2_ihash_lock, EXT2_LCK_GRP, LCK_ATTR_NULL);
+	ext2_ihash_lock = lck_mtx_alloc_init(EXT2_LCK_GRP, LCK_ATTR_NULL);
 	ihashtbl = hashinit(desiredvnodes, M_EXT2IHASH, &ihash);
 }
 
@@ -83,7 +83,7 @@ ext2_ihashuninit()
 	hashdestroy(ihashtbl, M_EXT2IHASH, ihash);
 	ihashtbl = NULL;
 	hulock();
-	lck_mtx_destroy(&ext2_ihash_lock, EXT2_LCK_GRP);
+	lck_mtx_free(ext2_ihash_lock, EXT2_LCK_GRP);
 }
 
 /*
@@ -121,6 +121,7 @@ ext2_ihashget(dev, inum, flags, vpp)
 {
 	struct inode *ip;
 	vnode_t vp;
+	uint32_t vid;
 	int error;
 
 	*vpp = NULL;
@@ -128,13 +129,33 @@ loop:
 	hlock();
 	LIST_FOREACH(ip, INOHASH(dev, inum), i_hash) {
 		if (inum == ip->i_number && dev == ip->i_dev) {
-			vp = ITOV(ip);
 			hulock();
-			error = vnode_get(vp);
-			if (error == ENOENT)
-				goto loop;
+			
+			error = 0;
+			IXLOCK(ip);
+			while (ip->i_flags & IN_INIT) {
+				ip->i_flags |= IN_INITWAIT;
+				error = ISLEEP(ip, flags, NULL);
+			}
+			// If we are no longer on the hash chain, init failed
+			if (!error && 0 == (ip->i_flags & IN_HASHED))
+				error = EIO;
+				
+			vp = ITOV(ip);
+			vid = vnode_vid(vp);
+			IULOCK(ip);
+			
 			if (error)
 				return (error);
+			
+			error = vnode_getwithvid(vp, vid);
+			if (error == ENOENT)
+				goto loop; // vnode has changed identity
+			if (error)
+				return (error);
+			if (ip != VTOI(vp))
+				goto loop;
+			
 			*vpp = vp;
 			return (0);
 		}

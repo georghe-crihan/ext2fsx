@@ -36,7 +36,7 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_vfsops.c,v 1.101 2003/01/01 18:48:52 schweikh Exp $
  */
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2005 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -69,7 +69,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/proc.h>
 #include <sys/kernel.h>
 #include <sys/vnode.h>
-#include <sys/vnode_if.h>
 #include <sys/mount.h>
 #include <sys/buf.h>
 #include <sys/conf.h>
@@ -79,6 +78,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/disk.h>
 #include <sys/syslog.h>
 #include <sys/sysctl.h>
+#include <sys/kauth.h>
 
 #include <string.h>
 #include <machine/spl.h>
@@ -100,24 +100,25 @@ static int vn_isdisk(vnode_t, int *);
 __private_extern__ lck_grp_t *ext2_lck_grp = NULL;
 
 /* VOPS */
-static int ext2_fhtovp(mount_t , struct fid *, vnode_t *, vfs_context_t);
+static int ext2_fhtovp(mount_t, int, unsigned char *, vnode_t *, vfs_context_t);
 static int ext2_flushfiles(mount_t mp, int flags, vfs_context_t);
 static int ext2_init(struct vfsconf *);
-static int ext2_mount(mount_t, vnode_t, caddr_t, vfs_context_t);
+static int ext2_mount(mount_t, vnode_t, user_addr_t, vfs_context_t);
 static int ext2_mountfs(vnode_t, mount_t, vfs_context_t);
 static int ext2_reload(mount_t mountp, vfs_context_t);
 static int ext2_root(mount_t, vnode_t *vpp, vfs_context_t);
 static int ext2_sbupdate(vfs_context_t, struct ext2mount *, int);
-static int ext2_statfs(mount_t, struct vfsstatfs *, vfs_context_t);
+static int ext2_getattrfs(mount_t, struct vfs_attr *, vfs_context_t);
+static int ext2_setattrfs(mount_t, struct vfs_attr *, vfs_context_t);
 static int ext2_sync(mount_t, int, vfs_context_t);
 static int ext2_uninit(struct vfsconf *);
 static int ext2_unmount(mount_t, int, vfs_context_t);
-static int ext2_vget(mount_t, void *, vnode_t *, vfs_context_t);
-static int ext2_vptofh(vnode_t, struct fid *, vfs_context_t);
+static int ext2_vget(mount_t, ino64_t, vnode_t *, vfs_context_t);
+static int ext2_vptofh(vnode_t, int*, unsigned char *, vfs_context_t);
 
-static int ext2_sysctl(int *, u_int, void *, size_t *, void *, size_t, vfs_context_t);
+static int ext2_sysctl(int *, u_int, user_addr_t, size_t *, user_addr_t, size_t, vfs_context_t);
+static int ext2_quotactl(mount_t , int, uid_t, caddr_t, vfs_context_t);
 static int vfs_stdstart(mount_t , int, vfs_context_t);
-static int vfs_stdquotactl(mount_t , int, uid_t, caddr_t, enum uio_seg, vfs_context_t);
 
 /* These assume SBSIZE == 1024 in fs.h */
 #ifdef SBLOCK
@@ -136,19 +137,21 @@ struct ext2_iter_cargs {
 	int ca_err;
 };
 
-static struct vfsops ext2fs_vfsops = {
-   ext2_mount,
-   vfs_stdstart,
+__private_extern__ struct vfsops ext2fs_vfsops = {
+	ext2_mount,
+	vfs_stdstart,
 	ext2_unmount,
 	ext2_root,		/* root inode via vget */
-	vfs_stdquotactl,
-	ext2_statfs,
+	ext2_quotactl,
+	ext2_getattrfs,
 	ext2_sync,
 	ext2_vget,
 	ext2_fhtovp,
 	ext2_vptofh,
 	ext2_init,
-   ext2_sysctl
+	ext2_sysctl,
+	ext2_setattrfs,
+	{NULL,}
 };
 
 #define bsd_malloc _MALLOC
@@ -160,6 +163,38 @@ static int	ext2_check_sb_compat(struct ext2_super_block *es, dev_t dev,
 		    int ronly);
 static int	compute_sb_data(vnode_t devvp, vfs_context_t context,
 		    struct ext2_super_block * es, struct ext2_sb_info * fs);
+
+/* Ext2 supported attributes */
+#define EXT2_ATTR_CMN_NATIVE ( \
+   ATTR_CMN_DEVID | ATTR_CMN_FSID | ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | \
+   ATTR_CMN_OBJID | ATTR_CMN_OBJPERMANENTID | ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | \
+   ATTR_CMN_ACCTIME | ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK | \
+   ATTR_CMN_USERACCESS )
+#define EXT2_ATTR_CMN_SUPPORTED EXT2_ATTR_CMN_NATIVE
+#define EXT2_ATTR_VOL_NATIVE ( \
+   ATTR_VOL_FSTYPE | ATTR_VOL_SIGNATURE | ATTR_VOL_SIZE | \
+   ATTR_VOL_SPACEFREE | ATTR_VOL_SPACEAVAIL | ATTR_VOL_IOBLOCKSIZE | \
+   ATTR_VOL_OBJCOUNT |  ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT | \
+   ATTR_VOL_MAXOBJCOUNT | ATTR_VOL_MOUNTPOINT | ATTR_VOL_NAME | ATTR_VOL_MOUNTPOINT | \
+   ATTR_VOL_MOUNTFLAGS | ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES | \
+   ATTR_VOL_ATTRIBUTES | ATTR_VOL_INFO )
+/*  ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT aren't really native, but close enough */
+#define EXT2_ATTR_VOL_SUPPORTED EXT2_ATTR_VOL_NATIVE
+#define EXT2_ATTR_DIR_NATIVE ( \
+   ATTR_DIR_LINKCOUNT | ATTR_DIR_ENTRYCOUNT | ATTR_DIR_MOUNTSTATUS )
+#define EXT2_ATTR_DIR_SUPPORTED EXT2_ATTR_DIR_NATIVE
+#define EXT2_ATTR_FILE_NATIVE ( \
+   ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE | ATTR_FILE_ALLOCSIZE | \
+   ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_CLUMPSIZE | ATTR_FILE_DEVTYPE )
+#define EXT2_ATTR_FILE_SUPPORTED EXT2_ATTR_FILE_NATIVE
+#define EXT2_ATTR_FORK_NATIVE 0
+#define EXT2_ATTR_FORK_SUPPORTED 0
+
+#define EXT2_ATTR_CMN_SETTABLE 0
+#define EXT2_ATTR_VOL_SETTABLE ATTR_VOL_NAME
+#define EXT2_ATTR_DIR_SETTABLE 0
+#define EXT2_ATTR_FILE_SETTABLE 0
+#define EXT2_ATTR_FORK_SETTABLE 0
 
 #ifdef notyet
 static int ext2_mountroot(void);
@@ -228,14 +263,14 @@ static int
 ext2_mount(mp, devvp, data, context)
 	mount_t mp;
 	vnode_t devvp;
-    caddr_t data;
+    user_addr_t data;
 	vfs_context_t context;
 {
 #ifdef obsolete
     struct nameidata nd;
 	struct vnode *devvp;
-#endif
 	struct export_args *export;
+#endif
 	struct ext2mount *ump = 0;
 	struct ext2_sb_info *fs;
     struct ext2_args args;
@@ -243,12 +278,15 @@ ext2_mount(mp, devvp, data, context)
 	size_t size;
 	int error, flags;
 	mode_t accessmode;
-	proc_t p = vfs_context_proc(context);
+	//proc_t p = vfs_context_proc(context);
+   
+	// Advisory locking is handled at the VFS layer
+	vfs_setlocklocal(mp);
    
    if ((error = copyin(CAST_USER_ADDR_T(data), (caddr_t)&args, sizeof (struct ext2_args))) != 0)
 		ext2_trace_return(error);
    
-   export = &args.export;
+   //export = &args.export;
    
    size = 0;
 #ifdef obsolete
@@ -299,14 +337,13 @@ ext2_mount(mp, devvp, data, context)
 			 * If upgrade to read-write by non-root, then verify
 			 * that user has necessary permissions on the device.
 			 */
-            if (suser(vfs_context_ucred(context), &p->p_acflag)) {
-				vnode_lock(devvp);
-				if ((error = VNOP_ACCESS(devvp, VREAD | VWRITE,
-				    context)) != 0) {
-					vnode_unlock(devvp);
+            if (kauth_cred_issuser(vfs_context_ucred(context))) {
+				//vnode_lock(devvp);
+				if ((error = VNOP_ACCESS(devvp, VREAD | VWRITE, context)) != 0) {
+					//vnode_unlock(devvp);
 					ext2_trace_return(error);
 				}
-				vnode_unlock(devvp);
+				//vnode_unlock(devvp);
 			}
 
 			if ((le16_to_cpu(fs->s_es->s_state) & EXT2_VALID_FS) == 0 ||
@@ -364,7 +401,7 @@ ext2_mount(mp, devvp, data, context)
 	 * If mount by non-root, then verify that user has necessary
 	 * permissions on the device.
 	 */
-   if (suser(p->p_ucred, &p->p_acflag)) {
+   if (kauth_cred_issuser(vfs_context_ucred(context))) {
 		accessmode = VREAD;
 		if (vfs_isrdonly(mp))
 			accessmode |= VWRITE;
@@ -419,7 +456,7 @@ ext2_mount(mp, devvp, data, context)
 		vfs_clearflags(mp, MNT_UNKNOWNPERMISSIONS);
 	}
 
-	(void)ext2_statfs(mp, vfs_statfs(mp), context);
+	//(void)ext2_statfs(mp, vfs_statfs(mp), context);
 	return (0);
 }
 
@@ -1067,9 +1104,9 @@ ext2_flushfiles(mp, flags, context)
  * taken from ext2/super.c ext2_statfs
  */
 static int
-ext2_statfs(mp, sbp, context)
+ext2_getattrfs(mp, attrs, context)
 	mount_t mp;
-	struct vfsstatfs *sbp;
+	struct vfs_attr *attrs;
 	vfs_context_t context;
 {
 	unsigned long overhead;
@@ -1100,23 +1137,182 @@ ext2_statfs(mp, sbp, context)
    /* Inode bitmap, block bitmap, and inode table: */
    fs->s_groups_count * (1 + 1 + fs->s_itb_per_group);
 
-	sbp->f_bsize = EXT2_FRAG_SIZE(fs);	
-	sbp->f_iosize = EXT2_BLOCK_SIZE(fs);
-	sbp->f_blocks = le32_to_cpu(es->s_blocks_count) - overhead;
-	sbp->f_bfree = le32_to_cpu(es->s_free_blocks_count); 
-	sbp->f_bavail = sbp->f_bfree - le32_to_cpu(es->s_r_blocks_count); 
-	sbp->f_files = le32_to_cpu(es->s_inodes_count); 
-	sbp->f_ffree = le32_to_cpu(es->s_free_inodes_count);
+	VFSATTR_RETURN(attrs, f_bsize, EXT2_FRAG_SIZE(fs));	
+	VFSATTR_RETURN(attrs, f_iosize, EXT2_BLOCK_SIZE(fs));
+	VFSATTR_RETURN(attrs, f_blocks, le32_to_cpu(es->s_blocks_count) - overhead);
+	VFSATTR_RETURN(attrs, f_bfree, le32_to_cpu(es->s_free_blocks_count)); 
+	VFSATTR_RETURN(attrs, f_bavail, attrs->f_bfree - le32_to_cpu(es->s_r_blocks_count)); 
+	VFSATTR_RETURN(attrs, f_files, le32_to_cpu(es->s_inodes_count)); 
+	VFSATTR_RETURN(attrs, f_ffree, le32_to_cpu(es->s_free_inodes_count));
 #ifdef obsolete
-	if (sbp != vfs_statfs(mp)) {
-		sbp->f_type = vfs_typenum(mp);
+	if (attrs != vfs_statfs(mp)) {
+		attrs->f_type = vfs_typenum(mp);
 		bcopy((caddr_t)mp->mnt_stat.f_mntonname,
-			(caddr_t)&sbp->f_mntonname[0], MNAMELEN);
+			(caddr_t)&attrs->f_mntonname[0], MNAMELEN);
 		bcopy((caddr_t)mp->mnt_stat.f_mntfromname,
-			(caddr_t)&sbp->f_mntfromname[0], MNAMELEN);
+			(caddr_t)&attrs->f_mntfromname[0], MNAMELEN);
 	}
 #endif
+	
+	struct vfsstatfs *sbp = vfs_statfs(mp);
+	int numdirs = fs->s_dircount;
+	if (VFSATTR_IS_ACTIVE(attrs, f_signature))
+		VFSATTR_RETURN(attrs, f_signature, (typeof(attrs->f_signature))EXT2_SUPER_MAGIC);
+	if (VFSATTR_IS_ACTIVE(attrs, f_objcount))
+		VFSATTR_RETURN(attrs, f_objcount, (typeof(attrs->f_objcount))(sbp->f_files - sbp->f_ffree));
+	if (VFSATTR_IS_ACTIVE(attrs, f_filecount))
+		VFSATTR_RETURN(attrs, f_filecount, (typeof(attrs->f_filecount))(sbp->f_files - sbp->f_ffree) - numdirs);
+	if (VFSATTR_IS_ACTIVE(attrs, f_dircount))
+		VFSATTR_RETURN(attrs, f_dircount, (typeof(attrs->f_dircount))numdirs);
+	if (VFSATTR_IS_ACTIVE(attrs, f_maxobjcount))
+		VFSATTR_RETURN(attrs, f_maxobjcount, (typeof(attrs->f_maxobjcount))sbp->f_files);
+	
+	if (VFSATTR_IS_ACTIVE(attrs, f_capabilities)) {
+		int extracaps = 0;
+		if (EXT3_HAS_COMPAT_FEATURE(fs, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
+			extracaps = VOL_CAP_FMT_JOURNAL /* | VOL_CAP_FMT_JOURNAL_ACTIVE */;
+
+		/* Capabilities we support */
+		attrs->f_capabilities.capabilities[VOL_CAPABILITIES_FORMAT] =
+		VOL_CAP_FMT_SYMBOLICLINKS|
+		VOL_CAP_FMT_HARDLINKS|
+		VOL_CAP_FMT_SPARSE_FILES|
+		VOL_CAP_FMT_CASE_SENSITIVE|
+		VOL_CAP_FMT_CASE_PRESERVING|
+		VOL_CAP_FMT_FAST_STATFS|
+		VOL_CAP_FMT_2TB_FILESIZE|
+		extracaps;
+		attrs->f_capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] =
+		/* VOL_CAP_INT_NFSEXPORT| */
+		VOL_CAP_INT_VOL_RENAME|
+		VOL_CAP_INT_ADVLOCK|
+		VOL_CAP_INT_FLOCK;
+		attrs->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
+		attrs->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
+
+		/* Capabilities we know about */
+		attrs->f_capabilities.valid[VOL_CAPABILITIES_FORMAT] =
+		VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+		VOL_CAP_FMT_SYMBOLICLINKS |
+		VOL_CAP_FMT_HARDLINKS |
+		VOL_CAP_FMT_JOURNAL |
+		VOL_CAP_FMT_JOURNAL_ACTIVE |
+		VOL_CAP_FMT_NO_ROOT_TIMES |
+		VOL_CAP_FMT_SPARSE_FILES |
+		VOL_CAP_FMT_ZERO_RUNS |
+		VOL_CAP_FMT_CASE_SENSITIVE |
+		VOL_CAP_FMT_CASE_PRESERVING |
+		VOL_CAP_FMT_FAST_STATFS|
+		VOL_CAP_FMT_2TB_FILESIZE;
+		attrs->f_capabilities.valid[VOL_CAPABILITIES_INTERFACES] =
+		VOL_CAP_INT_SEARCHFS |
+		VOL_CAP_INT_ATTRLIST |
+		VOL_CAP_INT_NFSEXPORT |
+		VOL_CAP_INT_READDIRATTR |
+		VOL_CAP_INT_EXCHANGEDATA |
+		VOL_CAP_INT_COPYFILE |
+		VOL_CAP_INT_ALLOCATE |
+		VOL_CAP_INT_VOL_RENAME |
+		VOL_CAP_INT_ADVLOCK |
+		VOL_CAP_INT_FLOCK ;
+		attrs->f_capabilities.valid[VOL_CAPABILITIES_RESERVED1] = 0;
+		attrs->f_capabilities.valid[VOL_CAPABILITIES_RESERVED2] = 0;
+        VFSATTR_SET_SUPPORTED(attrs, f_capabilities); 
+    }
+	
+    if (VFSATTR_IS_ACTIVE(attrs, f_attributes)) {
+        attrs->f_attributes.validattr.commonattr = EXT2_ATTR_CMN_NATIVE;
+		attrs->f_attributes.validattr.volattr = EXT2_ATTR_VOL_SUPPORTED;
+		attrs->f_attributes.validattr.dirattr = EXT2_ATTR_DIR_SUPPORTED;
+		attrs->f_attributes.validattr.fileattr = EXT2_ATTR_FILE_SUPPORTED;
+		attrs->f_attributes.validattr.forkattr = EXT2_ATTR_FORK_SUPPORTED;
+
+		attrs->f_attributes.nativeattr.commonattr = EXT2_ATTR_CMN_NATIVE;
+		attrs->f_attributes.nativeattr.volattr = EXT2_ATTR_VOL_NATIVE;
+	    attrs->f_attributes.nativeattr.dirattr = EXT2_ATTR_DIR_NATIVE;
+		attrs->f_attributes.nativeattr.fileattr = EXT2_ATTR_FILE_NATIVE;
+		attrs->f_attributes.nativeattr.forkattr = EXT2_ATTR_FORK_NATIVE;
+        VFSATTR_SET_SUPPORTED(attrs, f_attributes);
+    }
+	
+    if (VFSATTR_IS_ACTIVE(attrs, f_vol_name)) {
+		int len = ext2_vol_label_len(fs->s_es->s_volume_name);
+		(void)strncpy(attrs->f_vol_name, fs->s_es->s_volume_name, len);
+		attrs->f_vol_name[len] = 0;
+        VFSATTR_SET_SUPPORTED(attrs, f_vol_name);
+    }
+	
+	if (VFSATTR_IS_ACTIVE(attrs, f_create_time)) {
+		attrs->f_create_time.tv_sec = le32_to_cpu(fs->s_es->s_mkfs_time);
+		attrs->f_create_time.tv_nsec = 0;
+		VFSATTR_SET_SUPPORTED(attrs, f_create_time);
+	}
+	
+    if (VFSATTR_IS_ACTIVE(attrs, f_owner) ||
+		VFSATTR_IS_ACTIVE(attrs, f_modify_time) ||
+        VFSATTR_IS_ACTIVE(attrs, f_access_time) /* ||
+        VFSATTR_IS_ACTIVE(attrs, f_backup_time) */) {
+		
+		vnode_t vp;
+		if (0 == ext2_root(mp, &vp, context)) {
+			struct inode *ip = VTOI(vp);
+			
+			VFSATTR_RETURN(attrs, f_owner, ip->i_uid);
+			
+			attrs->f_modify_time.tv_sec = ip->i_mtime;
+			attrs->f_modify_time.tv_nsec = ip->i_mtimensec;
+			VFSATTR_SET_SUPPORTED(attrs, f_modify_time);
+			
+			attrs->f_access_time.tv_sec = ip->i_atime;
+			attrs->f_access_time.tv_nsec = ip->i_atimensec;
+			VFSATTR_SET_SUPPORTED(attrs, f_access_time);
+			
+			vnode_put(vp);
+		}
+    }
+
 	return (0);
+}
+
+static int
+ext2_check_label(const char *label)
+{
+   int c, i;
+
+   for (i = 0, c = 0; i < EXT2_VOL_LABEL_LENGTH; i++) {
+      c = (u_char)*label++;
+      if (c < ' ' + !i || strchr(EXT2_VOL_LABEL_INVAL_CHARS, c))
+         break;
+   }
+   return ((i && !c) ? 0 : EINVAL);
+}
+
+static int ext2_setattrfs(mount_t mp, struct vfs_attr *attrs, vfs_context_t context)
+{
+	int error = 0;
+	if (VFSATTR_IS_ACTIVE(attrs, f_vol_name)) {
+		struct ext2_sb_info *fsp = (VFSTOEXT2(mp))->um_e2fs;
+		const char *name = attrs->f_vol_name;
+		int	 name_length = strlen(name);
+      
+		if (name_length > EXT2_VOL_LABEL_LENGTH) {
+			log(LOG_WARNING, "ext2: Warning volume label too long, truncating.\n");
+			name_length = EXT2_VOL_LABEL_LENGTH;
+		}
+      
+		error = ext2_check_label(name);
+		if (name_length && !error) {
+			lock_super(fsp);
+			bzero(fsp->s_es->s_volume_name, EXT2_VOL_LABEL_LENGTH);
+			bcopy (name, fsp->s_es->s_volume_name, name_length);
+			fsp->s_dirt = 1;
+			unlock_super(fsp);
+			VFSATTR_SET_SUPPORTED(attrs, f_vol_name);
+		} else
+			error = EINVAL;
+	}
+	
+	return (error);
 }
 
 /*
@@ -1133,7 +1329,6 @@ ext2_sync_callback(vnode_t vp, void *cargs)
 	struct inode *ip;
 	int error;
 	
-	VI_LOCK(vp);
 	ip = VTOI(vp);
 	/* The inode can be NULL when ext2_vget encounters an error from bread()
 	and a sync() gets in before the vnode is invalidated.
@@ -1141,13 +1336,11 @@ ext2_sync_callback(vnode_t vp, void *cargs)
 	if (NULL == ip ||
 		((ip->i_flag & (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
 		0 == vnode_hasdirtyblks(vp))) {
-		VI_UNLOCK(vp);
 		return (VNODE_RETURNED);
 	}
 	
 	if ((error = VNOP_FSYNC(vp, (MNT_WAIT == args->ca_wait), args->ca_vctx)) != 0)
 		args->ca_err = error;
-	VI_UNLOCK(vp);
 	return (VNODE_RETURNED);
 }
 
@@ -1180,14 +1373,14 @@ ext2_sync(mp, waitfor, context)
 	if (waitfor)
 		flags |= VNODE_WAIT;
 #endif
+	/*
+	 * Write back each (modified) inode.
+	 */
 	if ((error = vnode_iterate(mp, flags, ext2_sync_callback, (void *)&args)))
 		allerror = error;
 	if (args.ca_err)
 		allerror = args.ca_err;
 #ifdef obsolete
-	/*
-	 * Write back each (modified) inode.
-	 */
 	simple_lock(&mntvnode_slock);
 loop:
    for (vp = LIST_FIRST(&mp->mnt_vnodelist); vp != NULL; vp = nvp) {
@@ -1254,8 +1447,10 @@ loop:
 	 * Write back modified superblock.
 	 */
 	if (fs->s_dirt != 0) {
+		struct timespec ts;
+		nanotime(&ts);
 		fs->s_dirt = 0;
-		fs->s_es->s_wtime = cpu_to_le32(time_second);
+		fs->s_es->s_wtime = cpu_to_le32(ts.tv_sec);
 		if ((error = ext2_sbupdate(context, ump, waitfor)) != 0)
 			allerror = error;
 	}
@@ -1263,11 +1458,23 @@ loop:
 }
 
 
-static __inline__
+static __inline__ // inode must be locked
 void ext2_vget_irelse (struct inode *ip)
 {
 	ext2_ihashrem(ip);
-	lck_mtx_destroy(&ip->i_lock, EXT2_LCK_GRP);
+	do {
+		if (ip->i_flags & IN_INITWAIT) {
+			ip->i_flags &= ~IN_INITWAIT;
+			IULOCK(ip);
+			wakeup(&ip->i_flags);
+			IXLOCK(ip);
+		} 
+	} while (ip->i_refct > 0);
+	
+	typeof(ip->i_lock) lck = ip->i_lock;
+	ip->i_lock = NULL;
+	IULOCK(ip);
+	lck_mtx_free(lck, EXT2_LCK_GRP);
 	FREE(ip, M_EXT2NODE);
 }
 
@@ -1278,9 +1485,9 @@ void ext2_vget_irelse (struct inode *ip)
  * done by the calling routine.
  */
 static int
-ext2_vget(mp, arg, vpp, context)
+ext2_vget(mp, ino, vpp, context)
 	mount_t mp;
-    void *arg;
+    ino64_t ino;
 	vnode_t *vpp;
 	vfs_context_t context;
 {
@@ -1288,15 +1495,23 @@ ext2_vget(mp, arg, vpp, context)
 	struct ext2_sb_info *fs;
 	struct inode *ip;
 	struct ext2mount *ump;
-	evalloc_args_t *vaargsp = (evalloc_args_t*)arg;
 	buf_t bp;
 	vnode_t vp;
 	dev_t dev;
 	int i, error;
 	int used_blocks;
-    int flags = LK_EXCLUSIVE;
-    ino_t ino = vaargsp->va_ino;
-
+	evalloc_args_t ea_local = {0};
+	evalloc_args_t *eap = NULL;
+	
+	if (IS_EVALLOC_ARGS(ino)) {
+		eap = EVALLOC_ARGS(ino);
+		ino = (ino64_t)eap->va_ino;
+	} else {
+		ea_local.va_ino = (ino_t)ino;
+		ea_local.va_vctx = context;
+		eap = &ea_local;
+	}
+	
 #ifdef obsolete // XXX ???
    /* Check for unmount in progress */
 	if (mp->mnt_kern_flag & MNTK_UNMOUNT) {
@@ -1308,7 +1523,7 @@ ext2_vget(mp, arg, vpp, context)
 	ump = VFSTOEXT2(mp);
 	dev = ump->um_dev;
 restart:
-	if ((error = ext2_ihashget(dev, ino, flags, vpp)) != 0)
+	if ((error = ext2_ihashget(dev, (ino_t)ino, 0, vpp)) != 0)
 		ext2_trace_return(error);
 	if (*vpp != NULL)
 		return (0);
@@ -1320,12 +1535,13 @@ restart:
 	 */
 	if (ext2fs_inode_hash_lock) {
 		while (ext2fs_inode_hash_lock) {
-			ext2fs_inode_hash_lock = -1;
-			tsleep(&ext2fs_inode_hash_lock, PVM, "e2vget", 0);
+			(void)OSCompareAndSwap(ext2fs_inode_hash_lock, -1, (UInt32*)&ext2fs_inode_hash_lock);
+			msleep(&ext2fs_inode_hash_lock, NULL, PVM, "e2vget", 0);
 		}
 		goto restart;
 	}
-	ext2fs_inode_hash_lock = 1;
+	if (!OSCompareAndSwap(ext2fs_inode_hash_lock, 1, (UInt32*)&ext2fs_inode_hash_lock))
+		goto restart;
 
 	/*
 	 * If this MALLOC() is performed after the getnewvnode()
@@ -1343,7 +1559,7 @@ restart:
    if ((error = getnewvnode(VT_EXT2, mp, ext2_vnodeop_p, &vp)) != 0) {
 		if (ext2fs_inode_hash_lock < 0)
 			wakeup(&ext2fs_inode_hash_lock);
-		ext2fs_inode_hash_lock = 0;
+		(void)OSCompareAndSwap(ext2fs_inode_hash_lock, 0, (UInt32*)&ext2fs_inode_hash_lock);
 		*vpp = NULL;
 		FREE(ip, M_EXT2NODE);
 		ext2_trace_return(error);
@@ -1355,7 +1571,7 @@ restart:
 	ip->i_dev = dev;
 	ip->i_number = ino;
     /* Init our private lock */
-	lck_mtx_init(&ip->i_lock, EXT2_LCK_GRP, LCK_ATTR_NULL);
+	ip->i_lock = lck_mtx_alloc_init(EXT2_LCK_GRP, LCK_ATTR_NULL);
     assert(fs->s_lock != NULL);
    
 	/*
@@ -1364,12 +1580,13 @@ restart:
 	 * for old data structures to be purged or for the contents of the
 	 * disk portion of this inode to be read.
 	 */
-	ILOCK(ip);
+	IXLOCK(ip);
+	ip->i_flags |= IN_INIT;
 	ext2_ihashins(ip);
 
 	if (ext2fs_inode_hash_lock < 0)
 		wakeup(&ext2fs_inode_hash_lock);
-	ext2fs_inode_hash_lock = 0;
+	(void)OSCompareAndSwap(ext2fs_inode_hash_lock, 0, (UInt32*)&ext2fs_inode_hash_lock);
 
 	/* Read in the disk contents for the inode, copy into the inode. */
 #if 0
@@ -1386,7 +1603,6 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 #ifdef obsolete // XXX
 		vnode_put(vp);
 #endif
-		IULOCK(ip);
 		ext2_vget_irelse(ip);
 		buf_brelse(bp);
 		*vpp = NULL;
@@ -1417,18 +1633,18 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 	/*
 	 * Create the vnode from the inode.
 	 */
-	vaargsp->va_vctx = context;
-	viargs.vi_vallocargs = vaargsp;
+	if (!eap->va_vctx)
+		eap->va_vctx = context;
+	viargs.vi_vallocargs = eap;
 	viargs.vi_ip = ip;
 	viargs.vi_vnops = ext2_vnodeop_p;
 	viargs.vi_specops = ext2_specop_p;
 	viargs.vi_fifoops = ext2_fifoop_p;
-	viargs.vi_flags = EXT2_VINIT_INO_LCKD; // vinit will unlock the inode
+	viargs.vi_flags = EXT2_VINIT_INO_LCKD;
 	if ((error = ext2_vinit(mp, &viargs, &vp)) != 0) {
 #ifdef obsolete
 		vnode_vput(vp);
 #endif
-		IULOCK(ip);
 		ext2_vget_irelse(ip);
 		*vpp = NULL;
 		ext2_trace_return(error);
@@ -1454,7 +1670,15 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
     if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
       ubc_info_init(vp);
 #endif
-
+	
+	ip->i_flags &= ~IN_INIT;
+	if (ip->i_flags & IN_INITWAIT) {
+		ip->i_flags &= ~IN_INITWAIT;
+		IULOCK(ip);
+		wakeup(&ip->i_flags);
+	} else
+		IULOCK(ip);
+	
 	*vpp = vp;
 	return (0);
 }
@@ -1470,9 +1694,10 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
  *   those rights via. exflagsp and credanonp
  */
 static int
-ext2_fhtovp(mp, fhp, vpp, context)
+ext2_fhtovp(mp, fhlen, fhp, vpp, context)
 	mount_t mp;
-	struct fid *fhp;
+	int fhlen;
+	unsigned char *fhp;
 	vnode_t *vpp;
 	vfs_context_t context;
 {
@@ -1487,8 +1712,8 @@ ext2_fhtovp(mp, fhp, vpp, context)
 	if (ufhp->ufid_ino < ROOTINO ||
 	    ufhp->ufid_ino > fs->s_groups_count * le32_to_cpu(fs->s_es->s_inodes_per_group))
 		ext2_trace_return(ESTALE);
-   
-   error = VFS_VGET(mp, (void*)ufhp->ufid_ino, &nvp, context);
+	
+   error = ext2_vget(mp, (ino64_t)ufhp->ufid_ino, &nvp, context);
 	if (error) {
 		*vpp = NULLVP;
 		ext2_trace_return(error);
@@ -1509,9 +1734,10 @@ ext2_fhtovp(mp, fhp, vpp, context)
  */
 /* ARGSUSED */
 static int
-ext2_vptofh(vp, fhp, context)
+ext2_vptofh(vp, fhlen, fhp, context)
 	vnode_t vp;
-	struct fid *fhp;
+	int *fhlen;
+	unsigned char *fhp;
 	vfs_context_t context;
 {
 	struct inode *ip;
@@ -1519,7 +1745,7 @@ ext2_vptofh(vp, fhp, context)
 
 	ip = VTOI(vp);
 	ufhp = (struct ufid *)fhp;
-	ufhp->ufid_len = sizeof(struct ufid);
+	*fhlen = ufhp->ufid_len = sizeof(*ufhp);
 	ufhp->ufid_ino = ip->i_number;
 	ufhp->ufid_gen = ip->i_gen;
 	return (0);
@@ -1619,15 +1845,12 @@ ext2_root(mp, vpp, context)
 	vnode_t *vpp;
 	vfs_context_t context;
 {
-	evalloc_args_t args = {0};
 	vnode_t nvp;
 	struct inode *ip;
 	int error;
    
 	*vpp = NULL;
-	args.va_ino = ROOTINO;
-	args.va_vctx = context;
-    error = VFS_VGET(mp, &args, &nvp, context);
+    error = ext2_vget(mp, (ino64_t)ROOTINO, &nvp, context);
 	if (error)
 		ext2_trace_return(error);
 	ip = VTOI(nvp);
@@ -1672,7 +1895,7 @@ vn_isdisk(vp, errp)
 		return (0);
 	}
 	rdev = vnode_specrdev(vp);
-	if (0 == rdev || (major(rdev) >= nblkdev)) {
+	if (0 == rdev /*|| (major(rdev) >= nblkdev)*/) {
 		if (errp != NULL)
 			*errp = ENXIO;
 		return (0);
@@ -1701,12 +1924,11 @@ vfs_stdstart(mp, flags, context)
  */
 /* ARGSUSED */
 static int
-vfs_stdquotactl(mp, cmd, uid, arg, segflg, context)
+ext2_quotactl(mp, cmd, uid, arg, context)
 	mount_t mp;
 	int cmd;
 	uid_t uid;
 	caddr_t arg;
-	enum uio_seg segflg;
 	vfs_context_t context;
 {
 	return (EOPNOTSUPP);
@@ -1715,7 +1937,7 @@ vfs_stdquotactl(mp, cmd, uid, arg, segflg, context)
 __private_extern__ int dirchk;
 
 static int
-ext2_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
+ext2_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp, user_addr_t newp,
 	   size_t newlen, vfs_context_t context)
 {
 	int error = 0, intval;
@@ -1877,9 +2099,7 @@ static struct sysctl_oid* e2sysctl_list[] = {
 	&sysctl__vfs_e2fs_dircheck,
 	(struct sysctl_oid *)0
 };
-
-// XXX Shoudl this be a ptr
-static struct vfsconf ext2_vfsconf;
+static vfstable_t ext2_tableid;
 
 kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 #ifdef obsolete
@@ -1909,7 +2129,7 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	fsc.vfe_opvdescs = vnops;
 	strncpy(&fsc.vfe_fsname[0], EXT2FS_NAME, MFSNAMELEN);
 	fsc.vfe_flags = VFS_TBLTHREADSAFE|VFS_TBLFSNODELOCK|VFS_TBLLOCALVOL;
-	kret = vfs_fsadd(&fsc, NULL);
+	kret = vfs_fsadd(&fsc, &ext2_tableid);
 	
 #ifdef obsolete
    init_vnodeopv_desc(&ext2fs_vnodeop_opv_desc);
@@ -1924,7 +2144,7 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	}
 	
 	/* This is required for vfs_sysctl() to call our handler. */
-	sysctl__vfs_e2fs.oid_number = ext2_vfsconf.vfc_typenum;
+	sysctl__vfs_e2fs.oid_number = fsc.vfe_fstypenum;
 	/* Register our sysctl's */
 	for (i=0; e2sysctl_list[i]; ++i) {
 		sysctl_register_oid(e2sysctl_list[i]);
@@ -1984,7 +2204,9 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
 	
 	/* Deregister with the kernel */
 
-	/* sysctl's first */
+	if ((error = vfs_fsremove(ext2_tableid)))
+		return (KERN_FAILURE);
+	
 	for (i=0; e2sysctl_list[i]; ++i) ; /* Get Count */
 	for (--i; i >= 0; --i) { /* Work backwords */
 		assert(NULL != e2sysctl_list[i]);
@@ -1994,8 +2216,6 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
 #ifdef obsolete
    vfsconf_del(EXT2FS_NAME);
 #endif
-	if ((error = vfs_fsremove(&ext2_vfsconf)))
-		return (KERN_FAILURE);
 	FREE(*ext2fs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
 	FREE(*ext2fs_specop_opv_desc.opv_desc_vector_p, M_TEMP);
 	FREE(*ext2fs_fifoop_opv_desc.opv_desc_vector_p, M_TEMP);

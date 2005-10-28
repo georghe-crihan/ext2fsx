@@ -61,7 +61,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/systm.h>
 #include <sys/buf.h>
 #include <sys/mount.h>
-#include <sys/signalvar.h>
+//#include <sys/signalvar.h>
 #include <sys/stat.h>
 #include <sys/ucred.h>
 #include <sys/vnode.h>
@@ -89,7 +89,7 @@ static int ext2_blkalloc(register struct inode *, int32_t, int, struct ucred *, 
 /* ARGSUSED */
 int
 ext2_pagein(ap)
-	struct vop_pagein_args /* {
+	struct vnop_pagein_args /* {
 	   	vnode_t a_vp,
 	   	upl_t 	a_pl,
 		vm_offset_t   a_pl_offset,
@@ -112,22 +112,24 @@ ext2_pagein(ap)
 
 	ip = VTOI(vp);
 
+#ifdef obsolete
 	/* check pageins for reg file only  and ubc info is present*/
 	if  (UBCINVALID(vp))
 		panic("ext2_pagein: Not a  VREG: vp=%x", vp);
 	if (UBCINFOMISSING(vp))
 		panic("ext2_pagein: No mapping: vp=%x", vp);
+#endif
 
 #if DIAGNOSTIC
-	if (vp->v_type == VLNK) {
-		if ((int)ip->i_size < vp->v_mount->mnt_maxsymlinklen)
+	if (VLNK == vnode_vtype(vp)) {
+		if ((int)ip->i_size < vfs_maxsymlen(vnode_mount(vp)))
 			panic("%s: short symlink", "ext2_pagein");
-	} else if (vp->v_type != VREG && vp->v_type != VDIR)
-		panic("%s: type %d", "ext2_pagein", vp->v_type);
+	} else if (VREG != vnode_vtype(vp) && VDIR != vnode_vtype(vp))
+		panic("%s: type %d", "ext2_pagein", vnode_vtype(vp));
 #endif
 
   	error = cluster_pagein(vp, pl, pl_offset, f_offset, size,
-			    (off_t)ip->i_size,  ip->i_e2fs->s_d_blocksize, flags);
+			    (off_t)ip->i_size, flags);
 	/* ip->i_flag |= IN_ACCESS; */
 	ext2_trace_return(error);
 }
@@ -139,7 +141,7 @@ ext2_pagein(ap)
  */
 int
 ext2_pageout(ap)
-	struct vop_pageout_args /* {
+	struct vnop_pageout_args /* {
 	   vnode_t a_vp,
 	   upl_t        a_pl,
 	   vm_offset_t   a_pl_offset,
@@ -173,13 +175,15 @@ ext2_pageout(ap)
 
 	ip = VTOI(vp);
 
+#ifdef obsolete
 	/* check pageouts for reg file only  and ubc info is present*/
 	if  (UBCINVALID(vp))
 		panic("ext2_pageout: Not a  VREG: vp=%x", vp);
 	if (UBCINFOMISSING(vp))
 		panic("ext2_pageout: No mapping: vp=%x", vp);
+#endif
 
-    if (vp->v_mount->mnt_flag & MNT_RDONLY) {
+    if (vfs_flags(vnode_mount(vp)) & MNT_RDONLY) {
 		if (!nocommit)
   			ubc_upl_abort_range(pl, pl_offset, size, 
 				UPL_ABORT_FREE_ON_EMPTY);
@@ -215,7 +219,7 @@ ext2_pageout(ap)
 	}
 
 	/*
-	 * once the block allocation is moved to ext2_cmap
+	 * once the block allocation is moved to ext2_blockmap
 	 * we can remove all the size and offset checks above
 	 * cluster_pageout does all of this now
 	 * we need to continue to do it here so as not to
@@ -233,7 +237,7 @@ ext2_pageout(ap)
 			xsize = resid;
 		/* Allocate block without reading into a buf */
 		error = ext2_blkalloc(ip,
-			lbn, blkoffset + xsize, ap->a_cred, 
+			lbn, blkoffset + xsize, vfs_context_ucred(ap->a_context), 
 			local_flags);
 		if (error)
 			break;
@@ -247,7 +251,7 @@ ext2_pageout(ap)
 		xfer_size -= save_size;
 	}
 
-	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page_32(xfer_size), ip->i_size, devBlockSize, flags);
+	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page_32(xfer_size), ip->i_size, flags);
 
 	if(save_error) {
 		lupl_offset = size - save_size;
@@ -259,117 +263,6 @@ ext2_pageout(ap)
 			error= save_error;
 	}
 	ext2_trace_return(error);
-}
-
-/*
- * Cmap converts the file offset of a file to its physical block
- * number on the disk And returns a contiguous size for transfer.
- */
-int
-ext2_cmap(ap)
-	struct vop_cmap_args /* {
-		vnode_t a_vp;
-		off_t a_foffset;    
-		size_t a_size;
-		daddr_t *a_bpn;
-		size_t *a_run;
-		void *a_poff;
-	} */ *ap;
-{
-	vnode_t  vp = ap->a_vp;
-	daddr_t *bnp = ap->a_bpn;
-	size_t *runp = ap->a_run;
-	size_t size = ap->a_size;
-	ext2_daddr_t bn, daddr = 0;
-	int nblks;
-	register struct inode *ip;
-	int devBlockSize;
-	FS *fs;
-	int retsize=0;
-	int error;
-
-	ip = VTOI(vp);
-	fs = ip->i_e2fs;
-
-    if ((error = blkoff(fs, ap->a_foffset))) {
-		panic("ext2_cmap: allocation requested inside a block (possible filesystem corruption): "
-         "qbmask=%qd, inode=%u, offset=%qd, blkoff=%d",
-         fs->s_qbmask, ip->i_number, ap->a_foffset, error);
-	}
-    error = 0;
-
-	bn = (ext2_daddr_t)lblkno(fs, ap->a_foffset);
-    devBlockSize = fs->s_d_blocksize;
-
-	//ext2_trace("inode=%u, lbn=%d, off=%qu, size=%u\n", ip->i_number, bn, ap->a_foffset, size);
-    
-    if (size % devBlockSize) {
-		panic("ext2_cmap: size is not multiple of device block size\n");
-	}
-
-cmap_bmap:
-    if ((error = VOP_BMAP(vp, bn, (vnode_t *) 0, &daddr, &nblks))) {
-        ext2_trace_return(error);
-    }
-
-	retsize = nblks * EXT2_BLOCK_SIZE(fs);
-
-	if (bnp)
-		*bnp = (daddr_t)daddr;
-
-	if (ap->a_poff) 
-		*(int *)ap->a_poff = 0;
-
-	if (daddr == -1) {
-        /* XXX - BDB - Workaround for bug #965119
-           There is a bug in cluster_io() in all pre 10.4.x kernels that causes nasty problems 
-           when there is a hole in the inode that is not aligned on a page boundry.
-           To fix this, we allocate a new block. No more sparse hole, but also no
-           more panics, or system lock-ups.
-         */
-        if (EXT2_BLOCK_SIZE(fs) < PAGE_SIZE) { 
-            if ((error = ext2_blkalloc(ip, bn, EXT2_BLOCK_SIZE(fs), curproc->p_ucred, 0))) {
-                ext2_trace_return(error);
-            }
-            goto cmap_bmap;
-        }
-        
-        if (size < EXT2_BLOCK_SIZE(fs)) {
-			retsize = fragroundup(fs, size);
-			if(size >= retsize)
-				*runp = retsize;
-			else
-				*runp = size;
-		} else {
-			*runp = EXT2_BLOCK_SIZE(fs);
-		}
-		return(0);
-	}
-
-	if (runp) {
-		if ((size < EXT2_BLOCK_SIZE(fs))) {
-			*runp = size;
-			return(0);
-		}
-		if (retsize) {
-			retsize += EXT2_BLOCK_SIZE(fs);
-			if(size >= retsize)
-				*runp = retsize;
-			else
-				*runp = size;
-		} else {
-			if (size < EXT2_BLOCK_SIZE(fs)) {
-				retsize = fragroundup(fs, size);
-				if(size >= retsize)
-					*runp = retsize;
-				else
-					*runp = size;
-			} else {
-				*runp = EXT2_BLOCK_SIZE(fs);
-			}
-		}
-	}
-	return (0);
 }
 
 /*
@@ -393,7 +286,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 {
 	register FS *fs;
 	register int32_t nb;
-	buf_t  bp, *nbp;
+	buf_t  bp, nbp;
 	vnode_t vp = ITOV(ip);
 	struct indir indirs[NIADDR + 2];
 	int32_t newb, *bap, pref;
@@ -480,14 +373,14 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			ext2_trace_return(error);
 		nb = newb;
 		*allocblk++ = nb;
-		bp = getblk(vp, indirs[1].in_lbn, EXT2_BLOCK_SIZE(fs), 0, 0, BLK_META);
-		bp->b_blkno = fsbtodb(fs, nb);
+		bp = buf_getblk(vp, (daddr64_t)((unsigned)indirs[1].in_lbn), EXT2_BLOCK_SIZE(fs), 0, 0, BLK_META);
+		buf_setblkno(bp, (daddr64_t)((unsigned)fsbtodb(fs, nb)));
 		clrbuf(bp);
 		/*
 		 * Write synchronously so that indirect blocks
 		 * never point at garbage.
 		 */
-		if (error = bwrite(bp))
+		if (error = buf_bwrite(bp))
 			goto fail;
 		allocib = &ip->i_ib[indirs[0].in_off];
 		*allocib = nb;
@@ -497,44 +390,44 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	 * Fetch through the indirect blocks, allocating as necessary.
 	 */
 	for (i = 1;;) {
-		error = meta_bread(vp,
-		    indirs[i].in_lbn, (int)EXT2_BLOCK_SIZE(fs), NOCRED, &bp);
+		error = buf_meta_bread(vp,
+		    (daddr64_t)((unsigned)indirs[i].in_lbn), (int)EXT2_BLOCK_SIZE(fs), NOCRED, &bp);
 		if (error) {
-			brelse(bp);
+			buf_brelse(bp);
 			goto fail;
 		}
-		bap = (int32_t *)bp->b_data;
+		bap = (ext2_daddr_t *)buf_dataptr(bp);
 		nb = le32_to_cpu(bap[indirs[i].in_off]);
 
 		if (i == num)
 			break;
 		i += 1;
 		if (nb != 0) {
-			brelse(bp);
+			buf_brelse(bp);
 			continue;
 		}
 		if (pref == 0)
 #if 0
 			pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
 #else
-            pref = ext2_blkpref(ip, lbn, indirs[i].in_off, bap, bp->b_lblkno);
+            pref = ext2_blkpref(ip, lbn, indirs[i].in_off, bap, buf_lblkno(bp));
 #endif
 		if (error =
 		    ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb)) {
-			brelse(bp);
+			buf_brelse(bp);
 			goto fail;
 		}
 		nb = newb;
 		*allocblk++ = nb;
-		nbp = getblk(vp, indirs[i].in_lbn, EXT2_BLOCK_SIZE(fs), 0, 0, BLK_META);
-		nbp->b_blkno = fsbtodb(fs, nb);
+		nbp = buf_getblk(vp, (daddr64_t)((unsigned)indirs[i].in_lbn), EXT2_BLOCK_SIZE(fs), 0, 0, BLK_META);
+		buf_setblkno(nbp, (daddr64_t)((unsigned)fsbtodb(fs, nb)));
 		clrbuf(nbp);
 		/*
 		 * Write synchronously so that indirect blocks
 		 * never point at garbage.
 		 */
-		if (error = bwrite(nbp)) {
-			brelse(bp);
+		if (error = buf_bwrite(nbp)) {
+			buf_brelse(bp);
 			goto fail;
 		}
 
@@ -545,19 +438,19 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 		 * delayed write.
 		 */
 		if (flags & B_SYNC) {
-			bwrite(bp);
+			buf_bwrite(bp);
 		} else {
-			bdwrite(bp);
+			buf_bdwrite(bp);
 		}
 	}
 	/*
 	 * Get the data block, allocating if necessary.
 	 */
 	if (nb == 0) {
-		pref = ext2_blkpref(ip, lbn, indirs[i].in_off, &bap[0], bp->b_lblkno);
+		pref = ext2_blkpref(ip, lbn, indirs[i].in_off, &bap[0], buf_lblkno(bp));
 		if (error = ext2_alloc(ip,
 		    lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb)) {
-			brelse(bp);
+			buf_brelse(bp);
 			goto fail;
 		}
 		nb = newb;
@@ -570,13 +463,13 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 		 * delayed write.
 		 */
 		if (flags & B_SYNC) {
-			bwrite(bp);
+			buf_bwrite(bp);
 		} else {
-			bdwrite(bp);
+			buf_bdwrite(bp);
 		}
 		return (0);
 	}
-	brelse(bp);
+	buf_brelse(bp);
 	return (0);
 fail:
 	/*
@@ -597,27 +490,24 @@ fail:
 }
 
 /*
- * Mmap a file
- *
- * NB Currently unsupported.
+ * Notfication that a file is being mapped
  */
 /* ARGSUSED */
 int
 ext2_mmap(ap)
-	struct vop_mmap_args /* {
+	struct vnop_mmap_args /* {
 		vnode_t a_vp;
 		int  a_fflags;
-		struct ucred *a_cred;
-		struct proc *a_p;
+		vfs_context_t context;
 	} */ *ap;
 {
 
-	return (EINVAL);
+	return (0);
 }
 
 __private_extern__ int
 ext2_blktooff (ap)
-   struct vop_blktooff_args *ap;
+   struct vnop_blktooff_args *ap;
 {
    
    struct inode *ip;
@@ -640,7 +530,7 @@ ext2_blktooff (ap)
 
 __private_extern__ int
 ext2_offtoblk (ap)
-   struct vop_offtoblk_args *ap;
+   struct vnop_offtoblk_args *ap;
 {
    
    struct inode *ip;
@@ -658,6 +548,138 @@ ext2_offtoblk (ap)
    return (0);
 }
 
+/*
+ * blockmap converts the file offset of a file to its physical block
+ * number on the disk And returns a contiguous size for transfer.
+ */
+int
+ext2_blockmap(ap)
+	struct vnop_blockmap_args /* {
+		vnode_t a_vp;
+		off_t a_foffset;    
+		size_t a_size;
+		daddr_t *a_bpn;
+		size_t *a_run;
+		void *a_poff;
+        int a_flags;
+	} */ *ap;
+{
+	vnode_t  vp = ap->a_vp;
+	daddr64_t *bnp = ap->a_bpn;
+	size_t *runp = ap->a_run;
+	size_t size = ap->a_size;
+	ext2_daddr_t bn, daddr = 0;
+	int nblks;
+	register struct inode *ip;
+	int devBlockSize;
+	FS *fs;
+	int retsize=0;
+	int error;
+
+	ip = VTOI(vp);
+	fs = ip->i_e2fs;
+
+    if ((error = blkoff(fs, ap->a_foffset))) {
+		panic("ext2_blockmap: allocation requested inside a block (possible filesystem corruption): "
+         "qbmask=%qd, inode=%u, offset=%qd, blkoff=%d",
+         fs->s_qbmask, ip->i_number, ap->a_foffset, error);
+	}
+    error = 0;
+
+	bn = (ext2_daddr_t)lblkno(fs, ap->a_foffset);
+    devBlockSize = fs->s_d_blocksize;
+
+	//ext2_trace("inode=%u, lbn=%d, off=%qu, size=%u\n", ip->i_number, bn, ap->a_foffset, size);
+    
+    if (size % devBlockSize) {
+		panic("ext2_blockmap: size is not multiple of device block size\n");
+	}
+
+//cmap_bmap:
+    if ((error = ext2_bmaparray(vp, bn, &daddr, &nblks, NULL))) {
+        ext2_trace_return(error);
+    }
+    
+	if (bnp)
+		*bnp = (daddr64_t)daddr;
+
+	if (ap->a_poff) 
+		*(int *)ap->a_poff = 0;
+
+#ifdef obsolete
+    if (daddr == -1) {
+        /* XXX - BDB - Workaround for bug #965119
+           There is a bug in cluster_io() in all pre 10.4.x kernels that causes nasty problems 
+           when there is a hole in the inode that is not aligned on a page boundry.
+           To fix this, we allocate a new block. No more sparse hole, but also no
+           more panics, or system lock-ups.
+         */
+        if (EXT2_BLOCK_SIZE(fs) < PAGE_SIZE) { 
+            if ((error = ext2_blkalloc(ip, bn, EXT2_BLOCK_SIZE(fs), curproc->p_ucred, 0))) {
+                ext2_trace_return(error);
+            }
+            goto cmap_bmap;
+        }
+        
+        if (size < EXT2_BLOCK_SIZE(fs)) {
+			retsize = fragroundup(fs, size);
+			if(size >= retsize)
+				*runp = retsize;
+			else
+				*runp = size;
+		} else {
+			*runp = EXT2_BLOCK_SIZE(fs);
+		}
+		return(0);
+	}
+#endif
+
+	if (runp) {
+		ISLOCK(ip);
+        if (bn < 0) {
+            // indirect block
+            retsize = (nblks + 1) * EXT2_BLOCK_SIZE(fs);
+        } else if (-1 == daddr || 0 == nblks) {
+            // sparse hole or no contiguous blocks
+            retsize = blksize(fs, ip, lbn);
+        } else {
+            // 1 more more contiguous blocks
+            retsize = nblks * EXT2_BLOCK_SIZE(fs);
+            retsize += blksize(fs, ip, (bn + nblks));
+        }
+        IULOCK(ip);
+        if (retsize < size)
+            *runp = retsize;
+        else
+            *runp = size;
+#ifdef obsolete
+        if ((size < EXT2_BLOCK_SIZE(fs))) {
+			*runp = size;
+			return(0);
+		}
+		if (retsize) {
+			retsize += EXT2_BLOCK_SIZE(fs);
+			if(size >= retsize)
+				*runp = retsize;
+			else
+				*runp = size;
+		} else {
+			if (size < EXT2_BLOCK_SIZE(fs)) {
+				retsize = fragroundup(fs, size);
+				if(size >= retsize)
+					*runp = retsize;
+				else
+					*runp = size;
+			} else {
+				*runp = EXT2_BLOCK_SIZE(fs);
+			}
+		}
+#endif
+	}
+	return (0);
+}
+
+#ifdef obsolete
 /* Derived from hfs_cache_lookup() */
 __private_extern__ int
 ext2_cache_lookup(ap)
@@ -752,3 +774,4 @@ ext2_cache_lookup(ap)
 
 	ext2_trace_return(ext2_lookup((struct vop_cachedlookup_args*)ap));
 }
+#endif
