@@ -39,6 +39,12 @@ extern int optind;
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_DIRENT_H
+#include <dirent.h>
+#endif
 
 #include "et/com_err.h"
 #include "e2fsck.h"
@@ -67,7 +73,7 @@ static void usage(e2fsck_t ctx)
 	fprintf(stderr,
 		_("Usage: %s [-panyrcdfvstDFSV] [-b superblock] [-B blocksize]\n"
 		"\t\t[-I inode_buffer_blocks] [-P process_inode_size]\n"
-		"\t\t[-l|-L bad_blocks_file] [-C fd] [-j ext-journal]\n"
+		"\t\t[-l|-L bad_blocks_file] [-C fd] [-j external_journal]\n"
 		"\t\t[-E extended-options] device\n"),
 		ctx->program_name);
 
@@ -81,7 +87,7 @@ static void usage(e2fsck_t ctx)
 		" -v                   Be verbose\n"
 		" -b superblock        Use alternative superblock\n"
 		" -B blocksize         Force blocksize when looking for superblock\n"
-		" -j external-journal  Set location of the external journal\n"
+		" -j external_journal  Set location of the external journal\n"
 		" -l bad_blocks_file   Add to badblocks list\n"
 		" -L bad_blocks_file   Set badblocks list\n"
 		));
@@ -203,8 +209,10 @@ static void check_mount(e2fsck_t ctx)
 static int is_on_batt(void)
 {
 	FILE	*f;
-	char	tmp[80], tmp2[80];
+	DIR	*d;
+	char	tmp[80], tmp2[80], fname[80];
 	unsigned int	acflag;
+	struct dirent*	de;
 
 	f = fopen("/proc/apm", "r");
 	if (f) {
@@ -213,13 +221,25 @@ static int is_on_batt(void)
 		fclose(f);
 		return (acflag != 1);
 	}
-	f = fopen("/proc/acpi/ac_adapter/AC/state", "r");
-	if (f) {
-		if (fscanf(f, "%s %s", tmp2, tmp) != 2)
-			tmp[0] = 0;
-		fclose(f);
-		if (strncmp(tmp, "off-line", 8) == 0)
-			return 1;
+	d = opendir("/proc/acpi/ac_adapter");
+	if (d) {
+		while ((de=readdir(d)) != NULL) {
+			if (!strncmp(".", de->d_name, 1))
+				continue;
+			snprintf(fname, 80, "/proc/acpi/ac_adapter/%s/state", 
+				 de->d_name);
+			f = fopen(fname, "r");
+			if (!f)
+				continue;
+			if (fscanf(f, "%s %s", tmp2, tmp) != 2)
+				tmp[0] = 0;
+			fclose(f);
+			if (strncmp(tmp, "off-line", 8) == 0) {
+				closedir(d);
+				return 1;
+			}
+		}
+		closedir(d);
 	}
 	return 0;
 }
@@ -236,13 +256,13 @@ static void check_if_skip(e2fsck_t ctx)
 	unsigned int reason_arg = 0;
 	long next_check;
 	int batt = is_on_batt();
-	time_t now = time(0);
 	
 	if ((ctx->options & E2F_OPT_FORCE) || bad_blocks_file ||
 	    cflag || swapfs)
 		return;
 	
-	if (fs->super->s_state & EXT2_ERROR_FS)
+	if ((fs->super->s_state & EXT2_ERROR_FS) ||
+	    !ext2fs_test_valid(fs))
 		reason = _(" contains a file system with errors");
 	else if ((fs->super->s_state & EXT2_VALID_FS) == 0)
 		reason = _(" was not cleanly unmounted");
@@ -255,11 +275,11 @@ static void check_if_skip(e2fsck_t ctx)
 			     (unsigned) fs->super->s_max_mnt_count*2))
 			reason = 0;
 	} else if (fs->super->s_checkinterval &&
-		   ((now - fs->super->s_lastcheck) >= 
+		   ((ctx->now - fs->super->s_lastcheck) >= 
 		    fs->super->s_checkinterval)) {
 		reason = _(" has gone %u days without being checked");
-		reason_arg = (now - fs->super->s_lastcheck)/(3600*24);
-		if (batt && ((now - fs->super->s_lastcheck) < 
+		reason_arg = (ctx->now - fs->super->s_lastcheck)/(3600*24);
+		if (batt && ((ctx->now - fs->super->s_lastcheck) < 
 			     fs->super->s_checkinterval*2))
 			reason = 0;
 	}
@@ -280,7 +300,8 @@ static void check_if_skip(e2fsck_t ctx)
 		if (next_check <= 0) 
 			next_check = 1;
 	}
-	if ((now - fs->super->s_lastcheck) >= fs->super->s_checkinterval)
+	if (fs->super->s_checkinterval &&
+	    ((ctx->now - fs->super->s_lastcheck) >= fs->super->s_checkinterval))
 		next_check = 1;
 	if (next_check <= 5) {
 		if (next_check == 1)
@@ -340,6 +361,7 @@ int e2fsck_simple_progress(e2fsck_t ctx, const char *label, float percent,
 	unsigned int	tick;
 	struct timeval	tv;
 	int dpywidth;
+	int fixed_percent;
 
 	if (ctx->flags & E2F_FLAG_PROG_SUPPRESS)
 		return 0;
@@ -349,9 +371,10 @@ int e2fsck_simple_progress(e2fsck_t ctx, const char *label, float percent,
 	 * percentage hasn't changed, then we skip out right
 	 * away. 
 	 */
-	if (ctx->progress_last_percent == (int) 10 * percent)
+	fixed_percent = (int) ((10 * percent) + 0.5);
+	if (ctx->progress_last_percent == fixed_percent)
 		return 0;
-	ctx->progress_last_percent = (int) 10 * percent;
+	ctx->progress_last_percent = fixed_percent;
 
 	/*
 	 * If we've already updated the spinner once within
@@ -361,7 +384,7 @@ int e2fsck_simple_progress(e2fsck_t ctx, const char *label, float percent,
 	gettimeofday(&tv, NULL);
 	tick = (tv.tv_sec << 3) + (tv.tv_usec / (1000000 / 8));
 	if ((tick == ctx->progress_last_time) &&
-	    (percent != 0.0) && (percent != 100.0))
+	    (fixed_percent != 0) && (fixed_percent != 1000))
 		return 0;
 	ctx->progress_last_time = tick;
 
@@ -381,16 +404,18 @@ int e2fsck_simple_progress(e2fsck_t ctx, const char *label, float percent,
 	printf("%s%s: |%s%s", ctx->start_meta, label,
 	       bar + (sizeof(bar) - (i+1)),
 	       spaces + (sizeof(spaces) - (dpywidth - i + 1)));
-	if (percent == 100.0)
+	if (fixed_percent == 1000)
 		fputc('|', stdout);
 	else
 		fputc(spinner[ctx->progress_pos & 3], stdout);
+	printf(" %4.1f%%  ", percent);
 	if (dpynum)
-		printf(" %4.1f%%  %u\r%s", percent, dpynum, ctx->stop_meta);
+		printf("%u\r", dpynum);
 	else
-		printf(" %4.1f%%   \r%s", percent, ctx->stop_meta);
+		fputs(" \r", stdout);
+	fputs(ctx->stop_meta, stdout);
 	
-	if (percent == 100.0)
+	if (fixed_percent == 1000)
 		e2fsck_clear_progbar(ctx);
 	fflush(stdout);
 
@@ -504,15 +529,18 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 				continue;
 			}
 			ctx->ext_attr_ver = ea_ver;
-		} else
+		} else {
+			fprintf(stderr, _("Unknown extended option: %s\n"),
+				token);
 			extended_usage++;
+		}
 	}
 	if (extended_usage) {
-		fprintf(stderr, _("Extended options are separated by commas, "
-			"and may take an argument which\n"
-			"is set off by an equals ('=') sign.  "
-			"Valid raid options are:\n"
-			"\tea_ver=<ea_version (1 or 2)\n\n"));
+		fputs(("\nExtended options are separated by commas, "
+		       "and may take an argument which\n"
+		       "is set off by an equals ('=') sign.  "
+			"Valid extended options are:\n"
+		       "\tea_ver=<ea_version (1 or 2)>\n\n"), stderr);
 		exit(1);
 	}
 }	
@@ -689,6 +717,9 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	if ((ctx->options & E2F_OPT_NO) && !bad_blocks_file &&
 	    !cflag && !swapfs && !(ctx->options & E2F_OPT_COMPRESS_DIRS))
 		ctx->options |= E2F_OPT_READONLY;
+	ctx->io_options = strchr(argv[optind], '?');
+	if (ctx->io_options) 
+		*ctx->io_options++ = 0;
 	ctx->filesystem_name = blkid_get_devname(ctx->blkid, argv[optind], 0);
 	if (!ctx->filesystem_name) {
 		com_err(ctx->program_name, 0, _("Unable to resolve '%s'"), 
@@ -851,22 +882,23 @@ restart:
 		flags |= EXT2_FLAG_RW;
 
 	if (ctx->superblock && ctx->blocksize) {
-		retval = ext2fs_open(ctx->filesystem_name, flags,
-				     ctx->superblock, ctx->blocksize,
-				     io_ptr, &fs);
+		retval = ext2fs_open2(ctx->filesystem_name, ctx->io_options, 
+				      flags, ctx->superblock, ctx->blocksize,
+				      io_ptr, &fs);
 	} else if (ctx->superblock) {
 		int blocksize;
 		for (blocksize = EXT2_MIN_BLOCK_SIZE;
 		     blocksize <= EXT2_MAX_BLOCK_SIZE; blocksize *= 2) {
-			retval = ext2fs_open(ctx->filesystem_name, flags,
-					     ctx->superblock, blocksize,
-					     io_ptr, &fs);
+			retval = ext2fs_open2(ctx->filesystem_name, 
+					      ctx->io_options, flags,
+					      ctx->superblock, blocksize,
+					      io_ptr, &fs);
 			if (!retval)
 				break;
 		}
 	} else 
-		retval = ext2fs_open(ctx->filesystem_name, flags, 
-				     0, 0, io_ptr, &fs);
+		retval = ext2fs_open2(ctx->filesystem_name, ctx->io_options, 
+				      flags, 0, 0, io_ptr, &fs);
 	if (!ctx->superblock && !(ctx->options & E2F_OPT_PREEN) &&
 	    !(ctx->flags & E2F_FLAG_SB_SPECIFIED) &&
 	    ((retval == EXT2_ET_BAD_MAGIC) ||
@@ -1031,6 +1063,7 @@ restart:
 
 	if (ctx->superblock)
 		set_latch_flags(PR_LATCH_RELOC, PRL_LATCHED, 0);
+	ext2fs_mark_valid(fs);
 	check_super_block(ctx);
 	if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 		fatal_error(ctx, 0);
@@ -1124,7 +1157,7 @@ restart:
 			} else
 				sb->s_state &= ~EXT2_VALID_FS;
 			sb->s_mnt_count = 0;
-			sb->s_lastcheck = time(NULL);
+			sb->s_lastcheck = ctx->now;
 			ext2fs_mark_super_dirty(fs);
 		}
 	}

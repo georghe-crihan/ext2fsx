@@ -284,5 +284,17 @@ ec	EXT2_ET_BAD_EA_BLOCK_NUM,
 ec	EXT2_ET_TOO_MANY_INODES,
 	"Cannot create filesystem with requested number of inodes"
 
+ec	EXT2_ET_NOT_IMAGE_FILE,
+	"E2image snapshot not in use"
+
+ec	EXT2_ET_RES_GDT_BLOCKS,
+	"Too many reserved group descriptor blocks"
+
+ec	EXT2_ET_RESIZE_INODE_CORRUPT,
+	"Resize inode is corrupt"
+
+ec	EXT2_ET_SET_BMAP_NO_IND,
+	"Missing indirect block not present"
+
 	end
 

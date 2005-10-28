@@ -1,3 +1,354 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* bitops.h, bitops.c (ext2fs_set_bit, ext2fs_clear_bit,
+		ext2fs_test_bit): Change these function prototypes to be
+		unsigned int's.  Negative bit numbers were never allowed
+		(and never made any sense), so this should be a safe
+		change.  This is needed to allow safe use of block numbers
+		greater than or equal to 2**31.
+
+2005-06-27  Stephen Tweedie  <sct@redhat.com>
+
+	* ext2fs.h (ext2fs_resize_mem): Fix C99 strict type aliasing
+		problems.  Addresses Red Hat Bugzilla #161183.
+
+2005-06-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsectsize.c (BLKSSZGET): Clean up test for when to manually
+		define the BLKSSZGET ioctl.
+
+2005-05-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* ismounted.c (ext2fs_check_mount_point): Add test to see if the
+		device appears to be busy; this only works on Linux 2.6+
+		systems, but provides some additional bullet-proofing in
+		those cases.
+
+2005-05-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* test_io.c (safe_getenv): Fix bug so it would fetch the right
+		environment variable.
+
+2005-04-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* inode.c (ext2fs_write_new_inode), 
+		ind_block.c (ext2fs_read_ind_block): Add missing return
+		value in error return case.  (Otherwise we return garbage
+		instead of the error code.)
+
+2005-03-31  Theodore Ts'o  <tytso@mit.edu>
+
+	* test_io.c (test_open): If called by a setuid/setgid or an
+		otherwise privileged program, be paranoid and ignore the
+		TEST_IO_* environment variables.
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2_ext_attr.h (EXT2_XATTR_LEN, EXT2_XATTR_SIZE): Add new
+		convenience cpp macros.
+
+2005-03-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* mkdir.c (ext2fs_mkdir): Call ext2fs_write_new_inode() instead of
+		ext2fs_write_inode().
+
+	* inode.c (ext2fs_write_new_inode): New function which should be
+		used when the caller is writing an inode for the first
+		time.  It makes sure that the extra portion of the large
+		inode is initialized properly.
+
+2005-03-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Fix clean target to remove tst_getsectsize.
+
+	* getsize.c (ext2fs_get_device_size): Check to see if the number
+		of blocks is greater than 2**32 when we are doing a binary
+		search to determine the device size.  Thanks to Stephen
+		Tweedie for the patch.
+	
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Remove ext2fs.pc on a "make distclean"
+
+2005-02-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (clean): Remove tst_getsize when doing a make clean
+
+2005-02-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* bitops.c: Make the generic functions more efficient.
+
+	* bitops.h: Drop SPARC assembly code. It's less efficient than GCC
+		3.4 compiled code and also triggers nasty compiler
+		warnings on sparc64.  Thanks to Matthias Andree for his
+		analysis and suggestion.
+	
+2005-01-27  Theodore Ts'o  <tytso@mit.edu>
+
+	* res_gdt.c (ext2fs_create_resize_inode): Create the resize inode
+		even if s_reserved_gdt_blocks is zero.
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2fs.pc.in: Add pkg-config files.
+
+2005-01-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2fs.h: Add definition of struct ext2_inode_large
+
+	* ext2_fs.h: Add new function prototypes
+
+	* ext_attr.c (ext2fs_read_ext_attr, ext2fs_write_ext_attr): The
+		ext2fs_swap_ext_attr() has been moved to swapfs.c, and
+		given a new argument, has_header.
+
+	* swapfs.c (ext2fs_swap_ext_attr): Moved from ext_attr.c, and
+		takes an argument which controls whether or not there is
+		an EA header which needs to be byteswaped.
+		(ext2fs_swap_inode_full): New function which byte-swaps
+		the EA in inode.
+
+	* inode.c (ext2fs_get_next_inode_full, ext2fs_read_inode_full,
+		ext2fs_write_inode_full): New functions, originally from
+		Alex Tomas, but which needed to be substantially fixed so
+		that the tests wouldn't cause major stack overwrite bugs
+		in byte-swapping is enabled.
+	
+2005-01-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Fix the kernel compile-time echo commands to be
+		consistent and portable
+
+2005-01-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* unlink.c (ext2fs_unlink): If both the name and the inode number
+		are unspecified, then return an error, so that we don't do
+		something surprising such as unconditionally deleting the
+		first directory entry.
+		(unlink_proc): Delete directory entries by coalescing it
+		with the previous entry, to avoid directory fragmentation.
+
+2005-01-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* version.c (ext2fs_parse_version_string): Change parsing
+		algorithm so that version strings such as 1.36-rc1 returns
+		a non-surprising result (i.e., 136, and not 1361).
+
+2005-01-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* block.c (block_iterate_ind, block_iterate_dind,
+		block_iterate_tind): Move the code which byte swaps and
+		read/writes indirect blocks to ext2fs_{read,write}_ind_block.
+		This saves 400 bytes, and we need them for the
+		resize_inode handling. 
+
+	* ind_block.c (ext2fs_read_ind_block, ext2fs_write_ind_block): New
+		functions.
+
+	* res_gdt.c (ext2fs_create_resize_inode): Use 
+		ext2fs_{read,write}_ind_block so that byte swapping is
+		handled on big-endian systems.
+
+	* dupfs.c (ext2fs_dup_handle): Make sure the new filesystem handle
+		has its own copy of the orig_super data structure.  (This
+		is a better way of fixing a double-free problem in
+		resize2fs which Fedora attempted to fix in 
+		e2fsprogs-1.35-double_free.patch.   Addresses Red Hat
+		Bugzilla #132707.)
+	
+2004-12-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* inode.c (ext2fs_flush_icache): When flushing the icache, clear
+		the last-read block information as well.
+
+	* ext2fs.h (BMAP_SET), bmap.c (ext2fs_bmap): Add support for new
+		flag, BMAP_SET, which allows the caller to set a
+		particular logical->physical block mapping.
+
+	* ext2_err.et.in (EXT2_ET_SET_BMAP_NO_IND): New error code
+
+	* initialize.c (calc_reserved_gdt_blocks): #ifdef out all
+		debugging printf statements.
+	
+	* res_gdt.c (ext2fs_create_resize_inode): Return
+		EXT2_ET_RESIZE_INODE_CORRUPT if the resize inode is not
+		what we expect.  #ifdef out all debugging printf
+		statements.
+
+	* ext2_err.et.in (EXT2_ET_RESIZE_INODE_CORRUPT): Add new error code.
+
+2004-12-22  Theodore Ts'o  <tytso@mit.edu>
+
+	* swapfs.c (ext2fs_swap_super): Byteswap the reserved_gdt_blocks
+		superblocks field.
+
+2004-12-15  Theodore Ts'o  <tytso@mit.edu>
+
+	* sparse.c (ext2fs_list_backups, ext2fs_bg_has_super),
+		res_gdt.c (list_backups), closefs.c (ext2fs_bg_has_super),
+		ext2fs.h: Move ext2fs_list_backups() to res_gdt.c, and
+		ext2fs_bg_has_super() back to closefs.c.  There's no
+		reason for the new file, since list_backups() isn't being
+		used by any other functions, and can be made static, and
+		all users of the ext2fs filesystem will have to call
+		ext2fs_close() anyway.
+
+2004-12-15  Theodore Ts'o  <tytso@mit.edu>
+
+	* Applied resize inode patch from Andreas Dilger
+
+	* res_gdt.c (ext2fs_create_resize_inode): New function that
+		creates the resize inode.
+
+	* initialize.c (ext2fs_initialize): Reserve space for the resize
+		inode.
+
+	* ext2fs.h (EXT2_LIB_FEATURE_COMPAT_SUPP): Add
+		EXT2_FEATURE_COMPAT_RESIZE_INODE to the list of supported
+		capabilities.
+		Add function prototypes for res_gdt.c and sparse.c.
+
+	* closefs.c (ext2fs_super_and_bgd_loc): Take the reserved blocks
+		into account when calculating the number of overhead
+		blocks.
+
+	* closefs.c (ext2fs_bg_has_super, test_root), sparse.c: Move these
+		functions to the new file sparse.c
+
+	* alloc_sb.c (ext2fs_reserve_super_and_bgd): Reserve the blocks
+		saved in the resize inode as being in use.
+
+	* ext2_err.et.in (EXT2_ET_RES_GDT_BLOCKS): Add new error code.
+
+	* Makefile.in (srcdir): Add res_gdt.c and sparse.c to the ext2fs
+		library.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output for "make
+		install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro
+		Update dependencies.
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix_io.c (unix_set_option): Add support for the offset option.
+
+	* test_io.c (test_set_option): Add support for the set_option method.
+
+	* ext2_io.h: Add new io_channel method, set_option(), and change
+		io_channel_write_byte() from a macro to a library function.
+
+	* ext2fs.h, openfs.c(ext2fs_open2): New version of ext2fs_open
+		which adds a new parameter, io_options.
+		(ext2fs_open): If there is a question mark in the
+		filename, and no io_options are specified, assumed that
+		the text following the question mark are io_options.
+	
+	* io_manager.c, Makefile.in: New source file which contains
+		high-level functions for the io_channel layer.
+
+	* freefs.c (ext2fs_free): Make sure we don't free the io_channel
+		if image_io is NULL.
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-11-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2_fs.h (EXT2_EXTENTS_FL, EXT3_FEATURE_INCOMPAT_EXTENTS, 
+		EXT2_MAX_BLOCK_LOG_SIZE): Add definition for extent
+		feature and inode flag.  Change maximum allowable block
+		size to be 65536.
+
+2004-10-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsize.c (ext2fs_get_device_size): Add support for Windows
+		9x/NT under Cygwin.  Thanks to Sam Robb
+		(samrobb@users.sourceforge.net) for pointing this and the
+		suggested code patch.
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsize.c: Clean up header #include's.
+
+	* llseek.c (ext2fs_llseek): On non-linux systems, use lseek64() if
+		it is present.  (Addresses Debian bug #269044)
+
+2004-07-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* rw_bitmaps.c (read_bitmaps), block.c (block_iterate_ind,
+		block_iterate_dind, block_iterate_tind), inode.c
+		(ext2fs_read_inode): If EXT2_FLAG_IMAGE_FILE is set, so
+		read the metadata from fs->image_io instead of fs->io.
+
+	* initialize.c (ext2fs_initialize), openfs.c (ext2fs_open):
+		Initialize fs->image_io to be the same as fs->io.
+	
+	* ext2_err.et.in (EXT2_ET_NOT_IMAGE_FILE): Add new error code. 
+
+	* openfs.c (ext2fs_get_data_io, ext2fs_set_data_io,
+		ext2fs_rewrite_to_io): New functions that allow
+		applications to manipulate fs->image_io and fs->io safely.
+
+	* freefs.c (ext2fs_free): If fs->image_io is different fs->io,
+		then call io_channel_close on fs->image_io.
+
+	* ext2fs.h: Add image_io element to the ext2_filsys data
+		structure.  Add ext2fs_get_data_io() ext2fs_set_data_io(),
+		and ext2fs_rewrite_to_io() prototypes.
+
+2004-05-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* closefs.c (ext2fs_flush): Make sure the master superblock is
+		written last, and only after other I/O has been flushed to
+		disk.  Thanks to Junfeng Yang from the Stanford
+		Metacompilation group for pointing a potential ordering
+		constraint problem if we don't write things out in the
+		right order.
+
+	* test_io.c: Implement the ability to abort after n reads or
+		writes to a particular block.  The block is specified by
+		TEST_IO_BLOCK environment variable, and the read/write
+		count by the TEST_IO_READ_ABORT and TEST_IO_WRITE_ABORT
+		environment variables.  The block data is now only dumped
+		if the 0x10 bit is set in TEST_IO_FLAGS.
+
+2004-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* ext2_types.h.in: Remove check for _UUID_TYPES since uuid_types.h
+		is no longer used.
+
+2004-03-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsize.c (ext2fs_get_device_size): Only use the BLKGETSIZE64
+		ioctl on Linux 2.6 since it is unreliable in Linux 2.4.
+		(Addresses Debian Bug #236528).  Fix typo in the ioctl
+		used for Mac OS X.
+
+2004-03-02  Theodore Ts'o  <tytso@mit.edu>
+
+	* getsize.c (ext2fs_get_device_size): Update getsize functions to
+		use Apple Darwin and Linux 64-bit ioctl's
+
+2004-02-29  Brian Bergstrand  <brian@bergstrand.org>
+
+	* Makefile.in: Use $(BSDLIB_PIC_FLAG) to determine whether to use
+		-fpic or -fPIC
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

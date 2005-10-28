@@ -25,7 +25,7 @@
  * 94/03/06	- Added the checks interval from Uwe Ohse (uwe@tirka.gun.de)
  */
 
-#define _XOPEN_SOURCE /* for inclusion of strptime() */
+#define _XOPEN_SOURCE 500 /* for inclusion of strptime() */
 #define _BSD_SOURCE /* for inclusion of strcasecmp() */
 #include <fcntl.h>
 #include <grp.h>
@@ -58,6 +58,7 @@ extern int optind;
 const char * program_name = "tune2fs";
 char * device_name;
 char * new_label, *new_last_mounted, *new_UUID;
+char * io_options;
 static int c_flag, C_flag, e_flag, f_flag, g_flag, i_flag, l_flag, L_flag;
 static int m_flag, M_flag, r_flag, s_flag = -1, u_flag, U_flag, T_flag;
 static time_t last_check_time;
@@ -80,14 +81,14 @@ void do_findfs(int argc, char **argv);
 static void usage(void)
 {
 	fprintf(stderr,
-		_("Usage: %s [-c max-mounts-count] [-e errors-behavior] "
+		_("Usage: %s [-c max_mounts_count] [-e errors_behavior] "
 		  "[-g group]\n"
-		  "\t[-i interval[d|m|w]] [-j] [-J journal-options]\n"
-		  "\t[-l] [-s sparse-flag] [-m reserved-blocks-percent]\n"
-		  "\t[-o [^]mount-options[,...]] [-r reserved-blocks-count]\n"
-		  "\t[-u user] [-C mount-count] [-L volume-label] "
-		  "[-M last-mounted-dir]\n"
-		  "\t[-O [^]feature[,...]] [-T last-check-time] [-U UUID]"
+		  "\t[-i interval[d|m|w]] [-j] [-J journal_options]\n"
+		  "\t[-l] [-s sparse_flag] [-m reserved_blocks_percent]\n"
+		  "\t[-o [^]mount_options[,...]] [-r reserved_blocks_count]\n"
+		  "\t[-u user] [-C mount_count] [-L volume_label] "
+		  "[-M last_mounted_dir]\n"
+		  "\t[-O [^]feature[,...]] [-T last_check_time] [-U UUID]"
 		  " device\n"), program_name);
 	exit (1);
 }
@@ -282,6 +283,11 @@ static void update_feature_set(ext2_filsys fs, char *features)
 	int sparse, old_sparse, filetype, old_filetype;
 	int journal, old_journal, dxdir, old_dxdir;
 	struct ext2_super_block *sb= fs->super;
+	__u32	old_compat, old_incompat, old_ro_compat;
+
+	old_compat = sb->s_feature_compat;
+	old_ro_compat = sb->s_feature_ro_compat;
+	old_incompat = sb->s_feature_incompat;
 
 	old_sparse = sb->s_feature_ro_compat &
 		EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER;
@@ -355,7 +361,10 @@ static void update_feature_set(ext2_filsys fs, char *features)
 		sb->s_state &= ~EXT2_VALID_FS;
 		printf("\n%s\n", _(please_fsck));
 	}
-	ext2fs_mark_super_dirty(fs);
+	if ((old_compat != sb->s_feature_compat) ||
+	    (old_ro_compat != sb->s_feature_ro_compat) ||
+	    (old_incompat != sb->s_feature_incompat))
+		ext2fs_mark_super_dirty(fs);
 }
 
 /*
@@ -441,6 +450,9 @@ static void parse_e2label_options(int argc, char ** argv)
 		fputs(_("Usage: e2label device [newlabel]\n"), stderr);
 		exit(1);
 	}
+	io_options = strchr(argv[1], '?');
+	if (io_options)
+		*io_options++ = 0;
 	device_name = blkid_get_devname(NULL, argv[1], NULL);
 	if (!device_name) {
 		com_err("e2label", 0, _("Unable to resolve '%s'"), 
@@ -464,9 +476,9 @@ static time_t parse_time(char *str)
 	}
 	memset(&ts, 0, sizeof(ts));
 #ifdef HAVE_STRPTIME
-	strptime(optarg, "%Y%m%d%H%M%S", &ts);
+	strptime(str, "%Y%m%d%H%M%S", &ts);
 #else
-	sscanf(optarg, "%4d%2d%2d%2d%2d%2d", &ts.tm_year, &ts.tm_mon,
+	sscanf(str, "%4d%2d%2d%2d%2d%2d", &ts.tm_year, &ts.tm_mon,
 	       &ts.tm_mday, &ts.tm_hour, &ts.tm_min, &ts.tm_sec);
 	ts.tm_year -= 1900;
 	ts.tm_mon -= 1;
@@ -696,6 +708,9 @@ static void parse_tune2fs_options(int argc, char **argv)
 		usage();
 	if (!open_flag && !l_flag)
 		usage();
+	io_options = strchr(argv[optind], '?');
+	if (io_options)
+		*io_options++ = 0;
 	device_name = blkid_get_devname(NULL, argv[optind], NULL);
 	if (!device_name) {
 		com_err("tune2fs", 0, _("Unable to resolve '%s'"), 
@@ -754,7 +769,8 @@ int main (int argc, char ** argv)
 #else
 	io_ptr = unix_io_manager;
 #endif
-	retval = ext2fs_open (device_name, open_flag, 0, 0, io_ptr, &fs);
+	retval = ext2fs_open2(device_name, io_options, open_flag, 
+			      0, 0, io_ptr, &fs);
         if (retval) {
 		com_err (program_name, retval, _("while trying to open %s"),
 			 device_name);
@@ -803,7 +819,7 @@ int main (int argc, char ** argv)
 	if (i_flag) {
 		sb->s_checkinterval = interval;
 		ext2fs_mark_super_dirty(fs);
-		printf (_("Setting interval between check %lu seconds\n"), interval);
+		printf (_("Setting interval between checks to %lu seconds\n"), interval);
 	}
 	if (m_flag) {
 		sb->s_r_blocks_count = (sb->s_blocks_count / 100)
@@ -813,7 +829,7 @@ int main (int argc, char ** argv)
 			reserved_ratio, sb->s_r_blocks_count);
 	}
 	if (r_flag) {
-		if (reserved_blocks >= sb->s_blocks_count) {
+		if (reserved_blocks >= sb->s_blocks_count/2) {
 			com_err (program_name, 0,
 				 _("reserved blocks count is too big (%lu)"),
 				 reserved_blocks);

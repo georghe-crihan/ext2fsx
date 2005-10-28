@@ -1,3 +1,76 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-06-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* Update French, Dutch, Polish, Swedish, and Turkish translations.
+
+2005-06-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* POTFILES.in: remove the findsuper and partinfo programs, as they
+		are not installed anywhere (and shouldn't be).
+
+	* at-expand.pl: Add an explanation of how the @-expansion and
+		%-expansion works in e2fsck/problem.c as part of the
+		"translator help".
+
+	* Makefile.in.in: Update e2fsprogs.pot if at-expand.pl has changed.
+
+	* fr.po: Update Franch translation
+
+2005-06-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* nl.po: Add Dutch translation
+
+2005-05-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* rw.po: Add Rwandan translation
+
+	* sv.po: Update Swedish translation.
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in.in: Only update the gmo files if maintainer mode is
+		enabled.
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Update to gettext version 0.14.1
+
+	* Makefile.in.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-11-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* it.po: Updated Italian translation.
+
+2004-09-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* fr.po: Updated French translation.
+
+2004-05-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* de.po: Minor updates to translation file, courtesy of Florian
+		Ernst (Addresses Debian bug #244105).
+
+2004-04-11  Theodore Ts'o  <tytso@mit.edu>
+
+	* fr.po: Added new French translation
+
+2004-03-20  Theodore Ts'o  <tytso@mit.edu>
+
+	* pl.po, sv.po, tr.po: Update Polish, Swedish, and Turkish
+		translations.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35
@@ -11,7 +84,7 @@
 
 	* pl.po: Added new Polish translation.
 
-	* sv.po: Updated Sweedish translation
+	* sv.po: Updated Swedish translation
 
 	* de.po: Fixed and updated German translations from Marc Langer.
 		(Addresses Debian bug #200086)
@@ -22,7 +95,7 @@
 
 2003-07-25  Theodore Ts'o  <tytso@mit.edu>
 
-	* LINGUAS, sv.po: Added Sweedish translation from Göran Uddeborg
+	* LINGUAS, sv.po: Added Swedish translation from Göran Uddeborg
 		<goeran@uddeborg.se>
 
 2003-05-17  Theodore Ts'o  <tytso@mit.edu>

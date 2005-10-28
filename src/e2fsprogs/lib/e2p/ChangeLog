@@ -1,3 +1,100 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-06-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Add an include path specifier when building
+		tst_ostype so that "make check" will build correctly on
+		systems without the include files from e2fsprogs installed
+		in the system include directory.
+
+2005-05-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (tst_ostype): Add $(ALL_CFLAGS) to the tst_ostype
+		rule so it can find the header files.  (Addresses
+		Sourceforge Bug: #1180572)
+
+2005-04-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* ls.c: Add stdlib.h header file since list_super2() uses the
+		free() function.
+
+2005-03-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* ostype.c (e2p_os2string): Check to make sure malloc() is
+		successful before attempting to copy into it.  Add
+		#include of stdlib.h to fix a core dump bug on the IA64
+		architecture.  (Addresses Debian Bug #302200)
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2005-03-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* ls.c (list_super2): Use the new e2p_os2string() function
+
+	* ostype.c: New file which converts between an integer os_type and
+		a string.
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Remove e2p.pc on a "make distclean"
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2p.pc.in: Add pkg-config files.
+
+2005-01-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* ls.c (list_super2): Interpret OS Creator values for FreeBSD and
+		Lites.
+	
+2005-01-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* parse_num.c (parse_num_blocks): New file which adds a standard
+		function for parsing the number of blocks by programs such
+		as mke2fs and resize2fs.
+
+2004-12-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* ls.c (list_super2): Print the s_reserved_gdt_blocks field if it
+		is non-zero.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output for "make
+		install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-11-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* feature.c: Add support for the extents filesystem feature.
+
+2004-06-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* setflags.c, fsetflags.c: On linux systems, undefine HAVE_CHFLAGS
+		to deal with lame glibc's that define this function
+		without actually implementing it.  Can you say "attractive
+		nuisance", boys and girls?   I knew you could!  (Thanks to
+		Pavel Troller for reporting this braindamage.)
+
+2004-02-29  Brian Bergstrand  <brian@bergstrand.org>
+
+	* Makefile.in: Use $(BSDLIB_PIC_FLAG) to determine whether to use
+		-fpic or -fPIC
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

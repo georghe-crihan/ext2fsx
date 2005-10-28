@@ -148,72 +148,12 @@ extern int	blkid_debug_mask;
 #endif
 
 #ifdef CONFIG_BLKID_DEBUG
-static __inline__ void DEB_DUMP_TAG(int mask, blkid_tag tag)
-{
-	if (!(mask & blkid_debug_mask))
-		return;
-	
-	if (!tag) {
-		printf("    tag: NULL\n");
-		return;
-	}
-
-	printf("    tag: %s=\"%s\"\n", tag->bit_name, tag->bit_val);
-}
-
-static __inline__ void DEB_DUMP_DEV(int mask, blkid_dev dev)
-{
-	struct list_head *p;
-
-	if (!(mask & blkid_debug_mask))
-		return;
-	
-	if (!dev) {
-		printf("  dev: NULL\n");
-		return;
-	}
-
-	printf("  dev: name = %s\n", dev->bid_name);
-	printf("  dev: DEVNO=\"0x%0Lx\"\n", dev->bid_devno);
-	printf("  dev: TIME=\"%lu\"\n", dev->bid_time);
-	printf("  dev: PRI=\"%d\"\n", dev->bid_pri);
-	printf("  dev: flags = 0x%08X\n", dev->bid_flags);
-
-	list_for_each(p, &dev->bid_tags) {
-		blkid_tag tag = list_entry(p, struct blkid_struct_tag, bit_tags);
-		DEB_DUMP_TAG(mask, tag);
-	}
-	printf("\n");
-}
-
-static __inline__ void DEB_DUMP_CACHE(int mask, blkid_cache cache)
-{
-	struct list_head *p;
-
-	if (!cache || !(mask & blkid_debug_mask)) {
-		printf("cache: NULL\n");
-		return;
-	}
-
-	printf("cache: time = %lu\n", cache->bic_time);
-	printf("cache: flags = 0x%08X\n", cache->bic_flags);
-
-	list_for_each(p, &cache->bic_devs) {
-		blkid_dev dev = list_entry(p, struct blkid_struct_dev, bid_devs);
-		DEB_DUMP_DEV(mask, dev);
-	}
-}
-#else
-#define DEB_DUMP_TAG(mask, tag) do {} while (0)
-#define DEB_DUMP_DEV(mask, dev) do {} while (0)
-#define DEB_DUMP_CACHE(mask, cache) do {} while (0)
+extern void blkid_debug_dump_dev(blkid_dev dev);
+extern void blkid_debug_dump_tag(blkid_tag tag);
 #endif
 
 /* lseek.c */
 extern blkid_loff_t blkid_llseek(int fd, blkid_loff_t offset, int whence);
-
-/* probe.c */
-extern blkid_dev blkid_verify_devname(blkid_cache cache, blkid_dev dev);
 
 /* read.c */
 extern void blkid_read_cache(blkid_cache cache);

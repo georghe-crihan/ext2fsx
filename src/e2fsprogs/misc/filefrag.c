@@ -44,13 +44,16 @@ int verbose = 0;
 #define FIBMAP	   _IO(0x00,1)	/* bmap access */
 #define FIGETBSZ   _IO(0x00,2)	/* get the block size used for bmap */
 
+#define EXT3_EXTENTS_FL			0x00080000 /* Inode uses extents */
+#define	EXT3_IOC_GETFLAGS		_IOR('f', 1, long)
+
 static unsigned long get_bmap(int fd, unsigned long block)
 {
 	int	ret;
-	unsigned long b;
+	unsigned int b;
 
 	b = block;
-	ret = ioctl(fd, FIBMAP, &b);
+	ret = ioctl(fd, FIBMAP, &b); /* FIBMAP takes a pointer to an integer */
 	if (ret < 0) {
 		if (errno == EPERM) {
 			fprintf(stderr, "No permission to use FIBMAP ioctl; must have root privileges\n");
@@ -67,11 +70,13 @@ static void frag_report(const char *filename)
 {
 	struct statfs	fsinfo;
 	struct stat64	fileinfo;
-	long		i, fd, bs, block, last_block = 0, numblocks;
+	int		bs;
+	long		i, fd, block, last_block = 0, numblocks;
 	long		bpib;	/* Blocks per indirect block */
 	long		cylgroups;
 	int		discont = 0, expected;
 	int		is_ext2 = 0;
+	unsigned int	flags;
 
 	if (statfs(filename, &fsinfo) < 0) {
 		perror("statfs");
@@ -101,19 +106,29 @@ static void frag_report(const char *filename)
 		perror("open");
 		return;
 	}
-	if (ioctl(fd, FIGETBSZ, &bs) < 0) {
+	if (ioctl(fd, FIGETBSZ, &bs) < 0) { /* FIGETBSZ takes an int */
 		perror("FIGETBSZ");
+		close(fd);
 		return;
+	}
+	if (ioctl(fd, EXT3_IOC_GETFLAGS, &flags) < 0)
+		flags = 0;
+	if (flags & EXT3_EXTENTS_FL) {
+		printf("File is stored in extents format\n");
+		is_ext2 = 0;
 	}
 	if (verbose)
 		printf("Blocksize of file %s is %ld\n", filename, bs);
 	bpib = bs / 4;
 	numblocks = (fileinfo.st_size + (bs-1)) / bs;
-	if (verbose)
+	if (verbose) {
 		printf("File size of %s is %lld (%ld blocks)\n", filename, 
 		       (long long) fileinfo.st_size, numblocks);
+		printf("First block: %ld\nLast block: %ld\n",
+		       get_bmap(fd, 0), get_bmap(fd, numblocks - 1));
+	}
 	for (i=0; i < numblocks; i++) {
-		if (is_ext2) {
+		if (is_ext2 && last_block) {
 			if (((i-EXT2_DIRECT) % bpib) == 0)
 				last_block++;
 			if (((i-EXT2_DIRECT-bpib) % (bpib*bpib)) == 0)
@@ -122,14 +137,15 @@ static void frag_report(const char *filename)
 				last_block++;
 		}
 		block = get_bmap(fd, i);
-		if (i && (block != last_block +1) ) {
+		if (block == 0)
+			continue;
+		if (last_block && (block != last_block +1) ) {
 			if (verbose)
 				printf("Discontinuity: Block %ld is at %ld (was %ld)\n",
 				       i, block, last_block);
 			discont++;
 		}
-		if (block)
-			last_block = block;
+		last_block = block;
 	}
 	if (discont==0)
 		printf("%s: 1 extent found", filename);
@@ -141,7 +157,7 @@ static void frag_report(const char *filename)
 			(expected>1) ? "s" : "");
 	else
 		fputc('\n', stdout);
-	
+	close(fd);
 }
 
 static void usage(const char *progname)

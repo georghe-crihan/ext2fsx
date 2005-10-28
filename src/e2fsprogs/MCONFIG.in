@@ -30,17 +30,14 @@ datadir = @datadir@
 
 @SET_MAKE@
 
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
-INSTALL_DATA = @INSTALL_DATA@
 CC = @CC@
 BUILD_CC = @BUILD_CC@
 DEFS = -DLOCALEDIR=\"$(localedir)\" @DEFS@
 CFLAGS = @CFLAGS@
-CPPFLAGS = @CPPFLAGS@
+CPPFLAGS =  -I$(top_builddir)/lib -I$(top_srcdir)/lib @CPPFLAGS@
 INTL_FLAGS = @INTL_FLAGS@
 ALL_CFLAGS = $(CPPFLAGS) $(DEFS) $(USE_WFLAGS) $(CFLAGS) $(XTRA_CFLAGS) \
-	$(INTL_FLAGS) -I$(top_builddir)/lib -I$(top_srcdir)/lib \
-	$(LINUX_INCLUDE) 
+	$(INTL_FLAGS) $(LINUX_INCLUDE) 
 LDFLAGS = @LDFLAGS@
 ALL_LDFLAGS = $(LDFLAGS)
 RM = @RM@
@@ -57,7 +54,12 @@ RANLIB = @RANLIB@
 STRIP = @STRIP@
 LD = $(PURE) @CC@
 ARUPD = $(AR) r
+ARGEN = $(AR) rc
 LDCONFIG = @LDCONFIG@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+MKINSTALLDIRS = @MKINSTALLDIRS@
 
 #
 # Library definitions
@@ -88,18 +90,6 @@ PROFILED_LIBUUID = $(LIB)/libuuid@PROFILED_LIB_EXT@ @SOCKET_LIB@
 PROFILED_LIBBLKID = $(LIB)/libblkid@PROFILED_LIB_EXT@
 DEPPROFILED_LIBUUID = $(LIB)/libuuid@PROFILED_LIB_EXT@
 
-#
-# Use these definitions is you use tools 2.x, x < 16
-#
-#DLL_BIN=/usr/dll/bin
-#JUMP_PREFIX=/usr/dll/jump/
-
-#
-# Use these definitions if you use tools 2.16 or above
-#
-DLL_BIN=/usr/bin
-JUMP_PREFIX=/usr/bin/jump
-
 # An include directive pointing to a directory holding enough linux-like
 # include files to satisfy some programs here
 LINUX_INCLUDE=@LINUX_INCLUDE@
@@ -109,6 +99,7 @@ LINUX_INCLUDE=@LINUX_INCLUDE@
 #
 SUBST_CONF=$(top_builddir)/util/subst.conf
 SUBSTITUTE= $(top_builddir)/util/subst -f $(SUBST_CONF)
+SUBSTITUTE_UPTIME= $(top_builddir)/util/subst -t -f $(SUBST_CONF)
 DEP_SUBSTITUTE= $(top_builddir)/util/subst $(SUBST_CONF)
 
 $(top_builddir)/util/subst:
@@ -157,8 +148,9 @@ MANMODE=	444
 #
 
 DEP_LIB_MAKEFILES = $(top_srcdir)/lib/Makefile.elf-lib  \
-	$(top_srcdir)/lib/Makefile.dll-lib $(top_srcdir)/lib/Makefile.bsd-lib \
-	$(top_srcdir)/lib/Makefile.checker $(top_srcdir)/lib/Makefile.profile
+	$(top_srcdir)/lib/Makefile.bsd-lib $(top_srcdir)/lib/Makefile.darwin-lib \
+	$(top_srcdir)/lib/Makefile.solaris-lib $(top_srcdir)/lib/Makefile.checker \
+	$(top_srcdir)/lib/Makefile.profile
 
 $(top_builddir)/config.status: $(top_srcdir)/configure
 	cd $(top_builddir); ./config.status --recheck
@@ -178,8 +170,8 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/MCONFIG \
 		$(DEP_MAKEFILE) $(top_builddir)/config.status
 	cd $(top_builddir); CONFIG_FILES=$(my_dir)/Makefile ./config.status
 
-$(top_srcdir)/configure: $(top_srcdir)/configure.in
-	cd $(top_srcdir) && autoconf
+@MAINTAINER_CMT@$(top_srcdir)/configure: $(top_srcdir)/configure.in
+@MAINTAINER_CMT@	cd $(top_srcdir) && autoconf
 
 #
 # Make depend magic...
@@ -193,6 +185,7 @@ $(top_srcdir)/configure: $(top_srcdir)/configure.in
 			    -e 's; $(top_srcdir)/; $$(top_srcdir)/;g' \
 			    -e 's; $(top_builddir)/; $$(top_builddir)/;g' \
 			    -e 's; \./; ;g' \
+			    -e '/^#/d' \
 			    -e '/^ *\\$$/d' | \
 			$(PERL) $(top_srcdir)/wordwrap.pl > .depend; \
 	else :; fi

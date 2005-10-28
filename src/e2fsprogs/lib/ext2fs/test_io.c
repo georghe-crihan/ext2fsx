@@ -22,6 +22,14 @@
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#else
+#define PR_GET_DUMPABLE 3
+#endif
+#if (!defined(HAVE_PRCTL) && defined(linux))
+#include <sys/syscall.h>
+#endif
 
 #include "ext2_fs.h"
 #include "ext2fs.h"
@@ -39,6 +47,7 @@ struct test_private_data {
 	int flags;
 	FILE *outfile;
 	unsigned long block;
+	int read_abort_count, write_abort_count;
 	void (*read_blk)(unsigned long block, int count, errcode_t err);
 	void (*write_blk)(unsigned long block, int count, errcode_t err);
 	void (*set_blksize)(int blksize, errcode_t err);
@@ -55,6 +64,8 @@ static errcode_t test_write_blk(io_channel channel, unsigned long block,
 static errcode_t test_flush(io_channel channel);
 static errcode_t test_write_byte(io_channel channel, unsigned long offset,
 				 int count, const void *buf);
+static errcode_t test_set_option(io_channel channel, const char *option, 
+				 const char *arg);
 
 static struct struct_io_manager struct_test_manager = {
 	EXT2_ET_MAGIC_IO_MANAGER,
@@ -65,8 +76,8 @@ static struct struct_io_manager struct_test_manager = {
 	test_read_blk,
 	test_write_blk,
 	test_flush,
-	test_write_byte
-	
+	test_write_byte,
+	test_set_option
 };
 
 io_manager test_io_manager = &struct_test_manager;
@@ -92,6 +103,8 @@ void (*test_io_cb_write_byte)
 #define TEST_FLAG_WRITE			0x02
 #define TEST_FLAG_SET_BLKSIZE		0x04
 #define TEST_FLAG_FLUSH			0x08
+#define TEST_FLAG_DUMP			0x10
+#define TEST_FLAG_SET_OPTION		0x20
 
 static void test_dump_block(io_channel channel,
 			    struct test_private_data *data,
@@ -113,11 +126,47 @@ static void test_dump_block(io_channel channel,
 	}
 }
 
+static void test_abort(io_channel channel, unsigned long block)
+{
+	struct test_private_data *data;
+	FILE *f;
+
+	data = (struct test_private_data *) channel->private_data;
+	f = data->outfile;
+	test_flush(channel);
+
+	fprintf(f, "Aborting due to I/O to block %lu\n", block);
+	fflush(f);
+	abort();
+}
+
+static char *safe_getenv(const char *arg)
+{
+	if ((getuid() != geteuid()) || (getgid() != getegid()))
+		return NULL;
+#if HAVE_PRCTL
+	if (prctl(PR_GET_DUMPABLE) == 0)
+		return NULL;
+#else
+#if (defined(linux) && defined(SYS_prctl))
+	if (syscall(SYS_prctl, PR_GET_DUMPABLE) == 0)
+		return NULL;
+#endif
+#endif
+
+#ifdef HAVE___SECURE_GETENV
+	return __secure_getenv(arg);
+#else
+	return getenv(arg);
+#endif
+}
+
 static errcode_t test_open(const char *name, int flags, io_channel *channel)
 {
 	io_channel	io = NULL;
 	struct test_private_data *data = NULL;
 	errcode_t	retval;
+	char		*value;
 
 	if (name == 0)
 		return EXT2_ET_BAD_DEVICE_NAME;
@@ -158,18 +207,26 @@ static errcode_t test_open(const char *name, int flags, io_channel *channel)
 	data->write_byte = 	test_io_cb_write_byte;
 
 	data->outfile = NULL;
-	if (getenv("TEST_IO_LOGFILE"))
-		data->outfile = fopen(getenv("TEST_IO_LOGFILE"), "w");
+	if ((value = safe_getenv("TEST_IO_LOGFILE")) != NULL)
+		data->outfile = fopen(value, "w");
 	if (!data->outfile)
 		data->outfile = stderr;
 
 	data->flags = 0;
-	if (getenv("TEST_IO_FLAGS"))
-		data->flags = strtoul(getenv("TEST_IO_FLAGS"), NULL, 0);
+	if ((value = safe_getenv("TEST_IO_FLAGS")) != NULL)
+		data->flags = strtoul(value, NULL, 0);
 	
 	data->block = 0;
-	if (getenv("TEST_IO_BLOCK"))
-		data->block = strtoul(getenv("TEST_IO_BLOCK"), NULL, 0);
+	if ((value = safe_getenv("TEST_IO_BLOCK")) != NULL)
+		data->block = strtoul(value, NULL, 0);
+
+	data->read_abort_count = 0;
+	if ((value = safe_getenv("TEST_IO_READ_ABORT")) != NULL)
+		data->read_abort_count = strtoul(value, NULL, 0);
+
+	data->write_abort_count = 0;
+	if ((value = safe_getenv("TEST_IO_WRITE_ABORT")) != NULL)
+		data->write_abort_count = strtoul(value, NULL, 0);
 	
 	*channel = io;
 	return 0;
@@ -247,8 +304,12 @@ static errcode_t test_read_blk(io_channel channel, unsigned long block,
 		fprintf(data->outfile,
 			"Test_io: read_blk(%lu, %d) returned %s\n",
 			block, count, retval ? error_message(retval) : "OK");
-	if (data->block && data->block == block)
-		test_dump_block(channel, data, block, buf);
+	if (data->block && data->block == block) {
+		if (data->flags & TEST_FLAG_DUMP)
+			test_dump_block(channel, data, block, buf);
+		if (--data->read_abort_count == 0)
+			test_abort(channel, block);
+	} 
 	return retval;
 }
 
@@ -270,8 +331,12 @@ static errcode_t test_write_blk(io_channel channel, unsigned long block,
 		fprintf(data->outfile,
 			"Test_io: write_blk(%lu, %d) returned %s\n",
 			block, count, retval ? error_message(retval) : "OK");
-	if (data->block && data->block == block)
-		test_dump_block(channel, data, block, buf);
+	if (data->block && data->block == block) {
+		if (data->flags & TEST_FLAG_DUMP)
+			test_dump_block(channel, data, block, buf);
+		if (--data->write_abort_count == 0)
+			test_abort(channel, block);
+	}
 	return retval;
 }
 
@@ -318,3 +383,29 @@ static errcode_t test_flush(io_channel channel)
 	return retval;
 }
 
+static errcode_t test_set_option(io_channel channel, const char *option, 
+				 const char *arg)
+{
+	struct test_private_data *data;
+	errcode_t	retval = 0;
+
+	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
+	data = (struct test_private_data *) channel->private_data;
+	EXT2_CHECK_MAGIC(data, EXT2_ET_MAGIC_TEST_IO_CHANNEL);
+
+
+	if (data->flags & TEST_FLAG_SET_OPTION)
+		fprintf(data->outfile, "Test_io: set_option(%s, %s) ", 
+			option, arg);
+	if (data->real && data->real->manager->set_option) {
+		retval = (data->real->manager->set_option)(data->real, 
+							   option, arg);
+		if (data->flags & TEST_FLAG_SET_OPTION)
+			fprintf(data->outfile, "returned %s\n",
+				retval ? error_message(retval) : "OK");
+	} else {
+		if (data->flags & TEST_FLAG_SET_OPTION)
+			fprintf(data->outfile, "not implemented\n");
+	}
+	return retval;
+}

@@ -1,3 +1,71 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-05-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.c (fix_resize_inode): Don't bother to translate
+		debugging printf's.
+
+	* main.c: Fix case on usage message, and remove _() from messages
+		from a version string that doesn't need translation.
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.c: Fix bug where we don't release the blocks belonging
+		to the old inode table blocks when we move the inode
+		table.  (Addresses Debian Bug: #290894)
+
+2005-01-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* main.c (main): Use parse_num_blocks() from the e2p library to
+		parse the number of blocks from the command line.
+
+2004-12-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.c (resize_fs): Call ext2fs_create_resize_inode to
+		fill in the necessary fields in the resize inode.
+		(adjust_superblock): Reserve blocks that are needed for
+		on-line resizing if that feature is enabled.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Move strip command to install-strip target.
+		Use Linux-kernel-style makefile output for "make install"
+
+	* Makefile.in (installdirs): Use $(MKINSTALLDIRS) macro
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* main.c: If there is a question mark in the device name,
+		separate out the options to the IO layer, and pass it on
+		to ext2fs_open2().
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.c (check_and_change_inodes): Fix debugging printf to
+		mask off the high 256 bits of dirent->name_len (which is
+		where the file type information is stored).  (Addresses
+		Debian Bug #271605)
+
+2004-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Update the modtime even if subst doesn't need to
+		update the resize2fs man page, to avoid always re-running
+		subst, especially since there are no dependencies on the
+		man page.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

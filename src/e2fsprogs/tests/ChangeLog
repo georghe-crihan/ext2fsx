@@ -1,3 +1,106 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-06-16  Theodore Ts'o  <tytso@mit.edu>
+
+	* defaults/e_script, run_e2fsck, d_loaddump, f_resize_inode,
+		f_swapfs, f_move_itable, f_resize_inode, test_config:
+		Allow the diff options to be set in test_config so that
+		diff -u can be used on platforms that have it.  (To be
+		done: checking whether diff can support -u in the
+		configure script.)
+
+2005-04-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_dup_resize: New test case
+
+2005-04-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* test_script.in: Make the test script driver exit with a non-zero
+		status if there are any failed tests.
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_valid_ea_in_inode: New test case
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Remove emacs backup files on "make clean"
+
+	* Makefile.in, f_h_badnode, f_dup_de, f_h_reindex, f_h_normal,
+		f_h_badroot: Remove support for --enable-htree-clear
+
+2005-01-28  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_bad_inode, f_recnect_bad: Adjust test cases to take into
+		account the change which clears the i_file_acl field earlier.
+
+2005-01-27  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_clear_xattr: New test case
+
+2005-01-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_summary_counts: New test case
+
+2005-01-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* r_resize_inode: Skip this test if resize2fs is not compiled (due
+		to configure's --disable-resizer option)
+
+2005-01-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* r_resize_inode, m_dasd_bs, m_large_file, m_meta_bg, m_no_opt,
+		m_read_opt, m_std, run_mke2fs, filter_dumpe2fs: Make tests
+		portable so they pass correctly on a FreeBSD system.
+
+2005-01-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in, test_script.in: Use @EGREP@ instead of grep -E for
+		portability with Solaris systems.
+
+2005-01-13  Matthias Andree  <matthias.andree@gmx.de>
+
+	* f_dup_de, r_resize_inode: change ">& /dev/null" to ">/dev/null 2>&1"
+		for compatibility with FreeBSD. In $DEBUGFS commands, move the
+		-R arg argument first so that systems with non-GNU getopt()
+		can see the request argument (they would otherwise stop
+		parsing at the first non-option argument).
+
+2004-12-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_resize_inode, r_resize_inode: New tests to e2fsck and
+		resize2fs, which exercise their resize_inode handling and
+		code.
+
+	* test_config: Add support for calling debugfs from the testing
+		framework.
+ 
+2004-12-15  Theodore Ts'o  <tytso@mit.edu>
+
+	* m_meta_bg, m_no_opt, m_raid_opt: Adjust tests to take into
+		account the resize inode patch.
+
+2004-10-04  Richard Mortimer  <richm@oldelvet.org.uk>
+
+	* f_badjourblks: Add test case which tests a Journal with illegal
+		block numbers in both the journal inode and the superblock
+		inode backup.
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* test_script.in: Remove XSI:isms for greater portability.
+		(Addresses Debian Bug #255589)
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

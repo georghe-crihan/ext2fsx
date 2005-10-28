@@ -12,6 +12,9 @@
 #define _LARGEFILE_SOURCE
 #define _LARGEFILE64_SOURCE
 
+/* include this before sys/queues.h! */
+#include "blkidP.h"
+
 #include <stdio.h>
 #if HAVE_UNISTD_H
 #include <unistd.h>
@@ -20,26 +23,35 @@
 #include <errno.h>
 #endif
 #include <fcntl.h>
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
 #ifdef HAVE_LINUX_FD_H
-#include <sys/ioctl.h>
 #include <linux/fd.h>
-#endif /* HAVE_LINUX_FD_H */
+#endif
 #ifdef HAVE_SYS_DISKLABEL_H
-#include <sys/ioctl.h>
 #include <sys/disklabel.h>
 #include <sys/stat.h>
-#endif /* HAVE_SYS_DISKLABEL_H */
-
-#include "blkidP.h"
+#endif
+#ifdef HAVE_SYS_DISK_H
+#ifdef HAVE_SYS_QUEUE_H
+#include <sys/queue.h> /* for LIST_HEAD */
+#endif
+#include <sys/disk.h>
+#endif
+#ifdef __linux__
+#include <sys/utsname.h>
+#endif
 
 #if defined(__linux__) && defined(_IO) && !defined(BLKGETSIZE)
 #define BLKGETSIZE _IO(0x12,96)	/* return device size */
 #endif
 
-#ifdef APPLE_DARWIN
-#include <sys/ioctl.h>
-#include <sys/disk.h>
+#if defined(__linux__) && defined(_IOR) && !defined(BLKGETSIZE64)
+#define BLKGETSIZE64 _IOR(0x12,114,size_t)	/* return device size in bytes (u64 *arg) */
+#endif
 
+#ifdef APPLE_DARWIN
 #define BLKGETSIZE DKIOCGETBLOCKCOUNT32
 #endif /* APPLE_DARWIN */
 
@@ -59,9 +71,12 @@ static int valid_offset(int fd, blkid_loff_t offset)
  */
 blkid_loff_t blkid_get_dev_size(int fd)
 {
-#ifdef BLKGETSIZE
-	unsigned long size;
+	int valid_blkgetsize64 = 1;
+#ifdef __linux__
+	struct 		utsname ut;
 #endif
+	unsigned long long size64;
+	unsigned long size;
 	blkid_loff_t high, low;
 #ifdef FDGETPRM
 	struct floppy_struct this_floppy;
@@ -74,10 +89,36 @@ blkid_loff_t blkid_get_dev_size(int fd)
 	struct stat st;
 #endif /* HAVE_SYS_DISKLABEL_H */
 
+#ifdef DKIOCGETBLOCKCOUNT	/* For Apple Darwin */
+	if (ioctl(fd, DKIOCGETBLOCKCOUNT, &size64) >= 0) {
+		if ((sizeof(blkid_loff_t) < sizeof(unsigned long long))
+		    && (size64 << 9 > 0xFFFFFFFF))
+			return 0; /* EFBIG */
+		return (blkid_loff_t) size64 << 9;
+	}
+#endif
+
+#ifdef BLKGETSIZE64
+#ifdef __linux__
+	if ((uname(&ut) == 0) &&
+	    ((ut.release[0] == '2') && (ut.release[1] == '.') &&
+	     (ut.release[2] < '6') && (ut.release[3] == '.')))
+		valid_blkgetsize64 = 0;
+#endif
+	if (valid_blkgetsize64 &&
+	    ioctl(fd, BLKGETSIZE64, &size64) >= 0) {
+		if ((sizeof(blkid_loff_t) < sizeof(unsigned long long))
+		    && ((size64) > 0xFFFFFFFF))
+			return 0; /* EFBIG */
+		return size64;
+	}
+#endif
+
 #ifdef BLKGETSIZE
 	if (ioctl(fd, BLKGETSIZE, &size) >= 0)
 		return (blkid_loff_t)size << 9;
 #endif
+
 #ifdef FDGETPRM
 	if (ioctl(fd, FDGETPRM, &this_floppy) >= 0)
 		return (blkid_loff_t)this_floppy.size << 9;

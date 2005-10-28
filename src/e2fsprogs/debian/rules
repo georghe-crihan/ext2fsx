@@ -18,7 +18,7 @@ DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
 # find the version for the main package, from changelog file
-MAIN_VERSION = $(shell head -1 debian/changelog | cut '-d ' -f 2 | sed 's/[()]//g')
+MAIN_VERSION = $(shell head -n 1 debian/changelog | cut '-d ' -f 2 | sed 's/[()]//g')
 # find versions for libraries going into their own packages, from their Makefile.in's,
 # and sonames for all libs
 COMERR_VERSION = $(shell grep ELF_VERSION lib/et/Makefile.in | cut '-d ' -f3)
@@ -84,14 +84,14 @@ endif
 BF_CCOPTS = -Os -fomit-frame-pointer
 
 COMMON_CONF_FLAGS =  \
-                --enable-elf-shlibs --enable-dynamic-e2fsck --disable-evms \
-                --infodir=/usr/share/info
+                --enable-elf-shlibs --enable-dynamic-e2fsck \
+                --infodir=/usr/share/info --enable-fsck
 
 STD_CONF_FLAGS = --with-ccopts="${CCOPTS}" --enable-compression 
 
 BF_CONF_FLAGS = --with-ccopts="${CCOPTS} ${BF_CCOPTS}" \
 	--disable-nls --disable-swapfs --disable-imager \
-	--disable-resizer --disable-debugfs
+	--disable-resizer --disable-debugfs  --disable-e2initrd-helper
 
 MIPS_NOPIC_CONF_FLAGS = --with-ccopts="${CCOPTS}" \
 	--disable-nls \
@@ -109,12 +109,15 @@ endif
 ${CFGSTDSTAMP}:
 	dh_testdir
 
+	# Make sure we don't try to rebuild the configure scripts
+	find . -name configure | xargs touch
+
 	mkdir -p ${stdbuilddir}
 ifeq ($(DEB_BUILD_ARCH),$(DEB_HOST_ARCH))
-	cd ${stdbuilddir} && \
+	cd ${stdbuilddir} && AWK=/usr/bin/awk \
 		${topdir}/configure ${COMMON_CONF_FLAGS} ${STD_CONF_FLAGS}
 else
-	cd ${stdbuilddir} && CC="${DEB_HOST_GNU_TYPE}-gcc" \
+	cd ${stdbuilddir} && AWK=/usr/bin/awk CC="${DEB_HOST_GNU_TYPE}-gcc" \
 		${topdir}/configure ${COMMON_CONF_FLAGS} ${STD_CONF_FLAGS} \
 		--build=$(DEB_BUILD_GNU_TYPE) $(DEB_HOST_GNU_TYPE)
 endif
@@ -122,7 +125,7 @@ endif
   # specially-built MIPS lib
 	if [ ismips = "${ismips}" ]; then \
 		mkdir -p ${mipsbuilddir} ; \
-		cd ${mipsbuilddir} && \
+		cd ${mipsbuilddir} && AWK=/usr/bin/awk \
 			${topdir}/configure ${MIPS_NOPIC_CONF_FLAGS} ; \
 	fi
 
@@ -135,10 +138,10 @@ ${CFGBFSTAMP}:
 
 	mkdir -p ${bfbuilddir}
 ifeq ($(DEB_BUILD_ARCH),$(DEB_HOST_ARCH))
-	cd ${bfbuilddir} && \
+	cd ${bfbuilddir} && AWK=/usr/bin/awk \
 		${topdir}/configure ${COMMON_CONF_FLAGS} ${BF_CONF_FLAGS}
 else
-	cd ${bfbuilddir} && CC="${DEB_HOST_GNU_TYPE}-gcc" \
+	cd ${bfbuilddir} && AWK=/usr/bin/awk CC="${DEB_HOST_GNU_TYPE}-gcc" \
 		${topdir}/configure ${COMMON_CONF_FLAGS} ${BF_CONF_FLAGS} \
 		--build=$(DEB_BUILD_GNU_TYPE) $(DEB_HOST_GNU_TYPE)
 endif
@@ -235,7 +238,7 @@ install-udeb: build
 
 	rm -rf ${udebdir}/usr
 	find ${udebdir}/sbin -type f -a ! -name e2fsck \
-		-a ! -name mke2fs -print | xargs rm
+		-a ! -name mke2fs -a ! -name tune2fs -print | xargs rm
 
 	(cd ${udebdir}/sbin; ln -s e2fsck fsck.ext2 ; \
 		ln -s e2fsck fsck.ext3 ; ln -s mke2fs mkfs.ext2 ; \
@@ -263,8 +266,14 @@ binary-arch: install install-udeb
 
   # mkinitrd script
 	mkdir -p debian/e2fsprogs/usr/share/initrd-tools/scripts
-	install -m755 debian/e2fsprogs.mkinitrd \
-		debian/e2fsprogs/usr/share/initrd-tools/scripts
+	install -m755 debian/initrd-tools.e2fsprogs \
+		debian/e2fsprogs/usr/share/initrd-tools/scripts/e2fsprogs
+
+  # initrd script
+	mkdir -p debian/e2fsprogs/usr/share/e2fsprogs
+	install -m755 debian/initrd.ext3-add-journal \
+		debian/e2fsprogs/usr/share/e2fsprogs/initrd.ext3-add-journal
+
 
   # symlinks to prepare dh_installdocs run
 	mkdir -p ${debdir}/e2fsck-static/usr/share/doc/

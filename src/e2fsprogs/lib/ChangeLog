@@ -1,3 +1,50 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.library (uninstall-shlibs): Fix "make uninstall"
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.elf-lib, Makefile.solaris-lib, Makefile.profile,
+		Makefile.darwin-lib: Use Linux-kernel-style makefile
+		output for "make install".  
+
+	* Makefile.elf-lib, Makefile.solaris-lib: Move strip command to
+		install-strip and install-shlibs-strip.
+
+	* Makefile.elf-lib (installdirs-elf-lib), 
+	  Makefile.solaris-lib (installdirs-elf-lib): Use $(MKINSTALLDIRS) 
+		macro
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.elf-lib, Makefile.library, Makefile.profile,
+		Makefile.solaris, Makefile.darwin-lib, Makefile.checker:
+		Use Linux-kernel-style makefile output to make it easier
+		to see errors/warnings.
+
+2004-09-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.dll-lib (jump): Remove XSI:isms for greater portability.
+		(Addresses Debian Bug #255589)
+
+2004-02-29  Brian Bergstrand  <brian@bergstrand.org>
+
+	* Makefile.bsd-lib, Makefile.darwin-lib: Define BSDLIB_PIC_FLAG
+		since Darwin requires -fPIC while NetBSD, FreeBSD,
+		et. al. requires -fpic.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

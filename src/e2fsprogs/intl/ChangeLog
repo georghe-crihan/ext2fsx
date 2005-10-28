@@ -1,3 +1,29 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-01-26  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in (uninstall-shlibs): Fix "make uninstall"  by adding
+		an uninstall-shlibs target.
+
+2004-12-14  Theodore Ts'o  <tytso@mit.edu>
+
+	* Add install-shlibs-strip target.  Update Makefile.in to version
+		from gettext 0.14.1
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Update to gettext version 0.14.1
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

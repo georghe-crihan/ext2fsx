@@ -243,13 +243,6 @@ void e2fsck_pass2(e2fsck_t ctx)
 			clear_htree(ctx, dx_dir->ino);
 			dx_dir->numblocks = 0;
 		}
-#ifdef ENABLE_HTREE_CLEAR
-		if (dx_dir->numblocks) {
-			fix_problem(ctx, PR_2_HTREE_FCLR, &pctx);
-			clear_htree(ctx, dx_dir->ino);
-			dx_dir->numblocks = 0;
-		}
-#endif
 	}
 #endif
 	ext2fs_free_mem(&buf);
@@ -1104,7 +1097,7 @@ static void deallocate_inode(e2fsck_t ctx, ext2_ino_t ino, char* block_buf)
 	ext2fs_icount_store(ctx->inode_link_info, ino, 0);
 	e2fsck_read_inode(ctx, ino, &inode, "deallocate_inode");
 	inode.i_links_count = 0;
-	inode.i_dtime = time(0);
+	inode.i_dtime = ctx->now;
 	e2fsck_write_inode(ctx, ino, &inode, "deallocate_inode");
 	clear_problem_context(&pctx);
 	pctx.ino = ino;
@@ -1178,6 +1171,7 @@ extern int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 	ext2_filsys fs = ctx->fs;
 	struct ext2_inode	inode;
 	int			inode_modified = 0;
+	int			not_fixed = 0;
 	unsigned char		*frag, *fsize;
 	struct problem_context	pctx;
 	int	problem = 0;
@@ -1188,6 +1182,29 @@ extern int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 	pctx.ino = ino;
 	pctx.dir = dir;
 	pctx.inode = &inode;
+
+	if (inode.i_file_acl &&
+	    !(fs->super->s_feature_compat & EXT2_FEATURE_COMPAT_EXT_ATTR) &&
+	    fix_problem(ctx, PR_2_FILE_ACL_ZERO, &pctx)) {
+		inode.i_file_acl = 0;
+#ifdef EXT2FS_ENABLE_SWAPFS
+		/* 
+		 * This is a special kludge to deal with long symlinks
+		 * on big endian systems.  i_blocks had already been
+		 * decremented earlier in pass 1, but since i_file_acl
+		 * hadn't yet been cleared, ext2fs_read_inode()
+		 * assumed that the file was short symlink and would
+		 * not have byte swapped i_block[0].  Hence, we have
+		 * to byte-swap it here.
+		 */
+		if (LINUX_S_ISLNK(inode.i_mode) &&
+		    (fs->flags & EXT2_FLAG_SWAP_BYTES) &&
+		    (inode.i_blocks == fs->blocksize >> 9))
+			inode.i_block[0] = ext2fs_swab32(inode.i_block[0]);
+#endif
+		inode_modified++;
+	} else
+		not_fixed++;
 
 	if (!LINUX_S_ISDIR(inode.i_mode) && !LINUX_S_ISREG(inode.i_mode) &&
 	    !LINUX_S_ISCHR(inode.i_mode) && !LINUX_S_ISBLK(inode.i_mode) &&
@@ -1217,14 +1234,17 @@ extern int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 			if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 				return 0;
 			return 1;
-		}
+		} else
+			not_fixed++;
 		problem = 0;
 	}
 		
-	if (inode.i_faddr &&
-	    fix_problem(ctx, PR_2_FADDR_ZERO, &pctx)) {
-		inode.i_faddr = 0;
-		inode_modified++;
+	if (inode.i_faddr) {
+		if (fix_problem(ctx, PR_2_FADDR_ZERO, &pctx)) {
+			inode.i_faddr = 0;
+			inode_modified++;
+		} else
+			not_fixed++;
 	}
 
 	switch (fs->super->s_creator_os) {
@@ -1248,7 +1268,8 @@ extern int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 		if (fix_problem(ctx, PR_2_FRAG_ZERO, &pctx)) {
 			*frag = 0;
 			inode_modified++;
-		}
+		} else
+			not_fixed++;
 		pctx.num = 0;
 	}
 	if (fsize && *fsize) {
@@ -1256,31 +1277,33 @@ extern int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 		if (fix_problem(ctx, PR_2_FSIZE_ZERO, &pctx)) {
 			*fsize = 0;
 			inode_modified++;
-		}
+		} else
+			not_fixed++;
 		pctx.num = 0;
 	}
 
 	if (inode.i_file_acl &&
-	    !(fs->super->s_feature_compat & EXT2_FEATURE_COMPAT_EXT_ATTR) &&
-	    fix_problem(ctx, PR_2_FILE_ACL_ZERO, &pctx)) {
-		inode.i_file_acl = 0;
-		inode_modified++;
-	}
-	if (inode.i_file_acl &&
 	    ((inode.i_file_acl < fs->super->s_first_data_block) ||
-	     (inode.i_file_acl >= fs->super->s_blocks_count)) &&
-	    fix_problem(ctx, PR_2_FILE_ACL_BAD, &pctx)) {
-		inode.i_file_acl = 0;
-		inode_modified++;
+	     (inode.i_file_acl >= fs->super->s_blocks_count))) {
+		if (fix_problem(ctx, PR_2_FILE_ACL_BAD, &pctx)) {
+			inode.i_file_acl = 0;
+			inode_modified++;
+		} else
+			not_fixed++;
 	}
 	if (inode.i_dir_acl &&
-	    LINUX_S_ISDIR(inode.i_mode) &&
-	    fix_problem(ctx, PR_2_DIR_ACL_ZERO, &pctx)) {
-		inode.i_dir_acl = 0;
-		inode_modified++;
+	    LINUX_S_ISDIR(inode.i_mode)) {
+		if (fix_problem(ctx, PR_2_DIR_ACL_ZERO, &pctx)) {
+			inode.i_dir_acl = 0;
+			inode_modified++;
+		} else
+			not_fixed++;
 	}
+
 	if (inode_modified)
 		e2fsck_write_inode(ctx, ino, &inode, "process_bad_inode");
+	if (!not_fixed)
+		ext2fs_unmark_inode_bitmap(ctx->inode_bad_map, ino);
 	return 0;
 }
 

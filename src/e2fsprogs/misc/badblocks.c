@@ -141,8 +141,8 @@ static int bb_output (unsigned long bad)
 
 static void print_status(void)
 {
-	fprintf(stderr, "%9ld/%9ld", currently_testing, num_blocks);
-	fprintf(stderr, "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+	fprintf(stderr, "%15ld/%15ld", currently_testing, num_blocks);
+	fputs("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b", stderr);
 	fflush (stderr);
 }
 
@@ -152,9 +152,7 @@ static void alarm_intr(int alnum EXT2FS_ATTR((unused)))
 	alarm(1);
 	if (!num_blocks)
 		return;
-	fprintf(stderr, "%9ld/%9ld", currently_testing, num_blocks);
-	fprintf(stderr, "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-	fflush (stderr);
+	print_status();
 }
 
 static void *terminate_addr = NULL;
@@ -412,7 +410,7 @@ static unsigned int test_ro (int dev, unsigned long last_block,
 	num_blocks = 0;
 	alarm(0);
 	if (s_flag || v_flag)
-		fputs(done_string, stderr);
+		fputs(_(done_string), stderr);
 
 	fflush (stderr);
 	free (blkbuf);
@@ -493,7 +491,7 @@ static unsigned int test_rw (int dev, unsigned long last_block,
 		num_blocks = 0;
 		alarm (0);
 		if (s_flag | v_flag)
-			fputs(done_string, stderr);
+			fputs(_(done_string), stderr);
 		flush_bufs();
 		if (s_flag | v_flag)
 			fputs(_("Reading and comparing: "), stderr);
@@ -534,7 +532,7 @@ static unsigned int test_rw (int dev, unsigned long last_block,
 		num_blocks = 0;
 		alarm (0);
 		if (s_flag | v_flag)
-			fputs(done_string, stderr);
+			fputs(_(done_string), stderr);
 		flush_bufs();
 	}
 	uncapture_terminate();
@@ -756,7 +754,7 @@ static unsigned int test_nd (int dev, unsigned long last_block,
 		num_blocks = 0;
 		alarm(0);
 		if (s_flag || v_flag > 1)
-			fputs(done_string, stderr);
+			fputs(_(done_string), stderr);
 
 		flush_bufs();
 	}
@@ -782,17 +780,27 @@ static void check_mount(char *device_name)
 			device_name);
 		return;
 	}
-	if (!(mount_flags & EXT2_MF_MOUNTED))
-		return;
-
-	fprintf(stderr, _("%s is mounted; "), device_name);
-	if (force) {
-		fputs(_("badblocks forced anyway.  "
-			"Hope /etc/mtab is incorrect.\n"), stderr);
-		return;
+	if (mount_flags & EXT2_MF_MOUNTED) {
+		fprintf(stderr, _("%s is mounted; "), device_name);
+		if (force) {
+			fputs(_("badblocks forced anyway.  "
+				"Hope /etc/mtab is incorrect.\n"), stderr);
+			return;
+		}
+	abort_badblocks:
+		fputs(_("it's not safe to run badblocks!\n"), stderr);
+		exit(1);
 	}
-	fputs(_("it's not safe to run badblocks!\n"), stderr);
-	exit(1);
+
+	if (mount_flags & EXT2_MF_BUSY) {
+		fprintf(stderr, _("%s is apparently in use by the system; "),
+			device_name);
+		if (force)
+			fputs(_("badblocks forced anyway.\n"), stderr);
+		else
+			goto abort_badblocks;
+	}
+
 }
 
 
@@ -969,7 +977,7 @@ int main (int argc, char ** argv)
 	} else {
 		last_block = strtoul (argv[optind], &tmp, 0);
 		if (*tmp) {
-			com_err (program_name, 0, _("bad blocks count - %s"),
+			com_err (program_name, 0, _("invalid blocks count - %s"),
 				 argv[optind]);
 			exit (1);
 		}
@@ -978,13 +986,13 @@ int main (int argc, char ** argv)
 	if (optind <= argc-1) {
 		from_count = strtoul (argv[optind], &tmp, 0);
 		if (*tmp) {
-			com_err (program_name, 0, _("bad starting block - %s"),
+			com_err (program_name, 0, _("invalid starting block - %s"),
 				 argv[optind]);
 			exit (1);
 		}
 	} else from_count = 0;
 	if (from_count >= last_block) {
-	    com_err (program_name, 0, _("bad blocks range: %lu-%lu"),
+	    com_err (program_name, 0, _("invalid blocks range: %lu-%lu"),
 		     (unsigned long) from_count, (unsigned long) last_block);
 	    exit (1);
 	}
@@ -1039,7 +1047,7 @@ int main (int argc, char ** argv)
 	errcode = ext2fs_badblocks_list_create(&bb_list,0);
 	if (errcode) {
 		com_err (program_name, errcode,
-			 _("creating in-memory bad blocks list"));
+			 _("while creating in-memory bad blocks list"));
 		exit (1);
 	}
 
@@ -1054,7 +1062,7 @@ int main (int argc, char ** argv)
 				default:
 					errcode = ext2fs_badblocks_list_add(bb_list,next_bad);
 					if (errcode) {
-						com_err (program_name, errcode, _("adding to in-memory bad block list"));
+						com_err (program_name, errcode, _("while adding to in-memory bad block list"));
 						exit (1);
 					}
 					continue;

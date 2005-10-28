@@ -1,7 +1,8 @@
 /*
  * mke2fs.c - Make a ext2fs filesystem.
  * 
- * Copyright (C) 1994, 1995, 1996, 1997 Theodore Ts'o.
+ * Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+ * 	2003, 2004, 2005 by Theodore Ts'o.
  *
  * %Begin-Header%
  * This file may be redistributed under the terms of the GNU Public
@@ -85,6 +86,7 @@ char *journal_device;
 int sync_kludge;	/* Set using the MKE2FS_SYNC env. option */
 
 int sys_page_size = 4096;
+int linux_version_code = 0;
 
 static void usage(void)
 {
@@ -93,7 +95,7 @@ static void usage(void)
 	" [-N number-of-inodes]\n\t[-m reserved-blocks-percentage] "
 	"[-o creator-os] [-g blocks-per-group]\n\t[-L volume-label] "
 	"[-M last-mounted-directory] [-O feature[,...]]\n\t"
-	"[-r fs-revision] [-R raid_opts] [-qvSV] device [blocks-count]\n"),
+	"[-r fs-revision] [-R options] [-qvSV] device [blocks-count]\n"),
 		program_name);
 	exit(1);
 }
@@ -119,6 +121,30 @@ static int int_log10(unsigned int arg)
 	return l;
 }
 
+static int parse_version_number(const char *s)
+{
+	int	major, minor, rev;
+	char	*endptr;
+	const char *cp = s;
+
+	if (!s)
+		return 0;
+	major = strtol(cp, &endptr, 10);
+	if (cp == endptr || *endptr != '.')
+		return 0;
+	cp = endptr + 1;
+	minor = strtol(cp, &endptr, 10);
+	if (cp == endptr || *endptr != '.')
+		return 0;
+	cp = endptr + 1;
+	rev = strtol(cp, &endptr, 10);
+	if (cp == endptr)
+		return 0;
+	return ((((major * 256) + minor) * 256) + rev);
+}
+
+
+
 /*
  * This function sets the default parameters for a filesystem
  *
@@ -140,8 +166,8 @@ struct mke2fs_defaults {
 	{ default_str, 3, 1024, 8192 },
 	{ "journal", 0, 4096, 8192 },
 	{ "news", 0, 4096, 4096 },
-	{ "largefile", 0, DEF_MAX_BLOCKSIZE, 1024 * 1024 },
-	{ "largefile4", 0, DEF_MAX_BLOCKSIZE, 4096 * 1024 },
+	{ "largefile", 0, 4096, 1024 * 1024 },
+	{ "largefile4", 0, 4096, 4096 * 1024 },
 	{ 0, 0, 0, 0},
 };
 
@@ -172,8 +198,12 @@ static void set_fs_defaults(const char *fs_type,
 		use_bsize = p->blocksize;
 	}
 	if (blocksize <= 0) {
-		if (use_bsize == DEF_MAX_BLOCKSIZE)
+		if (use_bsize == DEF_MAX_BLOCKSIZE) {
 			use_bsize = sys_page_size;
+			if ((linux_version_code < (2*65536 + 6*256)) &&
+			    (use_bsize > 4096))
+				use_bsize = 4096;
+		}
 		if (sector_size && use_bsize < sector_size)
 			use_bsize = sector_size;
 		if ((blocksize < 0) && (use_bsize < (-blocksize)))
@@ -236,7 +266,7 @@ static void test_disk(ext2_filsys fs, badblocks_list *bb_list)
 	f = popen(buf, "r");
 	if (!f) {
 		com_err("popen", errno,
-			_("while trying run '%s'"), buf);
+			_("while trying to run '%s'"), buf);
 		exit(1);
 	}
 	retval = ext2fs_read_bb_FILE(fs, f, bb_list, invalid_block);
@@ -494,7 +524,7 @@ static void create_root_dir(ext2_filsys fs)
 		inode.i_uid = getuid();
 		if (inode.i_uid)
 			inode.i_gid = getgid();
-		retval = ext2fs_write_inode(fs, EXT2_ROOT_INO, &inode);
+		retval = ext2fs_write_new_inode(fs, EXT2_ROOT_INO, &inode);
 		if (retval) {
 			com_err("ext2fs_write_inode", retval,
 				_("while setting root inode ownership"));
@@ -656,6 +686,7 @@ static void show_stats(ext2_filsys fs)
 {
 	struct ext2_super_block *s = fs->super;
 	char 			buf[80];
+        char                    *os;
 	blk_t			group_block;
 	dgrp_t			i;
 	int			need, col_left;
@@ -668,12 +699,9 @@ static void show_stats(ext2_filsys fs)
 	strncpy(buf, s->s_volume_name, sizeof(s->s_volume_name));
 	printf(_("Filesystem label=%s\n"), buf);
 	fputs(_("OS type: "), stdout);
-	switch (fs->super->s_creator_os) {
-	    case EXT2_OS_LINUX: fputs("Linux", stdout); break;
-	    case EXT2_OS_HURD:  fputs("GNU/Hurd", stdout);   break;
-	    case EXT2_OS_MASIX: fputs ("Masix", stdout); break;
-	    default:		fputs(_("(unknown os)"), stdout);
-        }
+        os = e2p_os2string(fs->super->s_creator_os);
+	fputs(os, stdout);
+	free(os);
 	printf("\n");
 	printf(_("Block size=%u (log=%u)\n"), fs->blocksize,
 		s->s_log_block_size);
@@ -685,6 +713,11 @@ static void show_stats(ext2_filsys fs)
 		s->s_r_blocks_count,
 	       100.0 * s->s_r_blocks_count / s->s_blocks_count);
 	printf(_("First data block=%u\n"), s->s_first_data_block);
+	if (s->s_reserved_gdt_blocks)
+		printf(_("Maximum filesystem blocks=%lu\n"),
+		       (s->s_reserved_gdt_blocks + fs->desc_blocks) *
+		       (fs->blocksize / sizeof(struct ext2_group_desc)) *
+		       s->s_blocks_per_group);
 	if (fs->group_desc_count > 1)
 		printf(_("%u block groups\n"), fs->group_desc_count);
 	else
@@ -697,7 +730,7 @@ static void show_stats(ext2_filsys fs)
 		printf("\n");
 		return;
 	}
-	
+
 	printf(_("Superblock backups stored on blocks: "));
 	group_block = s->s_first_data_block;
 	col_left = 0;
@@ -732,6 +765,10 @@ static int set_os(struct ext2_super_block *sb, char *os)
 		sb->s_creator_os = EXT2_OS_HURD;
 	else if (strcasecmp(os, "masix") == 0)
 		sb->s_creator_os = EXT2_OS_MASIX;
+	else if (strcasecmp(os, "freebsd") == 0)
+		sb->s_creator_os = EXT2_OS_FREEBSD;
+	else if (strcasecmp(os, "lites") == 0)
+		sb->s_creator_os = EXT2_OS_LITES;
 	else
 		return 0;
 	return 1;
@@ -739,17 +776,18 @@ static int set_os(struct ext2_super_block *sb, char *os)
 
 #define PATH_SET "PATH=/sbin"
 
-static void parse_raid_opts(const char *opts)
+static void parse_extended_opts(struct ext2_super_block *param, 
+				const char *opts)
 {
 	char	*buf, *token, *next, *p, *arg;
 	int	len;
-	int	raid_usage = 0;
+	int	r_usage = 0;
 
 	len = strlen(opts);
 	buf = malloc(len+1);
 	if (!buf) {
-		fprintf(stderr, _("Couldn't allocate memory to parse "
-			"raid options!\n"));
+		fprintf(stderr,
+			_("Couldn't allocate memory to parse options!\n"));
 		exit(1);
 	}
 	strcpy(buf, opts);
@@ -759,7 +797,7 @@ static void parse_raid_opts(const char *opts)
 		if (p) {
 			*p = 0;
 			next = p+1;
-		} 
+		}
 		arg = strchr(token, '=');
 		if (arg) {
 			*arg = 0;
@@ -767,32 +805,85 @@ static void parse_raid_opts(const char *opts)
 		}
 		if (strcmp(token, "stride") == 0) {
 			if (!arg) {
-				raid_usage++;
+				r_usage++;
 				continue;
 			}
 			fs_stride = strtoul(arg, &p, 0);
 			if (*p || (fs_stride == 0)) {
 				fprintf(stderr,
-					_("Invalid stride parameter.\n"));
-				raid_usage++;
+					_("Invalid stride parameter: %s\n"),
+					arg);
+				r_usage++;
 				continue;
 			}
+		} else if (!strcmp(token, "resize")) {
+			unsigned long resize, bpg, rsv_groups;
+			unsigned long group_desc_count, desc_blocks;
+			unsigned int gdpb, blocksize;
+			int rsv_gdb;
+
+			if (!arg) {
+				r_usage++;
+				continue;
+			}
+
+			resize = parse_num_blocks(arg, 
+						  param->s_log_block_size);
+
+			if (resize == 0) {
+				fprintf(stderr, 
+					_("Invalid resize parameter: %s\n"),
+					arg);
+				r_usage++;
+				continue;
+			}
+			if (resize <= param->s_blocks_count) {
+				fprintf(stderr, 
+					_("The resize maximum must be greater "
+					  "than the filesystem size.\n"));
+				r_usage++;
+				continue;
+			}
+
+			blocksize = EXT2_BLOCK_SIZE(param);
+			bpg = param->s_blocks_per_group;
+			if (!bpg)
+				bpg = blocksize * 8;
+			gdpb = blocksize / sizeof(struct ext2_group_desc);
+			group_desc_count = (param->s_blocks_count +
+					    bpg - 1) / bpg;
+			desc_blocks = (group_desc_count +
+				       gdpb - 1) / gdpb;
+			rsv_groups = (resize + bpg - 1) / bpg;
+			rsv_gdb = (rsv_groups + gdpb - 1) / gdpb - 
+				desc_blocks;
+			if (rsv_gdb > EXT2_ADDR_PER_BLOCK(param))
+				rsv_gdb = EXT2_ADDR_PER_BLOCK(param);
+
+			if (rsv_gdb > 0) {
+				param->s_feature_compat |=
+					EXT2_FEATURE_COMPAT_RESIZE_INODE;
+
+				param->s_reserved_gdt_blocks = rsv_gdb;
+			}
 		} else
-			raid_usage++;
+			r_usage++;
 	}
-	if (raid_usage) {
-		fprintf(stderr, _("\nBad raid options specified.\n\n"
-			"Raid options are separated by commas, "
+	if (r_usage) {
+		fprintf(stderr, _("\nBad options specified.\n\n"
+			"Extended options are separated by commas, "
 			"and may take an argument which\n"
 			"\tis set off by an equals ('=') sign.\n\n"
-			"Valid raid options are:\n"
-			"\tstride=<stride length in blocks>\n\n"));
+			"Valid extended options are:\n"
+			"\tstride=<stride length in blocks>\n"
+			"\tresize=<resize maximum size in blocks>\n\n"));
 		exit(1);
 	}
 }	
 
 static __u32 ok_features[3] = {
 	EXT3_FEATURE_COMPAT_HAS_JOURNAL |
+		EXT2_FEATURE_COMPAT_RESIZE_INODE |
 		EXT2_FEATURE_COMPAT_DIR_INDEX,	/* Compat */
 	EXT2_FEATURE_INCOMPAT_FILETYPE|		/* Incompat */
 		EXT3_FEATURE_INCOMPAT_JOURNAL_DEV|
@@ -815,9 +906,8 @@ static void PRS(int argc, char *argv[])
 	ext2_ino_t	num_inodes = 0;
 	errcode_t	retval;
 	char *		oldpath = getenv("PATH");
-	char *		raid_opts = 0;
+	char *		extended_opts = 0;
 	const char *	fs_type = 0;
-	int		default_features = 1;
 	blk_t		dev_size;
 #ifdef __linux__
 	struct 		utsname ut;
@@ -868,9 +958,8 @@ static void PRS(int argc, char *argv[])
 		perror("uname");
 		exit(1);
 	}
-	if ((ut.release[0] == '1') ||
-	    (ut.release[0] == '2' && ut.release[1] == '.' &&
-	     ut.release[2] < '2' && ut.release[3] == '.')) {
+	linux_version_code = parse_version_number(ut.release);
+	if (linux_version_code && linux_version_code < (2*65536 + 2*256)) {
 		param.s_rev_level = 0;
 		param.s_feature_incompat = 0;
 		param.s_feature_compat = 0;
@@ -887,7 +976,7 @@ static void PRS(int argc, char *argv[])
 	}
 
 	while ((c = getopt (argc, argv,
-		    "b:cf:g:i:jl:m:no:qr:R:s:tvI:J:ST:FL:M:N:O:V")) != EOF)
+		    "b:cE:f:g:i:jl:m:no:qr:R:s:tvI:J:ST:FL:M:N:O:V")) != EOF) {
 		switch (c) {
 		case 'b':
 			blocksize = strtol(optarg, &tmp, 0);
@@ -895,7 +984,7 @@ static void PRS(int argc, char *argv[])
 			if (b < EXT2_MIN_BLOCK_SIZE ||
 			    b > EXT2_MAX_BLOCK_SIZE || *tmp) {
 				com_err(program_name, 0,
-					_("bad block size - %s"), optarg);
+					_("invalid block size - %s"), optarg);
 				exit(1);
 			}
 			if (blocksize > 4096)
@@ -916,7 +1005,7 @@ static void PRS(int argc, char *argv[])
 			if (size < EXT2_MIN_BLOCK_SIZE ||
 			    size > EXT2_MAX_BLOCK_SIZE || *tmp) {
 				com_err(program_name, 0,
-					_("bad fragment size - %s"),
+					_("invalid fragment size - %s"),
 					optarg);
 				exit(1);
 			}
@@ -944,7 +1033,7 @@ static void PRS(int argc, char *argv[])
 			    inode_ratio > EXT2_MAX_BLOCK_SIZE * 1024 ||
 			    *tmp) {
 				com_err(program_name, 0,
-					_("bad inode ratio %s (min %d/max %d"),
+					_("invalid inode ratio %s (min %d/max %d)"),
 					optarg, EXT2_MIN_BLOCK_SIZE,
 					EXT2_MAX_BLOCK_SIZE);
 				exit(1);
@@ -972,7 +1061,7 @@ static void PRS(int argc, char *argv[])
 			reserved_ratio = strtoul(optarg, &tmp, 0);
 			if (reserved_ratio > 50 || *tmp) {
 				com_err(program_name, 0,
-					_("bad reserved blocks percent - %s"),
+					_("invalid reserved blocks percent - %s"),
 					optarg);
 				exit(1);
 			}
@@ -1004,7 +1093,7 @@ static void PRS(int argc, char *argv[])
 			inode_size = strtoul(optarg, &tmp, 0);
 			if (*tmp) {
 				com_err(program_name, 0,
-					_("bad inode size - %s"), optarg);
+					_("invalid inode size - %s"), optarg);
 				exit(1);
 			}
 			break;
@@ -1028,14 +1117,12 @@ static void PRS(int argc, char *argv[])
 			mount_dir = optarg;
 			break;
 		case 'O':
-			if (!strcmp(optarg, "none") || default_features) {
+			if (!strcmp(optarg, "none")) {
 				param.s_feature_compat = 0;
 				param.s_feature_incompat = 0;
 				param.s_feature_ro_compat = 0;
-				default_features = 0;
-			}
-			if (!strcmp(optarg, "none"))
 				break;
+			}
 			if (e2p_edit_feature(optarg,
 					    &param.s_feature_compat,
 					    ok_features)) {
@@ -1044,8 +1131,9 @@ static void PRS(int argc, char *argv[])
 				exit(1);
 			}
 			break;
+		case 'E':
 		case 'R':
-			raid_opts = optarg;
+			extended_opts = optarg;
 			break;
 		case 'S':
 			super_only = 1;
@@ -1060,22 +1148,10 @@ static void PRS(int argc, char *argv[])
 		default:
 			usage();
 		}
+	}
 	if ((optind == argc) && !show_version_only)
 		usage();
-	device_name = argv[optind];
-	optind++;
-	if (optind < argc) {
-		unsigned long tmp2  = strtoul(argv[optind++], &tmp, 0);
-
-		if ((*tmp) || (tmp2 > 0xfffffffful)) {
-			com_err(program_name, 0, _("bad blocks count - %s"),
-				argv[optind - 1]);
-			exit(1);
-		}
-		param.s_blocks_count = tmp2;
-	}
-	if (optind < argc)
-		usage();
+	device_name = argv[optind++];
 
 	if (!quiet || show_version_only)
 		fprintf (stderr, "mke2fs %s (%s)\n", E2FSPROGS_VERSION, 
@@ -1086,9 +1162,6 @@ static void PRS(int argc, char *argv[])
 			error_message(EXT2_ET_BASE));
 		exit(0);
 	}
-
-	if (raid_opts)
-		parse_raid_opts(raid_opts);
 
 	/*
 	 * If there's no blocksize specified and there is a journal
@@ -1139,9 +1212,21 @@ static void PRS(int argc, char *argv[])
 	}
 	if ((blocksize > 4096) &&
 	    (param.s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL))
-		fprintf(stderr, "\nWarning: some 2.4 kernels do not support "
-			"blocksizes greater than 4096 \n\tusing ext3."
-			"  Use -b 4096 if this is an issue for you.\n\n");
+		fprintf(stderr, _("\nWarning: some 2.4 kernels do not support "
+			"blocksizes greater than 4096\n\tusing ext3.  "
+			"Use -b 4096 if this is an issue for you.\n\n"));
+
+	if (optind < argc) {
+		param.s_blocks_count = parse_num_blocks(argv[optind++], 
+				param.s_log_block_size);
+		if (!param.s_blocks_count) {
+			com_err(program_name, 0, _("invalid blocks count - %s"),
+				argv[optind - 1]);
+			exit(1);
+		}
+	}
+	if (optind < argc)
+		usage();
 
 	if (param.s_feature_incompat & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
 		if (!fs_type)
@@ -1165,10 +1250,20 @@ static void PRS(int argc, char *argv[])
 	if (noaction && param.s_blocks_count) {
 		dev_size = param.s_blocks_count;
 		retval = 0;
-	} else
+	} else {
+	retry:
 		retval = ext2fs_get_device_size(device_name,
 						EXT2_BLOCK_SIZE(&param),
 						&dev_size);
+		if ((retval == EFBIG) &&
+		    (blocksize == 0) && 
+		    (param.s_log_block_size == 0)) {
+			param.s_log_block_size = 2;
+			blocksize = 4096;
+			goto retry;
+		}
+	}
+			
 	if (retval && (retval != EXT2_ET_UNIMPLEMENTED)) {
 		com_err(program_name, retval,
 			_("while trying to determine filesystem size"));
@@ -1234,6 +1329,20 @@ static void PRS(int argc, char *argv[])
 	set_fs_defaults(fs_type, &param, blocksize, sector_size, &inode_ratio);
 	blocksize = EXT2_BLOCK_SIZE(&param);
 	
+	if (extended_opts)
+		parse_extended_opts(&param, extended_opts);
+
+	/* Since sparse_super is the default, we would only have a problem
+	 * here if it was explicitly disabled.
+	 */
+	if ((param.s_feature_compat & EXT2_FEATURE_COMPAT_RESIZE_INODE) &&
+	    !(param.s_feature_ro_compat&EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER)) {
+		com_err(program_name, 0,
+			_("reserved online resize blocks not supported "
+			  "on non-sparse filesystem"));
+		exit(1);
+	}
+
 	if (param.s_blocks_per_group) {
 		if (param.s_blocks_per_group < 256 ||
 		    param.s_blocks_per_group > 8 * (unsigned) blocksize) {
@@ -1243,12 +1352,19 @@ static void PRS(int argc, char *argv[])
 		}
 	}
 
+	if (!force && param.s_blocks_count >= (1 << 31)) {
+		com_err(program_name, 0,
+			_("Filesystem too large.  No more than 2**31-1 blocks\n"
+			  "\t (8TB using a blocksize of 4k) are currently supported."));
+             exit(1);
+	}
+
 	if (inode_size) {
 		if (inode_size < EXT2_GOOD_OLD_INODE_SIZE ||
 		    inode_size > EXT2_BLOCK_SIZE(&param) ||
 		    inode_size & (inode_size - 1)) {
 			com_err(program_name, 0,
-				_("bad inode size %d (min %d/max %d)"),
+				_("invalid inode size %d (min %d/max %d)"),
 				inode_size, EXT2_GOOD_OLD_INODE_SIZE,
 				blocksize);
 			exit(1);
@@ -1271,9 +1387,8 @@ static void PRS(int argc, char *argv[])
 	 * Calculate number of blocks to reserve
 	 */
 	param.s_r_blocks_count = (param.s_blocks_count * reserved_ratio) / 100;
-
 }
-					
+
 int main (int argc, char *argv[])
 {
 	errcode_t	retval = 0;
@@ -1432,6 +1547,15 @@ int main (int argc, char *argv[])
 		create_lost_and_found(fs);
 		reserve_inodes(fs);
 		create_bad_block_inode(fs, bb_list);
+		if (fs->super->s_feature_compat & 
+		    EXT2_FEATURE_COMPAT_RESIZE_INODE) {
+			retval = ext2fs_create_resize_inode(fs);
+			if (retval) {
+				com_err("ext2fs_create_resize_inode", retval,
+				_("while reserving blocks for online resize"));
+				exit(1);
+			}
+		}
 	}
 
 	if (journal_device) {

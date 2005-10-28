@@ -1,3 +1,41 @@
+2006-06-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.38
+
+2005-03-21  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.37
+
+2005-03-02  Theodore Ts'o  <tytso@mit.edu>
+
+	* gen_tarball.in: Don't remove the .gmo files from the generated
+		tarball; they are now treated as source files instead of
+		generated files.
+
+2006-02-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* Release of E2fsprogs 1.36
+
+2005-01-21    <tytso@snap.thunk.org>
+
+	* copy_sparse.c: Utility program which is very useful for dealing
+		with large sparse files (such as e2image files).
+
+2005-01-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* gen-tarball.in: Remove the hyphen in 1.36-rc1, since Debian
+		version numbers can't have '-' in them.
+
+2004-11-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Use Linux-kernel-style makefile output to make it
+		easier to see errors/warnings.
+
+2004-04-03  Theodore Ts'o  <tytso@mit.edu>
+
+	* subst.c (main): Add new option to update the timestamp of the
+		generated file.
+
 2004-02-28  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.35

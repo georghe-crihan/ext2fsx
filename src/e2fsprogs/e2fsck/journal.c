@@ -87,6 +87,18 @@ struct buffer_head *getblk(kdev_t kdev, blk_t blocknr, int blocksize)
 	return bh;
 }
 
+void sync_blockdev(kdev_t kdev)
+{
+	io_channel	io;
+
+	if (kdev->k_dev == K_DEV_FS)
+		io = kdev->k_ctx->fs->io;
+	else 
+		io = kdev->k_ctx->journal_io;
+
+	io_channel_flush(io);
+}
+
 void ll_rw_block(int rw, int nr, struct buffer_head *bhp[])
 {
 	int retval;
@@ -653,6 +665,7 @@ int e2fsck_check_ext3_journal(e2fsck_t ctx)
 	retval = e2fsck_get_journal(ctx, &journal);
 	if (retval) {
 		if ((retval == EXT2_ET_BAD_INODE_NUM) ||
+		    (retval == EXT2_ET_BAD_BLOCK_NUM) ||
 		    (retval == EXT2_ET_JOURNAL_TOO_SMALL) ||
 		    (retval == EXT2_ET_NO_JOURNAL))
 			return e2fsck_journal_fix_bad_inode(ctx, &pctx);
@@ -926,7 +939,7 @@ void e2fsck_move_ext3_journal(e2fsck_t ctx)
 	ext2fs_mark_super_dirty(fs);
 	fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
 	inode.i_links_count = 0;
-	inode.i_dtime = time(0);
+	inode.i_dtime = ctx->now;
 	if ((retval = ext2fs_write_inode(fs, ino, &inode)) != 0)
 		goto err_out;
 
