@@ -105,7 +105,7 @@ int ext3_check_dir_entry (const char * function, struct inode * dir,
    if (!dirchk && de->rec_len)
       return (1);
    /* The return value needs to be reversed for the Linux routines. */
-   return (!(ext2_dirbadentry(ITOV(dir), de, offset)));
+   return (!(ext2_dirbadentry_locked(ITOV(dir), de, offset)));
 }
 
 static

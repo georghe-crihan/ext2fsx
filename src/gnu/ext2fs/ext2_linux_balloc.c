@@ -79,13 +79,17 @@ static void read_block_bitmap (mount_t mp,
 	int    error;
 	
 	gdp = get_group_desc (mp, block_group, NULL);
+	
+	ext2_daddr_t lbn = le32_to_cpu(gdp->bg_block_bitmap);
+	unlock_super(sb);
 	if ((error = buf_meta_bread (ump->um_devvp,
-		(daddr64_t)fsbtodb(sb, le32_to_cpu(gdp->bg_block_bitmap)),
+		(daddr64_t)fsbtodb(sb, lbn),
 		sb->s_blocksize, NOCRED, &bp)) != 0)
 		panic ( "ext2: read_block_bitmap: "
 			    "Cannot read block bitmap - "
 			    "block_group = %d, block_bitmap = %lu",
-			    block_group, (unsigned long)le32_to_cpu(gdp->bg_block_bitmap));
+			    block_group, (unsigned long)lbn);
+	lock_super(sb);
 #if EXT2_SB_BITMAP_CACHE
 	sb->s_block_bitmap_number[bitmap_nr] = block_group;
 	sb->s_block_bitmap[bitmap_nr] = bp;
@@ -178,6 +182,8 @@ static int load__block_bitmap (mount_t mp,
 	return (0);
 }
 
+
+// super block must be locked
 static __inline int load_block_bitmap (mount_t   mp,
 	unsigned int block_group
 #if !EXT2_SB_BITMAP_CACHE
@@ -535,12 +541,12 @@ got_block:
 			    "block_group = %d", j, le32_to_cpu(es->s_blocks_count), i);
 		unlock_super (sb);
 
-	sync = vfs_issynchronous(mp);
+		sync = vfs_issynchronous(mp);
 #if !EXT2_SB_BITMAP_CACHE
-	if (0 == sync)
-		buf_bdwrite(bp);
-	else
-		buf_bwrite(bp);
+		if (0 == sync)
+			buf_bdwrite(bp);
+		else
+			buf_bwrite(bp);
 #endif
 		return (0);
 	}
@@ -595,11 +601,15 @@ static unsigned long ext2_count_free_blocks (mount_t   mp)
 	unlock_super (sb);
 	return bitmap_count;
 #else
-	return le32_to_cpu(sb->s_es->s_free_blocks_count);
+	lock_super(sb);
+	typeof(sb->s_es->s_free_blocks_count) ct = sb->s_es->s_free_blocks_count;
+	unlock_super(sb);
+	return le32_to_cpu(ct);
 #endif
 }
 #endif /* unused */
 
+#ifdef unused
 static __inline int block_in_use (unsigned long block,
 				  struct ext2_sb_info * sb,
 				  unsigned char * map)
@@ -627,7 +637,6 @@ int ext2_group_sparse(int group)
 		test_root(group, 7));
 }
 
-#ifdef unused
 static void ext2_check_blocks_bitmap (mount_t   mp)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
@@ -698,7 +707,6 @@ static void ext2_check_blocks_bitmap (mount_t   mp)
 			    (unsigned long) le32_to_cpu(es->s_free_blocks_count), bitmap_count);
 	unlock_super (sb);
 }
-#endif /* unused */
 
 /*
  *  this function is taken from 
@@ -720,3 +728,4 @@ unsigned long ext2_count_free (buf_t map, unsigned int numchars)
                         nibblemap[(data[i] >> 4) & 0xf];
         return (sum);
 }
+#endif /* unused */

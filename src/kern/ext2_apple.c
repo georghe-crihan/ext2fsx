@@ -152,10 +152,14 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
 __private_extern__
 int e2securelevel()
 {
+#ifdef notyet
+    // kernel's sysctlbyname is a neutered version that only exports a small subset of the mib. Why??
     int val = 0;
     size_t sz = sizeof(val);
-    (void)sysctlbyname("securelevel", &val, &sz, NULL, 0);
+    (void)sysctlbyname("kern.securelevel", &val, &sz, NULL, 0);
     return (val);
+#endif
+    return (1); // default level
 }
 
 #ifdef obsolete

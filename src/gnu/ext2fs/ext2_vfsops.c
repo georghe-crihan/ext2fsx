@@ -2128,7 +2128,11 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	fsc.vfe_vopcnt = 3;
 	fsc.vfe_opvdescs = vnops;
 	strncpy(&fsc.vfe_fsname[0], EXT2FS_NAME, MFSNAMELEN);
-	fsc.vfe_flags = VFS_TBLTHREADSAFE|VFS_TBLFSNODELOCK|VFS_TBLLOCALVOL;
+	// If we let the kernel assign our typenum, there is no way to access it
+	// until a vol is mounted. So, we have to use a static # so we can register
+	// our sysctl's.
+	fsc.vfe_fstypenum = (int)EXT2_SUPER_MAGIC;
+	fsc.vfe_flags = VFS_TBLTHREADSAFE/*|VFS_TBLNOTYPENUM*/|VFS_TBLLOCALVOL;
 	kret = vfs_fsadd(&fsc, &ext2_tableid);
 	
 #ifdef obsolete

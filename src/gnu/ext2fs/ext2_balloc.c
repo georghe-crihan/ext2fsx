@@ -112,7 +112,9 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		   the file */
 		if (nb != 0 && ip->i_size >= (bn + 1) * fs->s_blocksize) {
 			if (alloc_buf) {
+                IULOCK(ip);
                 error = buf_bread(vp, (daddr64_t)bn, fs->s_blocksize, NOCRED, &bp);
+                IXLOCK(ip);
                 if (error) {
                     buf_brelse(bp);
                     return (error);
@@ -130,7 +132,9 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			nsize = fragroundup(fs, size);
 			if (nsize <= osize) {
                 if (alloc_buf) {
+                    IULOCK(ip);
                     error = buf_bread(vp, (daddr64_t)bn, osize, NOCRED, &bp);
+                    IXLOCK(ip);
                     if (error) {
                         buf_brelse(bp);
                         return (error);
@@ -163,8 +167,10 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			if (error)
 				return (error);
             if (alloc_buf) {
+                IULOCK(ip);
                 bp = buf_getblk(vp, (daddr64_t)bn, nsize, 0, 0, BLK_WRITE);
                 buf_setblkno(bp, (daddr64_t)fsbtodb(fs, newb));
+                IXLOCK(ip);
                 if (flags & B_CLRBUF)
                     vfs_bio_clrbuf(bp);
             } /* alloc_buf */
@@ -214,14 +220,19 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		    cred, &newb)) != 0)
 			return (error);
 		nb = newb;
-		bp = buf_getblk(vp, (daddr64_t)indirs[1].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
+        
+		IULOCK(ip);
+        bp = buf_getblk(vp, (daddr64_t)indirs[1].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
 		buf_setblkno(bp, (daddr64_t)fsbtodb(fs, nb));
 		vfs_bio_clrbuf(bp);
 		/*
 		 * Write synchronously so that indirect blocks
 		 * never point at garbage.
 		 */
-		if ((error = buf_bwrite(bp)) != 0) {
+        error = buf_bwrite(bp);
+        IXLOCK(ip);
+        
+		if (error != 0) {
 			ext2_blkfree(ip, nb, fs->s_blocksize);
 			return (error);
 		}
@@ -232,9 +243,11 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	 * Fetch through the indirect blocks, allocating as necessary.
 	 */
 	for (i = 1;;) {
-		error = buf_meta_bread(vp,
+		IULOCK(ip);
+        error = buf_meta_bread(vp,
 		    (daddr64_t)indirs[i].in_lbn, (int)fs->s_blocksize, NOCRED, &bp);
-		if (error) {
+		IXLOCK(ip);
+        if (error) {
 			buf_brelse(bp);
 			return (error);
 		}
@@ -266,6 +279,8 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 			return (error);
 		}
 		nb = newb;
+        
+        IULOCK(ip);
 		nbp = buf_getblk(vp, (daddr64_t)indirs[i].in_lbn, fs->s_blocksize, 0, 0, BLK_META);
 		buf_setblkno(nbp, (daddr64_t)fsbtodb(fs, nb));
 		vfs_bio_clrbuf(nbp);
@@ -273,7 +288,10 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		 * Write synchronously so that indirect blocks
 		 * never point at garbage.
 		 */
-		if ((error = buf_bwrite(nbp)) != 0) {
+        error = buf_bwrite(nbp);
+        IXLOCK(ip);
+        
+        if (error != 0) {
 			ext2_blkfree(ip, nb, fs->s_blocksize);
 			buf_brelse(bp);
 			return (error);
@@ -283,11 +301,13 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		 * If required, write synchronously, otherwise use
 		 * delayed write.
 		 */
-		if (flags & B_SYNC) {
+		IULOCK(ip);
+        if (flags & B_SYNC) {
 			buf_bwrite(bp);
 		} else {
 			buf_bdwrite(bp);
 		}
+        IXLOCK(ip);
 	}
 	/*
 	 * Get the data block, allocating if necessary.
@@ -306,11 +326,14 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		 * If required, write synchronously, otherwise use
 		 * delayed write.
 		 */
-		if (flags & B_SYNC) {
+		IULOCK(ip);
+        if (flags & B_SYNC) {
 			buf_bwrite(bp);
 		} else {
 			buf_bdwrite(bp);
 		}
+        IXLOCK(ip);
+        
         if (alloc_buf) {
             nbp = buf_getblk(vp, (daddr64_t)lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
             buf_setblkno(nbp, (daddr64_t)fsbtodb(fs, nb));
@@ -327,14 +350,18 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 	buf_brelse(bp);
     if (alloc_buf) {
         if (flags & B_CLRBUF) {
+            IULOCK(ip);
             error = buf_bread(vp, (daddr64_t)lbn, (int)fs->s_blocksize, NOCRED, &nbp);
+            IXLOCK(ip);
             if (error) {
                 buf_brelse(nbp);
                 return (error);
             }
         } else {
+            IULOCK(ip);
             nbp = buf_getblk(vp, (daddr64_t)lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
             buf_setblkno(nbp, (daddr64_t)fsbtodb(fs, nb));
+            IXLOCK(ip);
         }
         *bpp = nbp;
     } /* alloc_buf */

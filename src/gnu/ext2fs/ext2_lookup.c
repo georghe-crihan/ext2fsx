@@ -119,7 +119,7 @@ static const u_char dt_to_ext2_ft[] = {
     ((dt) > sizeof(dt_to_ext2_ft) / sizeof(dt_to_ext2_ft[0]) ?	\
     EXT2_FT_UNKNOWN : dt_to_ext2_ft[(dt)])
 
-static int	ext2_dirbadentry(vnode_t dp, struct ext2_dir_entry_2 *de,
+static int	ext2_dirbadentry_locked(vnode_t dp, struct ext2_dir_entry_2 *de,
 		    int entryoffsetinblock);
 
 /* Bring in dir index support. */
@@ -202,6 +202,7 @@ ext2_readdir(ap)
    startoffset = uio_offset(uio);
    startresid = uio_resid(uio);
    /* Check for an indexed dir */
+   IXLOCK(ip);
    if (EXT3_HAS_COMPAT_FEATURE(ip->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) &&
       ((ip->i_e2flags & EXT3_INDEX_FL) /*||
       ((ip->i_size >> ip->i_e2fs->s_blocksize_bits) == 1)*/)) {
@@ -216,8 +217,10 @@ ext2_readdir(ap)
       
       /* Make sure the caller is not trying to read more than
          they are allowed. */
-      if (uio_offset(uio) && EXT3_HTREE_EOF == ip->f_pos)
+      if (uio_offset(uio) && EXT3_HTREE_EOF == ip->f_pos) {
+         IULOCK(ip);
          return (EIO);
+      }
       
       /*ip->i_dir_start_lookup = lblkno(ip->i_e2fs, uio->uio_offset);*/
       if (0 == uio_isuserspace(uio)) {
@@ -263,14 +266,18 @@ ext2_readdir(ap)
         goto io_done;
     }
 
-	auio = uio_create(1, 0, UIO_SYSSPACE32, UIO_READ);
+	IULOCK(ip);
+    auio = uio_create(1, 0, UIO_SYSSPACE32, UIO_READ);
     if (!auio) {
         error = ENOMEM;
+        IXLOCK(ip);
         goto io_done;
     }
 	MALLOC(dirbuf, caddr_t, count, M_TEMP, M_WAITOK);
-    if ((error = uio_addiov(auio, CAST_USER_ADDR_T(dirbuf), (user_size_t)count)))
+    if ((error = uio_addiov(auio, CAST_USER_ADDR_T(dirbuf), (user_size_t)count))) {
+        IXLOCK(ip);
         goto io_done;
+    }
    
 	struct vnop_read_args ra;
     ra.a_desc =  &vnop_read_desc;
@@ -279,6 +286,8 @@ ext2_readdir(ap)
     ra.a_ioflag = 0;
     ra.a_context = context;
     error = ext2_read(&ra);
+    IXLOCK(ip);
+    
 	if (error == 0) {
 		readcnt = count - uio_resid(auio);
 		edp = (struct ext2_dir_entry_2 *)&dirbuf[readcnt];
@@ -486,6 +495,7 @@ dolookup:
 	}
 
    /* Check for indexed dir */
+   IXLOCK(dp);
    if (is_dx(dp)) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
       /* For some reason, ext3_dx_find_entry() doesn't handle
@@ -541,10 +551,13 @@ dx_fallback:
 		numdirpasses = 1;
 	} else {
 		dp->i_offset = dp->i_diroff;
-		if ((entryoffsetinblock = dp->i_offset & bmask) &&
-		    (error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL,
-		    &bp)))
-			ext2_trace_return(error);
+		if ((entryoffsetinblock = dp->i_offset & bmask)) {
+		    IULOCK(dp);
+            if (!(error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL, &bp)))
+                IXLOCK(dp);
+            else
+				ext2_trace_return(error);
+        }
 		numdirpasses = 2;
 		//nchstats.ncs_2passes++;
 	}
@@ -560,9 +573,10 @@ searchloop:
 		if ((dp->i_offset & bmask) == 0) {
 			if (bp != NULL)
 				buf_brelse(bp);
-			if ((error =
-			    ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL,
-			    &bp)) != 0)
+			IULOCK(dp);
+            if (0 == (error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL, &bp)))
+                IXLOCK(dp);
+            else
 				ext2_trace_return(error);
 			entryoffsetinblock = 0;
 		}
@@ -585,7 +599,7 @@ searchloop:
 		ep = (struct ext2_dir_entry_2 *)
 			((char *)buf_dataptr(bp) + entryoffsetinblock);
 		if (ep->rec_len == 0 ||
-		    (dirchk && ext2_dirbadentry(vdp, ep, entryoffsetinblock))) {
+		    (dirchk && ext2_dirbadentry_locked(vdp, ep, entryoffsetinblock))) {
 			int i;
 			ext2_dirbad(dp, dp->i_offset, "mangled entry");
 			i = DIRBLKSIZ - (entryoffsetinblock & (DIRBLKSIZ - 1));
@@ -671,7 +685,10 @@ notfound:
 		 * Access for write is interpreted as allowing
 		 * creation of files in the directory.
 		 */
-		if ((error = VNOP_ACCESS(vdp, VWRITE, context)) != 0)
+		IULOCK(dp);
+        if(0 == (error = VNOP_ACCESS(vdp, VWRITE, context)))
+            IXLOCK(dp);
+        else
 			ext2_trace_return(error);
 		/*
 		 * Return an indication of where the new directory
@@ -712,14 +729,16 @@ notfound:
 		if (!lockparent)
 			vnode_unlock(vdp);
 #endif
-		ext2_trace_return(EJUSTRETURN);
+		IULOCK(dp);
+        ext2_trace_return(EJUSTRETURN);
 	}
 	/*
 	 * Insert name into cache (as non-existent) if appropriate.
 	 */
 	if ((cnp->cn_flags & MAKEENTRY) && nameiop != CREATE)
 		cache_enter(vdp, *vpp, cnp);
-	ext2_trace_return(ENOENT);
+	IULOCK(dp);
+    ext2_trace_return(ENOENT);
 
 found:
 	if (numdirpasses == 2)
@@ -756,7 +775,10 @@ found:
 		/*
 		 * Write access to directory required to delete files.
 		 */
-		if ((error = VNOP_ACCESS(vdp, VWRITE, context)) != 0)
+		IULOCK(dp);
+        if (0 == (error = VNOP_ACCESS(vdp, VWRITE, context)))
+            IXLOCK(dp);
+        else
 			ext2_trace_return(error);
 		/*
 		 * Return pointer to current entry in dp->i_offset,
@@ -771,13 +793,17 @@ found:
 		if (dp->i_number == dp->i_ino) {
 			vnode_addfsref(vdp);
 			*vpp = vdp;
-			return (0);
+			IULOCK(dp);
+            return (0);
 		}
         vallocargs.va_ino = dp->i_ino;
         vallocargs.va_parent = vdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
-        if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
+        IULOCK(dp);
+        if (0 == (error = EXT2_VGET(mp, &vallocargs, &tdp, context)))
+            IXLOCK(dp);
+        else
 			ext2_trace_return(error);
 		/*
 		 * If directory is "sticky", then user must own
@@ -788,8 +814,9 @@ found:
 		if ((dp->i_mode & ISVTX) &&
 		    cred->cr_uid != 0 &&
 		    cred->cr_uid != dp->i_uid &&
-		    VTOI(tdp)->i_uid != cred->cr_uid) {
-			vnode_put(tdp);
+		    VTOI(tdp)->i_uid /* XXX Lock tdp? */ != cred->cr_uid) {
+			IULOCK(dp);
+            vnode_put(tdp);
 			ext2_trace_return(EPERM);
 		}
 		*vpp = tdp;
@@ -797,7 +824,8 @@ found:
 		if (!lockparent)
 			vnode_unlock(vdp);
 #endif
-		return (0);
+		IULOCK(dp);
+        return (0);
 	}
 
 	/*
@@ -808,19 +836,25 @@ found:
 	 */
 	if (nameiop == RENAME && wantparent &&
 	    (flags & ISLASTCN)) {
-		if ((error = VNOP_ACCESS(vdp, VWRITE, context)) != 0)
+        IULOCK(dp);
+		if (0 == (error = VNOP_ACCESS(vdp, VWRITE, context)))
+            IXLOCK(dp);
+        else
 			ext2_trace_return(error);
 		/*
 		 * Careful about locking second inode.
 		 * This can only occur if the target is ".".
 		 */
-		if (dp->i_number == dp->i_ino)
+		if (dp->i_number == dp->i_ino) {
+            IULOCK(dp);
 			ext2_trace_return(EISDIR);
+        }
         vallocargs.va_ino = dp->i_ino;
         vallocargs.va_parent = vdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
-        if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
+        IULOCK(dp);
+        if (0 != (error = EXT2_VGET(mp, &vallocargs, &tdp, context)))
 			ext2_trace_return(error);
 		*vpp = tdp;
 #ifdef obsolete
@@ -857,8 +891,10 @@ found:
         vallocargs.va_parent = pdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
-        if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
-        {
+        IULOCK(dp);
+        if (0 == (error = EXT2_VGET(mp, &vallocargs, &tdp, context)))
+            IXLOCK(dp);
+        else {
 			//vnode_lock(pdp);
 			ext2_trace_return(error);
 		}
@@ -879,6 +915,7 @@ found:
       vallocargs.va_parent = pdp;
       vallocargs.va_vctx = context;
       vallocargs.va_cnp = cnp;
+      IULOCK(dp);
       if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
 			ext2_trace_return(error);
 #ifdef obsolete
@@ -923,7 +960,7 @@ ext2_dirbad(ip, offset, how)
  *	changed so that it confirms to ext2_check_dir_entry
  */
 static int
-ext2_dirbadentry(dp, de, entryoffsetinblock)
+ext2_dirbadentry_locked(dp, de, entryoffsetinblock)
 	vnode_t dp;
 	struct ext2_dir_entry_2 *de;
 	int entryoffsetinblock;

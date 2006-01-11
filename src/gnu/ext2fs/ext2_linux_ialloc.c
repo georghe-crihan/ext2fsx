@@ -108,14 +108,18 @@ static void read_inode_bitmap (mount_t   mp,
 	int	error;
 
 	gdp = get_group_desc (mp, block_group, NULL);
+	ext2_daddr_t lbn = le32_to_cpu(gdp->bg_inode_bitmap);
+	
+	unlock_super(sb);
 	if ((error = buf_meta_bread (ump->um_devvp,
-			    (daddr64_t)fsbtodb(sb, le32_to_cpu(gdp->bg_inode_bitmap)), 
+			    (daddr64_t)fsbtodb(sb, lbn), 
 			    sb->s_blocksize,
 			    NOCRED, &bp)) != 0)
 		panic ( "ext2: read_inode_bitmap:"
 			    "Cannot read inode bitmap - "
 			    "block_group = %lu, inode_bitmap = %lu",
 			    block_group, (unsigned long) le32_to_cpu(gdp->bg_inode_bitmap));
+	lock_super(sb);
 #if EXT2_SB_BITMAP_CACHE
 	sb->s_inode_bitmap_number[bitmap_nr] = block_group;
 	sb->s_inode_bitmap[bitmap_nr] = bp;
@@ -512,8 +516,8 @@ repeat:
 #ifdef unused
 static unsigned long ext2_count_free_inodes (mount_t   mp)
 {
+	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 #if defined(EXT2FS_DEBUG) && EXT2FS_DEBUG > 1
-        struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
 	struct ext2_super_block * es;
 	unsigned long desc_count, bitmap_count, x;
 	int bitmap_nr;
@@ -540,7 +544,10 @@ static unsigned long ext2_count_free_inodes (mount_t   mp)
 	unlock_super (sb);
 	return desc_count;
 #else
-	return VFSTOEXT2(mp)->um_e2fsb->s_free_inodes_count;
+	lock_super(sb);
+	typeof(VFSTOEXT2(mp)->um_e2fsb->s_free_inodes_count) ct = VFSTOEXT2(mp)->um_e2fsb->s_free_inodes_count;
+	unlock_super(sb);
+	return (ct);
 #endif
 }
 #endif /* unused */
