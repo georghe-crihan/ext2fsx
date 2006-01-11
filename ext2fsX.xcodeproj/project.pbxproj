@@ -755,7 +755,6 @@
 		D3A9B8150582E26500B93FC7 /* mount_extmgr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mount_extmgr.c; sourceTree = "<group>"; };
 		D3B4645604099F8700A80164 /* ext2_apple.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ext2_apple.c; sourceTree = "<group>"; };
 		D3B4645704099F8700A80164 /* ext2_apple.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ext2_apple.h; path = src/ext2_apple.h; sourceTree = "<group>"; };
-		D3C06DAC040A137600A80164 /* ext2_attrlist.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ext2_attrlist.c; sourceTree = "<group>"; };
 		D3C06DAD040A137600A80164 /* ext2_io_apple.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ext2_io_apple.c; sourceTree = "<group>"; };
 		D3C4F1D40593730700B7812F /* Info.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Info.icns; sourceTree = "<group>"; };
 		D3C4F1D50593730700B7812F /* Mount.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Mount.icns; sourceTree = "<group>"; };
@@ -1128,7 +1127,6 @@
 			isa = PBXGroup;
 			children = (
 				D3B4645604099F8700A80164 /* ext2_apple.c */,
-				D3C06DAC040A137600A80164 /* ext2_attrlist.c */,
 				D3C06DAD040A137600A80164 /* ext2_io_apple.c */,
 				D3F6BB0F0574F80A00A80164 /* linux_namei_compat.c */,
 			);
@@ -2086,7 +2084,9 @@
 				MODULE_VERSION = 1.4;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = (
-					"\U0001-D_KERNEL",
+					"\U0001-D",
+					READONLY,
+					"-D_KERNEL",
 					"-no-cpp-precomp",
 					"-DOSX",
 					"-DEXT_KNOTE",
@@ -2098,7 +2098,7 @@
 				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "\U0001ext2fs";
+				PRODUCT_NAME = ext2fs;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
