@@ -112,7 +112,7 @@ cd "${INSTALL}/usr/local/lib"
 
 ln -sf ./libblkid.2.0.dylib ./libblkid.dylib
 # note this can conflict with the system lib /usr/lib/libcom_err.dylib
-ln -sf ./libcom_err.1.1.dylib ./libcom_err.dylib
+#ln -sf ./libcom_err.1.1.dylib ./libcom_err.dylib
 ln -sf ./libcom_err.1.1.dylib ./libcom_err_e2.dylib
 ln -sf ./libe2p.2.1.dylib ./libe2p.dylib
 ln -sf ./libext2fs.2.1.dylib ./libext2fs.dylib
