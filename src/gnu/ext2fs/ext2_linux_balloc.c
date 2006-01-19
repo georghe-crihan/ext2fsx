@@ -607,9 +607,7 @@ static unsigned long ext2_count_free_blocks (mount_t   mp)
 	return le32_to_cpu(ct);
 #endif
 }
-#endif /* unused */
 
-#ifdef unused
 static __inline int block_in_use (unsigned long block,
 				  struct ext2_sb_info * sb,
 				  unsigned char * map)
@@ -617,6 +615,7 @@ static __inline int block_in_use (unsigned long block,
 	return ext2_test_bit ((block - le32_to_cpu(sb->s_es->s_first_data_block)) %
 			 EXT2_BLOCKS_PER_GROUP(sb), (u_long*)map);
 }
+#endif /* unused */
 
 static int test_root(int a, int b)
 {
@@ -637,6 +636,7 @@ int ext2_group_sparse(int group)
 		test_root(group, 7));
 }
 
+#ifdef unused
 static void ext2_check_blocks_bitmap (mount_t   mp)
 {
 	struct ext2_sb_info *sb = VFSTOEXT2(mp)->um_e2fs;
