@@ -2133,20 +2133,6 @@ static struct sysctl_oid* e2sysctl_list[] = {
 static vfstable_t ext2_tableid;
 
 kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
-#ifdef obsolete
-   struct vfsconf	*vfsConf = NULL;
-   int funnelState, i;
-   kern_return_t kret;
-   
-   /* Register our module */
-   funnelState = thread_funnel_set(kernel_flock, TRUE);
-   
-   MALLOC(vfsConf, void *, sizeof(struct vfsconf), M_TEMP, M_WAITOK);
-	if (NULL == vfsConf) {
-      kret = KERN_RESOURCE_SHORTAGE;
-      goto funnel_release;
-   }
-#endif
 	lck_grp_attr_t *lgattr;
 #ifndef DIAGNOSTIC
 	lgattr = LCK_GRP_ATTR_NULL;
@@ -2177,14 +2163,6 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	fsc.vfe_fstypenum = (int)EXT2_SUPER_MAGIC;
 	fsc.vfe_flags = VFS_TBLTHREADSAFE/*|VFS_TBLNOTYPENUM*/|VFS_TBLLOCALVOL;
 	kret = vfs_fsadd(&fsc, &ext2_tableid);
-	
-#ifdef obsolete
-   init_vnodeopv_desc(&ext2fs_vnodeop_opv_desc);
-   init_vnodeopv_desc(&ext2fs_specop_opv_desc);
-   init_vnodeopv_desc(&ext2fs_fifoop_opv_desc);
-   
-   kret = vfsconf_add(vfsConf);
-#endif
 	if (kret) {
 		printf ("ext2fs_start: Failed to register with kernel, error = %d\n", kret);
 		lck_grp_free(ext2_lck_grp);
@@ -2197,46 +2175,11 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	for (i=0; e2sysctl_list[i]; ++i) {
 		sysctl_register_oid(e2sysctl_list[i]);
 	};
-
-#ifdef obsolete
-funnel_release:
-	if (vfsConf)
-		FREE(vfsConf, M_TEMP);
-
-	thread_funnel_set(kernel_flock, funnelState);
-
-   if (kret)
-      return (KERN_FAILURE);
-#endif
 	
    return (KERN_SUCCESS);
 }
 
 kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
-#ifdef obsolete
-   int funnelState, i;
-   struct vfsconf *vc;
-   
-   funnelState = thread_funnel_set(kernel_flock, TRUE);
-
-   /* Don't unload if there are active mounts. Thanks to W. Crooze for pointing this
-      problem out. */
-   
-   /* XXX - Doesn't seem to be a lock for this global - guess the funnel is enough. */
-   vc = vfsconf;
-   while (vc) {
-      if ((NULL != vc->vfc_vfsops) && (0 == strcmp(vc->vfc_name, EXT2FS_NAME)))
-         break;
-      vc = vc->vfc_next;
-   }
-   
-   if (vc->vfc_refcount > 0) {
-      /* There are still mounts active. */
-      printf("ext2fs_stop: failed to unload kext, mounts still active\n");
-      thread_funnel_set(kernel_flock, funnelState);
-      ext2_trace_return(KERN_FAILURE);
-   }
-#endif
 	int error, i;
 	
 	/* Deregister with the kernel */
@@ -2249,16 +2192,6 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
 		assert(NULL != e2sysctl_list[i]);
 		sysctl_unregister_oid(e2sysctl_list[i]);
 	};
-
-#ifdef obsolete
-   vfsconf_del(EXT2FS_NAME);
-
-	FREE(*ext2fs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
-	FREE(*ext2fs_specop_opv_desc.opv_desc_vector_p, M_TEMP);
-	FREE(*ext2fs_fifoop_opv_desc.opv_desc_vector_p, M_TEMP);
-
-	thread_funnel_set(kernel_flock, funnelState);
-#endif
 
    ext2_uninit(NULL);
    lck_grp_free(ext2_lck_grp);
