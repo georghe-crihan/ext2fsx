@@ -76,12 +76,14 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/malloc.h>
 #include <sys/stat.h>
 #include <sys/disk.h>
-#include <sys/syslog.h>
 #include <sys/sysctl.h>
 #include <sys/kauth.h>
 
 #include <string.h>
 #include <machine/spl.h>
+
+// Exported by BSD KPI, but not in headers
+extern int spec_fsync(struct vnop_fsync_args*); // fsync
 
 #include "ext2_apple.h"
 
@@ -95,6 +97,8 @@ static int vn_isdisk(vnode_t, int *);
 #include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <ext2_byteorder.h>
+
+__private_extern__ int ext2_fsync(struct vnop_fsync_args *);
 
 /* Ext2 lock group */
 __private_extern__ lck_grp_t *ext2_lck_grp = NULL;
@@ -277,11 +281,13 @@ ext2_mount(mp, devvp, data, context)
     char *fspec, *path;
 	size_t size;
 	int error, flags;
-	mode_t accessmode;
+	//mode_t accessmode;
 	//proc_t p = vfs_context_proc(context);
    
-	// Advisory locking is handled at the VFS layer
+	// Advisory locking is handled at the VFS layer -- of course it's not a KPI -- WTF?!!
+	#if 0
 	vfs_setlocklocal(mp);
+	#endif
    
    if ((error = copyin(CAST_USER_ADDR_T(data), (caddr_t)&args, sizeof (struct ext2_args))) != 0)
 		ext2_trace_return(error);
@@ -333,18 +339,20 @@ ext2_mount(mp, devvp, data, context)
 		    0 == vfs_iswriteupgrade(mp)) != 0)
 			ext2_trace_return(EPERM);
 		if (fs->s_rd_only && vfs_iswriteupgrade(mp)) {
+#ifdef obsolete
 			/*
 			 * If upgrade to read-write by non-root, then verify
 			 * that user has necessary permissions on the device.
 			 */
-            if (kauth_cred_issuser(vfs_context_ucred(context))) {
+            if (0 == vfs_context_suser(context)) {
 				//vnode_lock(devvp);
-				if ((error = VNOP_ACCESS(devvp, VREAD | VWRITE, context)) != 0) {
+				if ((error = vnode_authorize(devvp, NULL, KAUTH_VNODE_READ_DATA | KAUTH_VNODE_WRITE_DATA, context)) != 0) {
 					//vnode_unlock(devvp);
 					ext2_trace_return(error);
 				}
 				//vnode_unlock(devvp);
 			}
+#endif
 
 			if ((le16_to_cpu(fs->s_es->s_state) & EXT2_VALID_FS) == 0 ||
 			    (le16_to_cpu(fs->s_es->s_state) & EXT2_ERROR_FS)) {
@@ -397,21 +405,23 @@ ext2_mount(mp, devvp, data, context)
 		ext2_trace_return(error);
 	}
 
+#ifdef obsolete
 	/*
 	 * If mount by non-root, then verify that user has necessary
 	 * permissions on the device.
 	 */
-   if (kauth_cred_issuser(vfs_context_ucred(context))) {
-		accessmode = VREAD;
+   if (vfs_context_suser(context)) {
+		accessmode = KAUTH_VNODE_READ_DATA;
 		if (vfs_isrdonly(mp))
-			accessmode |= VWRITE;
+			accessmode |= KAUTH_VNODE_WRITE_DATA;
 		vnode_lock(devvp);
-		if ((error = VNOP_ACCESS(devvp, accessmode, context)) != 0) {
+		if ((error = vnode_authorize(devvp, NULL, accessmode, context)) != 0) {
 			vnode_put(devvp);
 			ext2_trace_return(error);
 		}
 		vnode_unlock(devvp);
 	}
+#endif
    
    /* This is used by ext2_mountfs to set the last mount point in the superblock. */
 #ifdef obsolete
@@ -422,7 +432,7 @@ ext2_mount(mp, devvp, data, context)
 #ifdef obsolete
    #ifdef EXT2FS_DEBUG
    if (size < 2)
-      log(LOG_WARNING, "ext2fs: mount path looks to be invalid\n");
+      printf("ext2fs: mount path looks to be invalid\n");
    #endif
    bzero(mp->mnt_stat.f_mntonname + size, MNAMELEN - size);
 #endif
@@ -694,7 +704,7 @@ ext2_reload_callback(vnode_t vp, void *cargs)
 	/*
 	 * Step 5: invalidate all cached file data.
 	 */
-	vnode_lock(vp);
+	//vnode_lock(vp);
 	if (buf_invalidateblks(vp, BUF_WRITE_DATA, 0, 0))
 		panic("ext2_reload: dirty2");
 	/*
@@ -707,14 +717,14 @@ ext2_reload_callback(vnode_t vp, void *cargs)
 		buf_bread (ump->um_devvp, (daddr64_t)fsbtodb(fs, ino_to_fsba(fs, ip->i_number)),
 			(int)fs->s_blocksize, NOCRED, &bp);
 	if (err) {
-		vnode_unlock(vp);
+		//vnode_unlock(vp);
 		args->ca_err = err;
 		return (VNODE_RETURNED_DONE);
 	}
 	ext2_ei2i((struct ext2_inode *) ((char *)buf_dataptr +
 		EXT2_INODE_SIZE * ino_to_fsbo(fs, ip->i_number)), ip);
 	buf_brelse(bp);
-	vnode_unlock(vp);
+	//vnode_unlock(vp);
 	return (VNODE_RETURNED);
 }
 
@@ -870,18 +880,26 @@ ext2_mountfs(devvp, mp, context)
 #endif
 
 	ronly = vfs_isrdonly(mp);
+#ifdef obsolete
 	vnode_lock(devvp);
 	error = VNOP_OPEN(devvp, ronly ? FREAD : FREAD|FWRITE, context);
 	vnode_unlock(devvp);
 	if (error)
 		ext2_trace_return(error);
-   
+#endif
    /* Set the block size to 512. Things just seem to royally screw 
       up otherwise.
     */
    devBlockSize = 512;
-   if (VNOP_IOCTL(devvp, DKIOCSETBLOCKSIZE, (caddr_t)&devBlockSize,
-         FWRITE, context)) {
+   
+   struct vnop_ioctl_args ioctlargs;
+   ioctlargs.a_desc = &vnop_ioctl_desc;
+   ioctlargs.a_vp = devvp;
+   ioctlargs.a_command = DKIOCSETBLOCKSIZE;
+   ioctlargs.a_data = (caddr_t)&devBlockSize;
+   ioctlargs.a_fflag = FWRITE;
+   ioctlargs.a_context = context;
+   if (spec_ioctl(&ioctlargs)) {
       ext2_trace_return(ENXIO);
    }
    /* force specfs to re-read the new size */
@@ -1013,7 +1031,9 @@ ext2_mountfs(devvp, mp, context)
 out:
 	if (bp)
 		buf_brelse(bp);
+#ifdef obsolete
 	(void)VNOP_CLOSE(devvp, ronly ? FREAD : FREAD|FWRITE, context);
+#endif
 	if (ump) {
 		vfs_setfsprivate(mp, NULL);
 		bsd_free(ump->um_e2fs->s_es, M_EXT2MNT);
@@ -1069,7 +1089,9 @@ ext2_unmount(mp, mntflags, context)
          ULCK_BUF(fs->s_block_bitmap[i]);
 
     vnode_clearmountedon(ump->um_devvp);
+#ifdef obsolete
 	error = VNOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE, context);
+#endif
 	vnode_rele(ump->um_devvp);
    
     /* Free the lock alloc'd in mountfs */
@@ -1296,7 +1318,7 @@ static int ext2_setattrfs(mount_t mp, struct vfs_attr *attrs, vfs_context_t cont
 		int	 name_length = strlen(name);
       
 		if (name_length > EXT2_VOL_LABEL_LENGTH) {
-			log(LOG_WARNING, "ext2: Warning volume label too long, truncating.\n");
+			printf("%s: Warning volume label too long, truncating.\n", __FUNCTION__);
 			name_length = EXT2_VOL_LABEL_LENGTH;
 		}
       
@@ -1339,7 +1361,11 @@ ext2_sync_callback(vnode_t vp, void *cargs)
 		return (VNODE_RETURNED);
 	}
 	
-	if ((error = VNOP_FSYNC(vp, (MNT_WAIT == args->ca_wait), args->ca_vctx)) != 0)
+	struct vnop_fsync_args sargs;
+	sargs.a_vp = vp;
+	sargs.a_waitfor = (MNT_WAIT == args->ca_wait);
+	sargs.a_context = args->ca_vctx;
+	if ((error = ext2_fsync(&sargs)) != 0)
 		args->ca_err = error;
 	return (VNODE_RETURNED);
 }
@@ -1438,10 +1464,15 @@ loop:
     if (waitfor != MNT_LAZY)
    #endif
     {
-		vnode_lock(ump->um_devvp);
-		if ((error = VNOP_FSYNC(ump->um_devvp, waitfor, context)) != 0)
+		struct vnop_fsync_args sargs;
+		sargs.a_vp = ump->um_devvp;
+		sargs.a_waitfor = waitfor;
+		sargs.a_context = context;
+	
+		//vnode_lock(ump->um_devvp);
+		if ((error = spec_fsync(&sargs)) != 0)
 			allerror = error;
-		vnode_unlock(ump->um_devvp);
+		//vnode_unlock(ump->um_devvp);
 	}
 	/*
 	 * Write back modified superblock.
@@ -1855,7 +1886,7 @@ ext2_root(mp, vpp, context)
 		ext2_trace_return(error);
 	ip = VTOI(nvp);
 	if (!S_ISDIR(ip->i_mode) || !ip->i_blocks || !ip->i_size) {
-		log(LOG_WARNING, "EXT2-fs: root inode is corrupt, please run fsck.\n");
+		printf("EXT2-fs: root inode is corrupt, please run fsck.\n");
 		vnode_put(nvp);
 		return (EINVAL);
 	}
@@ -2116,10 +2147,22 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
       goto funnel_release;
    }
 #endif
+	lck_grp_attr_t *lgattr;
+#ifndef DIAGNOSTIC
+	lgattr = LCK_GRP_ATTR_NULL;
+#else
+	lgattr = lck_grp_attr_alloc_init();
+	if (lgattr)
+		lck_grp_attr_setstat(lgattr);
+#endif
+	if (NULL == (ext2_lck_grp = lck_grp_alloc_init("Ext2 Filesystem", lgattr)))
+		return (KERN_RESOURCE_SHORTAGE);
+	if (lgattr)
+		lck_grp_attr_free(lgattr);
+	
 	struct vfs_fsentry fsc;
 	struct vnodeopv_desc* vnops[] =
 		{&ext2fs_vnodeop_opv_desc, &ext2fs_specop_opv_desc, &ext2fs_fifoop_opv_desc};
-	lck_grp_attr_t *lgattr;
 	int kret, i;
 	
 	bzero(&fsc, sizeof(struct vfs_fsentry));
@@ -2144,6 +2187,7 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 #endif
 	if (kret) {
 		printf ("ext2fs_start: Failed to register with kernel, error = %d\n", kret);
+		lck_grp_free(ext2_lck_grp);
 		return (KERN_FAILURE);
 	}
 	
@@ -2164,17 +2208,6 @@ funnel_release:
    if (kret)
       return (KERN_FAILURE);
 #endif
-
-#ifndef DIAGNOSTIC
-	lgattr = LCK_GRP_ATTR_NULL;
-#else
-	lgattr = lck_grp_attr_alloc_init();
-	if (lgattr)
-		lck_grp_attr_setstat(lgattr);
-#endif
-	ext2_lck_grp = lck_grp_alloc_init("Ext2 Filesystem", lgattr);
-	if (lgattr)
-		lck_grp_attr_free(lgattr);
 	
    return (KERN_SUCCESS);
 }
@@ -2199,7 +2232,7 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
    
    if (vc->vfc_refcount > 0) {
       /* There are still mounts active. */
-      log(LOG_INFO, "ext2fs_stop: failed to unload kext, mounts still active\n");
+      printf("ext2fs_stop: failed to unload kext, mounts still active\n");
       thread_funnel_set(kernel_flock, funnelState);
       ext2_trace_return(KERN_FAILURE);
    }
@@ -2219,12 +2252,11 @@ kern_return_t ext2fs_stop (kmod_info_t * ki, void * d) {
 
 #ifdef obsolete
    vfsconf_del(EXT2FS_NAME);
-#endif
+
 	FREE(*ext2fs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
 	FREE(*ext2fs_specop_opv_desc.opv_desc_vector_p, M_TEMP);
 	FREE(*ext2fs_fifoop_opv_desc.opv_desc_vector_p, M_TEMP);
 
-#ifdef obsolete
 	thread_funnel_set(kernel_flock, funnelState);
 #endif
 

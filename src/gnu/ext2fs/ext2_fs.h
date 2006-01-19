@@ -67,17 +67,10 @@
  * Debug code
  */
 #ifdef EXT2FS_DEBUG
-#ifndef APPLE
-#define logwakeup()
-#else
-extern void logwakeup (void);
-#endif
-
 #	define ext2_debug(f, a...)	{ \
 					printf ("EXT2-fs DEBUG (%s, %d): %s:", \
 						__FILE__, __LINE__, __func__); \
 				  	printf (f, ## a); \
-               logwakeup(); \
 					}
 #else
 #	define ext2_debug(f, a...)	/**/

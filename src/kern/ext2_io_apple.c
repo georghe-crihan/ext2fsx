@@ -66,7 +66,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/ucred.h>
 #include <sys/vnode.h>
 
-#include <sys/ubc.h>
 #include "ext2_apple.h"
 
 #include <gnu/ext2fs/inode.h>

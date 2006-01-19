@@ -99,7 +99,7 @@ vaccess(file_mode, file_uid, file_gid, acc_mode, cred)
    /*
     * root always gets access
     */
-   if (0 == kauth_cred_issuser(cred))
+   if (0 != kauth_cred_getuid(cred))
       return (0);
 
 	/*
@@ -353,7 +353,7 @@ ext2_ioctl(ap)
    u_int32_t flags, oldflags;
    ucred_t cred = vfs_context_ucred(ap->a_context);
    
-   super = (0 == kauth_cred_issuser(cred));
+   super = (0 == kauth_cred_getuid(cred));
    fs = ip->i_e2fs;
    
    switch (ap->a_command) {

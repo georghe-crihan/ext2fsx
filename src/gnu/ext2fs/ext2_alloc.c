@@ -587,5 +587,5 @@ ext2_fserr(fs, uid, cp)
 	char *cp;
 {
 
-	log(LOG_ERR, "uid %d on %s: %s\n", uid, fs->fs_fsmnt, cp);
+	printf("uid %d on %s: %s\n", uid, fs->fs_fsmnt, cp);
 }

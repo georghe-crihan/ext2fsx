@@ -42,6 +42,8 @@
 #include <sys/event.h>
 #include <kern/locks.h>
 
+#include "ext2_apple.h"
+
 // These are missing from sys/event.h, but knote is exported by the BSD kpi,
 // so we will use it.
 #ifndef KNOTE
@@ -139,6 +141,7 @@ struct inode {
 	inode_prv_relse_t private_data_relse; /* Function to release private_data storage. */
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
+	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
 	/*
 	 * Side effects; used during directory lookup.
 	 */

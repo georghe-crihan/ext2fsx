@@ -98,6 +98,7 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/ext2_fs.h>
 
 #define vnop_kqfilter_args vnop_kqfilt_add_args
+// Unsupported KPI
 #define vnop_kqfilter_desc vnop_kqfilt_add_desc
 #define vnop_kqfilter VNOP_KQFILT_ADD
 
@@ -111,7 +112,7 @@ static int ext2_chmod(vnode_t, int, ucred_t, proc_t);
 static int ext2_chown(vnode_t, uid_t, gid_t, ucred_t, proc_t);
 static int ext2_close(struct vnop_close_args *);
 static int ext2_create(struct vnop_create_args *);
-static int ext2_fsync(struct vnop_fsync_args *);
+__private_extern__ int ext2_fsync(struct vnop_fsync_args *);
 static int ext2_getattr(struct vnop_getattr_args *);
 static int ext2_kqfilter(struct vnop_kqfilter_args *ap);
 static int ext2_link(struct vnop_link_args *);
@@ -172,7 +173,9 @@ vnop_t **ext2_vnodeop_p;
 static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
     { &vnop_default_desc,		(vnop_t *) vn_default_error },
     // { &vnop_access_desc,		(vnop_t *) ext2_access }, // handled by kernel for us
-    { &vnop_advlock_desc,		(vnop_t *) err_advlock }, // handled by kernel for us
+    // should be handled by the kernel for us, but vfs_setlocklocal is not an exported KPI
+    // and the locking code from panther is a huge mess and relies on access to the proc struct
+    { &vnop_advlock_desc,		(vnop_t *) err_advlock },
     { &vnop_blockmap_desc,		(vnop_t *) ext2_blockmap },
     { &vnop_close_desc,		(vnop_t *) ext2_close },
     { &vnop_create_desc,		(vnop_t *) ext2_create },
@@ -263,7 +266,6 @@ extern int fifo_write(struct vnop_write_args*);
 extern int fifo_ioctl(struct vnop_ioctl_args*);
 extern int fifo_select(struct vnop_select_args*);
 extern int fifo_inactive(struct vnop_inactive_args*);
-extern int fifo_strategy(struct vnop_strategy_args*);
 extern int fifo_close(struct vnop_close_args*);
 extern int fifo_pathconf(struct vnop_pathconf_args*);
 extern int fifo_advlock(struct vnop_advlock_args*);
@@ -361,7 +363,7 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
     { &vnop_remove_desc,		(vnop_t *) fifo_remove },
     { &vnop_rename_desc,		(vnop_t *) fifo_rename },
     { &vnop_rmdir_desc,		(vnop_t *) fifo_rmdir },
-    { &vnop_strategy_desc,		(vnop_t *) fifo_strategy },
+    { &vnop_strategy_desc,		(vnop_t *) err_strategy },
     { &vnop_symlink_desc,		(vnop_t *) fifo_symlink },
 #ifdef obsolete
     { &vnop_print_desc,		(vnop_t *) ext2_print },
@@ -789,11 +791,11 @@ ext2_chmod(vp, mode, cred, p)
 	proc_t p;
 {
 	struct inode *ip = VTOI(vp);
-	int error, super;
+	int super;
    
    ext2_trace_enter();
    
-    super = (error = kauth_cred_issuser(cred)) ? 0 : 1;
+    super = (0 != kauth_cred_getuid(cred)) ? 0 : 1;
     if ((vfs_flags(vnode_mount(vp)) & MNT_UNKNOWNPERMISSIONS) && !super)
         return (0);
     
@@ -819,11 +821,11 @@ ext2_chown(vp, uid, gid, cred, p)
 	struct inode *ip = VTOI(vp);
 	uid_t ouid;
 	gid_t ogid;
-	int error = 0, super;
+	int super;
    
    ext2_trace_enter();
 
-	super = (error = kauth_cred_issuser(cred)) ? 0 : 1;
+	super = (0 != kauth_cred_getuid(cred)) ? 0 : 1;
     if ((vfs_flags(vnode_mount(vp)) & MNT_UNKNOWNPERMISSIONS) && !super)
         return (0);
     
@@ -849,7 +851,7 @@ ext2_chown(vp, uid, gid, cred, p)
  * Synch an open file.
  */
 /* ARGSUSED */
-static int
+__private_extern__ int
 ext2_fsync(ap)
 	struct vnop_fsync_args /* {
 		vnode_t a_vp;
@@ -2544,7 +2546,7 @@ ext2_makeinode(mode, dvp, vpp, cnp, context)
 	ip->i_nlink = 1;
     int isgroupmember = 0;
     (void)kauth_cred_ismember_gid(cred, ip->i_gid, &isgroupmember);
-	if ((ip->i_mode & ISGID) && !isgroupmember && kauth_cred_issuser(cred))
+	if ((ip->i_mode & ISGID) && !isgroupmember && vfs_context_suser(context))
 		ip->i_mode &= ~ISGID;
 
 	if (cnp->cn_flags & ISWHITEOUT)

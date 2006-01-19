@@ -434,7 +434,7 @@ WRITE(ap)
 	 * we clear the setuid and setgid bits as a precaution against
 	 * tampering.
 	 */
-    if (resid > uio_resid(uio) && !kauth_cred_issuser(vfs_context_ucred(context)))
+    if (resid > uio_resid(uio) && !vfs_context_suser(context))
 		ip->i_mode &= ~(ISUID | ISGID);
     if (resid > uio_resid(uio))
        VN_KNOTE(vp, NOTE_WRITE | (file_extended ? NOTE_EXTEND : 0));

@@ -54,6 +54,7 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/dirent.h>
 #include <sys/sysctl.h>
 #include <sys/fcntl.h>
+#include <sys/kauth.h>
 
 /* From kernel */
 extern struct nchstats nchstats;
@@ -686,7 +687,7 @@ notfound:
 		 * creation of files in the directory.
 		 */
 		IULOCK(dp);
-        if(0 == (error = VNOP_ACCESS(vdp, VWRITE, context)))
+        if(0 == (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
             IXLOCK(dp);
         else
 			ext2_trace_return(error);
@@ -776,7 +777,7 @@ found:
 		 * Write access to directory required to delete files.
 		 */
 		IULOCK(dp);
-        if (0 == (error = VNOP_ACCESS(vdp, VWRITE, context)))
+        if (0 == (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
             IXLOCK(dp);
         else
 			ext2_trace_return(error);
@@ -837,7 +838,7 @@ found:
 	if (nameiop == RENAME && wantparent &&
 	    (flags & ISLASTCN)) {
         IULOCK(dp);
-		if (0 == (error = VNOP_ACCESS(vdp, VWRITE, context)))
+		if (0 == (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
             IXLOCK(dp);
         else
 			ext2_trace_return(error);

@@ -177,7 +177,7 @@ ext2_lf_setlock(lock)
 			ext2_lf_printlist("ext2_lf_setlock", block);
 		}
 #endif /* LOCKF_DEBUG */
-		if (error = tsleep((caddr_t)lock, priority, lockstr, 0)) {
+		if (error = msleep((caddr_t)lock, NULL, priority, lockstr, 0)) {
 			/*
 			 * We may have been awakened by a signal (in
 			 * which case we must remove ourselves from the
@@ -415,7 +415,7 @@ ext2_lf_getlock(lock, fl)
 		else
 			fl->l_len = block->lf_end - block->lf_start + 1;
 		if (block->lf_flags & F_POSIX)
-			fl->l_pid = ((struct proc *)(block->lf_id))->p_pid;
+			fl->l_pid = proc_pid((struct proc *)(block->lf_id));
 		else
 			fl->l_pid = -1;
 	} else {
