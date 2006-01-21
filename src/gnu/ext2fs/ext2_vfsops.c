@@ -87,8 +87,6 @@ extern int spec_fsync(struct vnop_fsync_args*); // fsync
 
 #include "ext2_apple.h"
 
-static int vn_isdisk(vnode_t, int *);
-
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/inode.h>
 
@@ -400,11 +398,6 @@ ext2_mount(mp, devvp, data, context)
 	vnode_ref(devvp);
 #endif // obsolete
 
-	if (!vn_isdisk(devvp, &error)) {
-		vnode_rele(devvp);
-		ext2_trace_return(error);
-	}
-
 #ifdef obsolete
 	/*
 	 * If mount by non-root, then verify that user has necessary
@@ -421,10 +414,8 @@ ext2_mount(mp, devvp, data, context)
 		}
 		vnode_unlock(devvp);
 	}
-#endif
    
    /* This is used by ext2_mountfs to set the last mount point in the superblock. */
-#ifdef obsolete
    size = 0;
    (void) copyinstr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
 #endif
@@ -1911,33 +1902,6 @@ ext2_uninit(struct vfsconf *vfsp)
 }
 
 /*
- * Check if vnode represents a disk device
- */
-int
-vn_isdisk(vp, errp)
-	vnode_t vp;
-	int *errp;
-{
-	dev_t rdev;
-	
-	if (0 == vnode_isblk(vp)) {
-		if (errp != NULL)
-			*errp = ENOTBLK;
-		return (0);
-	}
-	rdev = vnode_specrdev(vp);
-	if (0 == rdev /*|| (major(rdev) >= nblkdev)*/) {
-		if (errp != NULL)
-			*errp = ENXIO;
-		return (0);
-	}
-
-	if (errp != NULL)
-		*errp = 0;
-	return(1);
-}
-
-/*
  * Vfs start routine, a no-op.
  */
 /* ARGSUSED */
@@ -2041,81 +2005,6 @@ ext2_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp, user_ad
 
 	return (error);
 }
-
-#ifdef obsolete
-extern int vfs_opv_numops; /* kernel */
-typedef int (*PFI)();
-
-/* Must be called while holding kernel funnel */
-static void init_vnodeopv_desc (struct vnodeopv_desc *opv)
-{
-   int	(***opv_desc_vector_p)(void *);
-	int	(**opv_desc_vector)(void *);
-	struct vnodeopv_entry_desc	*opve_descp;
-   int j;
-   
-   opv_desc_vector_p = opv->opv_desc_vector_p;
-   
-   /* Something better than M_TEMP */
-   MALLOC(*opv_desc_vector_p, PFI *, vfs_opv_numops * sizeof(PFI),
-	       M_TEMP, M_WAITOK);
-	bzero(*opv_desc_vector_p, vfs_opv_numops*sizeof(PFI));
-
-	opv_desc_vector = *opv_desc_vector_p;
-   
-   for (j = 0; opv->opv_desc_ops[j].opve_op; j++) {
-		opve_descp = &(opv->opv_desc_ops[j]);
-
-		/*
-		 * Sanity check:  is this operation listed
-		 * in the list of operations?  We check this
-		 * by seeing if its offest is zero.  Since
-		 * the default routine should always be listed
-		 * first, it should be the only one with a zero
-		 * offset.  Any other operation with a zero
-		 * offset is probably not listed in
-		 * vfs_op_descs, and so is probably an error.
-		 *
-		 * A panic here means the layer programmer
-		 * has committed the all-too common bug
-		 * of adding a new operation to the layer's
-		 * list of vnode operations but
-		 * not adding the operation to the system-wide
-		 * list of supported operations.
-		 */
-		if (opve_descp->opve_op->vdesc_offset == 0 &&
-		    opve_descp->opve_op->vdesc_offset != VOFFSET(vop_default)) {
-			printf("init_vnodeopv_desc: operation %s not listed in %s.\n",
-			       opve_descp->opve_op->vdesc_name,
-			       "vfs_op_descs");
-			panic("init_vnodeopv_desc: bad operation");
-		}
-		/*
-		 * Fill in this entry.
-		 */
-		opv_desc_vector[opve_descp->opve_op->vdesc_offset] =
-		    opve_descp->opve_impl;
-	}
-
-	/*  
-	 * Finally, go back and replace unfilled routines
-	 * with their default.  (Sigh, an O(n^3) algorithm.  I
-	 * could make it better, but that'd be work, and n is small.)
-	 */  
-	opv_desc_vector_p = opv->opv_desc_vector_p;
-
-	/*   
-	 * Force every operations vector to have a default routine.
-	 */  
-	opv_desc_vector = *opv_desc_vector_p;
-	if (opv_desc_vector[VOFFSET(vop_default)] == NULL)
-	    panic("init_vnodeopv_desc: operation vector without default routine.");
-	for (j = 0; j < vfs_opv_numops; j++) {
-		if (opv_desc_vector[j] == NULL)
-			opv_desc_vector[j] = opv_desc_vector[VOFFSET(vop_default)];
-   }
-}
-#endif // obsolete
 
 /* Kernel entry/exit points */
 
