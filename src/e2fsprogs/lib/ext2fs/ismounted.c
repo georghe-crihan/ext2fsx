@@ -312,8 +312,7 @@ errcode_t ext2fs_check_mount_point(const char *device, int *mount_flags,
 #endif /* HAVE_GETMNTINFO */
 #endif /* HAVE_MNTENT_H */
 	}
-	if (retval)
-		return retval;
+	return retval;
 
 #ifdef __linux__ /* This only works on Linux 2.6+ systems */
 	if ((stat(device, &st_buf) != 0) ||
