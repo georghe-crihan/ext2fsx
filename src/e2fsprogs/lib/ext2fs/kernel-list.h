@@ -15,7 +15,15 @@ struct list_head {
 	struct list_head *next, *prev;
 };
 
+#ifdef LIST_HEAD_INIT
+#undef LIST_HEAD_INIT
+#endif
+
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
+
+#ifdef LIST_HEAD
+#undef LIST_HEAD
+#endif
 
 #define LIST_HEAD(name) \
 	struct list_head name = { &name, &name }
