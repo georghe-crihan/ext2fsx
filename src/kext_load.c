@@ -62,18 +62,22 @@
 #include <string.h>
 
 #include "ext2_apple.h"
+#include "gnu/ext2fs/ext2_fs.h"
 
 #define FS_TYPE			EXT2FS_NAME
 
 int checkLoadable()
 {
         struct vfsconf vfc;
-        int name[4], maxtypenum, cnt;
         size_t buflen;
-
+        int name[4];
+        
         name[0] = CTL_VFS;
         name[1] = VFS_GENERIC;
+#ifdef obsolete
         name[2] = VFS_MAXTYPENUM;
+        
+        int maxtypenum, cnt;
         buflen = 4;
         if (sysctl(name, 3, &maxtypenum, &buflen, (void *)0, (size_t)0) < 0)
                 return (-1);
@@ -86,6 +90,11 @@ int checkLoadable()
                                 return (-1);
                         continue;
                 }
+#endif
+        buflen = sizeof vfc;
+        name[2] = VFS_CONF;
+        name[3] = EXT2_SUPER_MAGIC;
+        if (sysctl(name, 4, &vfc, &buflen, (void *)0, (size_t)0) != -1) {
                 if (!strcmp(FS_TYPE, vfc.vfc_name))
                         return (0);
         }
@@ -95,7 +104,7 @@ int checkLoadable()
 }
 
 #define LOAD_COMMAND "/sbin/kextload"
-#define MODULE_PATH "/System/Library/Extensions/ext2fs.kext"
+#define MODULE_PATH "/Library/Extensions/ext2fs.kext"
 
 
 int load_kmod()
