@@ -5,7 +5,7 @@
 #
 # Created for the ext2fsx project: http://sourceforge.net/projects/ext2fsx/
 #
-# Copyright 2003-2004 Brian Bergstrand.
+# Copyright 2003-2004,2006 Brian Bergstrand.
 #
 # Redistribution and use in source and binary forms, with or without modification, 
 # are permitted provided that the following conditions are met:
@@ -54,12 +54,9 @@ if [ -f ./.e2configdone ]; then
 fi
 
 if [ ! -f ./.e2configdone ]; then
-# Panther has libiconv, but Jag doesn't
-# --with-libiconv-prefix=/usr 
-#
 # --with-included-gettext   -- this would be nice, but the po/ build fails
-	./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
---without-libintl-prefix --without-libiconv-prefix --disable-fsck --enable-bsd-shlibs \
+	CC=/usr/bin/gcc-3.3 ./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
+--without-libintl-prefix --with-libiconv-prefix=/usr --disable-fsck --enable-bsd-shlibs \
 --with-ccopts="-DAPPLE_DARWIN=1 -DHAVE_EXT2_IOCTLS=1 -DSYS_fsctl=242 -pipe"
 	if [ $? -ne 0 ]; then
 		echo "configure failed!"
