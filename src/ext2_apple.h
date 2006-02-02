@@ -26,8 +26,6 @@
 #ifndef EXT2_APPLE_H
 #define EXT2_APPLE_H
 
-#include <libkern/OSAtomic.h>
-
 #define EXT2FS_NAME "ext2"
 #define EXT3FS_NAME "ext3"
 
@@ -43,7 +41,7 @@ int ext2_vol_label_len(char *label) {
 
 #include <sys/mount.h>
 struct ext2_args {
-	user_addr_t fspec;			/* block special device to mount */
+	char *fspec;			/* block special device to mount */
     unsigned int e2_mnt_flags; /* Ext2 specific mount flags */
     uid_t   e2_uid; /* Only active when MNT_UNKNOWNPERMISSIONS is set */
     gid_t   e2_gid; /* ditto */
@@ -64,12 +62,18 @@ struct ext2_args {
 #endif
 
 #include <sys/ubc.h>
+#include <libkern/OSAtomic.h>
+#include <sys/vnode_if.h>
+#include <sys/ioctl.h>
+#include <sys/disk.h>
+#include <sys/fcntl.h>
 
 //#include <xnu/bsd/miscfs/specfs/specdev.h>
 
 /* In BSD KPI, but not defined in headers */
 extern int groupmember(gid_t gid, struct ucred *cred);
 extern int vfs_init_io_attributes (struct vnode *, struct mount *);
+extern int spec_ioctl(struct vnop_ioctl_args*); // EVOP_DEVBLOCKSIZE
 //extern uid_t console_user; // in Unsupported KPI
 //extern int prtactive; /* 1 => print out reclaim of active vnodes */
 /**/
@@ -95,6 +99,9 @@ __private_extern__ lck_grp_t *ext2_lck_grp;
 #define VT_EXT2 VT_OTHER
 
 typedef int     vnop_t (void *);
+
+// uprintf prints to the processes tty and the system log file -- not in KPI
+#define uprintf printf
 
 #ifdef _VNODE_H_
 __private_extern__ int ext2_read(struct vnop_read_args*);
@@ -176,9 +183,17 @@ int vn_rdwr(enum uio_rw rw, struct vnode *vp, caddr_t base,
 	    		struct ucred *cred, int *aresid, struct proc *p);
 #endif
 
-/* vnode_t, u_int32_t*, vfs_context_t*/
-#define EVOP_DEVBLOCKSIZE(vp,size,ctx) \
-VNOP_IOCTL((vp), DKIOCGETBLOCKSIZE, (caddr_t)(size), FREAD, (ctx))
+static __inline__
+int EVOP_DEVBLOCKSIZE(vnode_t vp, u_int32_t *size, vfs_context_t ctx) {
+    struct vnop_ioctl_args a;
+    a.a_desc = &vnop_ioctl_desc;
+    a.a_vp = (vp);
+    a.a_command = DKIOCGETBLOCKSIZE;
+    a.a_data = (caddr_t)size;
+    a.a_fflag = FREAD;
+    a.a_context = ctx;
+    return (spec_ioctl(&a));
+}
 
 /* vnode_t */
 /* XXX Is this really a correct assumption? */
