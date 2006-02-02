@@ -36,7 +36,7 @@
  * $FreeBSD: src/sys/gnu/ext2fs/ext2_vfsops.c,v 1.101 2003/01/01 18:48:52 schweikh Exp $
  */
 /*
-* Copyright 2003-2005 Brian Bergstrand.
+* Copyright 2003-2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -268,11 +268,6 @@ ext2_mount(mp, devvp, data, context)
     user_addr_t data;
 	vfs_context_t context;
 {
-#ifdef obsolete
-    struct nameidata nd;
-	struct vnode *devvp;
-	struct export_args *export;
-#endif
 	struct ext2mount *ump = 0;
 	struct ext2_sb_info *fs;
     struct ext2_args args;
@@ -287,17 +282,12 @@ ext2_mount(mp, devvp, data, context)
 	vfs_setlocklocal(mp);
 	#endif
    
-   if ((error = copyin(CAST_USER_ADDR_T(data), (caddr_t)&args, sizeof (struct ext2_args))) != 0)
+   if ((error = copyin(CAST_USER_ADDR_T(data), &args, sizeof(struct ext2_args))) != 0)
 		ext2_trace_return(error);
    
    //export = &args.export;
    
    size = 0;
-#ifdef obsolete
-   (void) copyinstr(CAST_USER_ADDR_T(args.fspec), (vfs_statfs(mp))->f_mntfromname,
-		MNAMELEN - 1, &size);
-	bzero(mp->mnt_stat.f_mntfromname + size, MNAMELEN - size);
-#endif
    fspec = (vfs_statfs(mp))->f_mntfromname;
 
 	/*
@@ -327,31 +317,12 @@ ext2_mount(mp, devvp, data, context)
 			error = ext2_reload(mp, context);
 		if (error)
 			ext2_trace_return(error);
-#ifdef obsolete
-		devvp = ump->um_devvp;
-#else
 		if (devvp != ump->um_devvp)
 			ext2_trace_return(EINVAL);
-#endif
 		if (ext2_check_sb_compat(fs->s_es, vnode_specrdev(devvp),
 		    0 == vfs_iswriteupgrade(mp)) != 0)
 			ext2_trace_return(EPERM);
 		if (fs->s_rd_only && vfs_iswriteupgrade(mp)) {
-#ifdef obsolete
-			/*
-			 * If upgrade to read-write by non-root, then verify
-			 * that user has necessary permissions on the device.
-			 */
-            if (0 == vfs_context_suser(context)) {
-				//vnode_lock(devvp);
-				if ((error = vnode_authorize(devvp, NULL, KAUTH_VNODE_READ_DATA | KAUTH_VNODE_WRITE_DATA, context)) != 0) {
-					//vnode_unlock(devvp);
-					ext2_trace_return(error);
-				}
-				//vnode_unlock(devvp);
-			}
-#endif
-
 			if ((le16_to_cpu(fs->s_es->s_state) & EXT2_VALID_FS) == 0 ||
 			    (le16_to_cpu(fs->s_es->s_state) & EXT2_ERROR_FS)) {
 				if (vfs_isforce(mp)) {
@@ -379,65 +350,21 @@ ext2_mount(mp, devvp, data, context)
          #endif
          ext2_trace_return(EINVAL);
 		}
+		if (NULL == devvp)
+			return (0);
 	}
-#ifdef obsolete
-	/*
-	 * Not an update, or updating the name: look up the name
-	 * and verify that it refers to a sensible block device.
-	 */
-	if (fspec == NULL)
-		ext2_trace_return(EINVAL);
-	NDINIT(&nd, LOOKUP, FOLLOW, UIO_SYSSPACE, fspec, p);
-	if ((error = namei(&nd)) != 0)
-		ext2_trace_return(error);
-#ifndef APPLE
-    NDFREE(ndp, NDF_ONLY_PNBUF);
-#endif /* APPLE */
-	devvp = ndp->ni_vp;
-#else
-	vnode_ref(devvp);
-#endif // obsolete
+	if (NULL == devvp)
+		return (ENODEV);
 
-#ifdef obsolete
-	/*
-	 * If mount by non-root, then verify that user has necessary
-	 * permissions on the device.
-	 */
-   if (vfs_context_suser(context)) {
-		accessmode = KAUTH_VNODE_READ_DATA;
-		if (vfs_isrdonly(mp))
-			accessmode |= KAUTH_VNODE_WRITE_DATA;
-		vnode_lock(devvp);
-		if ((error = vnode_authorize(devvp, NULL, accessmode, context)) != 0) {
-			vnode_put(devvp);
-			ext2_trace_return(error);
-		}
-		vnode_unlock(devvp);
-	}
-   
-   /* This is used by ext2_mountfs to set the last mount point in the superblock. */
-   size = 0;
-   (void) copyinstr(path, mp->mnt_stat.f_mntonname, MNAMELEN - 1, &size);
-#endif
-   path = (vfs_statfs(mp))->f_mntonname;
-#ifdef obsolete
-   #ifdef EXT2FS_DEBUG
-   if (size < 2)
-      printf("ext2fs: mount path looks to be invalid\n");
-   #endif
-   bzero(mp->mnt_stat.f_mntonname + size, MNAMELEN - size);
-#endif
+	path = (vfs_statfs(mp))->f_mntonname;
 
-    if (vfs_isupdate(mp)) {
+    if (0 == vfs_isupdate(mp)) {
 		error = ext2_mountfs(devvp, mp, context);
 	} else {
 		if (devvp != ump->um_devvp)
 			error = EINVAL;	/* needs translation */
-		else
-			vnode_rele(devvp);
 	}
 	if (error) {
-		vnode_rele(devvp);
 		ext2_trace_return(error);
 	}
     /* ump is setup by ext2_mountfs */
@@ -857,12 +784,6 @@ ext2_mountfs(devvp, mp, context)
 	 * (except for root, which might share swap device for miniroot).
 	 * Flush out any old buffers remaining from a previous use.
 	 */
-#ifdef obsolete
-	if ((error = vfs_mountedon(devvp)) != 0)
-		ext2_trace_return(error);
-	if (vcount(devvp) > 1 && devvp != rootvp)
-		ext2_trace_return(EBUSY);
-#endif
 	if ((error = buf_invalidateblks(devvp, BUF_WRITE_DATA, 0, 0)) != 0)
 		ext2_trace_return(error);
 #ifdef READONLY
@@ -871,13 +792,6 @@ ext2_mountfs(devvp, mp, context)
 #endif
 
 	ronly = vfs_isrdonly(mp);
-#ifdef obsolete
-	vnode_lock(devvp);
-	error = VNOP_OPEN(devvp, ronly ? FREAD : FREAD|FWRITE, context);
-	vnode_unlock(devvp);
-	if (error)
-		ext2_trace_return(error);
-#endif
    /* Set the block size to 512. Things just seem to royally screw 
       up otherwise.
     */
@@ -1022,9 +936,6 @@ ext2_mountfs(devvp, mp, context)
 out:
 	if (bp)
 		buf_brelse(bp);
-#ifdef obsolete
-	(void)VNOP_CLOSE(devvp, ronly ? FREAD : FREAD|FWRITE, context);
-#endif
 	if (ump) {
 		vfs_setfsprivate(mp, NULL);
 		bsd_free(ump->um_e2fs->s_es, M_EXT2MNT);
@@ -1079,17 +990,16 @@ ext2_unmount(mp, mntflags, context)
       if (fs->s_block_bitmap[i])
          ULCK_BUF(fs->s_block_bitmap[i]);
 
-    vnode_clearmountedon(ump->um_devvp);
 #ifdef obsolete
+    vnode_clearmountedon(ump->um_devvp);
 	error = VNOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE, context);
-#endif
 	vnode_rele(ump->um_devvp);
+#endif
    
     /* Free the lock alloc'd in mountfs */
     lck_mtx_free(fs->s_lock, EXT2_LCK_GRP);
    
 	vfs_setfsprivate(mp, NULL);
-	vfs_clearflags(mp, MNT_LOCAL);
 	bsd_free(fs->s_es, M_EXT2MNT);
 	bsd_free(fs, M_EXT2MNT);
 	bsd_free(ump, M_EXT2MNT);

@@ -191,7 +191,7 @@ main(argc, argv)
     if (dynStoreRef)
         CFRelease(dynStoreRef);
    
-   args.fspec = CAST_USER_ADDR_T(fspec);
+   args.fspec = fspec;
    args.e2_mnt_flags = e2_mntflags;
 #ifdef obsolete
    args.export.ex_root = 0;
