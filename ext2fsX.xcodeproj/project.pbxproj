@@ -269,7 +269,7 @@
 	<key>CFBundleExecutable</key>
 	<string>ext2fs</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Copyright © 2003-2005 Brian Bergstrand</string>
+	<string>Copyright © 2003-2006 Brian Bergstrand</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -293,6 +293,8 @@
 		<key>com.apple.kpi.libkern</key>
 		<string>8.0.0</string>
 		<key>com.apple.kpi.mach</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.unsupported</key>
 		<string>8.0.0</string>
 	</dict>
 	<key>OSBundleProductName</key>
@@ -709,6 +711,7 @@
 		D33B8CFB061F59920019AA16 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		D33C06890418779900A80164 /* newfs_ext2.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = newfs_ext2.c; path = src/newfs_ext2/newfs_ext2.c; sourceTree = "<group>"; };
 		D33D91670405A28700A80164 /* mntopts.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = mntopts.h; path = src/depend/disklib/mntopts.h; sourceTree = SOURCE_ROOT; };
+		D34D0C5C097CD18900B11D3A /* ext2_lockf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ext2_lockf.c; sourceTree = "<group>"; };
 		D3556143058517B7008148F9 /* fr */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		D3560A840597A33700890EA3 /* de */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		D3660BFA0643ED20009810C9 /* ExtFSDiskManager.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ExtFSDiskManager.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1126,6 +1129,7 @@
 		D3C06DAB040A137600A80164 /* kern */ = {
 			isa = PBXGroup;
 			children = (
+				D34D0C5C097CD18900B11D3A /* ext2_lockf.c */,
 				D3B4645604099F8700A80164 /* ext2_apple.c */,
 				D3C06DAD040A137600A80164 /* ext2_io_apple.c */,
 				D3F6BB0F0574F80A00A80164 /* linux_namei_compat.c */,
@@ -3361,10 +3365,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				DYLIB_COMPATIBILITY_VERSION = 2;
+				DYLIB_COMPATIBILITY_VERSION = 3;
 				DYLIB_CURRENT_VERSION = 3;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = B;
+				FRAMEWORK_VERSION = C;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -3410,10 +3414,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				DYLIB_COMPATIBILITY_VERSION = 2;
+				DYLIB_COMPATIBILITY_VERSION = 3;
 				DYLIB_CURRENT_VERSION = 3;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = B;
+				FRAMEWORK_VERSION = C;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -3451,10 +3455,10 @@
 		D3DE35480890B0B6003B7227 /* JagDevelopment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 2;
+				DYLIB_COMPATIBILITY_VERSION = 3;
 				DYLIB_CURRENT_VERSION = 3;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = B;
+				FRAMEWORK_VERSION = C;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_PREFIX_HEADER = src/extfsmgr/coremgr/ExtFSDiskManager.h;
@@ -3493,10 +3497,10 @@
 		D3DE35490890B0B6003B7227 /* JagDeployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 2;
+				DYLIB_COMPATIBILITY_VERSION = 3;
 				DYLIB_CURRENT_VERSION = 3;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = B;
+				FRAMEWORK_VERSION = C;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -3529,10 +3533,10 @@
 		D3DE354A0890B0B6003B7227 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 2;
+				DYLIB_COMPATIBILITY_VERSION = 3;
 				DYLIB_CURRENT_VERSION = 3;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = B;
+				FRAMEWORK_VERSION = C;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_PREFIX_HEADER = src/extfsmgr/coremgr/ExtFSDiskManager.h;
