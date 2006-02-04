@@ -98,6 +98,9 @@ enum {
 #define EXT_DISK_ARB_MOUNT_FAILURE (1<<31)
 #define EXT_MOUNT_ERROR_DELAY 4.0
 
+static NSDictionary *opticalMediaTypes = nil;
+static NSDictionary *opticalMediaNames = nil;
+
 @implementation ExtFSMediaController : NSObject
 
 /* Private */
@@ -457,6 +460,16 @@ enum {
    return (ke);
 }
 
+- (ExtFSOpticalMediaType)opticalMediaTypeForName:(NSString*)name
+{
+    return ([[opticalMediaTypes objectForKey:name] intValue]);
+}
+
+- (NSString*)opticalMediaNameForType:(ExtFSOpticalMediaType)type
+{
+    return ([opticalMediaNames objectForKey:[NSNumber numberWithInt:type]]);
+}
+
 /* Super */
 
 - (id)init
@@ -489,7 +502,33 @@ enum {
    }
    
    e_instance = self;
-   
+    
+    opticalMediaTypes = [[NSDictionary alloc] initWithObjectsAndKeys:
+        [NSNumber numberWithInt:efsOpticalTypeCD], NSSTR(kIOCDMediaTypeROM),
+        [NSNumber numberWithInt:efsOpticalTypeCDR], NSSTR(kIOCDMediaTypeR),
+        [NSNumber numberWithInt:efsOpticalTypeCDRW], NSSTR(kIOCDMediaTypeRW),
+        [NSNumber numberWithInt:efsOpticalTypeDVD], NSSTR(kIODVDMediaTypeROM),
+        [NSNumber numberWithInt:efsOpticalTypeDVDDashR], NSSTR(kIODVDMediaTypeR),
+        [NSNumber numberWithInt:efsOpticalTypeDVDDashRW], NSSTR(kIODVDMediaTypeRW),
+        [NSNumber numberWithInt:efsOpticalTypeDVDPlusR], NSSTR(kIODVDMediaTypePlusR),
+        [NSNumber numberWithInt:efsOpticalTypeDVDPlusRW], NSSTR(kIODVDMediaTypePlusRW),
+        [NSNumber numberWithInt:efsOpticalTypeDVDRAM], NSSTR(kIODVDMediaTypeRAM),
+        nil];
+        
+    NSBundle *me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
+    opticalMediaNames = [[NSDictionary alloc] initWithObjectsAndKeys:
+        NSSTR(kIOCDMediaTypeROM), [NSNumber numberWithInt:efsOpticalTypeCD],
+        NSSTR(kIOCDMediaTypeR), [NSNumber numberWithInt:efsOpticalTypeCDR],
+        NSSTR(kIOCDMediaTypeRW), [NSNumber numberWithInt:efsOpticalTypeCDRW],
+        NSSTR(kIODVDMediaTypeROM), [NSNumber numberWithInt:efsOpticalTypeDVD],
+        NSSTR(kIODVDMediaTypeR), [NSNumber numberWithInt:efsOpticalTypeDVDDashR],
+        NSSTR(kIODVDMediaTypeRW), [NSNumber numberWithInt:efsOpticalTypeDVDDashRW],
+        NSSTR(kIODVDMediaTypePlusR), [NSNumber numberWithInt:efsOpticalTypeDVDPlusR],
+        NSSTR(kIODVDMediaTypePlusRW), [NSNumber numberWithInt:efsOpticalTypeDVDPlusRW],
+        NSSTR(kIODVDMediaTypeRAM), [NSNumber numberWithInt:efsOpticalTypeDVDRAM],
+        [me localizedStringForKey:@"Unknown Optical Disc" value:nil table:nil], [NSNumber numberWithInt:efsOpticalTypeUnknown],
+        nil];
+    
    e_pending = [[NSMutableArray alloc] initWithCapacity:kPendingCount];
    for (i=0; i < kPendingCount; ++i) {
         obj = [[NSMutableArray alloc] init];

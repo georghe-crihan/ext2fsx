@@ -133,6 +133,9 @@ ExtFSMediaNotificationOpFailure notification will be sent.
 */
 - (int)unmount:(ExtFSMedia*)media force:(BOOL)force eject:(BOOL)eject;
 
+- (ExtFSOpticalMediaType)opticalMediaTypeForName:(NSString*)name;
+- (NSString*)opticalMediaNameForType:(ExtFSOpticalMediaType)type;
+
 @end
 
 /*!
