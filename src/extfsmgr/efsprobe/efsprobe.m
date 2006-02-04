@@ -119,25 +119,25 @@ static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
         }
     } else {
         hpsuper = (HFSPlusVolumeHeader*)(buf+HFS_SUPER_OFF);
-        if (kHFSPlusSigWord == hpsuper->signature) {
+        if (kHFSPlusSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFSPlus;
-            if (hpsuper->attributes & kHFSVolumeJournaledBit)
+            if (be32_to_cpu(hpsuper->attributes) & kHFSVolumeJournaledBit)
                 type = fsTypeHFSJ;
         }
-        else if (kHFSXSigWord == hpsuper->signature)
+        else if (kHFSXSigWord == be16_to_cpu(hpsuper->signature))
             type = fsTypeHFSX;
-        else if (kHFSSigWord == hpsuper->signature) {
+        else if (kHFSSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFS;
             hsuper = (HFSMasterDirectoryBlock*)(buf+HFS_SUPER_OFF);
-            if (kHFSPlusSigWord == hsuper->drEmbedSigWord)
+            if (kHFSPlusSigWord == be16_to_cpu(hsuper->drEmbedSigWord))
                 type = fsTypeHFSPlus;
         } else {
             usuper = (struct fs*)(buf+SBOFF);
-            if (FS_MAGIC == usuper->fs_magic) {
+            if (FS_MAGIC == be32_to_cpu(usuper->fs_magic)) {
                 struct ufslabel *ulabel = (struct ufslabel*)(buf+UFS_LABEL_OFFSET);
                 const u_char lmagic[] = UFS_LABEL_MAGIC;
                 type = fsTypeUFS;
-                if (uuidStr && *((u_int32_t*)&lmagic[0]) == ulabel->ul_magic)
+                if (uuidStr && *((u_int32_t*)&lmagic[0]) == be32_to_cpu(ulabel->ul_magic))
                     *uuidStr = [[NSString alloc] initWithFormat:@"%qX", ulabel->ul_uuid];
             }
         }
