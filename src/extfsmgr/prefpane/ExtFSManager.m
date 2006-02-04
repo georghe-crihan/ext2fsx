@@ -356,6 +356,7 @@ data = [data stringByAppendingString:@"\n"]; \
    NSString *data;
    NSMutableAttributedString *line;
    NSNumberFormatter *floatFmt, *intFmt;
+   ExtFSMediaController *mc = [ExtFSMediaController mediaController];
    double size;
    short i;
    BOOL mounted;
@@ -387,7 +388,7 @@ data = [data stringByAppendingString:@"\n"]; \
    
    if ([media isWholeDisk] && efsIOTransportTypeATA == [media transportBus]) {
       NSDictionary *smartInfo =
-         [[ExtFSMediaController mediaController] SMARTStatusDescription:[media SMARTStatus]];
+         [mc SMARTStatusDescription:[media SMARTStatus]];
       ExtInfoInsert(ExtLocalizedString(@"S.M.A.R.T. Status", ""),
          [smartInfo objectForKey:ExtFSMediaKeySMARTStatusDescription]);
    }
@@ -395,8 +396,8 @@ data = [data stringByAppendingString:@"\n"]; \
    ExtInfoInsert(ExtLocalizedString(@"Ejectable", ""),
       ([media isEjectable] ? e_yes : e_no));
    
-   ExtInfoInsert(ExtLocalizedString(@"DVD/CD-ROM", ""),
-      ([media isDVDROM] || [media isCDROM] ? e_yes : e_no));
+   ExtInfoInsert(ExtLocalizedString(@"DVD/CD", ""),
+      ([media isOptical] ? [e_yes stringByAppendingFormat:@" (%@)", [mc opticalMediaNameForType:[media opticalMediaType]]] : e_no));
    
    data = ExtLocalizedString(@"Not Mounted", "");
    ExtInfoInsert(ExtLocalizedString(@"Mount Point", ""),
@@ -512,7 +513,7 @@ data = [data stringByAppendingString:@"\n"]; \
    NSNumber *boolVal;
    BOOL mediaRO;
    
-   mediaRO = [media isDVDROM] || [media isCDROM];
+   mediaRO = [media isOptical];
    
    dict = [e_prefMedia objectForKey:[media uuidString]];
    
@@ -770,7 +771,7 @@ info_alt_switch:
    [e_startupProgress display];
    [e_tabs selectTabViewItemWithIdentifier:@"Startup"];
    title = [ExtLocalizedString(@"Please wait, gathering disk information",
-      "Startup Message") stringByAppendingString:@"É"];
+      "Startup Message") stringByAppendingFormat:@"%C", 0x2026 /*unicode elipses*/];
    [e_startupText setStringValue:title];
    [e_startupText display];
    
