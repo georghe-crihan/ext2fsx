@@ -155,8 +155,8 @@ enum {
     transType = efsIOTransportTypeUnknown | efsIOTransportTypeInternal;
     if (nil != parent) {
         transType = [parent transportType] | [parent transportBus];
-        dvd = [parent isDVDROM];
-        cd = [parent isCDROM];
+        dvd = IsOpticalDVDMedia([parent opticalMediaType]);
+        cd = IsOpticalCDMedia([parent opticalMediaType]);
     } else {
         io_name_t parentClass;
         ioparent = nil;
@@ -206,6 +206,7 @@ enum {
          kIORegistryIterateParents | kIORegistryIterateRecursively);
    
    ewlock(e_lock);
+   
    e_ioTransport = transType;
    if (regName && nil == e_ioregName)
       e_ioregName = [regName retain];
@@ -215,10 +216,24 @@ enum {
       [e_iconDesc release];
       e_iconDesc = [(NSDictionary*)iconDesc retain];
    }
-   if (dvd)
+   
+   NSString * opticalType;
+   if (dvd) {
       e_attributeFlags |= kfsDVDROM;
-   if (cd)
+      opticalType = [e_media objectForKey:NSSTR(kIODVDMediaTypeKey)];
+   } else if (cd) {
       e_attributeFlags |= kfsCDROM;
+      opticalType = [e_media objectForKey:NSSTR(kIOCDMediaTypeKey)];
+   } else
+      opticalType = nil;
+
+    if (opticalType)
+        e_opticalType = [mc opticalMediaTypeForName:opticalType];
+    else if (parent)
+        e_opticalType = [parent opticalMediaType];
+    else
+        e_opticalType = efsOpticalTypeUnknown;
+
    eulock(e_lock);
 }
 

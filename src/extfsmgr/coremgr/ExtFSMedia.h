@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -85,6 +85,47 @@ typedef enum {
     efsIOTransportTypeUnknown  = (1<<31)
 }ExtFSIOTransportType;
 
+/*!
+@enum ExtFSOpticalMediaType
+@abstract Optical Media Type ids's to identify read-only, write-once, re-writable media sepcifics.
+@constant efsOpticalTypeCD Read only CD.
+@constant efsOpticalTypeCDR CD-R
+@constant efsOpticalTypeCDRW CD-RW
+@constant efsOpticalTypeDVD Read only DVD.
+@constant efsOpticalTypeDVDDashR DVD-R
+@constant efsOpticalTypeDVDDashRW DVD-RW
+@constant efsOpticalTypeDVDPlusR DVD+R
+@constant efsOpticalTypeDVDPlusRW DVD+RW
+@constant efsOpticalTypeDVDRAM DVD-RAM
+@constant efsOpticalTypeUnknown Unknown optical disc.
+*/
+typedef enum {
+    efsOpticalTypeCD        = 0,
+    efsOpticalTypeCDR       = 1,
+    efsOpticalTypeCDRW      = 2,
+    efsOpticalTypeDVD       = 3,
+    efsOpticalTypeDVDDashR  = 4,
+    efsOpticalTypeDVDDashRW = 5,
+    efsOpticalTypeDVDPlusR  = 6,
+    efsOpticalTypeDVDPlusRW = 7,
+    efsOpticalTypeDVDRAM    = 8,
+    
+    efsOpticalTypeUnknown   = 32767
+    
+}ExtFSOpticalMediaType;
+
+static __inline__ BOOL
+IsOpticalCDMedia(ExtFSOpticalMediaType type)
+{
+    return (type >= efsOpticalTypeCD && type <= efsOpticalTypeCDRW);
+}
+
+static __inline__ BOOL
+IsOpticalDVDMedia(ExtFSOpticalMediaType type)
+{
+    return (type >= efsOpticalTypeDVD && type <= efsOpticalTypeDVDRAM);
+}
+
 // Forward declaration for an ExtFSMedia private type.
 struct superblock;
 
@@ -110,6 +151,7 @@ a filesystem or device for its properties.
    ExtFSType e_fsType;
    ExtFSIOTransportType e_ioTransport;
    NSImage *e_icon;
+   ExtFSOpticalMediaType e_opticalType;
    unsigned char e_reserved[32];
 }
 
@@ -232,17 +274,18 @@ as a whole (ie the total disk, not a partition of the disk).
 */
 - (BOOL)isLeafDisk;
 /*!
-@method isDVDROM
-@abstract Determine if the media is a DVD.
-@result YES if the media is a DVD, otherwise NO.
+@method isOptical
+@abstract Determine if the media is any type of optical disc.
+@result YES if the media is an optical disc, otherwise NO.
 */
-- (BOOL)isDVDROM;
+- (BOOL)isOptical;
 /*!
-@method isCDROM
-@abstract Determine if the media is a CD.
-@result YES if the media is a CD, otherwise NO.
+@method opticalMediaType
+@abstract Determine specific optical media type.
+@discussion If the media is not an optical disc, efsOpticalTypeUnknown is always returned.
+@result Type of media.
 */
-- (BOOL)isCDROM;
+- (ExtFSOpticalMediaType)opticalMediaType;
 /*!
 @method usesDiskArb
 @abstract Determine if the media is managed by the Disk Arbitration
@@ -419,7 +462,7 @@ Always NO if the media is not mounted or the filesystem is not Ext2/3.
 */
 - (ExtFSIOTransportType)transportType;
 /*!
-@method transportType
+@method transportBus
 @abstract Determine the type of bus the device is connected to.
 @result An ExtFSConnectionType id.
 */

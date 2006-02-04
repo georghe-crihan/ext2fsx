@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -45,6 +45,13 @@ static const char whatid[] __attribute__ ((unused)) =
 
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/IOBSD.h>
+
+#ifdef __ppc__
+#define E2_BAD_ADDR 0xdeadbeef
+#elif defined(__i386__)
+#define E2_BAD_ADDR 0xbaadf00d
+#endif
+
 
 NSString * const ExtFSMediaNotificationUpdatedInfo = @"ExtFSMediaNotificationUpdatedInfo";
 NSString * const ExtFSMediaNotificationChildChange = @"ExtFSMediaNotificationChildChange";
@@ -182,9 +189,9 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
          e_volName = [[NSString alloc] initWithUTF8String:vinfo.vinfo.v_name];
       if (alist.volattr & ATTR_VOL_CAPABILITIES)
          e_volCaps = vinfo.vinfo.v_caps.capabilities[0];
-      if (fsTypeHFS == e_fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
+      if (fsTypeHFS == e_fsType && kHFSPlusSigWord == be32_to_cpu(vinfo.vinfo.v_signature))
             e_fsType = fsTypeHFSPlus;
-      else if (fsTypeHFS == e_fsType && kHFSXSigWord == vinfo.vinfo.v_signature)
+      else if (fsTypeHFS == e_fsType && kHFSXSigWord == be32_to_cpu(vinfo.vinfo.v_signature))
          e_fsType = fsTypeHFSX;
       eulock(e_lock);
       goto eminfo_exit;
@@ -274,7 +281,7 @@ eminfo_exit:
    if ((self = [super init])) {
       if (nil == e_mediaIconCacheLck) {
          // Just to make sure someone else doesn't get in during creation...
-         e_mediaIconCacheLck = (void*)0xDEADBEEF;
+         e_mediaIconCacheLck = (void*)E2_BAD_ADDR;
          if (0 != eilock(&e_mediaIconCacheLck)) {// This is never released
              NSLog(@"ExtFS: Failed to allocate media icon cache lock!\n");
             e_mediaIconCacheLck = nil;
@@ -292,6 +299,7 @@ init_err:
       e_size = [[e_media objectForKey:NSSTR(kIOMediaSizeKey)] unsignedLongLongValue];
       e_devBlockSize = [[e_media objectForKey:NSSTR(kIOMediaPreferredBlockSizeKey)] unsignedLongValue];
       e_fsType = fsTypeUnknown;
+      e_opticalType = efsOpticalTypeUnknown;
       
       e_attributeFlags = kfsDiskArb | kfsGetAttrlist;
       if ([[e_media objectForKey:NSSTR(kIOMediaEjectableKey)] boolValue])
@@ -619,22 +627,18 @@ emicon_exit:
    return (test);
 }
 
-- (BOOL)isDVDROM
+- (BOOL)isOptical
 {
    BOOL test;
    erlock(e_lock);
-   test = (0 != (e_attributeFlags & kfsDVDROM));
+   test = (0 != (e_attributeFlags & kfsDVDROM)) || (0 != (e_attributeFlags & kfsCDROM));
    eulock(e_lock);
    return (test);
 }
 
-- (BOOL)isCDROM
+- (ExtFSOpticalMediaType)opticalMediaType
 {
-   BOOL test;
-   erlock(e_lock);
-   test = (0 != (e_attributeFlags & kfsCDROM));
-   eulock(e_lock);
-   return (test);
+    return (e_opticalType);
 }
 
 - (BOOL)usesDiskArb
