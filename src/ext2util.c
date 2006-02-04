@@ -169,8 +169,8 @@ int ret = 0;
 char	diskLabel[EXT2_VOL_LABEL_LENGTH + 1];
 
 #define EXT_SUPER_UUID
-#include <util/spawn.c>
-#include <util/super.c>
+#include "util/spawn.c"
+#include "util/super.c"
 
 void usage()
 {

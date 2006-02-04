@@ -349,6 +349,8 @@ int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
 #define mtx_unlock(mp) lck_mtx_unlock((mp))
 #endif
 
+#ifndef __i386__
+// i386-bitops.h contains a memscan implementation
 static __inline void * memscan(void * addr, int c, size_t size)
 {
 	unsigned char * p = (unsigned char *) addr;
@@ -361,6 +363,7 @@ static __inline void * memscan(void * addr, int c, size_t size)
 	}
   	return (void *) p;
 }
+#endif // _SYS_GNU_EXT2FS_I386_BITOPS_H_
 
 /* Cribbed from FBSD sys/dirent.h */
 /*

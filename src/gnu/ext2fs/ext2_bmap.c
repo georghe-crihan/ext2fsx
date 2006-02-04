@@ -50,11 +50,11 @@ static const char whatid[] __attribute__ ((unused)) =
 //#include <sys/trace.h>
 #include "ext2_apple.h"
 
+#include <gnu/ext2fs/ext2_fs.h> /* For linux type defines. */
+#include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/ext2_extern.h>
-#include <gnu/ext2fs/fs.h>
-#include <gnu/ext2fs/ext2_fs.h> /* For linux type defines. */
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <ext2_byteorder.h>
 

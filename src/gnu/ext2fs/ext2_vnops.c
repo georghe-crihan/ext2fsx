@@ -90,12 +90,12 @@ static const char vwhatid[] __attribute__ ((unused)) =
 //#include <xnu/bsd/miscfs/fifofs/fifo.h>
 #include "ext2_apple.h"
 
+#include <gnu/ext2fs/ext2_fs.h>
 #include <gnu/ext2fs/inode.h>
 #include <gnu/ext2fs/ext2_mount.h>
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
-#include <gnu/ext2fs/ext2_fs.h>
 
 #define vnop_kqfilter_args vnop_kqfilt_add_args
 // Unsupported KPI
