@@ -1,5 +1,5 @@
 /*
- * Copyright 2003 Brian Bergstrand.
+ * Copyright 2003,2006 Brian Bergstrand.
  *
  * Redistribution and use in source and binary forms, with or without modification, 
  * are permitted provided that the following conditions are met:
@@ -85,3 +85,11 @@ static __inline__ u_int32_t le32_to_cpup (u_int32_t *val)
 #define cpu_to_le16p(x) le16_to_cpup((x))
 
 #define cpu_to_le32p(x) le32_to_cpup((x))
+
+#define be16_to_cpu(x) (u_int16_t)(x)
+
+#define be32_to_cpu(x) (u_int32_t)(x)
+
+#define cpu_to_be16(x) (u_int16_t)(x)
+
+#define cpu_to_be32(x) (u_int32_t)(x)
