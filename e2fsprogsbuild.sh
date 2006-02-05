@@ -5,7 +5,7 @@
 #
 # Created for the ext2fsx project: http://sourceforge.net/projects/ext2fsx/
 #
-# Copyright 2003-2004,2006 Brian Bergstrand.
+# Copyright 2003,2004,2006 Brian Bergstrand.
 #
 # Redistribution and use in source and binary forms, with or without modification, 
 # are permitted provided that the following conditions are met:
@@ -40,6 +40,16 @@ if [ ! -d "${EXT2BUILD}/src/e2fsprogs" ]; then
 	exit 1
 fi
 
+HOSTARCH=`uname -p`
+if [ ${HOSTARCH} == "powerpc" ]; then
+HOSTARCH="ppc"
+fi
+
+if [ ${HOSTARCH} != "ppc" ] && [ ${HOSTARCH} != "i386" ]; then
+echo "Unknown host arch: ${HOSTARCH}"
+exit 1
+fi
+
 cd "${EXT2BUILD}/src/e2fsprogs"
 
 E2VER=`sed -n -e "s/^.*E2FSPROGS_VERSION[^0-9]*\([0-9]*\.[0-9]*\).*$/\1/p" ./version.h`
@@ -47,26 +57,19 @@ E2VER=`sed -n -e "s/^.*E2FSPROGS_VERSION[^0-9]*\([0-9]*\.[0-9]*\).*$/\1/p" ./ver
 if [ -f ./.e2configdone ]; then
 	#make sure the version is the same
 	CONFVER=`cat ./.e2configdone`
-	if [ "$E2VER" != "$CONFVER" ]; then
+	if [ "${E2VER}" != "${CONFVER}" ]; then
 		rm ./.e2configdone
 		make clean
 	fi
 fi
 
-if [ ! -f ./.e2configdone ]; then
-# --with-included-gettext   -- this would be nice, but the po/ build fails
-	CC=/usr/bin/gcc-3.3 ./configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
---without-libintl-prefix --with-libiconv-prefix=/usr --disable-fsck --enable-bsd-shlibs \
---with-ccopts="-DAPPLE_DARWIN=1 -DHAVE_EXT2_IOCTLS=1 -DSYS_fsctl=242 -pipe"
-	if [ $? -ne 0 ]; then
-		echo "configure failed!"
-		exit $?
-	fi
-	echo "$E2VER" > ./.e2configdone
+if [ ! -d build-ppc ]; then
+mkdir build-ppc
 fi
 
-# Certain files in intl are 444, and this can cause cp to fail
-chmod -R u+w ./intl
+if [ ! -d build-i386 ]; then
+mkdir build-i386
+fi
 
 #set no prebind
 #since the exec's are linked against the shared libs using a relative path,
@@ -74,6 +77,78 @@ chmod -R u+w ./intl
 #even try pre-binding.
 export LD_FORCE_NO_PREBIND=1
 
-make
+# As of 1.38, building with GCC4 produces a bunch of pointer sign warnings, so disable them
+ECFLAGS="-DAPPLE_DARWIN=1 -DHAVE_EXT2_IOCTLS=1 -DSYS_fsctl=242 -pipe -Wno-pointer-sign"
+buildarch()
+{
+	cd build-${1}
+	
+	if [ ! -f ../.e2configdone ]; then
+		hostarg=""
+		if [ ${HOSTARCH} != ${1} ]; then
+			hostarg="--host=${1}-apple-darwin`uname -r`"
+		fi
+		# --with-included-gettext   -- this would be nice, but the po/ build fails
+		export CFLAGS="-arch ${1} -isysroot /Developer/SDKs/MacOSX10.4u.sdk"
+		../configure --prefix=/usr/local --mandir=/usr/local/share/man --disable-nls \
+	--without-libintl-prefix --with-libiconv-prefix=/usr --disable-fsck --enable-bsd-shlibs \
+	--with-ccopts="${ECFLAGS} ${CFLAGS}" ${hostarg}
+		if [ $? -ne 0 ]; then
+			echo "${1} configure failed!"
+			exit $?
+		fi
+	fi
+	
+	makeargs=""
+	if [ ${HOSTARCH} != ${1} ]; then
+		# subst will get built with the target arch, however it needs to run on the host
+		mv ./util/Makefile ./util/Makefile.ignore
+		ln ../build-${HOSTARCH}/util/subst ./util/subst
+		# This is fucked up, if we specify --with-ldflags to configure, config fails because
+		# ld fails because CFLAGS and LDFLAGS contain the same args. However, during the linking
+		# of some execs (mostly static) LDFLAGS is used w/o CFLAGS. So we run config w/o --with-ldargs,
+		# and override LDARGS in the environment.
+		export ALL_LDFLAGS="-arch ${1} -isysroot /Developer/SDKs/MacOSX10.4u.sdk"
+		makeargs="-e"
+	fi
+	
+	unset CFLAGS
+	if [ -z ${makeargs} ]; then
+		make
+	else
+		make "${makeargs}"
+	fi
+	
+	unset ALL_LDFLAGS
+	if [ ${HOSTARCH} != ${1} ]; then
+		mv ./util/Makefile.ignore ./util/Makefile
+	fi
+	
+	cd ..
+}
+
+buildarch ${HOSTARCH}
+
+if [ ${HOSTARCH} == "ppc" ]; then
+	buildarch i386
+else
+	buildarch ppc
+fi
+
+echo "${E2VER}" > ./.e2configdone
+
+# create universal binaries
+cp -R build-ppc build-uni
+
+cd build-uni
+for i in `find . -type f -perm -0555 -print0 | xargs -0 file | grep Mach-O | awk -F: '{print $1}'`
+do
+	output=`dirname "${i}"`/`basename "${i}"`.uni
+	lipo -create "${i}" ../build-i386/"${i}" -output "${output}"
+	if [ -f "${output}" ]; then
+		rm "${i}"
+		mv "${output}" "${i}"
+	fi
+done
 
 exit 0
