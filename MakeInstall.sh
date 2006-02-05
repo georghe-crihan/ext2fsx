@@ -5,7 +5,7 @@
 #
 # Created for the ext2fsx project: http://sourceforge.net/projects/ext2fsx/
 #
-# Copyright 2003-2004 Brian Bergstrand.
+# Copyright 2003-2004,2006 Brian Bergstrand.
 #
 # Redistribution and use in source and binary forms, with or without modification, 
 # are permitted provided that the following conditions are met:
@@ -73,8 +73,8 @@ BUILDLOG=`basename ${0}`
 BUILDLOG=/tmp/Ext2${BUILDLOG}.log
 touch ${BUILDLOG}
 
-mkdir -p "${INSTALL}/System/Library/Extensions"
-mkdir -p "${INSTALL}/System/Library/Filesystems"
+mkdir -p "${INSTALL}/Library/Extensions"
+mkdir -p "${INSTALL}/Library/Filesystems"
 mkdir -p "${INSTALL}/Library/PreferencePanes"
 mkdir -p "${INSTALL}/Library/Frameworks"
 mkdir "${INSTALL}/sbin"
@@ -84,7 +84,12 @@ mkdir -p "${INSTALL}/usr/local/share/doc"
 mkdir -p "${INSTALL}/usr/local/man"
 
 #install e2fsprogs
-cd "${EXT2BUILD}/src/e2fsprogs"
+if [ ! -d "${EXT2BUILD}/src/e2fsprogs/build-uni" ]; then
+	echo "e2fsprogs Universal build dir does not exist"
+	exit 1
+fi
+
+cd "${EXT2BUILD}/src/e2fsprogs/build-uni"
 echo "Installing e2fsprogs..."
 DESTDIR="${INSTALL}" make install >> ${BUILDLOG} 2>&1
 
@@ -123,8 +128,8 @@ cd "${EXT2BUILD}"
 
 cp -pR "${BUILD}/ExtFSManager.prefPane" "${INSTALL}/Library/PreferencePanes/"
 
-cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/System/Library/Extensions"
-cp -pR "${BUILD}/ext2.fs" "${INSTALL}/System/Library/Filesystems"
+cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/Library/Extensions"
+cp -pR "${BUILD}/ext2.fs" "${INSTALL}/Library/Filesystems"
 
 #mount
 cp -p "${BUILD}/mount_ext2" "${INSTALL}/sbin"
@@ -150,46 +155,6 @@ JAGK="${BUILD}/ext2fs_jag.kext"
 KMOD="Contents/MacOS/ext2fs"
 # XXX -- hack to determine if we are building a debug version
 DBG=`nm -m "${BUILD}/ext2fs.kext/${KMOD}" | grep logwakeup`
-# build the jag version of the kext if needed
-if [ ! -d "${JAGK}" ] || [ ! `find "${JAGK}/${KMOD}" -newer "${BUILD}/ext2fs.kext/${KMOD}"` ]; then
-mv "${BUILD}/ext2fs.kext" "${PANK}"
-BUILDER=pbxbuild
-if [ -d "${EXT2BUILD}/ext2fsX.xcode" ]; then
-	BUILDER=xcodebuild
-	cd "${EXT2BUILD}/ext2fsX.xcode"
-else
-	cd "${EXT2BUILD}/ext2fsX.pbproj"
-fi
-BUILDSTYLE="JagDeployment"
-if [ "${DBG}" != "" ]; then
-	BUILDSTYLE="JagDevelopment"
-fi
-echo "Building Jaguar Kext..."
-${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean >> ${BUILDLOG} 2>&1
-${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} build >> ${BUILDLOG} 2>&1
-if [ ! -d "${BUILD}/ext2fs.kext" ]; then
-	mv "${PANK}" "${BUILD}/ext2fs.kext"
-	echo "Jag Kext build failed! Stopping. See ${BUILDLOG}."
-	exit 1
-fi
-# Set the correct kernel dependency version
-sed -f "${EXT2BUILD}/inst/infover.sed" "${PANK}/Contents/Info.plist" \
-> "${BUILD}/ext2fs.kext/Contents/Info.plist"
-#save jag kext
-if [ -d "${JAGK}" ]; then
-	rm -rf "${JAGK}"
-fi
-mv "${BUILD}/ext2fs.kext" "${JAGK}"
-#build clean, so rebuilding from XCode/PB won't pick up stale object files.
-${BUILDER} -target ext2_kext -buildstyle ${BUILDSTYLE} clean > /dev/null 2>&1
-mv "${PANK}" "${BUILD}/ext2fs.kext"
-# Get back to the root
-cd "${EXT2BUILD}"
-else
-echo "Using existing Jaguar Kext"
-fi # -newer test
-#copy to install
-cp -pR "${JAGK}" "${INSTALL}/System/Library/Extensions/ext2fs_jag.kext"
 
 echo "Removing unwanted files..."
 #get rid of unwanted files
@@ -207,12 +172,12 @@ if [ "${DBG}" == "" ]; then
 	if [ -f "${SYMS}" ]; then
 		rm "${SYMS}"
 	fi
-	tar -cf "${SYMS}" ./System/Library/Extensions
+	tar -cf "${SYMS}" ./Library/Extensions
 	tar -rf "${SYMS}" ./Library/Frameworks/ExtFSDiskManager.framework \
 ./Library/PreferencePanes/ExtFSManager.prefPane/Contents/Resources/efssmartd.app
 	
 	echo "Stripping driver symbols..."
-	cd "./System/Library/Extensions"
+	cd "./Library/Extensions"
 	for i in `ls -Fd *.kext`
 	do
 		strip -S "${i}${KMOD}"
