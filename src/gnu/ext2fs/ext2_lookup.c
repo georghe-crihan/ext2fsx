@@ -792,7 +792,7 @@ found:
 		else
 			dp->i_count = dp->i_offset - prevoff;
 		if (dp->i_number == dp->i_ino) {
-			vnode_addfsref(vdp);
+			vnode_get(vdp);
 			*vpp = vdp;
 			IULOCK(dp);
             return (0);
@@ -909,7 +909,7 @@ found:
 #endif
 		*vpp = tdp;
 	} else if (dp->i_number == dp->i_ino) {
-		vnode_addfsref(vdp);	/* we want ourself, ie "." */
+		vnode_get(vdp);	/* we want ourself, ie "." */
 		*vpp = vdp;
 	} else {
       vallocargs.va_ino = dp->i_ino;
