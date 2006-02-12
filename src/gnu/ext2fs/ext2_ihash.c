@@ -133,12 +133,12 @@ loop:
 			
 			error = 0;
 			IXLOCK(ip);
-			while (ip->i_flags & IN_INIT) {
-				ip->i_flags |= IN_INITWAIT;
-				error = ISLEEP(ip, flags, NULL);
+			while (ip->i_flag & IN_INIT) {
+				ip->i_flag |= IN_INITWAIT;
+				error = ISLEEP(ip, flag, NULL);
 			}
 			// If we are no longer on the hash chain, init failed
-			if (!error && 0 == (ip->i_flags & IN_HASHED))
+			if (!error && 0 == (ip->i_flag & IN_HASHED))
 				error = EIO;
 				
 			vp = ITOV(ip);
