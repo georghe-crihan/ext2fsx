@@ -552,10 +552,11 @@ ext2_inactive(ap)
 	proc_t p = vfs_context_proc(ap->a_context);
 	int mode, error = 0;
 
-	IXLOCK(ip);
-	ext2_discard_prealloc(ip);
 	if (prtactive && vnode_isinuse(vp, 1) != 0)
 		vprint("ext2_inactive: pushing active", vp);
+
+	IXLOCK(ip);
+	ext2_discard_prealloc(ip);
 
 	/*
 	 * Ignore inodes related to stale file handles.
@@ -576,23 +577,18 @@ ext2_inactive(ap)
 		IXLOCK(ip);
 	}
 	if (ip->i_flag & (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) {
-		if (0 == (ip->i_flag & (IN_CHANGE | IN_UPDATE | IN_MODIFIED))) {
-			IULOCK(ip);
-			error = vn_write_suspend_wait(vp, NULL, V_NOWAIT);
+		int set = (ip->i_flag & (IN_CHANGE | IN_UPDATE | IN_MODIFIED)); 
+		IULOCK(ip);
+		if (0 == set && vn_write_suspend_wait(vp, NULL, V_NOWAIT)) {
 			IXLOCK(ip);
-			if (error)
-				ip->i_flag &= ~IN_ACCESS;
+			ip->i_flag &= ~IN_ACCESS;
 		} else {
-			IULOCK(ip);
 			(void) vn_write_suspend_wait(vp, NULL, V_WAIT);
 			ext2_update(vp, 0);
 			IXLOCK(ip);
 		}
 	}
 out:
-#ifdef obsolete
-	vnode_unlock(vp);
-#endif
 	/*
 	 * If we are done with the inode, reclaim it
 	 * so that it can be reused immediately.
@@ -637,7 +633,7 @@ ext2_reclaim(ap)
 		struct timespec ts;
 		ts.tv_sec = 0;
 		ts.tv_nsec = 100000000 /* 10ms == 1 sched quantum */;
-		(void)ISLEEP(ip, flags, &ts);
+		(void)ISLEEP(ip, flag, &ts);
 	}
 	
 	/*
