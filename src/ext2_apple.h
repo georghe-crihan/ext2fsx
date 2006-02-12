@@ -310,14 +310,16 @@ __private_extern__ int vop_stdfsync(struct vnop_fsync_args *);
 /* No delete */
 #define NOUNLINK 0
 
-/* XXX Is this the correct fn to map? */
+// This is a FreeBSD fn used to prevent vfs deadlocks.
+// It waits for the filesystem to exit write suspension mode.
+// I don't believe this is relevant on OS X.
 #ifdef _VNODE_H_
 #define V_WAIT 1 // XXX
 #define V_NOWAIT 0 // XXX
 static __inline__
 int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
 {
-    return (vnode_waitforwrites(vp, 0, 0, 0, "vn_write_suspend_wait"));
+    return (0);
 }
 #endif
 
