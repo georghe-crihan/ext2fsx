@@ -132,6 +132,9 @@ struct inode {
 	ino_t	  i_number;	/* The identity of the inode. */
 	u_int32_t i_refct;
 	ext2_daddr_t i_lastr; /* last read... read-ahead */
+#ifdef DIAGNOSTIC
+    thread_t  i_lockowner;
+#endif
 	
 	/*
 	 * Various accounting
@@ -241,7 +244,7 @@ struct indir {
 #define ITOVFS(ip)  (vnode_mount((ip)->i_vnode))
 #define VN_KNOTE(vp,hint) KNOTE(&(VTOI(vp))->i_knotes, (hint))
 
-/* Notes on locking:
+/* Locking contract:
 	1) If a function takes an inode, the inode is expected locked
 	2) If a function takes a vnode, the inode is expected unlocked
 	3) If locking 2 (or more) indoes, always lock from smallest to largest based on the inode #
@@ -249,13 +252,35 @@ struct indir {
 	5) Exceptions to the above are marked.
 */
 #define EXT2_RW_ILOCK 0
+#ifndef DIAGNOSTIC
 /* Exclusive lock */
 #define IXLOCK(ip) lck_mtx_lock((ip)->i_lock)
 /* Shared lock - In case we actually switch to a r/w lock */
 #define ISLOCK(ip) lck_mtx_lock((ip)->i_lock)
 /* Unlock */
 #define IULOCK(ip) lck_mtx_unlock((ip)->i_lock)
-/* */
+#else
+
+static __inline__
+void IXLOCK(struct inode *ip)
+{
+    assert(ip->i_lockowner != current_thread()); // lock recursion
+    lck_mtx_lock(ip->i_lock);
+    ip->i_lockowner = current_thread();
+}
+
+static __inline__
+void IULOCK(struct inode *ip)
+{
+    assert(ip->i_lockowner == current_thread());
+    ip->i_lockowner = NULL;
+    lck_mtx_unlock(ip->i_lock);
+}
+
+#define ISLOCK(ip) IXLOCK((ip))
+
+#endif // DIAGNOSTIC
+
 static __inline__
 void IXLOCK_WITH_LOCKED_INODE(struct inode *ip, struct inode *lip)
 {
