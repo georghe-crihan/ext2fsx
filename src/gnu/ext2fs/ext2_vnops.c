@@ -647,8 +647,10 @@ ext2_getattr(ap)
  	VATTR_RETURN(vap, va_nlink, ip->i_nlink);
  	VATTR_RETURN(vap, va_uid, ip->i_uid);
  	VATTR_RETURN(vap, va_gid, ip->i_gid);
- 	VATTR_RETURN(vap, va_rdev, (dev_t)ip->i_rdev);
- 	VATTR_RETURN(vap, va_data_size, ip->i_size);
+    if (VBLK == IFTOVT(ip->i_mode) || VCHR == IFTOVT(ip->i_mode))
+        VATTR_RETURN(vap, va_rdev, (dev_t)ip->i_rdev);
+ 	VATTR_RETURN(vap, va_total_size, ip->i_size);
+    VATTR_RETURN(vap, va_data_size, ip->i_size);
  	vap->va_access_time.tv_sec = ip->i_atime;
  	vap->va_access_time.tv_nsec = ip->i_atimensec;
  	VATTR_SET_SUPPORTED(vap, va_access_time);
@@ -666,7 +668,6 @@ ext2_getattr(ap)
  		VATTR_RETURN(vap, va_iosize, MAXPHYSIO);
 	else
  		VATTR_RETURN(vap, va_iosize, vfs_statfs(vnode_mount(vp))->f_iosize);
-	devBlockSize = vfs_devblocksize(vnode_mount(vp));
  	VATTR_RETURN(vap, va_data_alloc, dbtob((u_quad_t)ip->i_blocks, devBlockSize));
  	VATTR_RETURN(vap, va_type, vtype);
  	VATTR_RETURN(vap, va_filerev, ip->i_modrev);
@@ -2391,8 +2392,10 @@ ext2_vinit(mntp, args, vpp)
     vfsargs.vnfs_fsnode = ip;
     vfsargs.vnfs_vops = args->vi_vnops;
     vfsargs.vnfs_markroot = (ROOTINO == ip->i_number);
-    vfsargs.vnfs_marksystem = (ip->i_number < EXT2_FIRST_INO); //le32_to_cpu(EXT2_FIRST_INO(ip->i_e2fs)));
-    vfsargs.vnfs_rdev = ip->i_rdev;
+#if 0
+    // file inodes used for FS meta-data - don't believe this is ever the case in ext2/3
+    vfsargs.vnfs_marksystem = VREG == vfsargs.vnfs_vtype;
+#endif
     vfsargs.vnfs_filesize = ip->i_size;
     vfsargs.vnfs_cnp = vaargs->va_cnp;
     if (!vfsargs.vnfs_dvp || (vfsargs.vnfs_cnp && !(vfsargs.vnfs_cnp->cn_flags & MAKEENTRY)))
@@ -2404,6 +2407,7 @@ ext2_vinit(mntp, args, vpp)
 	case VCHR:
 	case VBLK:
 		vfsargs.vnfs_vops = args->vi_specops;
+        vfsargs.vnfs_rdev = ip->i_rdev;
 #ifdef obsolete // XXX ???
       if (nvp = checkalias(vp, ip->i_rdev, mntp)) {
 			/*
