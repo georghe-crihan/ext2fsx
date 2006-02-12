@@ -525,35 +525,35 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = D32B1F8B09946A3B001A78A0 /* ext2_kext */;
+			remoteGlobalIDString = D32B1F8B09946A3B001A78A0;
 			remoteInfo = ext2_kext;
 		};
 		D32B208C09947622001A78A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = D32B2037099470A7001A78A0 /* mount_ext2fs */;
+			remoteGlobalIDString = D32B2037099470A7001A78A0;
 			remoteInfo = mount_ext2fs;
 		};
 		D32B20B60994770F001A78A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = D32B209009947656001A78A0 /* ext2_util */;
+			remoteGlobalIDString = D32B209009947656001A78A0;
 			remoteInfo = ext2_util;
 		};
 		D32B20D3099477D6001A78A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = D32B20BD0994777A001A78A0 /* newfs_ext2 */;
+			remoteGlobalIDString = D32B20BD0994777A001A78A0;
 			remoteInfo = newfs_ext2;
 		};
 		D32B20ED0994781C001A78A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = D32B20D5099477DD001A78A0 /* fsck_ext2 */;
+			remoteGlobalIDString = D32B20D5099477DD001A78A0;
 			remoteInfo = fsck_ext2;
 		};
 		D32B20F109947828001A78A0 /* PBXContainerItemProxy */ = {
@@ -567,7 +567,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = D32B20EF09947828001A78A0 /* extprefpane */;
+			remoteGlobalIDString = D32B20EF09947828001A78A0;
 			remoteInfo = extprefpane;
 		};
 		D32E729305F2A326002928A8 /* PBXContainerItemProxy */ = {
@@ -2034,7 +2034,6 @@
 				MODULE_STOP = ext2fs_stop;
 				MODULE_VERSION = 1.4;
 				OTHER_CFLAGS = "\U0001-no-cpp-precomp";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2fs;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -2066,7 +2065,6 @@
 				MODULE_STOP = ext2fs_stop;
 				MODULE_VERSION = 1.4;
 				OTHER_CFLAGS = "\U0001-no-cpp-precomp";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2fs;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -2092,9 +2090,8 @@
 				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
 				MODULE_START = ext2fs_start;
 				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.3d1;
+				MODULE_VERSION = 1.4;
 				OTHER_CFLAGS = "\U0001-no-cpp-precomp";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ext2fs;
 				WARNING_CFLAGS = (
 					"-Wmost",
