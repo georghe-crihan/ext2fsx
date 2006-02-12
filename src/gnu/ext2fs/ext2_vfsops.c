@@ -278,7 +278,7 @@ ext2_mount(mp, devvp, data, context)
 	//proc_t p = vfs_context_proc(context);
    
 	// Advisory locking is handled at the VFS layer -- of course it's not a KPI -- WTF?!!
-	#if 0
+	#ifdef advlocks
 	vfs_setlocklocal(mp);
 	#endif
    
@@ -981,6 +981,7 @@ ext2_unmount(mp, mntflags, context)
 		ULCK_BUF(fs->s_group_desc[i]);
 	bsd_free(fs->s_group_desc, M_EXT2MNT);
 
+#if EXT2_SB_BITMAP_CACHE
 	/* release cached inode/block bitmaps */
    for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++)
       if (fs->s_inode_bitmap[i])
@@ -989,13 +990,8 @@ ext2_unmount(mp, mntflags, context)
    for (i = 0; i < EXT2_MAX_GROUP_LOADED; i++)
       if (fs->s_block_bitmap[i])
          ULCK_BUF(fs->s_block_bitmap[i]);
-
-#ifdef obsolete
-    vnode_clearmountedon(ump->um_devvp);
-	error = VNOP_CLOSE(ump->um_devvp, ronly ? FREAD : FREAD|FWRITE, context);
-	vnode_rele(ump->um_devvp);
 #endif
-   
+
     /* Free the lock alloc'd in mountfs */
     lck_mtx_free(fs->s_lock, EXT2_LCK_GRP);
    
@@ -1108,7 +1104,9 @@ ext2_getattrfs(mp, attrs, context)
 		attrs->f_capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] =
 		/* VOL_CAP_INT_NFSEXPORT| */
 		VOL_CAP_INT_VOL_RENAME|
+		#ifdef advlocks
 		VOL_CAP_INT_ADVLOCK|
+		#endif
 		VOL_CAP_INT_FLOCK;
 		attrs->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
 		attrs->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
@@ -1395,12 +1393,17 @@ void ext2_vget_irelse (struct inode *ip)
 {
 	ext2_ihashrem(ip);
 	do {
-		if (ip->i_flags & IN_INITWAIT) {
-			ip->i_flags &= ~IN_INITWAIT;
+		if (ip->i_flag & IN_INITWAIT) {
+			ip->i_flag &= ~IN_INITWAIT;
 			IULOCK(ip);
-			wakeup(&ip->i_flags);
+			wakeup(&ip->i_flag);
 			IXLOCK(ip);
-		} 
+		} else {
+			struct timespec ts;
+			ts.tv_sec = 0;
+			ts.tv_nsec = 100000000 /* 10ms == 1 sched quantum */;
+			(void)ISLEEP(ip, flag, &ts);
+		}
 	} while (ip->i_refct > 0);
 	
 	typeof(ip->i_lock) lck = ip->i_lock;
@@ -1443,14 +1446,6 @@ ext2_vget(mp, ino, vpp, context)
 		ea_local.va_vctx = context;
 		eap = &ea_local;
 	}
-	
-#ifdef obsolete // XXX ???
-   /* Check for unmount in progress */
-	if (mp->mnt_kern_flag & MNTK_UNMOUNT) {
-		*vpp = NULL;
-		ext2_trace_return(EPERM);
-	}
-#endif
 
 	ump = VFSTOEXT2(mp);
 	dev = ump->um_dev;
@@ -1485,20 +1480,6 @@ restart:
 	MALLOC(ip, struct inode *, sizeof(struct inode), M_EXT2NODE, M_WAITOK);
     assert(NULL != ip);
 	bzero((caddr_t)ip, sizeof(struct inode));
-
-#ifdef obsolete
-	/* Allocate a new vnode/inode. */
-   if ((error = getnewvnode(VT_EXT2, mp, ext2_vnodeop_p, &vp)) != 0) {
-		if (ext2fs_inode_hash_lock < 0)
-			wakeup(&ext2fs_inode_hash_lock);
-		(void)OSCompareAndSwap(ext2fs_inode_hash_lock, 0, (UInt32*)&ext2fs_inode_hash_lock);
-		*vpp = NULL;
-		FREE(ip, M_EXT2NODE);
-		ext2_trace_return(error);
-	}
-	vp->v_data = ip;
-	ip->i_vnode = vp;
-#endif
 	ip->i_e2fs = fs = ump->um_e2fs;
 	ip->i_dev = dev;
 	ip->i_number = ino;
@@ -1513,7 +1494,7 @@ restart:
 	 * disk portion of this inode to be read.
 	 */
 	IXLOCK(ip);
-	ip->i_flags |= IN_INIT;
+	ip->i_flag |= IN_INIT;
 	ext2_ihashins(ip);
 
 	if (ext2fs_inode_hash_lock < 0)
@@ -1526,15 +1507,6 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 #endif
 	if ((error = buf_bread(ump->um_devvp, (daddr64_t)fsbtodb(fs, ino_to_fsba(fs, ino)),
 	    (int)fs->s_blocksize, NOCRED, &bp)) != 0) {
-		/*
-		 * The inode does not contain anything useful, so it would
-		 * be misleading to leave it on its hash chain. With mode
-		 * still zero, it will be unlinked and returned to the free
-		 * list by vput().
-		 */
-#ifdef obsolete // XXX
-		vnode_put(vp);
-#endif
 		ext2_vget_irelse(ip);
 		buf_brelse(bp);
 		*vpp = NULL;
@@ -1574,9 +1546,6 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 	viargs.vi_fifoops = ext2_fifoop_p;
 	viargs.vi_flags = EXT2_VINIT_INO_LCKD;
 	if ((error = ext2_vinit(mp, &viargs, &vp)) != 0) {
-#ifdef obsolete
-		vnode_vput(vp);
-#endif
 		ext2_vget_irelse(ip);
 		*vpp = NULL;
 		ext2_trace_return(error);
@@ -1596,20 +1565,13 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 		if (0 == vfs_isrdonly(mp))
 			ip->i_flag |= IN_MODIFIED;
 	}
-   
-#ifdef obsolete
-	/* Setup UBC info. */
-    if (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))
-      ubc_info_init(vp);
-#endif
 	
-	ip->i_flags &= ~IN_INIT;
-	if (ip->i_flags & IN_INITWAIT) {
-		ip->i_flags &= ~IN_INITWAIT;
-		IULOCK(ip);
-		wakeup(&ip->i_flags);
-	} else
-		IULOCK(ip);
+	ip->i_flag &= ~IN_INIT;
+	if (ip->i_flag & IN_INITWAIT) {
+		ip->i_flag &= ~IN_INITWAIT;
+		wakeup(&ip->i_flag);
+	}
+	IULOCK(ip);
 	
 	*vpp = vp;
 	return (0);
@@ -1701,12 +1663,7 @@ ext2_sbupdate(context, mp, waitfor)
     EVOP_DEVBLOCKSIZE(mp->um_devvp, &devBlockSize, context);
 /*
 printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
-*/
-	/* BDB - We don't want to unlock/release the buffers here, just sync them. Also,
-		we can't use b[ad]write on group/cache buffers because they are locked (and 
-		B_NORELSE is only respected on a sync write).
-		*/
-	
+*/	
 	/* group descriptors */
 	lock_super(fs);
 	for(i = 0; i < fs->s_db_per_group; i++) {
@@ -1714,11 +1671,19 @@ printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 		if (!BMETA_ISDIRTY(bp)) {
 			continue;
 		}
-		//bp->b_flags |= (B_NORELSE|B_BUSY);
-		//bp->b_flags &= ~B_DIRTY;
+		//xxx More nastiness because of KPI limitations. We have to get the buf marked as busy to write/relse it.
+		daddr64_t blk = buf_blkno(bp); \
+		vnode_t vp = buf_vnode(bp); \
+		int bytes = (int)buf_count(bp); \
+		buf_clearflags(bp, B_LOCKED); \
+		if (buf_getblk(vp, blk, bytes, 0, 0, BLK_META|BLK_ONLYVALID) != bp) \
+			panic("ext2: cached group buffer not found!"); \
+		buf_setflags(bp, B_LOCKED);  // re-lock so bwrite puts it back on the lock queue when done
 		BMETA_CLEAN(bp);
-		buf_bwrite(bp);
-		//bp->b_flags &= ~B_BUSY;
+		if (MNT_WAIT == waitfor)
+			buf_bwrite(bp);
+		else
+			buf_bawrite(bp);
 	}
 	unlock_super(fs);
 	
