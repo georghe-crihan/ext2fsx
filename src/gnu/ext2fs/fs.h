@@ -197,21 +197,24 @@ static __inline__ void e2_chk_buf_lck(buf_t  bp, buf_t  obp)
 #endif /* E2_BUF_CHECK */
 
 /* FS Meta data only! */
+#define EXT_BUF_DIRTY 0x00000001
 
 #define BMETA_DIRTY(bp) do { \
-    buf_setdirtyoff(bp, 0); \
-    buf_setdirtyend(bp, buf_count(bp)); \
+    uintptr_t flags = (uintptr_t)buf_fsprivate(bp); \
+    flags |= EXT_BUF_DIRTY; \
+    buf_setfsprivate(bp, (void*)flags); \
 } while(0)
 
 /* this is supposed to mark a buffer dirty on ready for delayed writing */
 #define mark_buffer_dirty(bp) BMETA_DIRTY(bp)
 
 #define BMETA_CLEAN(bp) do { \
-    buf_setdirtyoff(bp, 0); \
-    buf_setdirtyend(bp, 0); \
+    uintptr_t flags = (uintptr_t)buf_fsprivate(bp); \
+    flags &= ~EXT_BUF_DIRTY; \
+    buf_setfsprivate(bp, (void*)flags); \
 } while(0)
 
-#define BMETA_ISDIRTY(bp) ((0 == buf_dirtyoff(bp)) && (buf_dirtyend(bp) == buf_count(bp)))
+#define BMETA_ISDIRTY(bp) (0 != ((uintptr_t)buf_fsprivate(bp) & EXT_BUF_DIRTY))
 
 /*
  * To lock a buffer, set the B_LOCKED flag and then brelse() it. To unlock,
@@ -222,13 +225,14 @@ static __inline__ void e2_chk_buf_lck(buf_t  bp, buf_t  obp)
 	buf_brelse(bp); \
 } while(0)
 
+//xxx More nastiness because of KPI limitations. We have to get the buf marked as busy to write/relse it.
 #define ULCK_BUF(bp) do { \
-	int32_t flags; \
-	flags = buf_flags(bp); \
+    daddr64_t blk = buf_blkno(bp); \
+    vnode_t vp = buf_vnode(bp); \
+    int bytes = (int)buf_count(bp); \
 	buf_clearflags(bp, (B_LOCKED)); \
-/* XXX obsolete? */ \
-    /* bremfree(bp); */ \
-    /* (bp)->b_flags |= B_BUSY; */ /* Mark busy since it is still on the hash list */ \
+    if (buf_getblk(vp, blk, bytes, 0, 0, BLK_META|BLK_ONLYVALID) != bp) \
+        panic("ext2: cached group buffer not found!"); \
 	if (BMETA_ISDIRTY(bp)) { \
 		BMETA_CLEAN(bp); \
 		buf_bwrite(bp); \
