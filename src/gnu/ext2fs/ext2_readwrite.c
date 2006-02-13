@@ -92,12 +92,17 @@ READ(ap)
 	long size, xfersize, blkoffset;
 	int error, orig_resid;
 	u_short mode;
+    typeof(ip->i_lastr) ilastr;
    
     ext2_trace_enter();
 
 	vp = ap->a_vp;
 	ip = VTOI(vp);
+    ISLOCK(ip);
 	mode = ip->i_mode;
+    typeof(ip->i_size) isize = ip->i_size;
+    fs = ip->I_FS;
+    IULOCK(ip);
 	uio = ap->a_uio;
 
 #ifdef DIAGNOSTIC
@@ -105,12 +110,11 @@ READ(ap)
 		panic("%s: invalid uio_rw = %x", READ_S, uio_rw(uio));
 
 	if (vnode_vtype(vp) == VLNK) {
-		if ((int)ip->i_size < vfs_maxsymlen(vnode_mount(vp)))
+		if ((int)isize < vfs_maxsymlen(vnode_mount(vp)))
 			panic("%s: short symlink", READ_S);
 	} else if (vnode_vtype(vp) != VREG && vnode_vtype(vp) != VDIR)
 		panic("%s: invalid v_type %d", READ_S, vnode_vtype(vp));
 #endif
-	fs = ip->I_FS;
     if (uio_offset(uio)  < 0)
 		ext2_trace_return (EINVAL);
 
@@ -120,13 +124,14 @@ READ(ap)
 	orig_resid = uio_resid(uio);
     if (UBCISVALID(vp)) {
 		bp = NULL; /* So we don't try to free it later. */
-        error = cluster_read(vp, uio, (off_t)ip->i_size, 0);
+        error = cluster_read(vp, uio, (off_t)isize, 0);
 	} else {
 	for (error = 0, bp = NULL; uio_resid(uio) > 0; bp = NULL) {
-		if ((bytesinfile = ip->i_size - uio_offset(uio)) <= 0)
+		if ((bytesinfile = isize - uio_offset(uio)) <= 0)
 			break;
 		lbn = lblkno(fs, uio_offset(uio));
 		nextlbn = lbn + 1;
+        // XXX If BLKSZIE actually used the inode we would need the inode lock
 		size = BLKSIZE(fs, ip, lbn);
 		blkoffset = blkoff(fs, uio_offset(uio));
 
@@ -136,10 +141,15 @@ READ(ap)
 		if (bytesinfile < xfersize)
 			xfersize = bytesinfile;
 
-		if (lblktosize(fs, nextlbn) >= ip->i_size)
+        ISLOCK(ip);
+        ilastr = ip->i_lastr;
+        IULOCK(ip);
+		
+        if (lblktosize(fs, nextlbn) >= isize)
 			error = buf_bread(vp, lbn, size, NOCRED, &bp);
-		else if (lbn - 1 == ip->i_lastr && !vnode_isnoreadahead(vp)) {
-			int nextsize = BLKSIZE(fs, ip, nextlbn);
+		else if (lbn - 1 == ilastr && !vnode_isnoreadahead(vp)) {
+			// XXX If BLKSZIE actually used the inode we would need the inode lock
+            int nextsize = BLKSIZE(fs, ip, nextlbn);
 			error = buf_breadn(vp, (daddr64_t)lbn,
 			    size, &lbn64, &nextsize, 1, NOCRED, &bp);
             nextlbn = (ext2_daddr_t)lbn64;
@@ -150,6 +160,7 @@ READ(ap)
 			bp = NULL;
 			break;
 		}
+        IXLOCK(ip);
         ip->i_lastr = lbn;
 
 		/*
@@ -161,18 +172,26 @@ READ(ap)
 		 */
 		size -= buf_resid(bp);
 		if (size < xfersize) {
-			if (size == 0)
+			if (size == 0) {
+                IULOCK(ip);
 				break;
+            }
 			xfersize = size;
 		}
-		error =
-		    uiomove((char *)buf_dataptr(bp) + blkoffset, (int)xfersize, uio);
-		if (error)
+        
+        caddr_t data = (caddr_t)(((char *)buf_dataptr(bp)) + blkoffset);
+		error = uiomove(data, (int)xfersize, uio);
+        
+        isize = ip->i_size;
+        IULOCK(ip);
+        
+        if (error)
 			break;
       
-      if (S_ISREG(mode) && (xfersize + blkoffset == EXT2_BLOCK_SIZE(fs) ||
-		    uio_offset(uio) == ip->i_size))
+        if (S_ISREG(mode) && (xfersize + blkoffset == EXT2_BLOCK_SIZE(fs) ||
+		    uio_offset(uio) == isize)) {
 			buf_markaged(bp);
+        }
 
 		bqrelse(bp);
 	}
@@ -180,8 +199,11 @@ READ(ap)
 	if (bp != NULL)
 		bqrelse(bp);
 	if (orig_resid > 0 && (error == 0 || uio_resid(uio) != orig_resid) &&
-	    (vfs_flags(vnode_mount(vp)) & MNT_NOATIME) == 0)
-		ip->i_flag |= IN_ACCESS;
+	    (vfs_flags(vnode_mount(vp)) & MNT_NOATIME) == 0) {
+		IXLOCK(ip);
+        ip->i_flag |= IN_ACCESS;
+        IULOCK(ip);
+    }
 	ext2_trace_return(error);
 }
 
@@ -208,6 +230,7 @@ WRITE(ap)
     int rsd, blkalloc=0, save_error=0, save_size=0;
     int file_extended = 0, dodir=0;
     vfs_context_t context = ap->a_context;
+    typeof(ip->i_size) isize;
 
 	ioflag = ap->a_ioflag;
 	uio = ap->a_uio;
@@ -221,11 +244,15 @@ WRITE(ap)
 
 	switch (vnode_vtype(vp)) {
 	case VREG:
-		if (ioflag & IO_APPEND)
+		ISLOCK(ip);
+        if (ioflag & IO_APPEND)
 			uio_setoffset(uio, ip->i_size);
-		if ((ip->i_flags & APPEND) && uio_offset(uio) != ip->i_size)
-			ext2_trace_return(EPERM);
+		if ((ip->i_flags & APPEND) && uio_offset(uio) != ip->i_size) {
+			IULOCK(ip);
+            ext2_trace_return(EPERM);
+        }
 		/* FALLTHROUGH */
+        IULOCK(ip);
 	case VLNK:
 		break;
 	case VDIR:
@@ -263,6 +290,7 @@ WRITE(ap)
 #endif
 
 	resid = uio_resid(uio);
+    IXLOCK(ip);
 	osize = ip->i_size;
 	flags = ioflag & IO_SYNC ? B_SYNC : 0;
    
@@ -368,20 +396,29 @@ WRITE(ap)
       * we we'll zero fill from the current EOF to where the write begins
       */
       
+      IULOCK(ip);
+      
       error = cluster_write(vp, uio, osize, filesize, head_offset, local_offset, flags);
       
       if (uio_offset(uio) > osize) {
          if (error && 0 == (ioflag & IO_UNIT))
             (void)ext2_truncate(vp, uio_offset(uio),
                ioflag & IO_SYNC, vfs_context_ucred(context), vfs_context_proc(context));
-         ip->i_size = uio_offset(uio); 
-         ubc_setsize(vp, (off_t)ip->i_size);
+         
+         IXLOCK(ip);
+         isize = ip->i_size = uio_offset(uio);
+         IULOCK(ip);
+         
+         ubc_setsize(vp, (off_t)isize);
       }
       if(save_error) {
          uio_setresid(uio, uio_resid(uio) + save_size);
          if(!error)
             error = save_error;	
       }
+      
+      IXLOCK(ip);
+      
       ip->i_flag |= IN_CHANGE | IN_UPDATE;
    } else {
 	for (error = 0; uio_resid(uio) > 0;) {
@@ -402,17 +439,22 @@ WRITE(ap)
 			break;
 
 		if (uio_offset(uio) + xfersize > ip->i_size) {
-			ip->i_size = uio_offset(uio) + xfersize;
-            if (UBCISVALID(vp))
-                ubc_setsize(vp, (u_long)ip->i_size); /* XXX check errors */
+			isize = ip->i_size = uio_offset(uio) + xfersize;
+            if (UBCISVALID(vp)) {
+                IULOCK(ip);
+                ubc_setsize(vp, (off_t)isize); /* XXX check errors */
+                IXLOCK(ip);
+            }
 		}
 
 		size = BLKSIZE(fs, ip, lbn) - buf_resid(bp);
 		if (size < xfersize)
 			xfersize = size;
-
-		error =
-		    uiomove((char *)buf_dataptr(bp) + blkoffset, (int)xfersize, uio);
+        
+        caddr_t data = (caddr_t)(((char *)buf_dataptr(bp)) + blkoffset);
+		error = uiomove(data, (int)xfersize, uio);
+        
+        IULOCK(ip);
 
 		if (0 == dodir && (ioflag & IO_SYNC)) {
             (void)buf_bwrite(bp);
@@ -424,6 +466,9 @@ WRITE(ap)
 		}
 		if (error || xfersize == 0)
 			break;
+        
+        IXLOCK(ip);
+        
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
    } /* if (UBCISVALID(vp)) */
@@ -438,6 +483,9 @@ WRITE(ap)
 		ip->i_mode &= ~(ISUID | ISGID);
     if (resid > uio_resid(uio))
        VN_KNOTE(vp, NOTE_WRITE | (file_extended ? NOTE_EXTEND : 0));
+    
+    IULOCK(ip);
+    
 	if (error) {
 		if (ioflag & IO_UNIT) {
 			(void)ext2_truncate(vp, osize,
