@@ -238,6 +238,7 @@ ext2_readdir(ap)
       free_dirbuf = 0;
       
       fda.uio = uio;
+      // XXX dx_readdir is not lock safe ATM, so don't unlock
       error = ext3_dx_readdir(ap->a_vp, &fda, bsd_filldir);
       if (error != ERR_BAD_DX_DIR) {
          if (EXT2_FILLDIR_ENOSPC == error)
@@ -341,7 +342,7 @@ ext2_readdir(ap)
         uio_setoffset(uio, startoffset + (caddr_t)dp - dirbuf);
 
 io_done:
-;// How the hell are cookies done with KPI?
+; // How the hell are cookies done with KPI?
 #if 0
 		if (!error && ap->a_ncookies != NULL) {
 			u_long *cookiep, *cookies, *ecookies;
@@ -364,10 +365,14 @@ io_done:
 		}
 #endif
 	}
+    
+    typeof(ip->i_size) isize = ip->i_size;
+    IULOCK(ip);
+    
     if (free_dirbuf && dirbuf)
       FREE(dirbuf, M_TEMP);
 	if (eof && 0 == *eof)
-		*eof = ip->i_size <= uio_offset(uio);
+		*eof = isize <= uio_offset(uio);
     if (auio)
         uio_free(auio);
    ext2_trace_return(error);
@@ -430,7 +435,9 @@ ext2_lookup(ap)
 	vnode_t tdp;		/* returned by VFS_VGET */
 	doff_t enduseful=0;		/* pointer past last used dir slot */
 	u_long bmask=0;			/* block offset mask */
+#ifdef obsolete
 	int lockparent;			/* 1 => lockparent flag is set */
+#endif
 	int wantparent;			/* 1 => wantparent or lockparent flag */
 	int namlen, error;
 	vnode_t *vpp = ap->a_vpp;
@@ -453,7 +460,9 @@ ext2_lookup(ap)
 	vdp = ap->a_dvp;
 	dp = VTOI(vdp);
     mp = vnode_mount(vdp);
+#ifdef obsolete
 	lockparent = flags & LOCKPARENT;
+#endif
 	wantparent = flags & (LOCKPARENT|WANTPARENT);
 
 	/*
@@ -554,7 +563,7 @@ dx_fallback:
 		dp->i_offset = dp->i_diroff;
 		if ((entryoffsetinblock = dp->i_offset & bmask)) {
 		    IULOCK(dp);
-            if (!(error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL, &bp)))
+            if (0 == (error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL, &bp)))
                 IXLOCK(dp);
             else
 				ext2_trace_return(error);
@@ -742,8 +751,10 @@ notfound:
     ext2_trace_return(ENOENT);
 
 found:
+#ifdef obsolete
 	if (numdirpasses == 2)
-		//nchstats.ncs_pass2++;
+		nchstats.ncs_pass2++;
+#endif
 	/*
 	 * Check that directory length properly reflects presence
 	 * of this entry.
@@ -887,16 +898,12 @@ found:
 	 */
 	pdp = vdp;
 	if (flags & ISDOTDOT) {
-		//vnode_unlock(pdp);	/* race to get the inode */
         vallocargs.va_ino = dp->i_ino;
         vallocargs.va_parent = pdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
         IULOCK(dp);
-        if (0 == (error = EXT2_VGET(mp, &vallocargs, &tdp, context)))
-            IXLOCK(dp);
-        else {
-			//vnode_lock(pdp);
+        if (0 != (error = EXT2_VGET(mp, &vallocargs, &tdp, context))) {
 			ext2_trace_return(error);
 		}
 #ifdef obsolete
@@ -909,7 +916,8 @@ found:
 #endif
 		*vpp = tdp;
 	} else if (dp->i_number == dp->i_ino) {
-		vnode_get(vdp);	/* we want ourself, ie "." */
+		IULOCK(dp);
+        vnode_get(vdp);	/* we want ourself, ie "." */
 		*vpp = vdp;
 	} else {
       vallocargs.va_ino = dp->i_ino;
