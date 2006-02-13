@@ -306,7 +306,14 @@ int inosleep(struct inode *ip, void *chan, const char *wmsg, struct timespec *ts
 {
 	int error;
 	IREF(ip);
+#ifdef DIAGNOSTIC
+    assert(ip->i_lockowner == current_thread());
+    ip->i_lockowner = NULL;
+#endif
 	error = msleep(chan, ip->i_lock, PINOD, wmsg, ts);
+#ifdef DIAGNOSTIC
+    ip->i_lockowner = current_thread();
+#endif
 	IRELSE(ip);
 	return (error);
 }
