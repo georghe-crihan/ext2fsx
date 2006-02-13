@@ -511,18 +511,18 @@ ext2_blktooff (ap)
    
    struct inode *ip;
    struct ext2_sb_info *fs;
-   daddr_t bn = ap->a_lblkno; 
+   typeof(ap->a_lblkno) bn = ap->a_lblkno; 
    
    ext2_trace_enter();
    
-   if ((long)bn < 0) {
+   if (bn < 0) {
 		panic("-ve blkno in ext2_blktooff");
-		bn = -(long)bn;
+		bn = -bn;
 	}
    
 	ip = VTOI(ap->a_vp);
 	fs = ip->i_e2fs;
-	*ap->a_offset = lblktosize(fs, bn);
+	*ap->a_offset = (typeof(*ap->a_offset))lblktosize(fs, bn);
    
    return (0);
 }
@@ -531,7 +531,6 @@ __private_extern__ int
 ext2_offtoblk (ap)
    struct vnop_offtoblk_args *ap;
 {
-   
    struct inode *ip;
    struct ext2_sb_info *fs;
    
@@ -642,7 +641,7 @@ ext2_blockmap(ap)
             // sparse hole or no contiguous blocks
             retsize = blksize(fs, ip, lbn);
         } else {
-            // 1 more more contiguous blocks
+            // 1 or more contiguous blocks
             retsize = nblks * EXT2_BLOCK_SIZE(fs);
             retsize += blksize(fs, ip, (bn + nblks));
         }
