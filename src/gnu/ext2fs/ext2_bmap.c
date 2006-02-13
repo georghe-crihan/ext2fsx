@@ -177,7 +177,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 		if (*bnp == 0) {
 			*bnp = -1;
 		} else if (runp) {
-			int32_t bnb = bn;
+			ext2_daddr_t bnb = bn;
 			for (++bn; bn < NDADDR && *runp < maxrun &&
 			    is_sequential(ump, ip->i_db[bn - 1], ip->i_db[bn]);
 			    ++bn, ++*runp);
