@@ -180,6 +180,8 @@ ext2_readdir(ap)
     DIRBLKSIZ = ip->i_e2fs->s_blocksize;
 
     count = uio_resid(uio);
+    startoffset = uio_offset(uio);
+    startresid = uio_resid(uio);
     /*
      * Avoid complications for partial directory entries by adjusting
      * the i/o to end at a block boundary.  Don't give up (like ufs
@@ -188,7 +190,7 @@ ext2_readdir(ap)
      * size is a little larger than DIRBLKSIZ to allow for expansion
      * of directory entries, but some callers just use 512.
      */
-    count -= (uio_offset(uio) + count) & (DIRBLKSIZ -1);
+    count -= (startoffset + count) & (DIRBLKSIZ -1);
     if (count <= 0)
 		count += DIRBLKSIZ;
 
@@ -200,10 +202,16 @@ ext2_readdir(ap)
    if (eof)
       *eof = 0;
    
-   startoffset = uio_offset(uio);
-   startresid = uio_resid(uio);
-   /* Check for an indexed dir */
    IXLOCK(ip);
+   
+   if (startoffset >= ip->i_size) {
+      IULOCK(ip);
+      if (eof)
+        *eof = 1;
+      return (0);
+   }
+   
+   /* Check for an indexed dir */
    if (EXT3_HAS_COMPAT_FEATURE(ip->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) &&
       ((ip->i_e2flags & EXT3_INDEX_FL) /*||
       ((ip->i_size >> ip->i_e2fs->s_blocksize_bits) == 1)*/)) {
