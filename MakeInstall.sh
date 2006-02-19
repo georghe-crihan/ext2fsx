@@ -56,6 +56,7 @@ usage() {
 }
 
 VER=
+DEBUG=0
 
 #################### BUILD PACKAGE REPOSITORY ###################
 
@@ -91,12 +92,12 @@ if [ ! -d "${EXT2BUILD}/src/e2fsprogs/build-uni" ]; then
 fi
 
 cd "${EXT2BUILD}/src/e2fsprogs/build-uni"
-echo "Installing e2fsprogs..."
+echo "Copying e2fsprogs..."
 DESTDIR="${INSTALL}" make install >> ${BUILDLOG} 2>&1
 
 cd "${EXT2BUILD}"
 
-echo "Installing other userland utils..."
+echo "Copying other userland utils..."
 cd "${INSTALL}/usr/local/share/man/man8"
 ln -f e2fsck.8 ./fsck_ext2.8
 ln -f mke2fs.8 ./newfs_ext2.8
@@ -111,7 +112,6 @@ mkdir ../../man/`dirname $i`
 fi
 ln -f $i ../../man/$i
 done
-
 
 #lib sym links
 cd "${INSTALL}/usr/local/lib"
@@ -129,8 +129,13 @@ cd "${EXT2BUILD}"
 
 cp -pR "${BUILD}/ExtFSManager.prefPane" "${INSTALL}/Library/PreferencePanes/"
 
-cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/Library/Extensions"
 cp -pR "${BUILD}/ext2.fs" "${INSTALL}/Library/Filesystems"
+# this sucks - diskarbd won't pick up our plugin in /Library
+mkdir -p "${INSTALL}/System/Library/Filesystems"
+cd "${INSTALL}/System/Library/Filesystems"
+ln -s ../../../Library/Filesystems/ext2.fs ./ext2.fs
+
+cd "${EXT2BUILD}"
 
 #mount
 cp -p "${BUILD}/mount_ext2" "${INSTALL}/sbin"
@@ -146,13 +151,13 @@ cp -p "${BUILD}/fsck_ext2" "${INSTALL}/sbin"
 #cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
 #cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
 
-#frameworks
-echo "Installing frameworks..."
-cp -pR "${BUILD}/ExtFSDiskManager.framework" "${INSTALL}/Library/Frameworks/"
+echo "Copying kernel driver..."
+cp -pR "${BUILD}/ext2fs.kext" "${INSTALL}/Library/Extensions"
+echo -n "${VER}" > "${INSTALL}/Library/Extensions/ext2fs.kext/Contents/Resources/version"
 
-echo "Installing kernel driver(s)..."
-# XXX -- hack to determine if we are building a debug version
-DBG=`nm -m "${BUILD}/ext2fs.kext/Contents/MacOS/ext2fs" | grep ext2fs_debug`
+#frameworks
+echo "Copying frameworks..."
+cp -pR "${BUILD}/ExtFSDiskManager.framework" "${INSTALL}/Library/Frameworks/"
 
 echo "Removing unwanted files..."
 #get rid of unwanted files
@@ -163,7 +168,7 @@ find "${INSTALL}" -name "CVS" -type d -print0 | xargs -0 rm -fr
 cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSPROGS_COPYRIGHT"
 
 # strip for prod build
-if [ "${DBG}" == "" ]; then
+if [ ${DEBUG} -eq 0 ]; then
 	# make archive of full symbols
 	cd "${INSTALL}"
 	if [ -f "${SYMS}" ]; then
@@ -237,7 +242,7 @@ fi
 
 echo "Building Package..."
 PKGMKR=/Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker
-"${PKGMKR}" -build -p "${VOL}/Ext2FS.pkg" -f "${EXT2DIR}/build/install" \
+"${PKGMKR}" -build -p "${VOL}/Ext2FS.pkg" -f "${INSTALL}" \
 -r "${EXT2DIR}/Resources" -i "${EXT2DIR}/pkginfo/Info.plist" \
 -d "${EXT2DIR}/pkginfo/Description.plist"
 
@@ -275,7 +280,6 @@ fi
 
 #0 = build both, 1 = build image only, 2 = build package only
 WHAT=0
-DEBUG=0
 
 #parse options
 while : ; do
