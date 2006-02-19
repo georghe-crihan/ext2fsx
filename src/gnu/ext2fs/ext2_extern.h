@@ -62,8 +62,8 @@ typedef struct ext2_valloc_args {
 } evalloc_args_t;
 //xxx this will break if kernel space ever goes 64bit
 #define EVALLOC_ARGS_MAGIC(eap) (ino64_t)(0x5000000000000000LL | (ino64_t)((uintptr_t)(eap)))
-#define IS_EVALLOC_ARGS(ino64) (((ino64_t)(ino64) & 0x5fffffff00000000LL) == 0x5000000000000000LL ? 1 : 0)
-#define EVALLOC_ARGS(ino64) (evalloc_args_t*)((uintptr_t)((ino64) & 0xffffffff00000000ULL))
+#define IS_EVALLOC_ARGS(ino64) (((ino64_t)(ino64) & 0xffffffff00000000LL) == 0x5000000000000000LL ? 1 : 0)
+#define EVALLOC_ARGS(ino64) (evalloc_args_t*)((uintptr_t)((ino64) & 0x00000000ffffffffULL))
 
 __private_extern__ struct vfsops ext2fs_vfsops;
 static __inline__
