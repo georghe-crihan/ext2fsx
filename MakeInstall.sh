@@ -47,6 +47,7 @@ SYMS="${BUILD}/.symbols.tar"
 
 usage() {
 	echo "Usage: $0 [options] 'version string'"
+	echo "  -d Use Debug build"
 	echo "	-i Only build the disk image (using the current package repository)"
 	echo "	-h Show this message"
 	echo "	-p Only build the package repository"
@@ -142,25 +143,21 @@ cp -p "${BUILD}/newfs_ext2" "${INSTALL}/sbin"
 cp -p "${BUILD}/fsck_ext2" "${INSTALL}/sbin"
 
 #e2undel
-cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
-cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
+#cp -p "${BUILD}/e2undel" "${INSTALL}/usr/local/sbin"
+#cp -p "${EXT2BUILD}/src/e2undel/README" "${INSTALL}/usr/local/share/doc/E2UNDEL_README"
 
 #frameworks
 echo "Installing frameworks..."
 cp -pR "${BUILD}/ExtFSDiskManager.framework" "${INSTALL}/Library/Frameworks/"
 
 echo "Installing kernel driver(s)..."
-PANK="${BUILD}/ext2fs_panther.kext"
-JAGK="${BUILD}/ext2fs_jag.kext"
-KMOD="Contents/MacOS/ext2fs"
 # XXX -- hack to determine if we are building a debug version
-DBG=`nm -m "${BUILD}/ext2fs.kext/${KMOD}" | grep logwakeup`
+DBG=`nm -m "${BUILD}/ext2fs.kext/Contents/MacOS/ext2fs" | grep ext2fs_debug`
 
 echo "Removing unwanted files..."
 #get rid of unwanted files
-find "${INSTALL}" -name ".DS_Store" | xargs rm
-find "${INSTALL}" -name "pbdevelopment.plist" | xargs rm
-find "${INSTALL}" -name "CVS" -type d | xargs rm -fr
+find "${INSTALL}" -name ".DS_Store" -or -name "pbdevelopment.plist" -print0 | xargs -0 rm
+find "${INSTALL}" -name "CVS" -type d -print0 | xargs -0 rm -fr
 
 #e2fsprogs copyright
 cp -p "${EXT2BUILD}/src/e2fsprogs/COPYING" "${INSTALL}/usr/local/share/doc/E2FSPROGS_COPYRIGHT"
@@ -180,7 +177,7 @@ if [ "${DBG}" == "" ]; then
 	cd "./Library/Extensions"
 	for i in `ls -Fd *.kext`
 	do
-		strip -S "${i}${KMOD}"
+		strip -Sx "${i}/Contents/MacOS/ext2fs"
 	done
 	
 	echo "Stripping frameworks..."
@@ -196,7 +193,7 @@ fi
 # set perms
 echo "Setting permissions..."
 chmod -R go-w "${INSTALL}"
-chmod 775 "${INSTALL}/Library" "${INSTALL}/Library/PreferencePanes" "${INSTALL}/Library/Frameworks"
+chmod 775 "${INSTALL}/Library/PreferencePanes" "${INSTALL}/Library/Frameworks"
 chmod -R u-w "${INSTALL}"/sbin/* "${INSTALL}"/usr/local/bin/* "${INSTALL}"/usr/local/sbin/* \
 "${INSTALL}"/usr/local/lib/*
 sudo chown -R root:wheel "${INSTALL}"
@@ -224,10 +221,7 @@ IMAGE="${HOME}/Desktop/Ext2FS_${VER}.dmg"
 VNAME="Ext2 Filesystem ${VER}"
 VOL="/Volumes/${VNAME}"
 
-hdiutil create -megabytes 5 "${TMP}"
-DEVICE=`hdid -nomount "${TMP}" | grep Apple_HFS | cut -f1`
-/sbin/newfs_hfs -v "${VNAME}" ${DEVICE}
-hdiutil eject ${DEVICE}
+hdiutil create -megabytes 5 -volname "${VNAME}" -fs HFS+ -layout NONE "${TMP}"
 DEVICE=`hdid "${TMP}" | sed -n 1p | cut -f1`
 
 if [ ! -d "${VOL}" ]; then
@@ -242,12 +236,7 @@ else
 fi
 
 echo "Building Package..."
-# Jag tools location
-PKGMKR=/Developer/Applications/PackageMaker.app/Contents/MacOS/PackageMaker
-if [ ! -f ${PKGMKR} ]; then
-# Panther tools location
 PKGMKR=/Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker
-fi
 "${PKGMKR}" -build -p "${VOL}/Ext2FS.pkg" -f "${EXT2DIR}/build/install" \
 -r "${EXT2DIR}/Resources" -i "${EXT2DIR}/pkginfo/Info.plist" \
 -d "${EXT2DIR}/pkginfo/Description.plist"
@@ -273,7 +262,7 @@ hdiutil eject ${DEVICE}
 hdiutil convert "${TMP}" -format UDZO -o "${IMAGE}" -ov
 rm "${TMP}"
 
-md5 "${IMAGE}"
+openssl sha1 "${IMAGE}"
 
 }
 
@@ -286,6 +275,7 @@ fi
 
 #0 = build both, 1 = build image only, 2 = build package only
 WHAT=0
+DEBUG=0
 
 #parse options
 while : ; do
@@ -294,6 +284,10 @@ while : ; do
 	case "$1" in
 		-i )
 			WHAT=1
+			shift
+		;;
+		-d )
+			DEBUG=1
 			shift
 		;;
 		-h )
@@ -321,6 +315,12 @@ if [ "${VER}" = "" ]; then
 	usage
 fi
 
+if [ ${DEBUG} -eq 0 ]; then
+	BUILD="${BUILD}/Deployment"
+else
+	BUILD="${BUILD}/Development"
+fi
+
 echo "Version number is: $VER"
 
 case "$WHAT" in
@@ -330,17 +330,6 @@ case "$WHAT" in
 		break
 	;;
 	1 )
-		echo "Warning. The Jaguar kext will not be built. Continue? [y]"
-		read CONT
-		case "${CONT}" in
-			"n" | "N" )
-				exit
-				break
-			;;
-			* )
-				break
-			;;
-		esac
 		build_image
 		break
 	;;
