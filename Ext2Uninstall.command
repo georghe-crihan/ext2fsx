@@ -16,7 +16,7 @@ fi
 fi
 
 sudo rm -rf /Library/Extensions/ext2fs.kext /Library/Filesystems/ext2.fs \
-/Library/PreferencePanes/ExtFSManager.prefPane
+/Library/PreferencePanes/ExtFSManager.prefPane /System/Library/Filesystems/ext2.fs
 sudo rm /sbin/mount_ext2 /usr/share/man/man8/mount_ext2.8
 
 #e2fsprogs, e2undel
