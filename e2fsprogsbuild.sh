@@ -141,7 +141,7 @@ echo "${E2VER}" > ./.e2configdone
 cp -R build-ppc build-uni
 
 cd build-uni
-for i in `find . -type f -perm -0555 -print0 | xargs -0 file | grep Mach-O | awk -F: '{print $1}'`
+for i in `find . -type f ! -name "*.o" -print0 | xargs -0 file | grep Mach-O | awk -F: '{print $1}'`
 do
 	output=`dirname "${i}"`/`basename "${i}"`.uni
 	lipo -create "${i}" ../build-i386/"${i}" -output "${output}"
