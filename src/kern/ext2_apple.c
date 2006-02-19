@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2005 Brian Bergstrand.
+* Copyright 2003-2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -508,4 +508,8 @@ ext2_checkdirsize(dvp)
    
    buf_brelse(bp);
 }
+#endif
+
+#ifdef DIAGNOSTIC
+static const int ext2fs_debug __attribute__((used)) = 1;
 #endif
