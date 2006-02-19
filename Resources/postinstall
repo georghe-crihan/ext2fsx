@@ -4,18 +4,8 @@ PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 TARGET=$2
 cd "${TARGET}"
 
-# Activate the correct Kext
-SYSVER=`uname -r | awk -F. '{print $1}'`
-
-if [ ${SYSVER} -ge 7 ]; then
-	rm -rf ./System/Library/Extensions/ext2fs_jag.kext
-else
-	rm -rf ./System/Library/Extensions/ext2fs.kext
-	mv ./System/Library/Extensions/ext2fs_jag.kext ./System/Library/Extensions/ext2fs.kext
-fi
-
 #Rebuild the kext cache
-if [ -f ./System/Library/Extensions.kextcache ]; then
-	rm ./System/Library/Extensions.kextcache
-	kextcache -k ./System/Library/Extensions
+if [ -f ./Library/Extensions.kextcache ]; then
+	rm ./Library/Extensions.kextcache
 fi
+kextcache -k ./Library/Extensions

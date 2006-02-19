@@ -4,7 +4,7 @@ PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
 tst=`kextstat | grep "net\.sourceforge\.ext2fs\.fs\.ext2"`
 if [ "$tst" != "" ]; then
-sudo kextunload /System/Library/Extensions/ext2fs.kext
+sudo kextunload /Library/Extensions/ext2fs.kext
 # Why the hell does kextunload not return an error if the unload failed?!
 #if [ $? -ne 0 ]; then
 sleep 1
@@ -15,7 +15,7 @@ exit 1
 fi
 fi
 
-sudo rm -rf /System/Library/Extensions/ext2fs.kext /System/Library/Filesystems/ext2.fs \
+sudo rm -rf /Library/Extensions/ext2fs.kext /Library/Filesystems/ext2.fs \
 /Library/PreferencePanes/ExtFSManager.prefPane
 sudo rm /sbin/mount_ext2 /usr/share/man/man8/mount_ext2.8
 
@@ -48,12 +48,11 @@ cd ../man8
 sudo rm ${MAN8}
 
 #Rebuild the kext cache
-if [ -f /System/Library/Extensions.kextcache ]; then
-	sudo rm /System/Library/Extensions.kextcache
-	sudo kextcache -k /System/Library/Extensions
+if [ -f /Library/Extensions.kextcache ]; then
+	sudo rm /Library/Extensions.kextcache
+	sudo kextcache -k /Library/Extensions
 fi
 
 sudo rm -rf /Library/Receipts/Ext2FS.pkg
 
 echo "Uninstall successful. A reboot is not required, but is recommended."
-
