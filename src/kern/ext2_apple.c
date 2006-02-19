@@ -509,7 +509,3 @@ ext2_checkdirsize(dvp)
    buf_brelse(bp);
 }
 #endif
-
-#ifdef DIAGNOSTIC
-static const int ext2fs_debug __attribute__((used)) = 1;
-#endif
