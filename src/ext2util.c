@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -109,8 +109,8 @@ static const char whatid[] __attribute__ ((unused)) =
 #define FS_TYPE			EXT2FS_NAME
 #define FS_NAME_FILE		EXT2FS_NAME
 #define FS_BUNDLE_NAME		"ext2fs.kext"
-#define FS_KEXT_DIR			"/System/Library/Extensions/ext2fs.kext"
-#define FS_KMOD_DIR			"/System/Library/Extensions/ext2fs.kext/Contents/MacOS/ext2fs"
+#define FS_KEXT_DIR			"/Library/Extensions/ext2fs.kext"
+#define FS_KMOD_DIR			"/Library/Extensions/ext2fs.kext/Contents/MacOS/ext2fs"
 #define RAWDEV_PREFIX		"/dev/r"
 #define BLOCKDEV_PREFIX		"/dev/"
 #define MOUNT_COMMAND		"/sbin/mount"
