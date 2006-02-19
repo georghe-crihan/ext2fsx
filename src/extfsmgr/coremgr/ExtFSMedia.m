@@ -189,9 +189,9 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
          e_volName = [[NSString alloc] initWithUTF8String:vinfo.vinfo.v_name];
       if (alist.volattr & ATTR_VOL_CAPABILITIES)
          e_volCaps = vinfo.vinfo.v_caps.capabilities[0];
-      if (fsTypeHFS == e_fsType && kHFSPlusSigWord == be32_to_cpu(vinfo.vinfo.v_signature))
+      if (fsTypeHFS == e_fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
             e_fsType = fsTypeHFSPlus;
-      else if (fsTypeHFS == e_fsType && kHFSXSigWord == be32_to_cpu(vinfo.vinfo.v_signature))
+      else if (fsTypeHFS == e_fsType && kHFSXSigWord == vinfo.vinfo.v_signature)
          e_fsType = fsTypeHFSX;
       eulock(e_lock);
       goto eminfo_exit;
