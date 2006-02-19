@@ -200,47 +200,45 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
     IULOCK(ip);
 
 	for (bp = NULL, ++ap; --num; ++ap) {
-		/*
-		 * Exit the loop if there is no disk address assigned yet and
-		 * the indirect block isn't in the cache, or if we were
-		 * looking for an indirect block and we've found it.
-		 */
-
-		metalbn = ap->in_lbn;
-		if ((daddr == 0 && !incore(vp, (daddr64_t)metalbn, BLK_META)) || metalbn == bn)
-			break;
+    
+		if ((metalbn = ap->in_lbn) == bn)
+            break; // found the block
+        
+        int flags;
+        if (0 == daddr)
+            flags = BLK_META | BLK_ONLYVALID;
+        else
+            flags = BLK_META;
+        
+        if (bp)
+			bqrelse(bp);
+        
+        if (NULL == (bp = buf_getblk(vp, (daddr64_t)metalbn, iosize, 0, 0, flags)))
+            break; // daddr was not set and indirect block was not in cache
+        
 		/*
 		 * If we get here, we've either got the block in the cache
 		 * or we have a disk address for it, go fetch it.
 		 */
-		if (bp)
-			bqrelse(bp);
-
 		ap->in_exists = 1;
-		bp = buf_getblk(vp, (daddr64_t)metalbn, iosize, 0, 0, BLK_META);
-
-#ifdef obsolete
-        if (buf_flags(bp) & (/* B_DONE | */ B_DELWRI)) {
-			trace(TR_BREADHIT, pack(vp, iosize), metalbn);
-		}
-#endif
-
+        
 #ifdef DIAGNOSTIC
-      //else
         if (!daddr)
             panic("ext2_bmaparray: indirect block not in cache");
 #endif
 
+        if (buf_valid(bp)) {
 #ifdef obsolete
-        else {
+			trace(TR_BREADHIT, pack(vp, iosize), metalbn);
+#endif
+            ;
+		} else {
+#ifdef obsolete
             trace(TR_BREADMISS, pack(vp, iosize), metalbn);
 #endif
-        {
             buf_setblkno(bp, (daddr64_t)blkptrtodb(ump, daddr));
             buf_setflags(bp, B_READ);
-#ifdef obsolete
-            bp->b_flags &= ~B_ERROR;
-#endif
+            
 			struct vnop_strategy_args vsargs;
             vsargs.a_desc = &vnop_strategy_desc;
             vsargs.a_bp = bp;
@@ -279,10 +277,8 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	if (bp)
 		bqrelse(bp);
    
-	*bnp = blkptrtodb(ump, daddr);
-	if (*bnp == 0) {
+	if (0 == (*bnp = blkptrtodb(ump, daddr)))
 		*bnp = -1;
-	}
 	return (0);
 }
 
