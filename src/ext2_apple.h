@@ -167,13 +167,6 @@ void clrbuf(buf_t bp)
     buf_setresid(bp, 0); /* XXX Necessary? */
 }
 
-static __inline__
-buf_t incore(vnode_t vp, daddr64_t bn, int op)
-{
-    return (buf_getblk(vp, bn, 0, 0, 0, (op | BLK_ONLYVALID)));
-    /* XXX Does the returned buffer need to be released? */
-}
-
 #endif
 
 #ifdef _VNODE_H_
