@@ -82,6 +82,8 @@ typedef enum {
     efsIOTransportTypeUSB      = (1<<11),
     efsIOTransportTypeSCSI     = (1<<12),
     efsIOTransportTypeImage    = (1<<13),
+    efsIOTransportTypeSATA     = (1<<14),
+    efsIOTransportTypeFibreChannel = (1<<15),
     efsIOTransportTypeUnknown  = (1<<31)
 }ExtFSIOTransportType;
 
@@ -541,4 +543,4 @@ extern NSString * const ExtFSMediaNotificationChildChange;
 @defined NSSTR
 @abstract Convenience macro to convert a C string to an NSString.
 */
-#define NSSTR(cstr) [NSString stringWithCString:(cstr)]
+#define NSSTR(cstr) [NSString stringWithUTF8String:(cstr)]
