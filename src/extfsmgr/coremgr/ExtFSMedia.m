@@ -46,13 +46,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/IOBSD.h>
 
-#ifdef __ppc__
-#define E2_BAD_ADDR 0xdeadbeef
-#elif defined(__i386__)
-#define E2_BAD_ADDR 0xbaadf00d
-#endif
-
-
 NSString * const ExtFSMediaNotificationUpdatedInfo = @"ExtFSMediaNotificationUpdatedInfo";
 NSString * const ExtFSMediaNotificationChildChange = @"ExtFSMediaNotificationChildChange";
 
