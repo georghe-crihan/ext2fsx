@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2004,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -35,13 +35,14 @@ static const char whatid[] __attribute__ ((unused)) =
 #import <mach/mach_interface.h>
 #import <mach/mach_init.h>
 
-#import "DiskArbitrationPrivate.h"
+#include <DiskArbitration/DiskArbitration.h>
 
 #import <IOKit/IOMessage.h>
 #import <IOKit/IOBSD.h>
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/storage/IOCDMedia.h>
 #import <IOKit/storage/IODVDMedia.h>
+#import <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 #import "ExtFSLock.h"
 #import "ExtFSMedia.h"
@@ -60,6 +61,7 @@ static void* e_instanceLock = nil; // Ptr to global controller internal lock
 static pthread_mutex_t e_initMutex = PTHREAD_MUTEX_INITIALIZER;
 static IONotificationPortRef notify_port_ref=0;
 static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
+static DASessionRef daSession = NULL;
 
 static const char *e_fsNames[] = {
    EXT2FS_NAME,
@@ -78,14 +80,20 @@ static const char *e_fsNames[] = {
    nil
 };
 
+__private_extern__ NSDictionary *transportNameTypeMap = nil;
+
 static void iomatch_add_callback(void *refcon, io_iterator_t iter);
 static void iomatch_rem_callback(void *refcon, io_iterator_t iter);
-static void DiskArbCallback_DiskAppearedWithMountpoint(char *device,
-   unsigned flags, char *mountpoint);
-static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device,
-   int errorCode, pid_t dissenter);
-static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
-   int type, int status);
+static void DiskArbCallback_MountNotification(DADiskRef disk,
+   DADissenterRef dissenter, void * context);
+static void DiskArbCallback_UnmountNotification(DADiskRef disk,
+   DADissenterRef dissenter, void * context);
+static void DiskArbCallback_EjectNotification(DADiskRef disk,
+   DADissenterRef dissenter, void * context);
+static void DiskArbCallback_ChangeNotification(DADiskRef disk,
+   CFArrayRef keys, void * context);
+
+static void DiskArb_CallFailed(const char *device, int type, int status);
 
 enum {
     kPendingMounts = 0,
@@ -93,10 +101,17 @@ enum {
     kPendingCount
 };
 
-// This may end up conflicting with Disk Arb at some point,
-// but as of Panther the largest DA Error is (1<<3).
-#define EXT_DISK_ARB_MOUNT_FAILURE (1<<31)
-#define EXT_MOUNT_ERROR_DELAY 4.0
+
+// Pre-Tiger Disk arb CallFailed types
+#define kDiskArbUnmountAndEjectRequestFailed 1
+#define kDiskArbUnmountRequestFailed 2
+#define kDiskArbEjectRequestFailed 3
+#define kDiskArbDiskChangeRequestFailed 4
+#define EXT_DISK_ARB_MOUNT_FAILURE 5
+
+#define EXT2_DISK_EJECT E2_BAD_ADDR
+
+#define EXT_MOUNT_ERROR_DELAY 30.0
 
 static NSDictionary *opticalMediaTypes = nil;
 static NSDictionary *opticalMediaNames = nil;
@@ -251,7 +266,7 @@ static NSDictionary *opticalMediaNames = nil;
    return (0);
 }
 
-- (void)mountError:(NSTimer*)timer
+- (void)mountDidTimeOut:(NSTimer*)timer
 {
     NSMutableArray *pMounts;
     ExtFSMedia *media = [timer userInfo];
@@ -261,10 +276,8 @@ static NSDictionary *opticalMediaNames = nil;
     if ([pMounts containsObject:media]) {
         eulock(e_lock);
         // Send an error
-        DiskArbCallback_CallFailedNotification(BSDNAMESTR(media),
-            /* XXX - 0x1FFFFFFF will cause an 'Unknown error' since
-                the value overflows the error table. */
-            EXT_DISK_ARB_MOUNT_FAILURE, 0x1FFFFFFF);
+        DiskArb_CallFailed(BSDNAMESTR(media),
+            EXT_DISK_ARB_MOUNT_FAILURE, ETIMEDOUT);
         return;
     }
     eulock(e_lock);
@@ -400,13 +413,17 @@ static NSDictionary *opticalMediaNames = nil;
    [pMounts addObject:media];// Add it while we are under the lock.
    eulock(e_lock);
    
-   ke = DiskArbRequestMount_auto(BSDNAMESTR(media));
+   DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
+   if (dadisk) {
+      ke = 0;
+      NSURL *url = dir ? [NSURL fileURLWithPath:dir] : nil;
+      DADiskMount(dadisk, (CFURLRef)url, kDADiskMountOptionDefault, DiskArbCallback_MountNotification, NULL);
+      CFRelease(dadisk);
+   } else
+      ke = ENOENT;
    if (0 == ke) {
-        /* XXX -- This is a hack to detect a failed mount. It
-           seems DA doesn't notify clients of failed mounts. (Why???)
-         */
         (void)[NSTimer scheduledTimerWithTimeInterval:EXT_MOUNT_ERROR_DELAY
-            target:self selector:@selector(mountError:) userInfo:media
+            target:self selector:@selector(mountDidTimeOut:) userInfo:media
             repeats:NO];
    } else {
       // Re-acquire lock and remove it from pending
@@ -420,7 +437,7 @@ static NSDictionary *opticalMediaNames = nil;
 
 - (int)unmount:(ExtFSMedia*)media force:(BOOL)force eject:(BOOL)eject
 {
-   int flags = kDiskArbUnmountOneFlag;
+   int flags = kDADiskUnmountOptionDefault;
    NSMutableArray *pMounts;
    NSMutableArray *pUMounts;
    kern_return_t ke;
@@ -439,24 +456,43 @@ static NSDictionary *opticalMediaNames = nil;
    eulock(e_lock);
    
    if (force)
-      flags |= kDiskArbForceUnmountFlag;
+      flags |= kDADiskUnmountOptionForce;
    
-   if ([media isEjectable] && eject) {
-      flags |= kDiskArbUnmountAndEjectFlag;
-      flags &= ~kDiskArbUnmountOneFlag;
+   if (![media isEjectable] && eject)
+      eject = NO;
+   
+   if (eject) {
+        // Find root media
+        ExtFSMedia *parent = media;
+        while ((parent = [parent parent])) {
+            if ([parent isWholeDisk]) {
+                media = parent;
+                parent = nil;
+                break;
+            }
+        }
+        flags |= kDADiskUnmountOptionWhole;
    }
+   DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
+   if (!dadisk)
+      return (ENOENT);
    
-   ke = EINVAL;
+   ke = 0;
    if ([media isMounted] || (nil != [media children]))
-      ke = DiskArbUnmountRequest_async_auto(BSDNAMESTR(media), flags);
-   else if (flags & kDiskArbUnmountAndEjectFlag)
-      ke = DiskArbEjectRequest_async_auto(BSDNAMESTR(media), 0);
+      DADiskUnmount(dadisk, flags, DiskArbCallback_UnmountNotification, (eject ? (void*)EXT2_DISK_EJECT : NULL));
+   else if (eject)
+      DADiskEject(dadisk, kDADiskEjectOptionDefault, DiskArbCallback_EjectNotification, NULL);
+   else
+      ke = EINVAL;
    if (0 == ke) {
       ewlock(e_lock);
       if (NO == [pMounts containsObject:media])
         [pUMounts addObject:media];
       eulock(e_lock);
    }
+   
+   CFRelease(dadisk);
+   
    return (ke);
 }
 
@@ -529,6 +565,36 @@ static NSDictionary *opticalMediaNames = nil;
         [me localizedStringForKey:@"Unknown Optical Disc" value:nil table:nil], [NSNumber numberWithInt:efsOpticalTypeUnknown],
         nil];
     
+    transportNameTypeMap = [[NSDictionary alloc] initWithObjectsAndKeys:
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeInternal],
+            NSSTR(kIOPropertyInternalKey),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeExternal],
+            NSSTR(kIOPropertyExternalKey),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeInternal|efsIOTransportTypeExternal],
+            NSSTR(kIOPropertyInternalExternalKey),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeVirtual],
+            NSSTR(kIOPropertyInterconnectFileKey),
+        
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeATA],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeATA),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeATAPI],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeATAPI),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeFirewire],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeFireWire),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeUSB],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeUSB),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeSCSI],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeSCSIParallel),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeSCSI],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeSerialAttachedSCSI),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeFibreChannel],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeFibreChannel),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeSATA],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeSerialATA),
+        [NSNumber numberWithUnsignedInt:efsIOTransportTypeImage],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeVirtual),
+        nil];
+    
    e_pending = [[NSMutableArray alloc] initWithCapacity:kPendingCount];
    for (i=0; i < kPendingCount; ++i) {
         obj = [[NSMutableArray alloc] init];
@@ -565,7 +631,15 @@ static NSDictionary *opticalMediaNames = nil;
    iomatch_rem_callback(nil, notify_rem_iter);
    
    /* Init Disk Arb */
-   kr = DiskArbInit();
+   if (NULL == (daSession = DASessionCreate(kCFAllocatorDefault)))
+      goto exit;
+   DASessionScheduleWithRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopDefaultMode);
+   
+   // Since there is no explicit mount callback, the Change callback is how we detect a mount.
+   DARegisterDiskDescriptionChangedCallback(daSession, NULL,
+      (CFArrayRef)[NSArray arrayWithObject:(NSString*)kDADiskDescriptionVolumePathKey],
+      DiskArbCallback_ChangeNotification, NULL);
+#if 0
    DiskArbAddCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY,
       (void *)&DiskArbCallback_UnmountPostNotification, 0);
    DiskArbAddCallbackHandler(kDA_DISK_APPEARED_WITH_MT,
@@ -573,6 +647,7 @@ static NSDictionary *opticalMediaNames = nil;
    DiskArbAddCallbackHandler(kDA_CALL_FAILED,
       (void *)&DiskArbCallback_CallFailedNotification, 0);
    DiskArbUpdateClientFlags();
+#endif
    
    e_instanceLock = e_lock;
    pthread_mutex_unlock(&e_initMutex);
@@ -598,6 +673,10 @@ exit:
 #if 0
    DiskArbRemoveCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY,
       (void *)&DiskArbCallback_UnmountPostNotification);
+   
+   DASessionUnscheduleFromRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopDefaultMode);
+   CFRelease(daSession);
+   
    [e_media release];
    [e_pending release];
    pthread_mutex_lock(&e_initMutex);
@@ -701,17 +780,21 @@ NSString* EFSIOTransportNameFromType(unsigned long type)
         }
 
         e_fsTransportNames = [[NSDictionary alloc] initWithObjectsAndKeys:
-            [me localizedStringForKey:@"Internal" value:nil table:nil],
+            [me localizedStringForKey:NSSTR(kIOPropertyInternalKey) value:nil table:nil],
                 [NSNumber numberWithUnsignedInt:efsIOTransportTypeInternal],
-            [me localizedStringForKey:@"External" value:nil table:nil],
+            [me localizedStringForKey:NSSTR(kIOPropertyExternalKey) value:nil table:nil],
                 [NSNumber numberWithUnsignedInt:efsIOTransportTypeExternal],
+            [me localizedStringForKey:NSSTR(kIOPropertyInternalExternalKey) value:nil table:nil],
+                [NSNumber numberWithUnsignedInt:efsIOTransportTypeInternal|efsIOTransportTypeExternal],
             [me localizedStringForKey:@"Virtual" value:nil table:nil],
                 [NSNumber numberWithUnsignedInt:efsIOTransportTypeVirtual],
-            @"ATA", [NSNumber numberWithUnsignedInt:efsIOTransportTypeATA],
-            @"ATAPI", [NSNumber numberWithUnsignedInt:efsIOTransportTypeATAPI],
-            @"FireWire", [NSNumber numberWithUnsignedInt:efsIOTransportTypeFirewire],
-            @"USB", [NSNumber numberWithUnsignedInt:efsIOTransportTypeUSB],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeATA), [NSNumber numberWithUnsignedInt:efsIOTransportTypeATA],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeATAPI), [NSNumber numberWithUnsignedInt:efsIOTransportTypeATAPI],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeFireWire), [NSNumber numberWithUnsignedInt:efsIOTransportTypeFirewire],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeUSB), [NSNumber numberWithUnsignedInt:efsIOTransportTypeUSB],
             @"SCSI", [NSNumber numberWithUnsignedInt:efsIOTransportTypeSCSI],
+            @"Fibre Channel", [NSNumber numberWithUnsignedInt:efsIOTransportTypeFibreChannel],
+            NSSTR(kIOPropertyPhysicalInterconnectTypeSerialATA), [NSNumber numberWithUnsignedInt:efsIOTransportTypeSATA],
             [me localizedStringForKey:@"Disk Image" value:nil table:nil],
                 [NSNumber numberWithUnsignedInt:efsIOTransportTypeImage],
             [me localizedStringForKey:@"Unknown" value:nil table:nil],
@@ -739,21 +822,55 @@ static void iomatch_rem_callback(void *refcon, io_iterator_t iter)
    [[ExtFSMediaController mediaController] updateMedia:iter remove:YES];
 }
 
-static void DiskArbCallback_DiskAppearedWithMountpoint(char *device,
-   unsigned flags, char *mountpoint)
+static void DiskArbCallback_MountNotification(DADiskRef disk,
+   DADissenterRef dissenter, void * context __unused)
 {
-   (void)[[ExtFSMediaController mediaController] updateMountStatus];
+    if (NULL == dissenter)
+        (void)[[ExtFSMediaController mediaController] updateMountStatus];
+    else
+        DiskArb_CallFailed(DADiskGetBSDName(disk), EXT_DISK_ARB_MOUNT_FAILURE,
+            DADissenterGetStatus(dissenter));
 }
 
-static void DiskArbCallback_UnmountPostNotification(DiskArbDiskIdentifier device,
-   int errorCode, pid_t dissenter)
+static void DiskArbCallback_UnmountNotification(DADiskRef disk,
+   DADissenterRef dissenter, void * context)
 {
-    if (0 == errorCode)
-        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:[NSString stringWithUTF8String:device]];
-#ifdef DIAGNOSTIC
-    else
-         NSLog(@"ExtFS: Device '%s' failed unmount with error: %d.\n", device, errorCode);
-#endif
+    const char *device = DADiskGetBSDName(disk);
+    
+    if (NULL == dissenter) {
+        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
+        if (EXT2_DISK_EJECT == (unsigned)context)
+            DADiskEject(disk, kDADiskEjectOptionDefault, DiskArbCallback_EjectNotification, NULL);
+    } else
+        DiskArb_CallFailed(device, kDiskArbUnmountRequestFailed,
+            DADissenterGetStatus(dissenter));
+}
+
+static void DiskArbCallback_EjectNotification(DADiskRef disk,
+   DADissenterRef dissenter, void * context)
+{
+    const char *device = DADiskGetBSDName(disk);
+    ExtFSMedia *emedia = [[ExtFSMediaController mediaController] mediaWithBSDName:NSSTR(device)];
+    
+    if (NULL == dissenter && emedia && [emedia isMounted])
+        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
+    else if (dissenter)
+        DiskArb_CallFailed(device, kDiskArbUnmountAndEjectRequestFailed,
+            DADissenterGetStatus(dissenter));
+}
+
+static void DiskArbCallback_ChangeNotification(DADiskRef disk,
+   CFArrayRef keys, void * context)
+{
+    NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
+    NSURL *path;
+    if (d && (path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey])
+        && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]) {
+        (void)[[ExtFSMediaController mediaController] updateMountStatus];
+    } else if (d && (!path || NO == [[NSFileManager defaultManager] fileExistsAtPath:[path path]])) {
+        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(DADiskGetBSDName(disk))];
+    }
+    [d release];
 }
 
 NSString * const ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
@@ -781,10 +898,9 @@ static NSString * const e_DiskArbErrorTable[] = {
 };
 #define DA_ERR_TABLE_LAST 0x0C
 
-static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
-   int type, int status)
+static void DiskArb_CallFailed(const char *device, int type, int status)
 {
-   NSString *bsd = NSSTR(device), *err, *op, *msg;
+   NSString *bsd = NSSTR(device), *err = nil, *op, *msg;
    ExtFSMedia *emedia;
    NSBundle *me;
    ExtFSMediaController *mc = [ExtFSMediaController mediaController];
@@ -798,11 +914,14 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
       if (idx > DA_ERR_TABLE_LAST) {
          if (EBUSY == idx) // This can be returned instead of kDAReturnBusy
             idx = 2;
+         else if (ETIMEDOUT == idx)
+            err = @"Operation timed out";
          else
             idx = 1;
       }
       // Table is read-only, no need to protect it.
-      err = e_DiskArbErrorTable[idx];
+      if (!err)
+         err = e_DiskArbErrorTable[idx];
       
       msg = nil;
       switch (type) {
@@ -811,10 +930,10 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
             op = @"Mount";
             msg = @"The filesystem may need repair. Please use Disk Utility to check the filesystem.";
             break;
-        case kDiskArbUnmountAndEjectRequestFailed:
         case kDiskArbUnmountRequestFailed:
             op = @"Unmount";
             break;
+        case kDiskArbUnmountAndEjectRequestFailed:
         case kDiskArbEjectRequestFailed:
             op = @"Eject";
             break;
@@ -840,9 +959,10 @@ static void DiskArbCallback_CallFailedNotification(DiskArbDiskIdentifier device,
         if (opl)
             op = opl;
         
-        msgl = [me localizedStringForKey:msg value:nil table:nil];
-        if (msgl)
-            msg = msgl;
+        if (msg) {
+            if ((msgl = [me localizedStringForKey:msg value:nil table:nil]))
+                msg = msgl;
+        }
       }
       eulock(e_instanceLock);
       

@@ -1,5 +1,5 @@
 /*
-* Copyright 2004 Brian Bergstrand.
+* Copyright 2004,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -79,7 +79,7 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
     
     if (disk)
         *disk = nil;
-    if (efsIOTransportTypeATA == [media transportBus]) {
+    if (efsIOTransportTypeATA == [media transportBus] || efsIOTransportTypeSATA == [media transportBus]) {
         kern_return_t kr;
         IOCFPlugInInterface **cfipp;
         IOATASMARTInterface **sipp;
@@ -97,7 +97,7 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
             }
         }
         
-        service = [media copyATAIOService];
+        service = [media copySMARTIOService];
         if (nil == service)
             return (efsSMARTOSError);
         

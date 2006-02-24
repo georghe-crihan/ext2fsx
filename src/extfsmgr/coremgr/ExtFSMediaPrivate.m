@@ -1,5 +1,5 @@
 /*
-* Copyright 2004 Brian Bergstrand.
+* Copyright 2004,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -37,6 +37,8 @@
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/storage/IOCDMedia.h>
 #import <IOKit/storage/IODVDMedia.h>
+#import <IOKit/storage/IOStorageProtocolCharacteristics.h>
+#import <IOKit/storage/ata/ATASMARTLib.h>
 
 #import "ExtFSMediaPrivate.h"
 #import "ExtFSLock.h"
@@ -46,6 +48,8 @@ enum {
     kNoteArgObject = 1,
     kNoteArgInfo = 2
 };
+
+__private_extern__ NSDictionary *transportNameTypeMap;
 
 @implementation ExtFSMediaController (Private)
 
@@ -105,6 +109,7 @@ enum {
       regName = NSSTR(ioname);
    
    /* Get Parent */
+   CFMutableDictionaryRef props;
 #ifdef notyet
    /* This seems to only return the first parent, don't know what's going on */
    if (0 == IORegistryEntryGetParentIterator(service, kIOServicePlane, &piter)) {
@@ -130,7 +135,6 @@ enum {
 #endif
       
       if (ioparent) {
-         CFMutableDictionaryRef props;
          kr = IORegistryEntryCreateCFProperties(ioparent, &props,
             kCFAllocatorDefault, 0);
          if (!kr) {
@@ -152,7 +156,7 @@ enum {
    }
    
    // Get transport properties
-    transType = efsIOTransportTypeUnknown | efsIOTransportTypeInternal;
+    transType = efsIOTransportTypeUnknown;
     if (nil != parent) {
         transType = [parent transportType] | [parent transportBus];
         dvd = IsOpticalDVDMedia([parent opticalMediaType]);
@@ -163,30 +167,28 @@ enum {
         kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &ioparent);
         while (kIOReturnSuccess == kr && ioparent &&
              (efsIOTransportTypeUnknown == (transType & efsIOTransportBusMask) ||
-             efsIOTransportTypeExternal != (transType & efsIOTransportTypeMask))) {
+             0 == (transType & efsIOTransportTypeMask))) {
             
-            if (kIOReturnSuccess == IOObjectGetClass(ioparent, parentClass)) {
-                if (0 == strncmp(parentClass, "IOATABlockStorageDevice", sizeof(parentClass)))
-                    transType = efsIOTransportTypeATA | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "IOATAPIProtocolTransport", sizeof(parentClass)))
-                    transType = efsIOTransportTypeATAPI | (transType & efsIOTransportTypeMask); 
-                else if (0 == strncmp(parentClass, "IOFireWireDevice", sizeof(parentClass)))
-                    transType = efsIOTransportTypeFirewire | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "IOUSBMassStorageClass", sizeof(parentClass)))
-                    transType = efsIOTransportTypeUSB | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "IOSCSIBlockCommandsDevice", sizeof(parentClass) /*"IOSCSIProtocolServices"*/))
-                    transType = efsIOTransportTypeSCSI | (transType & efsIOTransportTypeMask);
-                else if (0 == strncmp(parentClass, "KDIDiskImageNub", sizeof(parentClass)) ||
-                     0 == strncmp(parentClass, "IOHDIXController", sizeof(parentClass)) ||
-                     0 == strncmp(parentClass, "PGPdiskController", sizeof(parentClass))) {
-                    transType = efsIOTransportTypeImage | efsIOTransportTypeVirtual;
-                    break;
+            if (kIOReturnSuccess == IORegistryEntryCreateCFProperties(ioparent, &props, kCFAllocatorDefault, 0)) {
+                NSDictionary *protocolSpecs = [(NSDictionary*)props objectForKey:
+                    NSSTR(kIOPropertyProtocolCharacteristicsKey)];
+                NSString *type, *location;
+                NSNumber *foundType;
+                
+                if ((type = [protocolSpecs objectForKey:NSSTR(kIOPropertyPhysicalInterconnectTypeKey)])
+                    || (type = [(NSDictionary*)props objectForKey:NSSTR(kIOPropertyPhysicalInterconnectTypeKey)])) {
+                    if ((foundType = [transportNameTypeMap objectForKey:type])
+                        && (efsIOTransportTypeUnknown == (transType & efsIOTransportBusMask)))
+                        transType = [foundType unsignedIntValue] | (transType & efsIOTransportTypeMask);
                 }
-
-                if (0 == strncmp(parentClass, "IOSCSIPeripheralDeviceNub", sizeof(parentClass))) {
-                    transType |= efsIOTransportTypeExternal;
-                    transType &= ~efsIOTransportTypeInternal;
+                
+                if ((location = [protocolSpecs objectForKey:NSSTR(kIOPropertyPhysicalInterconnectLocationKey)])
+                    || (location = [(NSDictionary*)props objectForKey:NSSTR(kIOPropertyPhysicalInterconnectLocationKey)])) {
+                    if ((foundType = [transportNameTypeMap objectForKey:location])
+                        && 0 == (transType & efsIOTransportTypeMask))
+                        transType |= [foundType unsignedIntValue];
                 }
+                CFRelease(props);
             }
             ioparentold = ioparent;
             ioparent = nil;
@@ -195,6 +197,8 @@ enum {
         }
         if (ioparent)
             IOObjectRelease(ioparent);
+        if (0 == (transType & efsIOTransportTypeMask))
+            transType |= efsIOTransportTypeInternal;
         dvd = IOObjectConformsTo(service, kIODVDMediaClass);
         cd = IOObjectConformsTo(service, kIOCDMediaClass);
     }
@@ -344,19 +348,17 @@ enum {
     return (nil);
 }
 
-- (io_service_t)copyATAIOService
+- (io_service_t)copySMARTIOService
 {
     io_service_t me = nil, tmp, parent = nil;
     
-    if (efsIOTransportTypeATA == [self transportBus])
-        me = [self copyIOService];
-    if (me) {
+    if ((me = [self copyIOService])) {
         kern_return_t kr;
-        io_name_t parentClass;
+        CFMutableDictionaryRef props;
         kr = IORegistryEntryGetParentEntry(me, kIOServicePlane, &parent);
         while (kIOReturnSuccess == kr && parent) {
-            if (kIOReturnSuccess == IOObjectGetClass(parent, parentClass)) {
-                if (0 == strncmp(parentClass, "IOATABlockStorageDevice", sizeof(parentClass)))
+            if (kIOReturnSuccess == IORegistryEntryCreateCFProperties(parent, &props, kCFAllocatorDefault, 0)) {
+                if ([(NSDictionary*)props objectForKey:NSSTR(kIOPropertySMARTCapableKey)])
                     break;
             }
             tmp = parent;

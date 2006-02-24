@@ -1,5 +1,5 @@
 /*
-* Copyright 2004 Brian Bergstrand.
+* Copyright 2004,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -60,7 +60,7 @@ withObject:args waitUntilDone:NO]; \
 - (void)addChild:(ExtFSMedia*)media;
 - (void)remChild:(ExtFSMedia*)media;
 - (io_service_t)copyIOService;
-- (io_service_t)copyATAIOService; // Get ATABlockStorageDevice service
+- (io_service_t)copySMARTIOService; // Get SMART capable service
 /* Implemented in ExtFSMedia.m -- this just gets rid of the compiler warnings. */
 - (int)fsInfo;
 @end
@@ -82,6 +82,12 @@ withObject:args waitUntilDone:NO]; \
 
 #define efsIOTransportTypeMask 0x00000007
 #define efsIOTransportBusMask  0xFFFFFFF8
+
+#ifdef __ppc__
+#define E2_BAD_ADDR 0xdeadbeef
+#elif defined(__i386__)
+#define E2_BAD_ADDR 0xbaadf00d
+#endif
 
 /*!
 @enum ExtFSMediaFlags
