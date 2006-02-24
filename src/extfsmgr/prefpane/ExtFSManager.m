@@ -386,7 +386,7 @@ data = [data stringByAppendingString:@"\n"]; \
          EFSIOTransportNameFromType([media transportType]));
    }
    
-   if ([media isWholeDisk] && efsIOTransportTypeATA == [media transportBus]) {
+   if ([media isWholeDisk]) {
       NSDictionary *smartInfo =
          [mc SMARTStatusDescription:[media SMARTStatus]];
       ExtInfoInsert(ExtLocalizedString(@"S.M.A.R.T. Status", ""),
@@ -407,8 +407,8 @@ data = [data stringByAppendingString:@"\n"]; \
       ([media isWritable] ? e_yes : e_no));
    
    if ([media canMount]) {
-      ExtInfoInsert(ExtLocalizedString(@"Filesystem", ""),
-         [media fsName]);
+      data = [media fsName];
+      ExtInfoInsert(ExtLocalizedString(@"Filesystem", ""), data ? data : @"");
       
       data = [media uuidString];
       ExtInfoInsert(ExtLocalizedString(@"Volume UUID", ""),
@@ -874,8 +874,9 @@ info_alt_switch:
    [e_optionNoteText setStringValue:
       ExtLocalizedString(@"Changes to these options will take effect during the next mount.", "")];
    
-   [e_copyrightText setStringValue:
-      [[[self bundle] localizedInfoDictionary] objectForKey:@"CFBundleGetInfoString"]];
+   [e_copyrightText setStringValue:[NSString stringWithFormat:@"%@ (%@)",
+      [[[self bundle] localizedInfoDictionary] objectForKey:@"CFBundleGetInfoString"],
+      [[self bundle] objectForInfoDictionaryKey:@"ExtGlobalVersion"]]];
    [e_copyrightText setTextColor:[NSColor disabledControlTextColor]];
    
     // Install the SMART monitor into the user's login items
