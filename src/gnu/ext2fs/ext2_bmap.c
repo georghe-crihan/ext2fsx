@@ -150,7 +150,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	ip = VTOI(vp);
 	mp = ITOVFS(ip);
 	ump = VFSTOEXT2(mp);
-	devvp = ump->um_devvp;
+	devvp = ip->i_devvp;
     
     vfs_ioattr(mp, &vfsio);
     iosize = vfs_statfs(mp)->f_iosize;
@@ -242,7 +242,7 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 			struct vnop_strategy_args vsargs;
             vsargs.a_desc = &vnop_strategy_desc;
             vsargs.a_bp = bp;
-            buf_strategy(vp, &vsargs);
+            buf_strategy(devvp, &vsargs);
 #ifdef obsolete
 			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
 #endif

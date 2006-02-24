@@ -458,7 +458,9 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	 * explicitly instead of letting bread do everything for us.
 	 */
 	vp = ITOV(ip);
+	vnode_t devvp = ip->i_devvp;
 	IULOCK(ip); // unlike for IO
+	
 	bp = buf_getblk(vp, (daddr64_t)lbn, (int)fs->s_blocksize, 0, 0, BLK_META);
 #ifdef obsolete
 	if (buf_flags(bp) & (/* B_DONE |*/ B_DELWRI)) {
@@ -477,7 +479,7 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 		struct vnop_strategy_args vsargs;
 		vsargs.a_desc = &vnop_strategy_desc;
 		vsargs.a_bp = bp;
-		buf_strategy(vp, &vsargs);
+		buf_strategy(devvp, &vsargs);
 		error = bufwait(bp);
 	}
 	IXLOCK(ip);
