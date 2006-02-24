@@ -383,8 +383,13 @@ ext2_mount(mp, devvp, data, context)
 	} else {
 		vfs_clearflags(mp, MNT_UNKNOWNPERMISSIONS);
 	}
-
-	//(void)ext2_statfs(mp, vfs_statfs(mp), context);
+	
+	// xxx - Unsupported KPI, but we are already linking against that anyway.
+	// This should not be needed, but it seems there may be a kernel bug, as
+	// I've seen a divide by zero panic on Intel because statfs was not initialized
+	// before a lookup occurred in the FS.
+	(void)vfs_update_vfsstat(mp, context);
+	assert(vfs_statfs(mp)->f_iosize > 0);
 	return (0);
 }
 
@@ -1038,7 +1043,7 @@ ext2_getattrfs(mp, attrs, context)
 	fs = ump->um_e2fs;
 	es = fs->s_es;
 	if (le16_to_cpu(es->s_magic) != EXT2_SUPER_MAGIC)
-		panic("ext2_statfs - magic number spoiled");
+		panic("ext2_getattrfs - magic number spoiled");
 
 	/*
 	 * Compute the overhead (FS structures)
