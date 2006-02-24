@@ -76,7 +76,7 @@ BUILDLOG=/tmp/Ext2${BUILDLOG}.log
 touch ${BUILDLOG}
 
 mkdir -p "${INSTALL}/Library/Extensions"
-mkdir -p "${INSTALL}/Library/Filesystems"
+#mkdir -p "${INSTALL}/Library/Filesystems"
 mkdir -p "${INSTALL}/Library/PreferencePanes"
 mkdir -p "${INSTALL}/Library/Frameworks"
 mkdir "${INSTALL}/sbin"
@@ -129,13 +129,8 @@ cd "${EXT2BUILD}"
 
 cp -pR "${BUILD}/ExtFSManager.prefPane" "${INSTALL}/Library/PreferencePanes/"
 
-cp -pR "${BUILD}/ext2.fs" "${INSTALL}/Library/Filesystems"
-# this sucks - diskarbd won't pick up our plugin in /Library
 mkdir -p "${INSTALL}/System/Library/Filesystems"
-cd "${INSTALL}/System/Library/Filesystems"
-ln -s ../../../Library/Filesystems/ext2.fs ./ext2.fs
-
-cd "${EXT2BUILD}"
+cp -pR "${BUILD}/ext2.fs" "${INSTALL}/System/Library/Filesystems/"
 
 #mount
 cp -p "${BUILD}/mount_ext2" "${INSTALL}/sbin"
