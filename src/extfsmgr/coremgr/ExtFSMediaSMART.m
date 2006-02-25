@@ -74,32 +74,27 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
 
 - (ExtFSMARTStatus)SMARTStatusForMedia:(ExtFSMedia*)media parentDisk:(ExtFSMedia**)disk
 {
-    ExtFSMedia *parent;
-    ExtFSMARTStatus status = efsSMARTInvalidTransport;
+    ExtFSMARTStatus status;
     
     if (disk)
         *disk = nil;
-    if (efsIOTransportTypeATA == [media transportBus] || efsIOTransportTypeSATA == [media transportBus]) {
+    // Find the root disk object
+    ExtFSMedia *parent = media;
+    while ((parent = [parent parent])) {
+        if ([parent isWholeDisk]) {
+            media = parent;
+            parent = nil;
+            break;
+        }
+    }
+    
+    io_service_t service;
+    if ((service = [media copySMARTIOService])) {
         kern_return_t kr;
         IOCFPlugInInterface **cfipp;
         IOATASMARTInterface **sipp;
-        io_service_t service;
         SInt32 score;
         Boolean exceeded = NO;
-        
-        // Find the root disk object
-        parent = media;
-        while ((parent = [parent parent])) {
-            if ([parent isWholeDisk]) {
-                media = parent;
-                parent = nil;
-                break;
-            }
-        }
-        
-        service = [media copySMARTIOService];
-        if (nil == service)
-            return (efsSMARTOSError);
         
         // Create the intermediate plug-in interface
         status = efsSMARTVerified;
@@ -139,7 +134,8 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
         
         if (disk)
             *disk = media;
-    }
+    } else
+        status = efsSMARTInvalidTransport;
     
     return (status);
 }
