@@ -92,6 +92,7 @@ static void DiskArbCallback_EjectNotification(DADiskRef disk,
    DADissenterRef dissenter, void * context);
 static void DiskArbCallback_ChangeNotification(DADiskRef disk,
    CFArrayRef keys, void * context);
+static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context);
 
 static void DiskArb_CallFailed(const char *device, int type, int status);
 
@@ -609,7 +610,7 @@ static NSDictionary *opticalMediaNames = nil;
 	}
    rlSource = IONotificationPortGetRunLoopSource(notify_port_ref);
    CFRunLoopAddSource([[NSRunLoop currentRunLoop] getCFRunLoop], rlSource,
-      kCFRunLoopDefaultMode);
+      kCFRunLoopCommonModes);
    
    /* Setup callbacks to get notified of additions/removals. */
    kr = IOServiceAddMatchingNotification (notify_port_ref,
@@ -633,21 +634,13 @@ static NSDictionary *opticalMediaNames = nil;
    /* Init Disk Arb */
    if (NULL == (daSession = DASessionCreate(kCFAllocatorDefault)))
       goto exit;
-   DASessionScheduleWithRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopDefaultMode);
+   DASessionScheduleWithRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
    
-   // Since there is no explicit mount callback, the Change callback is how we detect a mount.
-   DARegisterDiskDescriptionChangedCallback(daSession, NULL,
-      (CFArrayRef)[NSArray arrayWithObject:(NSString*)kDADiskDescriptionVolumePathKey],
+   // unmount detection
+   DARegisterDiskDescriptionChangedCallback(daSession, NULL, kDADiskDescriptionWatchVolumePath,
       DiskArbCallback_ChangeNotification, NULL);
-#if 0
-   DiskArbAddCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY,
-      (void *)&DiskArbCallback_UnmountPostNotification, 0);
-   DiskArbAddCallbackHandler(kDA_DISK_APPEARED_WITH_MT,
-      (void *)&DiskArbCallback_DiskAppearedWithMountpoint, 0);
-   DiskArbAddCallbackHandler(kDA_CALL_FAILED,
-      (void *)&DiskArbCallback_CallFailedNotification, 0);
-   DiskArbUpdateClientFlags();
-#endif
+   // mount detection
+   DARegisterDiskAppearedCallback(daSession, NULL, DiskArbCallback_AppearedNotification, NULL);
    
    e_instanceLock = e_lock;
    pthread_mutex_unlock(&e_initMutex);
@@ -671,10 +664,10 @@ exit:
 {
    NSLog(@"ExtFS: Oops! Somebody released the global media controller!\n");
 #if 0
-   DiskArbRemoveCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY,
-      (void *)&DiskArbCallback_UnmountPostNotification);
+   DAUnregisterCallback(DiskArbCallback_ChangeNotification, NULL);
+   DAUnregisterCallback(DiskArbCallback_AppearedNotification, NULL);
    
-   DASessionUnscheduleFromRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopDefaultMode);
+   DASessionUnscheduleFromRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
    CFRelease(daSession);
    
    [e_media release];
@@ -847,7 +840,7 @@ static void DiskArbCallback_UnmountNotification(DADiskRef disk,
 }
 
 static void DiskArbCallback_EjectNotification(DADiskRef disk,
-   DADissenterRef dissenter, void * context)
+   DADissenterRef dissenter, void * context __unused)
 {
     const char *device = DADiskGetBSDName(disk);
     ExtFSMedia *emedia = [[ExtFSMediaController mediaController] mediaWithBSDName:NSSTR(device)];
@@ -860,17 +853,33 @@ static void DiskArbCallback_EjectNotification(DADiskRef disk,
 }
 
 static void DiskArbCallback_ChangeNotification(DADiskRef disk,
-   CFArrayRef keys, void * context)
+   CFArrayRef keys __unused, void * context __unused)
 {
     NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
+    NSURL *path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey];
+#ifdef obsolete
+    /* Apparently, despite the "watching volume mount changes" documentation,
+       DARegisterDiskDescriptionChangedCallback() is not meant to notice mounts.
+    */
+    if (d && (path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey])
+        && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]) {
+        (void)[[ExtFSMediaController mediaController] updateMountStatus];
+    } else
+#endif
+    if (d && (!path || NO == [[NSFileManager defaultManager] fileExistsAtPath:[path path]])) {
+        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(DADiskGetBSDName(disk))];
+    }
+    [d release];
+}
+
+static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context __unused)
+{
+	NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
     NSURL *path;
     if (d && (path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey])
         && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]) {
         (void)[[ExtFSMediaController mediaController] updateMountStatus];
-    } else if (d && (!path || NO == [[NSFileManager defaultManager] fileExistsAtPath:[path path]])) {
-        (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(DADiskGetBSDName(disk))];
     }
-    [d release];
 }
 
 NSString * const ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
