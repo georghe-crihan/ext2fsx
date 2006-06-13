@@ -70,6 +70,8 @@ typedef enum {
 @constant efsIOTransportTypeUSB USB bus transport id.
 @constant efsIOTransportTypeSCSI SCSI bus transport id.
 @constant efsIOTransportTypeImage Disk Image (virtual) transport id.
+@constant efsIOTransportTypeSATA SATA bus transport id.
+@constant efsIOTransportTypeFibreChannel FibreChannel bus transport id.
 @constant efsIOTransportTypeUnknown Unknown bus transport id.
 */
 typedef enum {
