@@ -229,7 +229,7 @@ static errcode_t write_journal_inode(ext2_filsys fs, ext2_ino_t journal_ino,
 
  	inode.i_size += fs->blocksize * size;
 	inode.i_blocks += (fs->blocksize / 512) * es.newblocks;
-	inode.i_mtime = inode.i_ctime = time(0);
+	inode.i_mtime = inode.i_ctime = fs->now ? fs->now : time(0);
 	inode.i_links_count = 1;
 	inode.i_mode = LINUX_S_IFREG | 0600;
 
@@ -318,7 +318,8 @@ errcode_t ext2fs_add_journal_inode(ext2_filsys fs, blk_t size, int flags)
 	ext2_ino_t		journal_ino;
 	struct stat		st;
 	char			jfile[1024];
-	int			fd, mount_flags, f;
+	int			mount_flags, f;
+	int			fd = -1;
 
 	if ((retval = ext2fs_check_mount_point(fs->device_name, &mount_flags,
 					       jfile, sizeof(jfile)-10)))
@@ -369,6 +370,11 @@ errcode_t ext2fs_add_journal_inode(ext2_filsys fs, blk_t size, int flags)
 		close(fd);
 		journal_ino = st.st_ino;
 	} else {
+		if ((mount_flags & EXT2_MF_BUSY) &&
+		    !(fs->flags & EXT2_FLAG_EXCLUSIVE)) {
+			retval = EBUSY;
+			goto errout;
+		}
 		journal_ino = EXT2_JOURNAL_INO;
 		if ((retval = write_journal_inode(fs, journal_ino,
 						  size, flags)))
@@ -384,7 +390,8 @@ errcode_t ext2fs_add_journal_inode(ext2_filsys fs, blk_t size, int flags)
 	ext2fs_mark_super_dirty(fs);
 	return 0;
 errout:
-	close(fd);
+	if (fd > 0)
+		close(fd);
 	return retval;
 }
 

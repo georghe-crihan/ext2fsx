@@ -60,6 +60,7 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #if EXT2_FLAT_INCLUDES
 #include "e2_types.h"
@@ -187,6 +188,7 @@ typedef struct ext2_file *ext2_file_t;
 #define EXT2_FLAG_SUPER_ONLY		0x800
 #define EXT2_FLAG_JOURNAL_DEV_OK	0x1000
 #define EXT2_FLAG_IMAGE_FILE		0x2000
+#define EXT2_FLAG_EXCLUSIVE		0x4000
 
 /*
  * Special flag in the ext2 inode i_flag field that means that this is
@@ -228,10 +230,11 @@ struct struct_ext2_filsys {
 	struct ext2_super_block *	orig_super;
 	struct ext2_image_hdr *		image_header;
 	__u32				umask;
+	time_t				now;
 	/*
 	 * Reserved for future expansion
 	 */
-	__u32				reserved[8];
+	__u32				reserved[7];
 
 	/*
 	 * Reserved for the use of the calling application.
@@ -267,9 +270,9 @@ struct struct_ext2_filsys {
  * to an inode.  It can also be used for programs that want to be able
  * to deal with files that contain "holes".
  * 
- * BLOCK_FLAG_TRAVERSE indicates that the iterator function for the
- * indirect, doubly indirect, etc. blocks should be called after all
- * of the blocks containined in the indirect blocks are processed.
+ * BLOCK_FLAG_DEPTH_TRAVERSE indicates that the iterator function for
+ * the indirect, doubly indirect, etc. blocks should be called after
+ * all of the blocks containined in the indirect blocks are processed.
  * This is useful if you are going to be deallocating blocks from an
  * inode.
  *
@@ -338,6 +341,7 @@ typedef struct ext2_struct_inode_scan *ext2_inode_scan;
 #define EXT2_SF_BAD_INODE_BLK	0x0002
 #define EXT2_SF_BAD_EXTRA_BYTES	0x0004
 #define EXT2_SF_SKIP_MISSING_ITABLE	0x0008
+#define EXT2_SF_DO_LAZY		0x0010
 
 /*
  * ext2fs_check_if_mounted flags
@@ -434,6 +438,7 @@ typedef struct ext2_icount *ext2_icount_t;
 					 EXT3_FEATURE_COMPAT_HAS_JOURNAL|\
 					 EXT2_FEATURE_COMPAT_RESIZE_INODE|\
 					 EXT2_FEATURE_COMPAT_DIR_INDEX|\
+					 EXT2_FEATURE_COMPAT_LAZY_BG|\
 					 EXT2_FEATURE_COMPAT_EXT_ATTR)
 
 /* This #ifdef is temporary until compression is fully supported */
@@ -983,6 +988,7 @@ extern blk_t ext2fs_inode_data_blocks(ext2_filsys fs,
 #endif
 
 #ifndef EXT2_CUSTOM_MEMORY_ROUTINES
+#include <string.h>
 /*
  *  Allocate memory
  */

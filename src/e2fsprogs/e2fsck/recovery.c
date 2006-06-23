@@ -435,7 +435,7 @@ static int do_one_pass(journal_t *journal,
 					success = err;
 					printk (KERN_ERR 
 						"JBD: IO error %d recovering "
-						"block %ld in log\n",
+						"block %lu in log\n",
 						err, io_block);
 				} else {
 					unsigned long blocknr;
@@ -526,6 +526,7 @@ static int do_one_pass(journal_t *journal,
 		default:
 			jbd_debug(3, "Unrecognised magic %d, end of scan.\n",
 				  blocktype);
+			brelse(bh);
 			goto done;
 		}
 	}

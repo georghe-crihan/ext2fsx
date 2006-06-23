@@ -143,9 +143,12 @@ struct ext2_group_desc
 	__u16	bg_free_blocks_count;	/* Free blocks count */
 	__u16	bg_free_inodes_count;	/* Free inodes count */
 	__u16	bg_used_dirs_count;	/* Directories count */
-	__u16	bg_pad;
+	__u16	bg_flags;
 	__u32	bg_reserved[3];
 };
+
+#define EXT2_BG_INODE_UNINIT	0x0001 /* Inode table/bitmap not initialized */
+#define EXT2_BG_BLOCK_UNINIT	0x0002 /* Block bitmap not initialized */
 
 /*
  * Data structures used by the directory indexing feature
@@ -242,10 +245,26 @@ struct ext2_dx_countlimit {
 /*
  * ioctl commands
  */
+
+/* Used for online resize */
+struct ext2_new_group_input {
+	__u32 group;		/* Group number for this data */
+	__u32 block_bitmap;	/* Absolute block number of block bitmap */
+	__u32 inode_bitmap;	/* Absolute block number of inode bitmap */
+	__u32 inode_table;	/* Absolute block number of inode table start */
+	__u32 blocks_count;	/* Total number of blocks in this group */
+	__u16 reserved_blocks;	/* Number of reserved blocks in this group */
+	__u16 unused;		/* Number of reserved GDT blocks in group */
+};
+
 #define EXT2_IOC_GETFLAGS		_IOR('f', 1, long)
 #define EXT2_IOC_SETFLAGS		_IOW('f', 2, long)
 #define EXT2_IOC_GETVERSION		_IOR('v', 1, long)
 #define EXT2_IOC_SETVERSION		_IOW('v', 2, long)
+#define EXT2_IOC_GETVERSION_NEW		_IOR('f', 3, long)
+#define EXT2_IOC_SETVERSION_NEW		_IOW('f', 4, long)
+#define EXT2_IOC_GROUP_EXTEND		_IOW('f', 7, unsigned long)
+#define EXT2_IOC_GROUP_ADD		_IOW('f', 8,struct ext2_new_group_input)
 
 /*
  * Structure of an inode on the disk
@@ -552,6 +571,7 @@ struct ext2_super_block {
 #define EXT2_FEATURE_COMPAT_EXT_ATTR		0x0008
 #define EXT2_FEATURE_COMPAT_RESIZE_INODE	0x0010
 #define EXT2_FEATURE_COMPAT_DIR_INDEX		0x0020
+#define EXT2_FEATURE_COMPAT_LAZY_BG		0x0040
 
 #define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
 #define EXT2_FEATURE_RO_COMPAT_LARGE_FILE	0x0002

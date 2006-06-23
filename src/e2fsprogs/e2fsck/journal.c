@@ -344,8 +344,10 @@ static errcode_t e2fsck_get_journal(e2fsck_t ctx, journal_t **ret_journal)
 			goto errout;
 		}
 		ll_rw_block(READ, 1, &bh);
-		if ((retval = bh->b_err) != 0)
+		if ((retval = bh->b_err) != 0) {
+			brelse(bh);
 			goto errout;
+		}
 		memcpy(&jsuper, start ? bh->b_data :  bh->b_data + 1024,
 		       sizeof(jsuper));
 		brelse(bh);
@@ -827,6 +829,7 @@ int e2fsck_run_ext3_journal(e2fsck_t ctx)
 		fatal_error(ctx, 0);
 	}
 	ctx->fs->priv_data = ctx;
+	ctx->fs->now = ctx->now;
 
 	/* Set the superblock flags */
 	e2fsck_clear_recover(ctx, recover_retval);
@@ -958,3 +961,40 @@ err_out:
 	return;
 }
 
+/*
+ * This function makes sure the superblock hint for the external
+ * journal is correct.
+ */
+int e2fsck_fix_ext3_journal_hint(e2fsck_t ctx)
+{
+	struct ext2_super_block *sb = ctx->fs->super;
+	struct problem_context pctx;
+	char uuid[37], *journal_name;
+	struct stat st;
+	problem_t problem;
+	int retval;
+
+	if (!(sb->s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) ||
+	    uuid_is_null(sb->s_journal_uuid))
+ 		return 0;
+
+	uuid_unparse(sb->s_journal_uuid, uuid);
+	journal_name = blkid_get_devname(ctx->blkid, "UUID", uuid);
+	if (!journal_name)
+		return 0;
+
+	if (stat(journal_name, &st) < 0)
+		return 0;
+
+	if (st.st_rdev != sb->s_journal_dev) {
+		clear_problem_context(&pctx);
+		pctx.num = st.st_rdev;
+		if (fix_problem(ctx, PR_0_EXTERNAL_JOURNAL_HINT, &pctx)) {
+			sb->s_journal_dev = st.st_rdev;
+			ext2fs_mark_super_dirty(ctx->fs);
+		}
+	}
+
+	free(journal_name);
+	return 0;
+}

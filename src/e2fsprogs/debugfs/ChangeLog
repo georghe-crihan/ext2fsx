@@ -1,3 +1,72 @@
+2006-05-29  Theodore Tso  <tytso@mit.edu>
+
+	* util.c (reset_getopt): In order to support ancient Linux header
+		files that don't define __GLIBC__ (but which were using
+		glibc anyway), assume that any system that defines
+		__linux__ should use the glibc method of resetting getopt().
+
+2006-05-28  Theodore Tso  <tytso@mit.edu>
+
+	* unused.c (do_dump_unused): Use EXT2_MAX_BLOCK_SIZE instead of a
+		hardcoded blocksize of 32768, since this will fail on a
+		filesystem with a 64k blocksize.  (Addresses SourceForge
+		bug #1424311)
+
+2006-05-21  Theodore Tso  <tytso@mit.edu>
+
+	* set_fields.c (parse_time): Fix type warning problem with time_t
+
+2006-05-08  Theodore Tso  <tytso@mit.edu>
+
+	* debugfs.c (do_show_super_stats): Print out the block group flags
+		if they are set.
+
+2006-04-27  Theodore Ts'o  <tytso@mit.edu>
+
+	* htree.c (do_htree_dump, do_dx_hash), ls.c (do_list_dir): Add
+		missing default case in the getopt() while/switch loop so
+		that we print a usage() statement when the user specified
+		an illegal option.
+
+2006-03-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c, htree.c, unused.c: Change printf statements to use
+		%u instead of %d when printing block numbers.
+
+	* debugfs.c (do_open_filesys), debugfs.8.in: Add the -e option to
+		the open_filesystem command, which requests that the
+		filesystem be opened in exclusive mode.
+
+2006-03-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* Fix bug in icheck which incorrectly reports the last valid inode
+		number as the owner for an EA block.
+
+2005-12-10  Theodore Ts'o  <tytso@mit.edu>
+
+	* debugfs.c, debugfs.h, logdump.c, ls.c: Clean up various gcc
+		-Wall complaints.
+
+2005-09-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* set_fields.c (parse_time), util.c (string_to_time), debugfs.c
+		(do_set_current_time): Generalize the time parsing code
+		and move it to util.c:string_to_time().  Add new command,
+		set_current_time, which sets the time used to set the
+		filesystems's time fields.
+
+2005-09-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* set_fields.c: Fix set_inode_field so it can properly set the
+		i_size field.  Thanks to James Nelson for pointing this
+		out.
+
+2005-07-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* set_fields.c: Fix a bug which caused set_inode_field to silently
+		fail when setting the following fields: frag, fsize,
+		uid_high, gid_high, and author.
+
 2006-06-30  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.38

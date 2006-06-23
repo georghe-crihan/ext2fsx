@@ -31,6 +31,7 @@ extern int check_fs_read_write(char *name);
 extern int check_fs_bitmaps(char *name);
 extern ext2_ino_t string_to_inode(char *str);
 extern char *time_to_string(__u32);
+extern time_t string_to_time(const char *);
 extern unsigned long parse_ulong(const char *str, const char *cmd,
 				 const char *descr, int *err);
 extern int strtoblk(const char *cmd, const char *str, blk_t *ret);
@@ -43,6 +44,8 @@ extern int common_block_args_process(int argc, char *argv[],
 				     blk_t *block, int *count);
 extern int debugfs_read_inode(ext2_ino_t ino, struct ext2_inode * inode,
 			      const char *cmd);
+extern int debugfs_read_inode_full(ext2_ino_t ino, struct ext2_inode * inode,
+				   const char *cmd, int bufsize);
 extern int debugfs_write_inode(ext2_ino_t ino, struct ext2_inode * inode,
 			       const char *cmd);
 extern int debugfs_write_new_inode(ext2_ino_t ino, struct ext2_inode * inode,
@@ -119,4 +122,5 @@ extern void do_expand_dir(int argc, char **argv);
 extern void do_features(int argc, char **argv);
 extern void do_bmap(int argc, char **argv);
 extern void do_imap(int argc, char **argv);
+extern void do_set_current_time(int argc, char **argv);
 

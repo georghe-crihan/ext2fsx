@@ -138,6 +138,15 @@ int blkid_set_tag(blkid_dev dev, const char *name,
 
 	if (!(val = blkid_strndup(value, vlength)) && value)
 		return -BLKID_ERR_MEM;
+
+	/* Link common tags directly to the device struct */
+	if (!strcmp(name, "TYPE"))
+		dev->bid_type = val;
+	else if (!strcmp(name, "LABEL"))
+		dev->bid_label = val;
+	else if (!strcmp(name, "UUID"))
+		dev->bid_uuid = val;
+		
 	t = blkid_find_tag_dev(dev, name);
 	if (!value) {
 		if (t)
@@ -180,14 +189,6 @@ int blkid_set_tag(blkid_dev dev, const char *name,
 		}
 	}
 	
-	/* Link common tags directly to the device struct */
-	if (!strcmp(name, "TYPE"))
-		dev->bid_type = val;
-	else if (!strcmp(name, "LABEL"))
-		dev->bid_label = val;
-	else if (!strcmp(name, "UUID"))
-		dev->bid_uuid = val;
-		
 	if (dev->bid_cache)
 		dev->bid_cache->bic_flags |= BLKID_BIC_FL_CHANGED;
 	return 0;
@@ -436,7 +437,8 @@ int main(int argc, char **argv)
 
 	dev = blkid_get_dev(cache, devname, flags);
 	if (!dev) {
-		fprintf(stderr, "%s: Can not find device in blkid cache\n");
+		fprintf(stderr, "%s: Can not find device in blkid cache\n", 
+			devname);
 		exit(1);
 	}
 	if (search_type) {

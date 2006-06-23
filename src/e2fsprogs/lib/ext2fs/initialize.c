@@ -63,14 +63,14 @@
  * The absolute maximum number of GDT blocks we can reserve is determined by
  * the number of block pointers that can fit into a single block.
  */
-static int calc_reserved_gdt_blocks(ext2_filsys fs)
+static unsigned int calc_reserved_gdt_blocks(ext2_filsys fs)
 {
 	struct ext2_super_block *sb = fs->super;
 	unsigned long bpg = sb->s_blocks_per_group;
 	unsigned int gdpb = fs->blocksize / sizeof(struct ext2_group_desc);
 	unsigned long max_blocks = 0xffffffff;
 	unsigned long rsv_groups;
-	int rsv_gdb;
+	unsigned int rsv_gdb;
 
 	/* We set it at 1024x the current filesystem size, or
 	 * the upper block count limit (2^32), whichever is lower.
@@ -82,7 +82,7 @@ static int calc_reserved_gdt_blocks(ext2_filsys fs)
 	if (rsv_gdb > EXT2_ADDR_PER_BLOCK(sb))
 		rsv_gdb = EXT2_ADDR_PER_BLOCK(sb);
 #ifdef RES_GDT_DEBUG
-	printf("max_blocks %lu, rsv_groups = %lu, rsv_gdb = %lu\n",
+	printf("max_blocks %lu, rsv_groups = %lu, rsv_gdb = %u\n",
 	       max_blocks, rsv_groups, rsv_gdb);
 #endif
 
@@ -104,6 +104,7 @@ errcode_t ext2fs_initialize(const char *name, int flags,
 	dgrp_t		i;
 	blk_t		numblocks;
 	int		rsv_gdt;
+	int		io_flags;
 	char		*buf;
 
 	if (!param || !param->s_blocks_count)
@@ -120,7 +121,10 @@ errcode_t ext2fs_initialize(const char *name, int flags,
 #ifdef WORDS_BIGENDIAN
 	fs->flags |= EXT2_FLAG_SWAP_BYTES;
 #endif
-	retval = manager->open(name, IO_FLAG_RW, &fs->io);
+	io_flags = IO_FLAG_RW;
+	if (flags & EXT2_FLAG_EXCLUSIVE)
+		io_flags |= IO_FLAG_EXCLUSIVE;
+	retval = manager->open(name, io_flags, &fs->io);
 	if (retval)
 		goto cleanup;
 	fs->image_io = fs->io;
@@ -168,7 +172,7 @@ errcode_t ext2fs_initialize(const char *name, int flags,
 	}
 
 	set_field(s_checkinterval, EXT2_DFL_CHECKINTERVAL);
-	super->s_mkfs_time = super->s_lastcheck = time(NULL);
+	super->s_mkfs_time = super->s_lastcheck = fs->now ? fs->now : time(NULL);
 
 	super->s_creator_os = CREATOR_OS;
 

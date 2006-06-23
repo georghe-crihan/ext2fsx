@@ -12,14 +12,19 @@
  * %End-Header%
  */
 
+#define _LARGEFILE_SOURCE
+#define _LARGEFILE64_SOURCE
+
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #else
 extern char *optarg;
 extern int optind;
 #endif
-#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #include "e2p/e2p.h"
 
@@ -89,24 +94,48 @@ static errcode_t resize_progress_func(ext2_resize_t rfs, int pass,
 	return 0;
 }
 
-static void check_mount(char *device)
+static void determine_fs_stride(ext2_filsys fs)
 {
-	errcode_t	retval;
-	int		mount_flags;
+	unsigned int	group;
+	unsigned long long sum;
+	unsigned int	has_sb, prev_has_sb, num;
+	int		i_stride, b_stride;
 
-	retval = ext2fs_check_if_mounted(device, &mount_flags);
-	if (retval) {
-		com_err("ext2fs_check_if_mount", retval,
-			_("while determining whether %s is mounted."),
-			device);
-		return;
+	num = 0; sum = 0;
+	for (group = 0; group < fs->group_desc_count; group++) {
+		has_sb = ext2fs_bg_has_super(fs, group);
+		if (group == 0 || has_sb != prev_has_sb)
+			goto next;
+		b_stride = fs->group_desc[group].bg_block_bitmap - 
+			fs->group_desc[group-1].bg_block_bitmap - 
+			fs->super->s_blocks_per_group;
+		i_stride = fs->group_desc[group].bg_inode_bitmap - 
+			fs->group_desc[group-1].bg_inode_bitmap - 
+			fs->super->s_blocks_per_group;
+		if (b_stride != i_stride ||
+		    b_stride < 0)
+			goto next;
+
+		/* printf("group %d has stride %d\n", group, b_stride); */
+		sum += b_stride;
+		num++;
+			
+	next:
+		prev_has_sb = has_sb;
 	}
-	if (!(mount_flags & EXT2_MF_MOUNTED))
-		return;
-	
-	fprintf(stderr, _("%s is mounted; can't resize a "
-		"mounted filesystem!\n\n"), device);
-	exit(1);
+
+	if (fs->group_desc_count > 12 && num < 3)
+		sum = 0;
+
+	if (num)
+		fs->stride = sum / num;
+	else
+		fs->stride = 0;
+
+#if 0
+	if (fs->stride)
+		printf("Using RAID stride of %d\n", fs->stride);
+#endif
 }
 
 int main (int argc, char ** argv)
@@ -117,15 +146,23 @@ int main (int argc, char ** argv)
 	int		flags = 0;
 	int		flush = 0;
 	int		force = 0;
-	int		fd;
+	int		io_flags = 0;
+	int		fd, ret;
 	blk_t		new_size = 0;
 	blk_t		max_size = 0;
 	io_manager	io_ptr;
-	char		*tmp;
 	char		*new_size_str = 0;
+	int		use_stride = -1;
+#ifdef HAVE_FSTAT64
+	struct stat64	st_buf;
+#else
 	struct stat	st_buf;
+#endif
+	__s64		new_file_size;
 	unsigned int	sys_page_size = 4096;
 	long		sysval;
+	int		len, mount_flags;
+	char		*mtpt;
 
 #ifdef ENABLE_NLS
 	setlocale(LC_MESSAGES, "");
@@ -141,7 +178,7 @@ int main (int argc, char ** argv)
 	if (argc && *argv)
 		program_name = *argv;
 
-	while ((c = getopt (argc, argv, "d:fFhp")) != EOF) {
+	while ((c = getopt (argc, argv, "d:fFhpS:")) != EOF) {
 		switch (c) {
 		case 'h':
 			usage(program_name);
@@ -157,6 +194,9 @@ int main (int argc, char ** argv)
 			break;
 		case 'p':
 			flags |= RESIZE_PERCENT_COMPLETE;
+			break;
+		case 'S':
+			use_stride = atoi(optarg);
 			break;
 		default:
 			usage(program_name);
@@ -175,17 +215,54 @@ int main (int argc, char ** argv)
 	if (io_options)
 		*io_options++ = 0;
 
-	check_mount(device_name);
-	
-	if (flush) {
-		fd = open(device_name, O_RDONLY, 0);
-
-		if (fd < 0) {
-			com_err("open", errno,
-				_("while opening %s for flushing"),
+	/*
+	 * Figure out whether or not the device is mounted, and if it is
+	 * where it is mounted.
+	 */
+	len=80;
+	while (1) {
+		mtpt = malloc(len);
+		if (!mtpt)
+			return ENOMEM;
+		mtpt[len-1] = 0;
+		retval = ext2fs_check_mount_point(device_name, &mount_flags, 
+						  mtpt, len);
+		if (retval) {
+			com_err("ext2fs_check_mount_point", retval,
+				_("while determining whether %s is mounted."),
 				device_name);
 			exit(1);
 		}
+		if (!(mount_flags & EXT2_MF_MOUNTED) || (mtpt[len-1] == 0))
+			break;
+		free(mtpt);
+		len = 2 * len;
+	}
+
+#ifdef HAVE_OPEN64
+	fd = open64(device_name, O_RDWR);
+#else
+	fd = open(device_name, O_RDWR);
+#endif
+	if (fd < 0) {
+		com_err("open", errno, _("while opening %s"),
+			device_name);
+		exit(1);
+	}
+
+#ifdef HAVE_FSTAT64
+	ret = fstat64(fd, &st_buf);
+#else
+	ret = fstat(fd, &st_buf);
+#endif
+	if (ret < 0) {
+		com_err("open", errno, 
+			_("while getting stat information for %s"),
+			device_name);
+		exit(1);
+	}
+	
+	if (flush) {
 		retval = ext2fs_sync_device(fd, 1);
 		if (retval) {
 			com_err(argv[0], retval, 
@@ -193,7 +270,11 @@ int main (int argc, char ** argv)
 				device_name);
 			exit(1);
 		}
+	}
+
+	if (!S_ISREG(st_buf.st_mode )) {
 		close(fd);
+		fd = -1;
 	}
 
 	if (flags & RESIZE_DEBUG_IO) {
@@ -202,7 +283,9 @@ int main (int argc, char ** argv)
 	} else 
 		io_ptr = unix_io_manager;
 
-	retval = ext2fs_open2(device_name, io_options, EXT2_FLAG_RW, 
+	if (!(mount_flags & EXT2_MF_MOUNTED))
+		io_flags = EXT2_FLAG_RW | EXT2_FLAG_EXCLUSIVE;
+	retval = ext2fs_open2(device_name, io_options, io_flags, 
 			      0, 0, io_ptr, &fs);
 	if (retval) {
 		com_err (program_name, retval, _("while trying to open %s"),
@@ -234,7 +317,7 @@ int main (int argc, char ** argv)
 
 	/*
 	 * Get the size of the containing partition, and use this for
-	 * defaults and for making sure the new filesystme doesn't
+	 * defaults and for making sure the new filesystem doesn't
 	 * exceed the partition size.
 	 */
 	retval = ext2fs_get_device_size(device_name, fs->blocksize,
@@ -258,53 +341,79 @@ int main (int argc, char ** argv)
 		if (sys_page_size > fs->blocksize)
 			new_size &= ~((sys_page_size / fs->blocksize)-1);
 	}
+
+	if (use_stride >= 0) {
+		if (use_stride >= fs->super->s_blocks_per_group) {
+			com_err(program_name, 0, 
+				_("Invalid stride length"));
+			exit(1);
+		}
+		fs->stride = use_stride;
+	} else
+		  determine_fs_stride(fs);
 	
 	/*
 	 * If we are resizing a plain file, and it's not big enough,
 	 * automatically extend it in a sparse fashion by writing the
 	 * last requested block.
 	 */
-	if ((new_size > max_size) &&
-	    (stat(device_name, &st_buf) == 0) &&
-	    S_ISREG(st_buf.st_mode) &&
-	    ((tmp = malloc(fs->blocksize)) != 0)) {
-		memset(tmp, 0, fs->blocksize);
-		retval = io_channel_write_blk(fs->io, new_size-1, 1, tmp);
-		if (retval == 0)
+	new_file_size = ((__u64) new_size) * fs->blocksize;
+	if ((__u64) new_file_size > 
+	    (((__u64) 1) << (sizeof(st_buf.st_size)*8 - 1)) - 1)
+		fd = -1;
+	if ((new_file_size > st_buf.st_size) &&
+	    (fd > 0)) {
+		if ((ext2fs_llseek(fd, new_file_size-1, SEEK_SET) >= 0) &&
+		    (write(fd, "0", 1) == 1))
 			max_size = new_size;
-		free(tmp);
 	}
 	if (!force && (new_size > max_size)) {
 		fprintf(stderr, _("The containing partition (or device)"
-			" is only %d (%dk) blocks.\nYou requested a new size"
-			" of %d blocks.\n\n"), max_size,
+			" is only %u (%dk) blocks.\nYou requested a new size"
+			" of %u blocks.\n\n"), max_size,
 			fs->blocksize / 1024, new_size);
 		exit(1);
 	}
 	if (new_size == fs->super->s_blocks_count) {
-		fprintf(stderr, _("The filesystem is already %d blocks "
+		fprintf(stderr, _("The filesystem is already %u blocks "
 			"long.  Nothing to do!\n\n"), new_size);
 		exit(0);
 	}
-	if (!force && ((fs->super->s_lastcheck < fs->super->s_mtime) ||
-		       (fs->super->s_state & EXT2_ERROR_FS) ||
-		       ((fs->super->s_state & EXT2_VALID_FS) == 0))) {
-		fprintf(stderr, _("Please run 'e2fsck -f %s' first.\n\n"),
-			device_name);
-		exit(1);
+	if (mount_flags & EXT2_MF_MOUNTED) {
+		retval = online_resize_fs(fs, mtpt, &new_size, flags);
+	} else {
+		if (!force && ((fs->super->s_lastcheck < fs->super->s_mtime) ||
+			       (fs->super->s_state & EXT2_ERROR_FS) ||
+			       ((fs->super->s_state & EXT2_VALID_FS) == 0))) {
+			fprintf(stderr, 
+				_("Please run 'e2fsck -f %s' first.\n\n"),
+				device_name);
+			exit(1);
+		}
+	printf("Resizing the filesystem on %s to %u (%dk) blocks.\n",
+		       device_name, new_size, fs->blocksize / 1024);
+		retval = resize_fs(fs, &new_size, flags,
+				   ((flags & RESIZE_PERCENT_COMPLETE) ?
+				    resize_progress_func : 0));
 	}
-	printf("Resizing the filesystem on %s to %d (%dk) blocks.\n",
-	       device_name, new_size, fs->blocksize / 1024);
-	retval = resize_fs(fs, &new_size, flags,
-			   ((flags & RESIZE_PERCENT_COMPLETE) ?
-			    resize_progress_func : 0));
 	if (retval) {
 		com_err(program_name, retval, _("while trying to resize %s"),
 			device_name);
 		ext2fs_close (fs);
 		exit(1);
 	}
-	printf(_("The filesystem on %s is now %d blocks long.\n\n"),
+	printf(_("The filesystem on %s is now %u blocks long.\n\n"),
 	       device_name, new_size);
+
+	if ((st_buf.st_size > new_file_size) &&
+	    (fd > 0)) {
+#ifdef HAVE_FSTAT64
+		ftruncate64(fd, new_file_size);
+#else
+		ftruncate(fd, (off_t) new_file_size);
+#endif
+	}
+	if (fd > 0)
+		close(fd);
 	return (0);
 }

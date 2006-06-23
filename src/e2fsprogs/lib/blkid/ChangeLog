@@ -1,3 +1,109 @@
+2006-05-14  Theodore Tso  <tytso@mit.edu>
+
+	* probe.c (probe_udf): Fix signed vs. unsigned lint warning;
+		better to use memcmp() rather than strncmp() anyway.
+
+2006-04-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* blkid_types.h.in, Makefile.in, tst_types.c: Use the asm_types.h
+		file to define the __[us]{8,16,32,64} types.  Add a
+		tst_types program to make sure the types are correct.
+
+2006-03-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c (blkid_verify): Fix file descriptor leak on error. 
+
+2006-03-19  Theodore Ts'o  <tytso@mit.edu>
+
+	* devname.c (dm_probe_all, dm_device_is_leaf): Make the
+		libdevmapper fail quietly if blkid is called without root
+		privileges or the kernel does not include device mapper
+		support.  (What is the device mapper _library_ doing
+		writing to stderr, anyway?)
+
+2006-03-12  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c (blkid_verify): Fix the bid_time sanity checking logic,
+		so that if last verification time is more recent than the
+		current time, or the comparison between the last
+		verification time and the current time causes an overflow,
+		a device verification will take place.
+
+	* devname.c (blkid_get_dev): Set the initial bid_time to be
+		INT_MIN, to guarantee that blkid_verify will always be run
+		even when the system clock is insane.
+
+	* dev.c (blkid_debug_dump_dev), read.c (debug_dump_dev), 
+		save.c (save_dev): Fix the printf format for dev->bid_time
+		to match the fact that it is an signed type.
+
+2006-03-10  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c (probe_ext3): If the filesystem has an external journal,
+		store the UUID of the external journal in the tag
+		EXT_JOURNAL.
+		(blkid_verify): If the filesystem type has changed, clear
+		all the tags on the device, not just a preset list of
+		LABEL, UUID, TYPE, and SEC_TYPE.
+
+	* tag.c (blkid_set_tag): Fix a bug so that blkid_set_tag will work
+		correctly when freeing a tag when the input name parameter
+		comes from the tag that we are freeing.
+
+2005-12-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* tag.c (main): Add missing parameter in error-handling printf of
+		the blkid test program tst_tag.
+
+2005-12-10  Theodore Ts'o  <tytso@mit.edu>
+
+	* Makefile.in: Add a dependency to make sure that the
+		subdirectories are created before creating all of the
+		object files.
+
+2005-09-10  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c (probe_fat): Search the root directory of FAT
+		filesystems for the label information.
+
+	* probe.c, probe.h: Change superblock and generic i/o functions to
+		be more generic.  Clean up interface to the probe
+		function.  Fix memory leak.
+
+	* probe.c, probe.h: Extract basic iso9660 label information.
+
+	* probe.c, probe.h: Add support for resier4 filesystem.
+
+2005-09-07  Theodore Ts'o  <tytso@mit.edu>
+
+	* probe.c: Collapse vfat and fat code and make it more paranoid
+		when probing for vat/fat filesystems.
+
+	* resolve.c: Remove unneeded probe.h header file.
+
+2005-09-05  Karel Zak <kzak@redhat.com>
+
+	* probe.c (probe_vfat_nomagic): Add support for detecting VFAT
+		filesystems even when the magic string isn't in the FAT
+		super block.
+
+	* probe.c: Add support for detecting software suspend partitions
+
+	* probe.c (probe_ext2): Check to see if a journal has been added
+		to an ext2 filesystem when revalidating cached information
+		about an ext2 device.
+
+2005-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* cache.c (safe_getenv): Pass in zero to the unusued arguments of
+		prctl(PR_GET_DUMPABLE) to avoid false positives from
+		valgrind.
+
+2005-07-09  Andreas Dilger <adilger@clusterfs.com>
+
+	* getsize.c (blkid_get_dev_size): Use fstat/fstat64 to get size of
+		regular files.
+
 2006-06-30  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.38

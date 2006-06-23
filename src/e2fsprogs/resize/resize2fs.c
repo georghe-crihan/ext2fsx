@@ -108,7 +108,7 @@ errcode_t resize_fs(ext2_filsys fs, blk_t *new_size, int flags,
 
 #ifdef RESIZE2FS_DEBUG
 	if (rfs->flags & RESIZE_DEBUG_BMOVE)
-		printf("Number of free blocks: %d/%d, Needed: %d\n",
+		printf("Number of free blocks: %u/%u, Needed: %d\n",
 		       rfs->old_fs->super->s_free_blocks_count,
 		       rfs->new_fs->super->s_free_blocks_count,
 		       rfs->needed_blocks);
@@ -172,27 +172,22 @@ errout:
  */
 
 /*
- * This routine adjusts the superblock and other data structures...
+ * This routine is shared by the online and offline resize routines.
+ * All of the information which is adjusted in memory is done here.
  */
-static errcode_t adjust_superblock(ext2_resize_t rfs, blk_t new_size)
+errcode_t adjust_fs_info(ext2_filsys fs, ext2_filsys old_fs, blk_t new_size)
 {
-	ext2_filsys fs;
-	int		overhead = 0;
-	int		rem, adj = 0;
 	errcode_t	retval;
-	ext2_ino_t	real_end;
+	int		overhead = 0;
+	int		rem;
 	blk_t		blk, group_block;
-	unsigned long	i, j, old_desc_blocks;
-	int		old_numblocks, numblocks, adjblocks;
+	ext2_ino_t	real_end;
+	int		adj, old_numblocks, numblocks, adjblocks;
+	unsigned long	i, j, old_desc_blocks, max_group;
 	unsigned int	meta_bg, meta_bg_size;
 	int		has_super;
-	unsigned long	max_group;
-	
-	fs = rfs->new_fs;
+
 	fs->super->s_blocks_count = new_size;
-	ext2fs_mark_super_dirty(fs);
-	ext2fs_mark_bb_dirty(fs);
-	ext2fs_mark_ib_dirty(fs);
 
 retry:
 	fs->group_desc_count = (fs->super->s_blocks_count -
@@ -239,7 +234,7 @@ retry:
 	/*
 	 * Adjust the number of free blocks
 	 */
-	blk = rfs->old_fs->super->s_blocks_count;
+	blk = old_fs->super->s_blocks_count;
 	if (blk > fs->super->s_blocks_count)
 		fs->super->s_free_blocks_count -=
 			(blk - fs->super->s_blocks_count);
@@ -250,8 +245,8 @@ retry:
 	/*
 	 * Adjust the number of reserved blocks
 	 */
-	blk = rfs->old_fs->super->s_r_blocks_count * 100 /
-		rfs->old_fs->super->s_blocks_count;
+	blk = old_fs->super->s_r_blocks_count * 100 /
+		old_fs->super->s_blocks_count;
 	fs->super->s_r_blocks_count = ((fs->super->s_blocks_count * blk)
 				       / 100);
 
@@ -274,23 +269,18 @@ retry:
 	/*
 	 * Reallocate the group descriptors as necessary.
 	 */
-	if (rfs->old_fs->desc_blocks != fs->desc_blocks) {
-		retval = ext2fs_resize_mem(rfs->old_fs->desc_blocks *
+	if (old_fs->desc_blocks != fs->desc_blocks) {
+		retval = ext2fs_resize_mem(old_fs->desc_blocks *
 					   fs->blocksize,
 					   fs->desc_blocks * fs->blocksize,
 					   &fs->group_desc);
 		if (retval)
 			goto errout;
-	}
-
-	/*
-	 * Check to make sure there are enough inodes
-	 */
-	if ((rfs->old_fs->super->s_inodes_count -
-	     rfs->old_fs->super->s_free_inodes_count) >
-	    rfs->new_fs->super->s_inodes_count) {
-		retval = ENOSPC;
-		goto errout;
+		if (fs->desc_blocks > old_fs->desc_blocks) 
+			memset((char *) fs->group_desc + 
+			       (old_fs->desc_blocks * fs->blocksize), 0,
+			       (fs->desc_blocks - old_fs->desc_blocks) *
+			       fs->blocksize);
 	}
 
 	/*
@@ -301,11 +291,11 @@ retry:
 	 */
 	if ((fs->super->s_feature_compat & 
 	     EXT2_FEATURE_COMPAT_RESIZE_INODE) &&
-	    (rfs->old_fs->desc_blocks != fs->desc_blocks)) {
+	    (old_fs->desc_blocks != fs->desc_blocks)) {
 		int new;
 
 		new = ((int) fs->super->s_reserved_gdt_blocks) + 
-			(rfs->old_fs->desc_blocks - fs->desc_blocks);
+			(old_fs->desc_blocks - fs->desc_blocks);
 		if (new < 0)
 			new = 0;
 		if (new > fs->blocksize/4)
@@ -320,27 +310,28 @@ retry:
 	 * If we are shrinking the number block groups, we're done and
 	 * can exit now.
 	 */
-	if (rfs->old_fs->group_desc_count > fs->group_desc_count) {
+	if (old_fs->group_desc_count > fs->group_desc_count) {
 		retval = 0;
 		goto errout;
 	}
+
 	/*
 	 * Fix the count of the last (old) block group
 	 */
-	old_numblocks = (rfs->old_fs->super->s_blocks_count -
-			 rfs->old_fs->super->s_first_data_block) %
-				 rfs->old_fs->super->s_blocks_per_group;
+	old_numblocks = (old_fs->super->s_blocks_count -
+			 old_fs->super->s_first_data_block) %
+				 old_fs->super->s_blocks_per_group;
 	if (!old_numblocks)
-		old_numblocks = rfs->old_fs->super->s_blocks_per_group;
-	if (rfs->old_fs->group_desc_count == fs->group_desc_count) {
-		numblocks = (rfs->new_fs->super->s_blocks_count -
-			     rfs->new_fs->super->s_first_data_block) %
-				     rfs->new_fs->super->s_blocks_per_group;
+		old_numblocks = old_fs->super->s_blocks_per_group;
+	if (old_fs->group_desc_count == fs->group_desc_count) {
+		numblocks = (fs->super->s_blocks_count -
+			     fs->super->s_first_data_block) %
+			fs->super->s_blocks_per_group;
 		if (!numblocks)
-			numblocks = rfs->new_fs->super->s_blocks_per_group;
+			numblocks = fs->super->s_blocks_per_group;
 	} else
-		numblocks = rfs->new_fs->super->s_blocks_per_group;
-	i = rfs->old_fs->group_desc_count - 1;
+		numblocks = fs->super->s_blocks_per_group;
+	i = old_fs->group_desc_count - 1;
 	fs->group_desc[i].bg_free_blocks_count += (numblocks-old_numblocks);
 		
 	/*
@@ -348,36 +339,25 @@ retry:
 	 * done and can exit now.  (If the number block groups is
 	 * shrinking, we had exited earlier.)
 	 */
-	if (rfs->old_fs->group_desc_count >= fs->group_desc_count) {
+	if (old_fs->group_desc_count >= fs->group_desc_count) {
 		retval = 0;
 		goto errout;
 	}
+
 	/*
 	 * Initialize the new block group descriptors
 	 */
-	retval = ext2fs_get_mem(fs->blocksize * fs->inode_blocks_per_group,
-				&rfs->itable_buf);
-	if (retval)
-		goto errout;
-
-	memset(rfs->itable_buf, 0, fs->blocksize * fs->inode_blocks_per_group);
 	group_block = fs->super->s_first_data_block +
-		rfs->old_fs->group_desc_count * fs->super->s_blocks_per_group;
+		old_fs->group_desc_count * fs->super->s_blocks_per_group;
 
-	adj = rfs->old_fs->group_desc_count;
+	adj = old_fs->group_desc_count;
 	max_group = fs->group_desc_count - adj;
-	if (rfs->progress) {
-		retval = rfs->progress(rfs, E2_RSZ_EXTEND_ITABLE_PASS,
-				       0, max_group);
-		if (retval)
-			goto errout;
-	}
 	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
 		old_desc_blocks = fs->super->s_first_meta_bg;
 	else
 		old_desc_blocks = fs->desc_blocks + 
 			fs->super->s_reserved_gdt_blocks;
-	for (i = rfs->old_fs->group_desc_count;
+	for (i = old_fs->group_desc_count;
 	     i < fs->group_desc_count; i++) {
 		memset(&fs->group_desc[i], 0,
 		       sizeof(struct ext2_group_desc));
@@ -433,6 +413,87 @@ retry:
 		retval = ext2fs_allocate_group_table(fs, i, 0);
 		if (retval) goto errout;
 
+		group_block += fs->super->s_blocks_per_group;
+	}
+	retval = 0;
+
+errout:
+	return (retval);
+}
+
+/*
+ * This routine adjusts the superblock and other data structures, both
+ * in disk as well as in memory...
+ */
+static errcode_t adjust_superblock(ext2_resize_t rfs, blk_t new_size)
+{
+	ext2_filsys fs;
+	int		adj = 0;
+	errcode_t	retval;
+	blk_t		group_block;
+	unsigned long	i;
+	unsigned long	max_group;
+	
+	fs = rfs->new_fs;
+	ext2fs_mark_super_dirty(fs);
+	ext2fs_mark_bb_dirty(fs);
+	ext2fs_mark_ib_dirty(fs);
+
+	retval = adjust_fs_info(fs, rfs->old_fs, new_size);
+	if (retval)
+		goto errout;
+
+	/*
+	 * Check to make sure there are enough inodes
+	 */
+	if ((rfs->old_fs->super->s_inodes_count -
+	     rfs->old_fs->super->s_free_inodes_count) >
+	    rfs->new_fs->super->s_inodes_count) {
+		retval = ENOSPC;
+		goto errout;
+	}
+
+	/*
+	 * If we are shrinking the number block groups, we're done and
+	 * can exit now.
+	 */
+	if (rfs->old_fs->group_desc_count > fs->group_desc_count) {
+		retval = 0;
+		goto errout;
+	}
+
+	/*
+	 * If the number of block groups is staying the same, we're
+	 * done and can exit now.  (If the number block groups is
+	 * shrinking, we had exited earlier.)
+	 */
+	if (rfs->old_fs->group_desc_count >= fs->group_desc_count) {
+		retval = 0;
+		goto errout;
+	}
+
+	/*
+	 * Initialize the new block group descriptors
+	 */
+	retval = ext2fs_get_mem(fs->blocksize * fs->inode_blocks_per_group,
+				&rfs->itable_buf);
+	if (retval)
+		goto errout;
+
+	memset(rfs->itable_buf, 0, fs->blocksize * fs->inode_blocks_per_group);
+	group_block = fs->super->s_first_data_block +
+		rfs->old_fs->group_desc_count * fs->super->s_blocks_per_group;
+
+	adj = rfs->old_fs->group_desc_count;
+	max_group = fs->group_desc_count - adj;
+	if (rfs->progress) {
+		retval = rfs->progress(rfs, E2_RSZ_EXTEND_ITABLE_PASS,
+				       0, max_group);
+		if (retval)
+			goto errout;
+	}
+	for (i = rfs->old_fs->group_desc_count;
+	     i < fs->group_desc_count; i++) {
 		/*
 		 * Write out the new inode table
 		 */
@@ -480,10 +541,8 @@ static errcode_t mark_table_blocks(ext2_filsys fs,
 	blk_t			block, b;
 	unsigned int		j;
 	dgrp_t			i;
-	unsigned long		meta_bg, meta_bg_size;
-	int			has_super;
+	unsigned long		meta_bg_size;
 	unsigned int		old_desc_blocks;
-	errcode_t		retval;
 
 	meta_bg_size = (fs->blocksize / sizeof (struct ext2_group_desc));
 	block = fs->super->s_first_data_block;
@@ -1379,7 +1438,7 @@ static errcode_t move_itables(ext2_resize_t rfs)
 		 * things by not rewriting blocks that we know to be zero
 		 * already.
 		 */
-		for (cp = rfs->itable_buf+size, n=0; n < size; n++, cp--)
+		for (cp = rfs->itable_buf+size-1, n=0; n < size; n++, cp--)
 			if (*cp)
 				break;
 		n = n >> EXT2_BLOCK_SIZE_BITS(fs->super);

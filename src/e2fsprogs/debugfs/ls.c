@@ -131,10 +131,13 @@ void do_list_dir(int argc, char *argv[])
 		case 'd':
 			ls.options |= DELETED_OPT;
 			break;
+		default:
+			goto print_usage;
 		}
 	}
 
 	if (argc > optind+1) {
+	print_usage:
 		com_err(0, 0, "Usage: ls [-l] [-d] file");
 		return;
 	}
@@ -157,7 +160,7 @@ void do_list_dir(int argc, char *argv[])
 	fprintf(ls.f, "\n");
 	close_pager(ls.f);
 	if (retval)
-		com_err(argv[1], retval, "");
+		com_err(argv[1], retval, 0);
 
 	return;
 }
