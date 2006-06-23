@@ -18,7 +18,19 @@
 
 struct blkid_magic;
 
-typedef int (*blkid_probe_t)(int fd, blkid_cache cache, blkid_dev dev, 
+#define SB_BUFFER_SIZE		0x11000
+
+struct blkid_probe {
+	int			fd;
+	blkid_cache		cache;
+	blkid_dev		dev;
+	unsigned char		*sbbuf;
+	size_t			sb_valid;
+	unsigned char		*buf;
+	size_t			buf_max;
+};
+
+typedef int (*blkid_probe_t)(struct blkid_probe *probe, 
 			     struct blkid_magic *id, unsigned char *buf);
 
 struct blkid_magic {
@@ -53,6 +65,24 @@ struct ext2_super_block {
 	__u32		s_feature_ro_compat;
 	unsigned char   s_uuid[16];
 	char	   s_volume_name[16];
+	char	s_last_mounted[64];
+	__u32	s_algorithm_usage_bitmap;
+	__u8	s_prealloc_blocks;
+	__u8	s_prealloc_dir_blocks;
+	__u16	s_reserved_gdt_blocks;
+	__u8	s_journal_uuid[16];
+	__u32	s_journal_inum;
+	__u32	s_journal_dev;
+	__u32	s_last_orphan;
+	__u32	s_hash_seed[4];
+	__u8	s_def_hash_version;
+	__u8	s_jnl_backup_type;
+	__u16	s_reserved_word_pad;
+	__u32	s_default_mount_opts;
+	__u32	s_first_meta_bg;
+	__u32	s_mkfs_time;
+	__u32	s_jnl_blocks[17];
+	__u32	s_reserved[172];
 };
 #define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x00000004
 #define EXT3_FEATURE_INCOMPAT_RECOVER		0x00000004
@@ -87,6 +117,14 @@ struct reiserfs_super_block {
 	__u32		rs_dummy4[5];
 	unsigned char	rs_uuid[16];
 	char		rs_label[16];
+};
+
+struct reiser4_super_block {
+	unsigned char	rs4_magic[16];
+	__u16		rs4_dummy[2];
+	unsigned char	rs4_uuid[16];
+	unsigned char	rs4_label[16];
+	__u64		rs4_dummy2;
 };
 
 struct jfs_super_block {
@@ -159,7 +197,7 @@ struct vfat_super_block {
 /* 34*/	__u16		vs_reserved2[6];
 /* 40*/	unsigned char	vs_unknown[3];
 /* 43*/	unsigned char	vs_serno[4];
-/* 47*/	char		vs_label[11];
+/* 47*/	unsigned char	vs_label[11];
 /* 52*/	unsigned char   vs_magic[8];
 /* 5a*/	unsigned char	vs_dummy2[164];
 /*1fe*/	unsigned char	vs_pmagic[2];
@@ -183,11 +221,30 @@ struct msdos_super_block {
 /* 20*/	__u32		ms_total_sect;
 /* 24*/	unsigned char	ms_unknown[3];
 /* 27*/	unsigned char	ms_serno[4];
-/* 2b*/	char		ms_label[11];
+/* 2b*/	unsigned char	ms_label[11];
 /* 36*/	unsigned char   ms_magic[8];
 /* 3d*/	unsigned char	ms_dummy2[192];
 /*1fe*/	unsigned char	ms_pmagic[2];
 };
+
+struct vfat_dir_entry {
+	__u8	name[11];
+	__u8	attr;
+	__u16	time_creat;
+	__u16	date_creat;
+	__u16	time_acc;
+	__u16	date_acc;
+	__u16	cluster_high;
+	__u16	time_write;
+	__u16	date_write;
+	__u16	cluster_low;
+	__u32	size;
+};
+
+/* maximum number of clusters */
+#define FAT12_MAX 0xFF4
+#define FAT16_MAX 0xFFF4
+#define FAT32_MAX 0x0FFFFFF6
 
 struct minix_super_block {
 	__u16		ms_ninodes;
@@ -276,12 +333,16 @@ struct oracle_asm_disk_label {
 #define ORACLE_ASM_DISK_LABEL_MARKED    "ORCLDISK"
 #define ORACLE_ASM_DISK_LABEL_OFFSET    32
 
-#define ISODCL(from, to) (to - from + 1)
 struct iso_volume_descriptor {
-	char type[ISODCL(1,1)]; /* 711 */
-	char id[ISODCL(2,6)];
-	char version[ISODCL(7,7)];
-	char data[ISODCL(8,2048)];
+	unsigned char	vd_type;
+	unsigned char	vd_id[5];
+	unsigned char	vd_version;
+	unsigned char	flags;
+	unsigned char	system_id[32];
+	unsigned char	volume_id[32];
+	unsigned char	unused[8];
+	unsigned char	space_size[8];
+	unsigned char	escape_sequences[8];
 };
 
 /*

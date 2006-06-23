@@ -37,7 +37,7 @@ extern int optreset;		/* defined by BSD, but not others */
  * optind be set zero to reset its state.  So the unfortunate state of
  * affairs is that BSD-derived versions of getopt() misbehave if
  * optind is set to 0 in order to reset getopt(), and glibc's getopt()
- * will core ump if optind is set 1 in order to reset getopt().
+ * will core dump if optind is set 1 in order to reset getopt().
  * 
  * More modern versions of BSD require that optreset be set to 1 in
  * order to reset getopt().   Sigh.  Standards, anyone?
@@ -46,7 +46,7 @@ extern int optreset;		/* defined by BSD, but not others */
  */
 void reset_getopt(void)
 {
-#ifdef __GLIBC__
+#if defined(__GLIBC__) || defined(__linux__)
 	optind = 0;
 #else
 	optind = 1;
@@ -199,6 +199,42 @@ char *time_to_string(__u32 cl)
 	}
 
 	return asctime((do_gmt) ? gmtime(&t) : localtime(&t));
+}
+
+/*
+ * Parse a string as a time.  Return ((time_t)-1) if the string
+ * doesn't appear to be a sane time.
+ */
+extern time_t string_to_time(const char *arg)
+{
+	struct	tm	ts;
+	unsigned long	ret;
+	char *tmp;
+
+	if (strcmp(arg, "now") == 0) {
+		return time(0);
+	}
+	memset(&ts, 0, sizeof(ts));
+#ifdef HAVE_STRPTIME
+	strptime(arg, "%Y%m%d%H%M%S", &ts);
+#else
+	sscanf(arg, "%4d%2d%2d%2d%2d%2d", &ts.tm_year, &ts.tm_mon,
+	       &ts.tm_mday, &ts.tm_hour, &ts.tm_min, &ts.tm_sec);
+	ts.tm_year -= 1900;
+	ts.tm_mon -= 1;
+	if (ts.tm_year < 0 || ts.tm_mon < 0 || ts.tm_mon > 11 ||
+	    ts.tm_mday < 0 || ts.tm_mday > 31 || ts.tm_hour > 23 ||
+	    ts.tm_min > 59 || ts.tm_sec > 61)
+		ts.tm_mday = 0;
+#endif
+	if (ts.tm_mday == 0) {
+		/* Try it as an integer... */
+
+		ret = strtoul(arg, &tmp, 0);
+		if (*tmp)
+			return ((time_t) -1);
+	}
+	return mktime(&ts);
 }
 
 /*

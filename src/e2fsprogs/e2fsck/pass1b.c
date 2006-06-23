@@ -37,7 +37,7 @@
 #endif
 
 #ifndef HAVE_INTPTR_T
-typedef long intptr_t
+typedef long intptr_t;
 #endif
 
 /* Needed for architectures where sizeof(int) != sizeof(void *) */
@@ -555,7 +555,7 @@ static int delete_file_block(ext2_filsys fs,
 			decrement_badcount(ctx, *block_nr, p);
 		} else
 			com_err("delete_file_block", 0,
-			    _("internal error; can't find dup_blk for %d\n"),
+			    _("internal error; can't find dup_blk for %u\n"),
 				*block_nr);
 	} else {
 		ext2fs_unmark_block_bitmap(ctx->block_found_map, *block_nr);
@@ -692,7 +692,7 @@ static int clone_file_block(ext2_filsys fs,
 			return BLOCK_CHANGED;
 		} else
 			com_err("clone_file_block", 0,
-			    _("internal error; can't find dup_blk for %d\n"),
+			    _("internal error; can't find dup_blk for %u\n"),
 				*block_nr);
 	}
 	return 0;

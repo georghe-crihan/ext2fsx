@@ -1,3 +1,45 @@
+2006-05-28  Theodore Tso  <tytso@mit.edu>
+
+	* test_config: Unset all locale-related environment variables
+		since they might affect the test scripts
+
+2006-05-24  Theodore Tso  <tytso@mit.edu>
+
+	* d_lodadump, m_dasd_bs, m_large_file, m_meta_bg, m_no_opt,
+		m_read_opt, m_std, r_move_itable, r_resize_inode: Update
+		expect files to reflect new mke2fs.conf defaults.
+
+2006-05-13  Theodore Tso  <tytso@mit.edu>
+
+	* m_raid_opt: Update expect files to match with new mke2fs layout
+		used when the stride raid option is specified.
+
+2006-03-23  Theodore Ts'o  <tytso@mit.edu>
+
+	* test_config: Set up MKE2FS_CONFIG to point at the mke2fs.conf
+		file in the source tree.
+
+2005-09-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_dup_resize: Set the current time to in debugfs to a value
+		which avoids triggering the "s_mtime in the future"
+		warning from e2fsck.
+
+2005-08-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* test_config, test_script.in, d_loaddump, f_dup_resize,
+		r_move_itable, r_resize_inode: Add the --valgrind option
+		to the tests/test_script which allows us to run the
+		e2fsprogs regression test suite under valgrind.
+
+2005-07-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* f_bbfile, f_dup, f_dup2, f_dup3, f_dup_resize, f_dupfsblks,
+		f_dupsuper: Update expect files to remove period from the
+		Pass 1C header.
+
+	* f_bad_disconnected_inode: New test case
+
 2006-06-30  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.38

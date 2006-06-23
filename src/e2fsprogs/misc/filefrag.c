@@ -69,9 +69,14 @@ static unsigned long get_bmap(int fd, unsigned long block)
 static void frag_report(const char *filename)
 {
 	struct statfs	fsinfo;
+#ifdef HAVE_FSTAT64
 	struct stat64	fileinfo;
+#else
+	struct stat	fileinfo;
+#endif
 	int		bs;
-	long		i, fd, block, last_block = 0, numblocks;
+	long		i, fd;
+	unsigned long	block, last_block = 0, numblocks;
 	long		bpib;	/* Blocks per indirect block */
 	long		cylgroups;
 	int		discont = 0, expected;
@@ -82,7 +87,11 @@ static void frag_report(const char *filename)
 		perror("statfs");
 		return;
 	}
+#ifdef HAVE_FSTAT64
 	if (stat64(filename, &fileinfo) < 0) {
+#else
+	if (stat(filename, &fileinfo) < 0) {
+#endif
 		perror("stat");
 		return;
 	}
@@ -101,7 +110,11 @@ static void frag_report(const char *filename)
 		printf("Filesystem cylinder groups is approximately %ld\n", 
 		       cylgroups);
 	}
-	fd = open(filename, O_RDONLY | O_LARGEFILE);
+#ifdef HAVE_OPEN64
+	fd = open64(filename, O_RDONLY);
+#else
+	fd = open(filename, O_RDONLY);
+#endif
 	if (fd < 0) {
 		perror("open");
 		return;
@@ -118,13 +131,13 @@ static void frag_report(const char *filename)
 		is_ext2 = 0;
 	}
 	if (verbose)
-		printf("Blocksize of file %s is %ld\n", filename, bs);
+		printf("Blocksize of file %s is %d\n", filename, bs);
 	bpib = bs / 4;
 	numblocks = (fileinfo.st_size + (bs-1)) / bs;
 	if (verbose) {
 		printf("File size of %s is %lld (%ld blocks)\n", filename, 
 		       (long long) fileinfo.st_size, numblocks);
-		printf("First block: %ld\nLast block: %ld\n",
+		printf("First block: %lu\nLast block: %lu\n",
 		       get_bmap(fd, 0), get_bmap(fd, numblocks - 1));
 	}
 	for (i=0; i < numblocks; i++) {
@@ -141,7 +154,7 @@ static void frag_report(const char *filename)
 			continue;
 		if (last_block && (block != last_block +1) ) {
 			if (verbose)
-				printf("Discontinuity: Block %ld is at %ld (was %ld)\n",
+				printf("Discontinuity: Block %ld is at %lu (was %lu)\n",
 				       i, block, last_block);
 			discont++;
 		}

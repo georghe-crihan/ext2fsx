@@ -37,7 +37,7 @@ ELF_SO_VERSION = 1
 ELF_IMAGE = libblkid
 ELF_MYDIR = blkid
 ELF_INSTALL_DIR = $(root_libdir)
-ELF_OTHER_LIBS = -L../.. -luuid
+ELF_OTHER_LIBS = -L../.. -luuid $(DEVMAPPER_LIBS)
 
 BSDLIB_VERSION = 2.0
 BSDLIB_IMAGE = libblkid
@@ -112,6 +112,10 @@ tst_tag: $(srcdir)/tag.c $(DEPLIBS_BLKID)
 	@echo "	LD $@"
 	@$(CC) -o tst_tag -DTEST_PROGRAM $(srcdir)/tag.c $(LIBS_BLKID) $(ALL_CFLAGS)
 
+tst_types: tst_types.o blkid_types.h 
+	@echo "	LD $@"
+	@$(CC) -o tst_types tst_types.o 
+
 ../../misc/blkid.o: $(top_srcdir)/misc/blkid.c blkid.h
 	@echo "	CC $@"
 	@$(CC) $(ALL_CFLAGS) -c $(top_srcdir)/misc/blkid.c \
@@ -121,8 +125,17 @@ blkid: ../../misc/blkid.o libblkid.a $(DEPLIBUUID)
 	@echo "	LD $@"
 	@$(CC) -o blkid ../../misc/blkid.o libblkid.a $(LIBUUID)
 
+test_probe: test_probe.in Makefile
+	@echo "Creating test_probe..."
+	@echo "#!/bin/sh" > test_probe
+	@echo "SRCDIR=@srcdir@" >> test_probe
+	@cat $(srcdir)/test_probe.in >> test_probe
+	@chmod +x test_probe
+
 check:: all tst_cache tst_dev tst_devname tst_devno tst_getsize tst_probe \
- tst_read tst_resolve tst_save tst_tag
+ tst_read tst_resolve tst_save tst_tag test_probe tst_types
+	./test_probe
+	./tst_types
 
 blkid.pc: $(srcdir)/blkid.pc.in $(top_builddir)/config.status
 	@echo "	CONFIG.STATUS $@"
@@ -162,14 +175,18 @@ uninstall::
 	done
 
 clean::
-	$(RM) -f \#* *.s *.o *.orig *.a *~ *.bak tst_* core profiled/* \
+	$(RM) -f \#* *.s *.o *.orig *.a *~ *.bak tst_* tests/*.out tests/*.ok \
+		tests/*.img results test_probe core profiled/* \
 		checker/* blkid_types.h ../libblkid.a ../libblkid_p.a \
 		$(SMANPAGES) blkid
+	-rmdir tests
 
 mostlyclean:: clean
 distclean:: clean
 	$(RM) -f .depend Makefile blkid.pc \
 		$(srcdir)/TAGS $(srcdir)/Makefile.in.old
+
+$(OBJS): subdirs
 
 # +++ Dependency line eater +++
 # 
@@ -195,7 +212,7 @@ read.o: $(srcdir)/read.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
  $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h \
  $(top_srcdir)/lib/uuid/uuid.h
 resolve.o: $(srcdir)/resolve.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
- $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h $(srcdir)/probe.h
+ $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
 save.o: $(srcdir)/save.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \
  $(top_builddir)/lib/blkid/blkid_types.h $(srcdir)/list.h
 tag.o: $(srcdir)/tag.c $(srcdir)/blkidP.h $(srcdir)/blkid.h \

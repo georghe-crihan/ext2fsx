@@ -4,7 +4,14 @@ install-shlibs::
 
 uninstall-shlibs::
 
-subdirs::
+real-subdirs::
+
+subdirs:: Makefile
+	@$(MAKE) -s real-subdirs
+	@touch subdirs
+
+clean::
+	@$(RM) -f subdirs
 
 $(LIBRARY).a: $(OBJS)
 	@echo "	GEN_LIB $@"

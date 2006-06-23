@@ -1,3 +1,74 @@
+2006-05-22  Theodore Tso  <tytso@mit.edu>
+
+	* resize2fs.8.in: Fixed spelling mistake (Addresses Debian Bug:
+		#368393)
+
+2006-05-21  Theodore Tso  <tytso@mit.edu>
+
+	* resize2fs.8.in: Clarify man page to indicate that supports ext2
+		and ext3 filesystems, and add reference to LVM.
+		(Addresses Debian Bug: #368179)
+
+2006-05-14  Theodore Tso  <tytso@mit.edu>
+
+	* main.c (main, determine_fs_stride), resize2fs.8.in: Add a new
+		option (-S) to resize2fs which allows the user to specify
+		the RAID stride parameter to be used on new block groups.
+		In addition, add code so that resize2fs can automatically
+		determine the RAID stride parameter that had been
+		previously used on the filesystem.
+
+2006-03-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* main.c, resize2fs.c: Change printf statements to use %u instead
+		of %d when printing block numbers.
+
+	* main.c (main): If the filesystem is mounted, open it in
+		read-only mode since the userspace program should not try
+		to modify it directly.  If the filesystem is not mounted,
+		open it in exclusive mode to avoid potential problems
+		(such as someone trying to mount the filesystem while it
+		is being resized).
+
+2006-03-17  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.8.in: Update manpage to document that that resize2fs
+		can expand a mounted filesystem.
+
+	* online.c (online_resize_fs): New file which contains the on-line
+		resizing code.
+
+	* main.c (main): If the filesystem to be resized is already
+		mounted, determine the mountpoint, and call online_resize_fs().
+
+	* resize2fs.c (adjust_fs_info, adjust_superblock): Factor out code
+		which only adjusts the in-memory data structures from the
+		code which writes to the disk, since the former can be
+		used by the on-line resizing code.
+
+	* resize2fs.h: Add function prototypes for online_resize_fs() and 
+		adjust_fs_info().
+
+	* Makefile.in (RESIZE_OBJS): Add online.o to list of files to be built.
+
+2005-12-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.c (mark_table_blocks): Remove unused variables to
+		clean up gcc -Wall complaints.
+
+	* main.c (main): If the filesystem being resized is a regular
+		file, truncate or expand the file to match the new
+		filesystem size.  (Addresses Debian Bug: #271607)
+
+2005-08-08  Theodore Ts'o  <tytso@mit.edu>
+
+	* resize2fs.c (move_itables): Fix fencepost error caught by valgrind.
+		(adjust_superblock): Clear the newly allocated descriptor
+		blocks when we allocate them to avoid false positives from
+		valgrind (and so that the unusued descriptors at the tail
+		end of the newly allocated descriptor blocks are zero'ed
+		out, include of random garbage).
+
 2006-06-30  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.38

@@ -98,7 +98,8 @@ static void usage(e2fsck_t ctx)
 static void show_stats(e2fsck_t	ctx)
 {
 	ext2_filsys fs = ctx->fs;
-	int inodes, inodes_used, blocks, blocks_used;
+	int inodes, inodes_used;
+	blk_t blocks, blocks_used;
 	int dir_links;
 	int num_files, num_links;
 	int frag_percent;
@@ -117,7 +118,7 @@ static void show_stats(e2fsck_t	ctx)
 	frag_percent = (frag_percent + 5) / 10;
 	
 	if (!verbose) {
-		printf(_("%s: %d/%d files (%0d.%d%% non-contiguous), %d/%d blocks\n"),
+		printf(_("%s: %d/%d files (%0d.%d%% non-contiguous), %u/%u blocks\n"),
 		       ctx->device_name, inodes_used, inodes,
 		       frag_percent / 10, frag_percent % 10,
 		       blocks_used, blocks);
@@ -131,7 +132,7 @@ static void show_stats(e2fsck_t	ctx)
 		ctx->fs_fragmented, frag_percent / 10, frag_percent % 10);
 	printf (_("         # of inodes with ind/dind/tind blocks: %d/%d/%d\n"),
 		ctx->fs_ind_count, ctx->fs_dind_count, ctx->fs_tind_count);
-	printf (P_("%8d block used (%d%%)\n", "%8d blocks used (%d%%)\n",
+	printf (P_("%8u block used (%d%%)\n", "%8u blocks used (%d%%)\n",
 		   blocks_used),
 		blocks_used, (int) ((long long) 100 * blocks_used / blocks));
 	printf (P_("%8d bad block\n", "%8d bad blocks\n",
@@ -179,15 +180,18 @@ static void check_mount(e2fsck_t ctx)
 	}
 
 	/*
-	 * If the filesystem isn't mounted, or it's the root filesystem
-	 * and it's mounted read-only, then everything's fine.
+	 * If the filesystem isn't mounted, or it's the root
+	 * filesystem and it's mounted read-only, and we're not doing
+	 * a read/write check, then everything's fine.
 	 */
 	if ((!(ctx->mount_flags & EXT2_MF_MOUNTED)) ||
 	    ((ctx->mount_flags & EXT2_MF_ISROOT) &&
-	     (ctx->mount_flags & EXT2_MF_READONLY)))
+	     (ctx->mount_flags & EXT2_MF_READONLY) &&
+	     !(ctx->options & E2F_OPT_WRITECHECK)))
 		return;
 
-	if (ctx->options & E2F_OPT_READONLY) {
+	if ((ctx->options & E2F_OPT_READONLY) &&
+	    !(ctx->options & E2F_OPT_WRITECHECK)) {
 		printf(_("Warning!  %s is mounted.\n"), ctx->filesystem_name);
 		return;
 	}
@@ -256,7 +260,14 @@ static void check_if_skip(e2fsck_t ctx)
 	unsigned int reason_arg = 0;
 	long next_check;
 	int batt = is_on_batt();
-	
+	int defer_check_on_battery;
+
+	profile_get_boolean(ctx->profile, "options",
+			    "defer_check_on_battery", 0, 1, 
+			    &defer_check_on_battery);
+	if (!defer_check_on_battery)
+		batt = 0;
+
 	if ((ctx->options & E2F_OPT_FORCE) || bad_blocks_file ||
 	    cflag || swapfs)
 		return;
@@ -289,7 +300,7 @@ static void check_if_skip(e2fsck_t ctx)
 		fputs(_(", check forced.\n"), stdout);
 		return;
 	}
-	printf(_("%s: clean, %d/%d files, %d/%d blocks"), ctx->device_name,
+	printf(_("%s: clean, %d/%d files, %u/%u blocks"), ctx->device_name,
 	       fs->super->s_inodes_count - fs->super->s_free_inodes_count,
 	       fs->super->s_inodes_count,
 	       fs->super->s_blocks_count - fs->super->s_free_blocks_count,
@@ -304,9 +315,13 @@ static void check_if_skip(e2fsck_t ctx)
 	    ((ctx->now - fs->super->s_lastcheck) >= fs->super->s_checkinterval))
 		next_check = 1;
 	if (next_check <= 5) {
-		if (next_check == 1)
-			fputs(_(" (check after next mount)"), stdout);
-		else
+		if (next_check == 1) {
+			if (batt) 
+				fputs(_(" (check deferred; on battery)"),
+				      stdout);
+			else
+				fputs(_(" (check after next mount)"), stdout);
+		} else
 			printf(_(" (check in %ld mounts)"), next_check);
 	}
 	fputc('\n', stdout);
@@ -545,6 +560,15 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 	}
 }	
 
+static void syntax_err_report(const char *filename, long err, int line_num)
+{
+	fprintf(stderr, 
+		_("Syntax error in e2fsck config file (%s, line #%d)\n\t%s\n"),
+		filename, line_num, error_message(err));
+	exit(FSCK_ERROR);
+}
+
+static const char *config_fn[] = { "/etc/e2fsck.conf", 0 };
 
 static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 {
@@ -559,6 +583,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	struct sigaction	sa;
 #endif
 	char		*extended_opts = 0;
+	char		*cp;
 
 	retval = e2fsck_allocate_context(&ctx);
 	if (retval)
@@ -577,6 +602,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	memset(bar, '=', sizeof(bar)-1);
 	memset(spaces, ' ', sizeof(spaces)-1);
 	initialize_ext2_error_table();
+	initialize_prof_error_table();
 	blkid_get_cache(&ctx->blkid, NULL);
 	
 	if (argc && *argv)
@@ -613,7 +639,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			if (ctx->options & (E2F_OPT_YES|E2F_OPT_NO)) {
 			conflict_opt:
 				fatal_error(ctx, 
-	_("Only one the options -p/-a, -n or -y may be specified."));
+	_("Only one of the options -p/-a, -n or -y may be specified."));
 			}
 			ctx->options |= E2F_OPT_PREEN;
 			break;
@@ -728,7 +754,12 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	}
 	if (extended_opts)
 		parse_extended_opts(ctx, extended_opts);
-	
+
+	if ((cp = getenv("E2FSCK_CONFIG")) != NULL)
+		config_fn[0] = cp;
+	profile_set_syntax_err_cb(syntax_err_report);
+	profile_init(config_fn, &ctx->profile);
+
 	if (flush) {
 		fd = open(ctx->filesystem_name, O_RDONLY, 0);
 		if (fd < 0) {
@@ -880,6 +911,8 @@ restart:
 	flags = 0;
 	if ((ctx->options & E2F_OPT_READONLY) == 0)
 		flags |= EXT2_FLAG_RW;
+	if ((ctx->mount_flags & EXT2_MF_MOUNTED) == 0)
+		flags |= EXT2_FLAG_EXCLUSIVE;
 
 	if (ctx->superblock && ctx->blocksize) {
 		retval = ext2fs_open2(ctx->filesystem_name, ctx->io_options, 
@@ -931,6 +964,9 @@ restart:
 			       "r/o" : "r/w");
 		else if (retval == ENXIO)
 			printf(_("Possibly non-existent or swap device?\n"));
+		else if (retval == EBUSY)
+			printf(_("Filesystem mounted or opened exclusively "
+				 "by another program?\n"));
 #ifdef EROFS
 		else if (retval == EROFS)
 			printf(_("Disk write-protected; use the -n option "
@@ -943,6 +979,7 @@ restart:
 	}
 	ctx->fs = fs;
 	fs->priv_data = ctx;
+	fs->now = ctx->now;
 	sb = fs->super;
 	if (sb->s_rev_level > E2FSCK_CURRENT_REV) {
 		com_err(ctx->program_name, EXT2_ET_REV_TOO_HIGH,
@@ -1139,15 +1176,26 @@ restart:
 			exit_value |= FSCK_REBOOT;
 		}
 	}
-	if (!ext2fs_test_valid(fs)) {
+	if (!ext2fs_test_valid(fs) ||
+	    ((exit_value & FSCK_CANCELED) && 
+	     (sb->s_state & EXT2_ERROR_FS))) {
 		printf(_("\n%s: ********** WARNING: Filesystem still has "
 			 "errors **********\n\n"), ctx->device_name);
 		exit_value |= FSCK_UNCORRECTED;
 		exit_value &= ~FSCK_NONDESTRUCT;
 	}
-	if (exit_value & FSCK_CANCELED)
+	if (exit_value & FSCK_CANCELED) {
+		int	allow_cancellation;
+
+		profile_get_boolean(ctx->profile, "options",
+				    "allow_cancellation", 0, 0, 
+				    &allow_cancellation);
 		exit_value &= ~FSCK_NONDESTRUCT;
-	else {
+		if (allow_cancellation && ext2fs_test_valid(fs) &&
+		    (sb->s_state & EXT2_VALID_FS) && 
+		    !(sb->s_state & EXT2_ERROR_FS))
+			exit_value = 0;
+	} else {
 		show_stats(ctx);
 		if (!(ctx->options & E2F_OPT_READONLY)) {
 			if (ext2fs_test_valid(fs)) {
@@ -1168,12 +1216,11 @@ restart:
 	ctx->fs = NULL;
 	free(ctx->filesystem_name);
 	free(ctx->journal_name);
-	e2fsck_free_context(ctx);
-	
+
 #ifdef RESOURCE_TRACK
 	if (ctx->options & E2F_OPT_TIME)
 		print_resource_track(NULL, &ctx->global_rtrack);
 #endif
-
+	e2fsck_free_context(ctx);
 	return exit_value;
 }

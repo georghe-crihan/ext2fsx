@@ -11,13 +11,11 @@
 # ELF_INSTALL_DIR = $(SHLIBDIR)
 # ELF_OTHER_LIBS = -lc
 
-all:: elfshared image
+all:: image
 
-subdirs:: elfshared
-
-elfshared:
+real-subdirs:: Makefile
 	@echo "	MKDIR elfshared"
-	@mkdir elfshared
+	@mkdir -p elfshared
 
 ELF_LIB = $(ELF_IMAGE).so.$(ELF_VERSION)
 ELF_SONAME = $(ELF_IMAGE).so.$(ELF_SO_VERSION)
@@ -26,7 +24,7 @@ image:		$(ELF_LIB)
 
 $(ELF_LIB): $(OBJS)
 	@echo "	GEN_ELF_SOLIB $(ELF_LIB)"
-	@(cd elfshared; $(CC) --shared -o $(ELF_LIB) \
+	@(cd elfshared; $(CC) --shared -o $(ELF_LIB) $(LDFLAGS) \
 		-Wl,-soname,$(ELF_SONAME) $(OBJS) $(ELF_OTHER_LIBS))
 	@$(MV) elfshared/$(ELF_LIB) .
 	@$(RM) -f ../$(ELF_LIB) ../$(ELF_IMAGE).so ../$(ELF_SONAME)

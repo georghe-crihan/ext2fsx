@@ -117,7 +117,7 @@ static struct field_set_info inode_fields[] = {
 	{ "inodes_count", &set_sb.s_inodes_count, 4, parse_uint },
 	{ "mode", &set_inode.i_mode, 2, parse_uint },
 	{ "uid", &set_inode.i_uid, 2, parse_uint },
-	{ "size", &set_inode.i_uid, 4, parse_uint },
+	{ "size", &set_inode.i_size, 4, parse_uint },
 	{ "atime", &set_inode.i_atime, 4, parse_time },
 	{ "ctime", &set_inode.i_ctime, 4, parse_time },
 	{ "mtime", &set_inode.i_mtime, 4, parse_time },
@@ -136,11 +136,11 @@ static struct field_set_info inode_fields[] = {
 	{ "file_acl", &set_inode.i_file_acl, 4, parse_uint },
 	{ "dir_acl", &set_inode.i_dir_acl, 4, parse_uint },
 	{ "faddr", &set_inode.i_faddr, 4, parse_uint },
-	{ "frag", &set_inode.osd2.linux2.l_i_frag, 8, parse_uint },
-	{ "fsize", &set_inode.osd2.linux2.l_i_fsize, 8, parse_uint },
-	{ "uid_high", &set_inode.osd2.linux2.l_i_uid_high, 8, parse_uint },
-	{ "gid_high", &set_inode.osd2.linux2.l_i_gid_high, 8, parse_uint },
-	{ "author", &set_inode.osd2.hurd2.h_i_author, 8, parse_uint },
+	{ "frag", &set_inode.osd2.linux2.l_i_frag, 1, parse_uint },
+	{ "fsize", &set_inode.osd2.linux2.l_i_fsize, 1, parse_uint },
+	{ "uid_high", &set_inode.osd2.linux2.l_i_uid_high, 2, parse_uint },
+	{ "gid_high", &set_inode.osd2.linux2.l_i_gid_high, 2, parse_uint },
+	{ "author", &set_inode.osd2.hurd2.h_i_author, 4, parse_uint },
 	{ "bmap", NULL, 4, parse_bmap, FLAG_ARRAY },
 	{ 0, 0, 0, 0 }
 };
@@ -278,33 +278,19 @@ static errcode_t parse_string(struct field_set_info *info, char *arg)
 
 static errcode_t parse_time(struct field_set_info *info, char *arg)
 {
-	struct	tm	ts;
+	time_t		t;
 	__u32		*ptr32;
 
 	ptr32 = (__u32 *) info->ptr;
 
-	if (strcmp(arg, "now") == 0) {
-		*ptr32 = time(0);
-		return 0;
+	t = string_to_time(arg);
+
+	if (t == ((time_t) -1)) {
+		fprintf(stderr, "Couldn't parse '%s' for field %s.\n",
+			arg, info->name);
+		return EINVAL;
 	}
-	memset(&ts, 0, sizeof(ts));
-#ifdef HAVE_STRPTIME
-	strptime(arg, "%Y%m%d%H%M%S", &ts);
-#else
-	sscanf(arg, "%4d%2d%2d%2d%2d%2d", &ts.tm_year, &ts.tm_mon,
-	       &ts.tm_mday, &ts.tm_hour, &ts.tm_min, &ts.tm_sec);
-	ts.tm_year -= 1900;
-	ts.tm_mon -= 1;
-	if (ts.tm_year < 0 || ts.tm_mon < 0 || ts.tm_mon > 11 ||
-	    ts.tm_mday < 0 || ts.tm_mday > 31 || ts.tm_hour > 23 ||
-	    ts.tm_min > 59 || ts.tm_sec > 61)
-		ts.tm_mday = 0;
-#endif
-	if (ts.tm_mday == 0) {
-		/* Try it as an integer... */
-		return parse_uint(info, arg);
-	}
-	*ptr32 = mktime(&ts);
+	*ptr32 = t;
 	return 0;
 }
 

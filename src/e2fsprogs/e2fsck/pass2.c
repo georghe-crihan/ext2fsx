@@ -543,7 +543,7 @@ static void parse_int_node(ext2_filsys fs,
 		
 #ifdef DX_DEBUG
 		printf("Root node dump:\n");
-		printf("\t Reserved zero: %d\n", root->reserved_zero);
+		printf("\t Reserved zero: %u\n", root->reserved_zero);
 		printf("\t Hash Version: %d\n", root->hash_version);
 		printf("\t Info length: %d\n", root->info_length);
 		printf("\t Indirect levels: %d\n", root->indirect_levels);
@@ -582,7 +582,7 @@ static void parse_int_node(ext2_filsys fs,
 		prev_hash = hash;
 		hash = i ? (ext2fs_le32_to_cpu(ent[i].hash) & ~1) : 0;
 #ifdef DX_DEBUG
-		printf("Entry #%d: Hash 0x%08x, block %d\n", i,
+		printf("Entry #%d: Hash 0x%08x, block %u\n", i,
 		       hash, ext2fs_le32_to_cpu(ent[i].block));
 #endif
 		blk = ext2fs_le32_to_cpu(ent[i].block) & 0x0ffffff;
@@ -1184,27 +1184,29 @@ extern int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 	pctx.inode = &inode;
 
 	if (inode.i_file_acl &&
-	    !(fs->super->s_feature_compat & EXT2_FEATURE_COMPAT_EXT_ATTR) &&
-	    fix_problem(ctx, PR_2_FILE_ACL_ZERO, &pctx)) {
-		inode.i_file_acl = 0;
+	    !(fs->super->s_feature_compat & EXT2_FEATURE_COMPAT_EXT_ATTR)) {
+		if (fix_problem(ctx, PR_2_FILE_ACL_ZERO, &pctx)) {
+			inode.i_file_acl = 0;
 #ifdef EXT2FS_ENABLE_SWAPFS
-		/* 
-		 * This is a special kludge to deal with long symlinks
-		 * on big endian systems.  i_blocks had already been
-		 * decremented earlier in pass 1, but since i_file_acl
-		 * hadn't yet been cleared, ext2fs_read_inode()
-		 * assumed that the file was short symlink and would
-		 * not have byte swapped i_block[0].  Hence, we have
-		 * to byte-swap it here.
-		 */
-		if (LINUX_S_ISLNK(inode.i_mode) &&
-		    (fs->flags & EXT2_FLAG_SWAP_BYTES) &&
-		    (inode.i_blocks == fs->blocksize >> 9))
-			inode.i_block[0] = ext2fs_swab32(inode.i_block[0]);
+			/* 
+			 * This is a special kludge to deal with long
+			 * symlinks on big endian systems.  i_blocks
+			 * had already been decremented earlier in
+			 * pass 1, but since i_file_acl hadn't yet
+			 * been cleared, ext2fs_read_inode() assumed
+			 * that the file was short symlink and would
+			 * not have byte swapped i_block[0].  Hence,
+			 * we have to byte-swap it here.
+			 */
+			if (LINUX_S_ISLNK(inode.i_mode) &&
+			    (fs->flags & EXT2_FLAG_SWAP_BYTES) &&
+			    (inode.i_blocks == fs->blocksize >> 9))
+				inode.i_block[0] = ext2fs_swab32(inode.i_block[0]);
 #endif
-		inode_modified++;
-	} else
-		not_fixed++;
+			inode_modified++;
+		} else
+			not_fixed++;
+	}
 
 	if (!LINUX_S_ISDIR(inode.i_mode) && !LINUX_S_ISREG(inode.i_mode) &&
 	    !LINUX_S_ISCHR(inode.i_mode) && !LINUX_S_ISBLK(inode.i_mode) &&
@@ -1302,7 +1304,7 @@ extern int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 
 	if (inode_modified)
 		e2fsck_write_inode(ctx, ino, &inode, "process_bad_inode");
-	if (!not_fixed)
+	if (!not_fixed && ctx->inode_bad_map)
 		ext2fs_unmark_inode_bitmap(ctx->inode_bad_map, ino);
 	return 0;
 }

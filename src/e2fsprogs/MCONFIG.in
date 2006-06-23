@@ -24,6 +24,7 @@ includedir = @includedir@
 mandir = @mandir@
 man1dir = $(mandir)/man1
 man3dir = $(mandir)/man3
+man5dir = $(mandir)/man5
 man8dir = $(mandir)/man8
 infodir = @infodir@
 datadir = @datadir@
@@ -40,6 +41,8 @@ ALL_CFLAGS = $(CPPFLAGS) $(DEFS) $(USE_WFLAGS) $(CFLAGS) $(XTRA_CFLAGS) \
 	$(INTL_FLAGS) $(LINUX_INCLUDE) 
 LDFLAGS = @LDFLAGS@
 ALL_LDFLAGS = $(LDFLAGS)
+BUILD_CFLAGS = @BUILD_CFLAGS@
+BUILD_LDFLAGS = @BUILD_LDFLAGS@
 RM = @RM@
 LN = @LN@
 LN_S = @LN_S@
@@ -64,13 +67,16 @@ MKINSTALLDIRS = @MKINSTALLDIRS@
 #
 # Library definitions
 #
+DEVMAPPER_LIBS = @DEVMAPPER_LIBS@
+STATIC_DEVMAPPER_LIBS = @STATIC_DEVMAPPER_LIBS@
+
 LIB = $(top_builddir)/lib
 LIBSS = $(LIB)/libss@LIB_EXT@
 LIBCOM_ERR = $(LIB)/libcom_err@LIB_EXT@
 LIBE2P = $(LIB)/libe2p@LIB_EXT@
 LIBEXT2FS = $(LIB)/libext2fs@LIB_EXT@
 LIBUUID = $(LIB)/libuuid@LIB_EXT@ @SOCKET_LIB@ 
-LIBBLKID = $(LIB)/libblkid@LIB_EXT@
+LIBBLKID = $(LIB)/libblkid@LIB_EXT@ $(DEVMAPPER_LIBS)
 LIBINTL = @LIBINTL@
 DEPLIBUUID = $(LIB)/libuuid@LIB_EXT@
 
@@ -79,7 +85,7 @@ STATIC_LIBCOM_ERR = $(LIB)/libcom_err@STATIC_LIB_EXT@
 STATIC_LIBE2P = $(LIB)/libe2p@STATIC_LIB_EXT@
 STATIC_LIBEXT2FS = $(LIB)/libext2fs@STATIC_LIB_EXT@
 STATIC_LIBUUID = $(LIB)/libuuid@STATIC_LIB_EXT@ @SOCKET_LIB@ 
-STATIC_LIBBLKID = $(LIB)/libblkid@STATIC_LIB_EXT@
+STATIC_LIBBLKID = $(LIB)/libblkid@STATIC_LIB_EXT@ $(STATIC_DEVMAPPER_LIBS)
 DEPSTATIC_LIBUUID = $(LIB)/libuuid@STATIC_LIB_EXT@
 
 PROFILED_LIBSS = $(LIB)/libss@PROFILED_LIB_EXT@

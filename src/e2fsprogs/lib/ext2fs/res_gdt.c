@@ -73,7 +73,7 @@ errcode_t ext2fs_create_resize_inode(ext2_filsys fs)
 
 	sb = fs->super;
 
-	retval = ext2fs_get_mem(2 * fs->blocksize, (void **)&dindir_buf);
+	retval = ext2fs_get_mem(2 * fs->blocksize, &dindir_buf);
 	if (retval)
 		goto out_free;
 	gdt_buf = (__u32 *)((char *)dindir_buf + fs->blocksize);
@@ -116,7 +116,7 @@ errcode_t ext2fs_create_resize_inode(ext2_filsys fs)
 			sb->s_feature_ro_compat |=
 				EXT2_FEATURE_RO_COMPAT_LARGE_FILE;
 		}
-		inode.i_ctime = time(0);
+		inode.i_ctime = fs->now ? fs->now : time(0);
 	}
 
 	for (rsv_off = 0, gdt_off = fs->desc_blocks,
@@ -208,13 +208,13 @@ out_inode:
 	       inode.i_size);
 #endif
 	if (inode_dirty) {
-		inode.i_atime = inode.i_mtime = time(0);
+		inode.i_atime = inode.i_mtime = fs->now ? fs->now : time(0);
 		retval2 = ext2fs_write_inode(fs, EXT2_RESIZE_INO, &inode);
 		if (!retval)
 			retval = retval2;
 	}
 out_free:
-	ext2fs_free_mem((void **)&dindir_buf);
+	ext2fs_free_mem(&dindir_buf);
 	return retval;
 }
 

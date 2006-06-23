@@ -1,3 +1,225 @@
+2006-05-29  Theodore Tso  <tytso@mit.edu>
+
+	* pass1b.c: Add missing semicolon when HAVE_INTPTR_T is not defined
+
+2006-05-22  Theodore Tso  <tytso@mit.edu>
+
+	* e2fsck.8.in: Fixed spelling mistake.  (Addresses Debian Bug:
+		#368392)
+
+2006-05-14  Theodore Tso  <tytso@mit.edu>
+
+	* recovery.c (do_one_pass), journal.c (e2fsck_get_journal): Add
+		missing brelse() calls to avoid memory leaks in error
+		paths.  (Thanks to Michael C. Thompson for pointing these
+		out; they were originally found using Coverity.)
+
+2006-05-13  Theodore Tso  <tytso@mit.edu>
+
+	* badblocks.c (read_bad_blocks_file): Pass the private option -X
+		to badblocks so that e2fsck -cc will work correctly.
+
+2006-05-08  Theodore Tso  <tytso@mit.edu>
+
+	* pass5.c (check_block_bitmaps, check_inode_bitmaps): Add support
+		for the lazy_bg feature; if the block group does not have
+		an initialized block or inode bitmaps/table, emulate what
+		the allocation bitmap would look like if no blocks or
+		inodes have been allocated.
+
+2006-03-27  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.8.in: Add badblocks(8) to the See Also section.
+		(Addresses Debian Bug: #347295)
+
+	* Makefile.in, e2fsck.conf.5.in: Add man page documenting the
+		configuration file /etc/e2fsck.conf.
+
+2006-03-22  Theodore Ts'o  <tytso@mit.edu>
+
+	* profile.c (profile_update_file, profile_parse_file, parse_line,
+		parse_std_line): Integrate profile_std_line() into
+		parse_line(), and profile_parse_file() into
+		profile_update_file() to make the code tighter.
+
+2006-03-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (show_stats): Use blk_t instead of int when referring to
+		block numbers.
+
+	* emptydir.c, message.c, pass1b.c, pass2.c, recovery.c, unix.c:
+		Change printf statements to use %u instead of %d when
+		printing block numbers.
+
+	* unix.c (main): If the filesystem is not mounted, open the
+		filesystem in exclusive mode (to prevent 2.6 kernels from
+		mounting the filesystem while it is being checked).
+
+2006-03-10  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.h, journal.c (e2fsck_fix_ext3_journal_hint), 
+		problem.c (PR_0_EXTERNAL_JOURNAL_HINT), 
+		problem.h (PR_0_EXTERNAL_JOURNAL_HINT), super.c: Check
+		to see if the superblock hint for the external journal
+		needs to be updated, and if so, offer to update it.
+		(Addresses Debian Bug: #355644)
+
+2006-01-29  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (check_if_skip): When skipping a check due to being on
+		battery, print an explanatory message to this effect.  Add
+		an e2fsck configuration option defer_check_on_battery
+		which defaults to true.  If the configuration option is
+		turned off, then e2fsck will not attempt to defer
+		filesystem checks when the system is running on battery.
+		(Addresses Debain Bug: #350306)
+
+2006-01-06  Theodore Ts'o  <tytso@mit.edu>
+
+	* profile.c (parse_std_line, dump_profile): Add support for
+		quoted strings in tag and section names.  Changed
+		top-level section name parsing to ignore leading and
+		trailing whitespace.
+
+2006-01-05  Theodore Ts'o  <tytso@mit.edu>
+
+	* profile.c (profile_init): If a directory is passed to
+		profile_init, then read all files which match [0-9a-zA-Z]*
+		in sort order.  This allows handling of /etc/foo/conf.d
+		style directories.
+
+2006-01-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* profile.c: Eliminate the prf_data_t data structure and fold it
+		back into prof_file_t.  Eschew needless complexity!
+
+	* profile.c: Change syntax accepted by the profile parser.  The
+		value of profile relations must not contain spaces unless
+		it is quoted; otherwise the parser will throw an error.
+		Comments are allowed anywhere and can be started with
+		either a ';' or a '#' character.  The only place where
+		comments will not be intepreted as beginning a comment is
+		in a quoted string.
+
+	* profile.c (profile_parse_file, profile_set_syntax_err_cb): Add
+		support for a syntax error callback to allow better error
+		reporting to the user.
+
+	* e2fsck(PRS): Set a profile syntax error callback so we can
+		report errors in /etc/e2fsck.conf.
+
+2006-01-02  Theodore Ts'o  <tytso@mit.edu>
+
+	* profile.c, profile_helpers.c, profile_helpers.h: Boil down and
+		simplify profile.c, and move extra functionality that's
+		not needed into profile_helpers.c
+
+2006-01-01  Theodore Ts'o  <tytso@mit.edu>
+
+	* profile.c: Fix #include of com_err.h so that it isn't required
+		that the com_err development environment be installed.
+		(Addresses Debian Bug: #345519)
+
+2005-12-31  Theodore Ts'o  <tytso@mit.edu>
+
+	* problem.c (fix_problem), problemP.h: Add the ability for the
+		e2fsck configuration file to override the behaviour of
+		e2fsck when a particular filesystem problem is
+		encountered.  This allows reconnecting an inode to
+		lost+found to not stop the boot sequence, if a system
+		administrator really badly wants this behaviour for some
+		specialized reason, for example.
+
+	* unix.c (main): If the e2fsck configuration file sets the
+		allow_cancellation option to be true, then if the
+		filesystem does not have any known problems, and was known
+		to be cleanly unmounted, then let e2fsck exit with a
+		status code of 0 instead of 32 (FSCK_CANCELED) so that the
+		bootup scripts will continue without stopping the boot.
+		(Addresses Debian Bug: #150295)
+
+2005-12-30  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.c (e2fsck_free_context), unix.c (PRS), e2fsck.h: Use
+		the profile library to read in the /etc/e2fsck.conf file
+		at startup.	
+
+	* profile.c, profile.h, prof_err.et: Add the profile library code
+		to e2fsck.  The profile library was originally written by
+		Theodore Ts'o in 1995 for use in the MIT Kerberos v5
+		library.  It has been modified/enhanced/bug-fixed over
+		time by other members of the MIT Kerberos team.  This
+		version was originally taken from the Kerberos v5
+		distribution, version 1.4.2, and radically simplified for
+		use in e2fsprogs.  (Support for locking for multi-threaded
+		operations, being able to modify and update the
+		configuration file programmatically, and Mac/Windows
+		portability have been removed.  It has been folded into a
+		single C source file to make it easier to fold into an
+		application program.)
+
+	* argv_parse.c, argv_parse.h: Added auxiliary programs used only
+		for building the profile test program.
+
+2005-12-18  Theodore Ts'o  <tytso@mit.edu>
+
+	* problem.c (PR_0_FUTURE_SB_LAST_MOUNT,
+		PR_0_FUTURE_SB_LAST_WRITE): Make these problems things
+		which can be fixd by preen, since Debian's boot sequence
+		bogusly doesn't set the time correctly until potentially
+		very late in the bootup process, and this can cause false
+		positives that will cause users' systems to fail to
+		booting.  (Addresses Debian Bugs #343662 and #343645)
+
+2005-12-09  Theodore Ts'o  <tytso@mit.edu>
+
+	* e2fsck.8.in: Clarify that e2fsck -c does a read-only scan of the
+		device.
+
+	* unix.c (PRS): Fix typo in error message; thanks to Solar
+		Designer for pointing out the missing preposition.
+		(check_mount): Don't let the user run e2fsck -ccn on the
+		root partition, without warning that he or she might
+		be doing something Really Stupid.
+
+	* e2fsck.8.in: Clarify description of differences between the -p,
+		-n, and -y options.
+
+2005-09-24  Theodore Ts'o  <tytso@mit.edu>
+
+	* super.c (check_super_block), problem.c, problem.h: Detect if the
+		superblock's last mount field or last write field is in
+		the future, and offer to fix if so.  (Addresses Debian Bug
+		#327580)
+
+2005-07-25  Theodore Ts'o  <tytso@mit.edu>
+
+	* unix.c (main): Fix a use-after-free bug of the e2fsck context
+		structure at the very end of the e2fsck run.
+
+	* pass1.c (pass1_write_inode): Fix false positive from valgrind;
+		don't do a needless structure copy via an assignment when
+		it is a no-op.
+
+2005-07-04  Theodore Ts'o  <tytso@mit.edu>
+
+	* problem.c: Remove period from the Pass 1C header, to be
+		consistent with the other Pass headers.
+
+	* pass2.c (e2fsck_process_bad_inode): Fixed bug which could cause
+		e2fsck to core dump if a disconnected inode contained an
+		extended attribute.  This was actually caused by two bugs.
+		The first bug is that if the inode has been fully fixed
+		up, the code will attempt to remove the inode from the
+		inode_bad_map without checking to see if this bitmap is
+		present.  Since it is cleared at the end of pass 2, if
+		e2fsck_process_bad_inode is called in pass 4 (as it is for
+		disconnected inodes), this would result in a core dump.
+		This bug was mostly hidden by a second bug, which caused
+		e2fsck_process_bad_inode() to consider all inodes without
+		an extended attribute to be not fixed.  (Addresses Debian
+		Bug: #316736)
+
 2006-06-30  Theodore Ts'o  <tytso@mit.edu>
 
 	* Release of E2fsprogs 1.38

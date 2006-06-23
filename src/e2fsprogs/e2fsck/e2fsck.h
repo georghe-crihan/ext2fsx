@@ -33,6 +33,9 @@
 #include "blkid/blkid.h"
 #endif
 
+#include "profile.h"
+#include "prof_err.h"
+
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #include <locale.h>
@@ -326,6 +329,8 @@ struct e2fsck_struct {
 
 	int ext_attr_ver;
 
+	profile_t	profile;
+
 	/*
 	 * For the use of callers of the e2fsck functions; not used by
 	 * e2fsck functions themselves.
@@ -401,6 +406,7 @@ extern void ehandler_init(io_channel channel);
 extern int e2fsck_check_ext3_journal(e2fsck_t ctx);
 extern int e2fsck_run_ext3_journal(e2fsck_t ctx);
 extern void e2fsck_move_ext3_journal(e2fsck_t ctx);
+extern int e2fsck_fix_ext3_journal_hint(e2fsck_t ctx);
 
 /* pass1.c */
 extern void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool);
