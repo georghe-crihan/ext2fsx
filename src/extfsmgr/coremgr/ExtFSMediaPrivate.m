@@ -290,7 +290,7 @@ __private_extern__ NSDictionary *transportNameTypeMap;
    else
       NSLog(@"ExtFS: Unknown filesystem '%@'.\n", fstype);
    [fsTypes release];
-   tmp = [[NSString alloc] initWithCString:stat->f_mntonname];
+   tmp = [[NSString alloc] initWithUTF8String:stat->f_mntonname];
    
    ewlock(e_lock);
    e_fsType = ftype;
