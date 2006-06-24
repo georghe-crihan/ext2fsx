@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2004,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -263,7 +263,7 @@ e_curSelection = nil; \
    
    msg = [NSString stringWithFormat:
             ExtLocalizedString(@"Command: %@\nDevice: %@\nMessage: %@\nError: 0x%X", ""),
-            op, device, (errMsg ? errMsg : errStr), [err intValue]];
+            op, device, (errMsg ? [NSString stringWithFormat:@"%@ (%@)", errStr, errMsg] : errStr), [err intValue]];
    
    win = [NSApp keyWindow];
    if (nil == [win attachedSheet]) {
@@ -1008,16 +1008,16 @@ info_alt_switch:
     NSAttributedString *value;
     NSImage *icon;
 
-    NS_DURING
+    @try {
         name = [item volName];
         if (!name)
             name = [[item mountPoint] lastPathComponent];
-    NS_HANDLER
+    } @catch (NSException *e) {
 #ifdef DIAGNOSTIC
         NSLog(@"ExtFSM: Item (0x%08X) is not a valid media object.\n", item);
 #endif
         return;
-    NS_ENDHANDLER
+    }
     if (nil == name)
         name = [item ioRegistryName];
    
@@ -1121,16 +1121,14 @@ static id ExtMakeInfoTitle(NSString *title)
 
 static void ExtSetPrefVal(ExtFSMedia *media, id key, id val)
 {
-    NSString *uuid;
     NSMutableDictionary *dict;
-    
-    uuid = [media uuidString];
-    dict = [e_prefMedia objectForKey:uuid];
-    if (!dict) {
-        dict = [NSMutableDictionary dictionary];
-        [e_prefMedia setObject:dict forKey:uuid];
+    NSString *uuid = [media uuidString];
+    if (nil == (dict = [[e_prefMedia objectForKey:uuid] mutableCopy])) {
+        dict = [[NSMutableDictionary alloc] init];
     }
     [dict setObject:val forKey:key];
+    [e_prefMedia setObject:dict forKey:uuid];
+    [dict release];
     e_prefsChanged = YES;
 }
 
