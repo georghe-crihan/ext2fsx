@@ -1,5 +1,5 @@
 /*
-* Copyright 2004 Brian Bergstrand.
+* Copyright 2004,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -103,34 +103,34 @@ static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
         return (-errno);
     }
 
+    unsigned char *uuidbytes = NULL;
+    unsigned char *hfsuidbytes = NULL;
+    
     /* Ext2 and HFS(+) Superblocks start at offset 1024 (block 2). */
     sb.s_es = (struct ext2_super_block*)(buf+EXT_SUPER_OFF);
     if (EXT2_SUPER_MAGIC == le16_to_cpu(sb.s_es->s_magic)) {
         type = fsTypeExt2;
         if (0 != EXT2_HAS_COMPAT_FEATURE(&sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
             type = fsTypeExt3;
-        if (uuidStr) {
-            CFUUIDRef cuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault,
-                *((CFUUIDBytes*)sb.s_es->s_uuid));
-            if (cuuid) {
-                *uuidStr = (NSString*)CFUUIDCreateString(kCFAllocatorDefault, cuuid);
-                CFRelease(cuuid);
-            }
-        }
+        uuidbytes = sb.s_es->s_uuid;
     } else {
         hpsuper = (HFSPlusVolumeHeader*)(buf+HFS_SUPER_OFF);
         if (kHFSPlusSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFSPlus;
             if (be32_to_cpu(hpsuper->attributes) & kHFSVolumeJournaledBit)
                 type = fsTypeHFSJ;
+            // unique id is in the last 8 bytes of the finder info storage
+            // this is obviously not a UUID
+            hfsuidbytes = &hpsuper->finderInfo[24];
         }
-        else if (kHFSXSigWord == be16_to_cpu(hpsuper->signature))
+        else if (kHFSXSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFSX;
-        else if (kHFSSigWord == be16_to_cpu(hpsuper->signature)) {
+            hfsuidbytes = &hpsuper->finderInfo[24];
+        } else if (kHFSSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFS;
             hsuper = (HFSMasterDirectoryBlock*)(buf+HFS_SUPER_OFF);
             if (kHFSPlusSigWord == be16_to_cpu(hsuper->drEmbedSigWord))
-                type = fsTypeHFSPlus;
+                type = fsTypeHFSPlus; // XXX - we'd have to read the embedded volume header to get the UUID
         } else {
             usuper = (struct fs*)(buf+SBOFF);
             if (FS_MAGIC == be32_to_cpu(usuper->fs_magic)) {
@@ -138,9 +138,20 @@ static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
                 const u_char lmagic[] = UFS_LABEL_MAGIC;
                 type = fsTypeUFS;
                 if (uuidStr && *((u_int32_t*)&lmagic[0]) == be32_to_cpu(ulabel->ul_magic))
-                    *uuidStr = [[NSString alloc] initWithFormat:@"%qX", ulabel->ul_uuid];
+                    *uuidStr = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(ulabel->ul_uuid)];
             }
         }
+    }
+    
+    if (uuidStr && uuidbytes) {
+        CFUUIDRef cuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault,
+            *((CFUUIDBytes*)uuidbytes));
+        if (cuuid) {
+            *uuidStr = (NSString*)CFUUIDCreateString(kCFAllocatorDefault, cuuid);
+            CFRelease(cuuid);
+        }
+    } else if (uuidStr && hfsuidbytes) {
+        *uuidStr = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(*((u_int64_t*)hfsuidbytes))];
     }
 
     bzero(buf, EXT_SUPER_SIZE);
