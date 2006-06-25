@@ -24,8 +24,6 @@
  * $Revision$
  */
 
-#include <sys/types.h>
-
 #ifdef __ppc__
  
 static __inline__ void __arch_swap_16 (u_int16_t from, u_int16_t *to)
@@ -39,57 +37,34 @@ static __inline__ void __arch_swap_32 (u_int32_t from, u_int32_t *to)
 }
  
 #endif // __ppc__
+
+#define E2Q_HIGH 0
+#define E2Q_LOW  1
  
-static __inline__ u_int16_t le16_to_cpu (u_int16_t val)
-{
-   u_int16_t n;
-   
-   __arch_swap_16(val, &n);
-   
-   return (n);
-}
+#define le16_to_cpu(x) e2_swap16((x))
+#define le16_to_cpup(p) e2_swap16p((p))
 
-static __inline__ u_int32_t le32_to_cpu (u_int32_t val)
-{
-   u_int32_t n;
-   
-   __arch_swap_32(val, &n);
-   
-   return (n);
-}
+#define cpu_to_le16(x) e2_swap16((x))
+#define cpu_to_le16p(p) e2_swap16p((p))
 
-static __inline__ u_int16_t le16_to_cpup (u_int16_t *val)
-{
-   u_int16_t n,v;
-   
-   v = *val;
-   __arch_swap_16(v, &n);
-   
-   return (n);
-}
+#define le32_to_cpu(x) e2_swap32((x))
+#define le32_to_cpup(p) e2_swap32p((p))
 
-static __inline__ u_int32_t le32_to_cpup (u_int32_t *val)
-{
-   u_int32_t n,v;
-   
-   v = *val;
-   __arch_swap_32(v, &n);
-   
-   return (n);
-}
+#define cpu_to_le32(x) e2_swap32((x))
+#define cpu_to_le32p(p) e2_swap32p((p))
 
-#define cpu_to_le16(x) le16_to_cpu((x))
+#define le64_to_cpu(x) e2_swap64((x))
+#define le64_to_cpup(p) e2_swap64p((p))
 
-#define cpu_to_le32(x) le32_to_cpu((x))
+#define cpu_to_le64(x) e2_swap64((x))
+#define cpu_to_le64p(p) e2_swap64p((p))
 
-#define cpu_to_le16p(x) le16_to_cpup((x))
-
-#define cpu_to_le32p(x) le32_to_cpup((x))
 
 #define be16_to_cpu(x) (u_int16_t)(x)
-
-#define be32_to_cpu(x) (u_int32_t)(x)
-
 #define cpu_to_be16(x) (u_int16_t)(x)
 
+#define be32_to_cpu(x) (u_int32_t)(x)
 #define cpu_to_be32(x) (u_int32_t)(x)
+
+#define be64_to_cpu(x) (u_int64_t)(x)
+#define cpu_to_be64(x) (u_int64_t)(x)

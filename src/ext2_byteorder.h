@@ -1,5 +1,5 @@
 /*
- * Copyright 2003 Brian Bergstrand.
+ * Copyright 2003,2006 Brian Bergstrand.
  *
  * Redistribution and use in source and binary forms, with or without modification, 
  * are permitted provided that the following conditions are met:
@@ -25,14 +25,85 @@
  */
 
 #ifndef _EXT2_BYTEORDER_H
-#define _EXT2_BYTEORDER_H 
+#define _EXT2_BYTEORDER_H
 
-#ifdef __ppc__
+#include <sys/types.h>
+
+#if BYTE_ORDER == BIG_ENDIAN
 #include <ext2_bigendian.h>
-#elif defined(__i386__)
+#elif BYTE_ORDER == LITTLE_ENDIAN
 #include <ext2_littleendian.h>
 #else
 #error "Unknown architecture!"
 #endif
+
+static __inline__ __attribute__((__const__)) 
+u_int16_t e2_swap16 (u_int16_t val)
+{
+   u_int16_t n;
+   
+   __arch_swap_16(val, &n);
+   
+   return (n);
+}
+
+static __inline__ __attribute__((__const__)) 
+u_int16_t e2_swap16p (const u_int16_t *val)
+{
+   u_int16_t n,v;
+   
+   v = *val;
+   __arch_swap_16(v, &n);
+   
+   return (n);
+}
+
+static __inline__ __attribute__((__const__)) 
+u_int32_t e2_swap32 (u_int32_t val)
+{
+   u_int32_t n;
+   
+   __arch_swap_32(val, &n);
+   
+   return (n);
+}
+
+static __inline__ __attribute__((__const__)) 
+u_int32_t e2_swap32p (const u_int32_t *val)
+{
+   u_int32_t n,v;
+   
+   v = *val;
+   __arch_swap_32(v, &n);
+   
+   return (n);
+}
+
+typedef union { 
+    uint64_t eq;
+    uint32_t el[2]; 
+} e2q;
+
+static __inline__ __attribute__((__const__)) 
+u_int64_t e2_swap64 (u_int64_t val)
+{
+   e2q n;
+   
+   __arch_swap_32(((e2q*)&val)->el[E2Q_HIGH], &n.el[E2Q_LOW]);
+   __arch_swap_32(((e2q*)&val)->el[E2Q_LOW], &n.el[E2Q_HIGH]);
+   
+   return (n.eq);
+}
+
+static __inline__ __attribute__((__const__)) 
+u_int64_t e2_swap64p (const u_int64_t *val)
+{
+   e2q n;
+   
+   __arch_swap_32(((e2q*)val)->el[E2Q_HIGH], &n.el[E2Q_LOW]);
+   __arch_swap_32(((e2q*)val)->el[E2Q_LOW], &n.el[E2Q_HIGH]);
+   
+   return (n.eq);
+}
 
 #endif // _EXT2_BYTEORDER_H
