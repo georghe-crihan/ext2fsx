@@ -151,6 +151,8 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 	mp = ITOVFS(ip);
 	ump = VFSTOEXT2(mp);
 	devvp = ip->i_devvp;
+    assert(devvp != NULL);
+    assert(devvp == ump->um_devvp);
     
     vfs_ioattr(mp, &vfsio);
     iosize = vfs_statfs(mp)->f_iosize;
