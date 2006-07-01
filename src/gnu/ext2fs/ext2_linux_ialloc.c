@@ -88,6 +88,7 @@ struct ext2_group_desc * get_group_desc (mount_t mp,
    }
 	gdp = (struct ext2_group_desc *) 
 		buf_dataptr(sb->s_group_desc[group_desc]);
+	assert(buf_flags(sb->s_group_desc[group_desc]) & B_LOCKED);
 	if (bp)
 		*bp = sb->s_group_desc[group_desc];
 	return gdp + desc;
