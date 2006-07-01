@@ -857,16 +857,16 @@ static void DiskArbCallback_ChangeNotification(DADiskRef disk,
 {
     NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
     NSURL *path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey];
-#ifdef obsolete
+    
     /* Apparently, despite the "watching volume mount changes" documentation,
        DARegisterDiskDescriptionChangedCallback() is not meant to notice mounts.
+       But it does work (and is in fact needed) in some circumstances where a device is attached
+       and then some time later actually mounted.
+       This of course is all very stupid. Why can't DA just provide a mount and unmount callback?
     */
-    if (d && (path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey])
-        && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]) {
+    if (d && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]) {
         (void)[[ExtFSMediaController mediaController] updateMountStatus];
-    } else
-#endif
-    if (d && (!path || NO == [[NSFileManager defaultManager] fileExistsAtPath:[path path]])) {
+    } else if (d && (!path || NO == [[NSFileManager defaultManager] fileExistsAtPath:[path path]])) {
         (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(DADiskGetBSDName(disk))];
     }
     [d release];
@@ -876,10 +876,15 @@ static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context _
 {
 	NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
     NSURL *path;
+    #ifdef DIAGNOSTIC
+    const char *bsd = DADiskGetBSDName(disk);
+    NSLog(@"%s: %p - %s\n", __FUNCTION__,  disk, bsd ? bsd : "NULL DEVICE!");
+    #endif
     if (d && (path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey])
-        && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]) {
+        /* && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]*/) {
         (void)[[ExtFSMediaController mediaController] updateMountStatus];
     }
+    [d release];
 }
 
 NSString * const ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
