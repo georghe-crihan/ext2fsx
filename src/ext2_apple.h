@@ -164,7 +164,6 @@ static __inline__
 void clrbuf(buf_t bp)
 {
     buf_clear(bp);
-    buf_setresid(bp, 0); /* XXX Necessary? */
 }
 
 #endif
@@ -330,7 +329,9 @@ int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
 
 #define bqrelse buf_brelse
 #define bufwait buf_biowait
+#ifdef obsolete
 #define bufdone buf_biodone
+#endif
 
 #define hashdestroy(tbl,type,cnt) FREE((tbl), (type))
 
@@ -380,6 +381,9 @@ static __inline void * memscan(void * addr, int c, size_t size)
 #define EXT3_I(inode) (inode)
 
 #define KERN_CRIT "CRITICAL"
+
+/* Missing clib functions (as of 10.4.x) */
+__private_extern__ char* e_strrchr(const char *, int);
 
 /* Debug */
 
