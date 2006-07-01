@@ -246,7 +246,7 @@ ext2_readdir(ap)
       free_dirbuf = 0;
       
       fda.uio = uio;
-      // XXX dx_readdir is not lock safe ATM, so don't unlock
+      // XXX ext3_dx* is not lock safe ATM, so don't unlock
       error = ext3_dx_readdir(ap->a_vp, &fda, bsd_filldir);
       if (error != ERR_BAD_DX_DIR) {
          if (EXT2_FILLDIR_ENOSPC == error)
@@ -335,8 +335,7 @@ ext2_readdir(ap)
 					/* advance dp */
 					dp = (struct ext2_dir_entry_2 *)
 					    ((char *)dp + le16_to_cpu(dp->rec_len)); 
-					error = 
-					  uiomove((caddr_t)&dstdp, dstdp.d_reclen, uio);
+					error = uiomove((caddr_t)&dstdp, dstdp.d_reclen, uio);
 					if (!error)
 						ncookies++;
 				} else
@@ -425,12 +424,12 @@ ext2_lookup(ap)
         vfs_context_t a_context;
 	} */ *ap;
 {
-	evalloc_args_t vallocargs; 
+	evalloc_args_t vallocargs = {0}; 
     vnode_t vdp;		/* vnode for directory being searched */
 	struct inode *dp;		/* inode for directory being searched */
 	buf_t  bp;			/* a buffer of directory entries */
 	struct ext2_dir_entry_2 *ep;	/* the current directory entry */
-	int entryoffsetinblock;		/* offset of ep in bp's buffer */
+	doff_t entryoffsetinblock;		/* offset of ep in bp's buffer */
 	enum {NONE, COMPACT, FOUND} slotstatus;
 	doff_t slotoffset;		/* offset of area with free space */
 	int slotsize;			/* size of area at slotoffset */
@@ -511,9 +510,15 @@ dolookup:
 		slotneeded = (sizeof(struct direct) - MAXNAMLEN +
 			cnp->cn_namelen + 3) &~ 3; */
 	}
+    
+    IXLOCK(dp);
+    while (dp->i_flag & IN_LOOK) {
+        dp->i_flag |= IN_LOOKWAIT;
+        ISLEEP(dp, flag, NULL);
+    }
+    dp->i_flag |= IN_LOOK;
 
    /* Check for indexed dir */
-   IXLOCK(dp);
    if (is_dx(dp)) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
       /* For some reason, ext3_dx_find_entry() doesn't handle
@@ -526,6 +531,7 @@ dolookup:
       dentry.d_name.name = cnp->cn_nameptr;
       dentry.d_name.len = cnp->cn_namelen;
       dentry.d_inode = NULL;
+      // XXX ext3_dx* is not lock safe ATM, so don't unlock
       bp = ext3_dx_find_entry(&dentry, &ep, &error);
       /*
        * On success, or if the error was file not found,
@@ -570,11 +576,16 @@ dx_fallback:
 	} else {
 		dp->i_offset = dp->i_diroff;
 		if ((entryoffsetinblock = dp->i_offset & bmask)) {
-		    IULOCK(dp);
-            if (0 == (error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL, &bp)))
-                IXLOCK(dp);
-            else
+		    prevoff = dp->i_offset;
+            IULOCK(dp);
+            error = ext2_blkatoff(vdp, (off_t)prevoff, NULL, &bp);
+            IXLOCK(dp);
+            if (0 != error) {
+                dp->i_flag &= ~IN_LOOK;
+                IWAKE(dp, flag, flag, IN_LOOKWAIT);
+                IULOCK(dp);
 				ext2_trace_return(error);
+            }
         }
 		numdirpasses = 2;
 		//nchstats.ncs_2passes++;
@@ -592,10 +603,14 @@ searchloop:
 			if (bp != NULL)
 				buf_brelse(bp);
 			IULOCK(dp);
-            if (0 == (error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL, &bp)))
-                IXLOCK(dp);
-            else
+            error = ext2_blkatoff(vdp, (off_t)dp->i_offset, NULL, &bp);
+            IXLOCK(dp);
+            if (0 != error) {
+                dp->i_flag &= ~IN_LOOK;
+                IWAKE(dp, flag, flag, IN_LOOKWAIT);
+                IULOCK(dp);
 				ext2_trace_return(error);
+            }
 			entryoffsetinblock = 0;
 		}
 		/*
@@ -704,10 +719,15 @@ notfound:
 		 * creation of files in the directory.
 		 */
 		IULOCK(dp);
-        if(0 == (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
-            IXLOCK(dp);
-        else
-			ext2_trace_return(error);
+        error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context);
+        IXLOCK(dp);
+        if (0 != error) {
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
+            ext2_trace_return(error);
+        }
+        
 		/*
 		 * Return an indication of where the new directory
 		 * entry should be put.  If we didn't find a slot,
@@ -747,7 +767,9 @@ notfound:
 		if (!lockparent)
 			vnode_unlock(vdp);
 #endif
-		IULOCK(dp);
+        dp->i_flag &= ~IN_LOOK;
+        IWAKE(dp, flag, flag, IN_LOOKWAIT);
+        IULOCK(dp);
         ext2_trace_return(EJUSTRETURN);
 	}
 	/*
@@ -755,7 +777,10 @@ notfound:
 	 */
 	if ((cnp->cn_flags & MAKEENTRY) && nameiop != CREATE)
 		cache_enter(vdp, *vpp, cnp);
-	IULOCK(dp);
+	
+    dp->i_flag &= ~IN_LOOK;
+    IWAKE(dp, flag, flag, IN_LOOKWAIT);
+    IULOCK(dp);
     ext2_trace_return(ENOENT);
 
 found:
@@ -796,10 +821,14 @@ found:
 		 * Write access to directory required to delete files.
 		 */
 		IULOCK(dp);
-        if (0 == (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
-            IXLOCK(dp);
-        else
-			ext2_trace_return(error);
+        error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context);
+        IXLOCK(dp);
+        if (0 != error) {
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
+            ext2_trace_return(error);
+        }
 		/*
 		 * Return pointer to current entry in dp->i_offset,
 		 * and distance past previous entry (if there
@@ -811,9 +840,12 @@ found:
 		else
 			dp->i_count = dp->i_offset - prevoff;
 		if (dp->i_number == dp->i_ino) {
-			vnode_get(vdp);
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
+            
+            vnode_get(vdp);
 			*vpp = vdp;
-			IULOCK(dp);
             return (0);
 		}
         vallocargs.va_ino = dp->i_ino;
@@ -821,10 +853,15 @@ found:
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
         IULOCK(dp);
-        if (0 == (error = EXT2_VGET(mp, &vallocargs, &tdp, context)))
-            IXLOCK(dp);
-        else
-			ext2_trace_return(error);
+        error = EXT2_VGET(mp, &vallocargs, &tdp, context);
+        IXLOCK(dp);
+        if (0 != error) {
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
+            ext2_trace_return(error);
+        }
+        
 		/*
 		 * If directory is "sticky", then user must own
 		 * the directory, or the file in it, else she
@@ -835,7 +872,11 @@ found:
 		    cred->cr_uid != 0 &&
 		    cred->cr_uid != dp->i_uid &&
 		    VTOI(tdp)->i_uid /* XXX Lock tdp? */ != cred->cr_uid) {
-			IULOCK(dp);
+			
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
+            
             vnode_put(tdp);
 			ext2_trace_return(EPERM);
 		}
@@ -844,7 +885,9 @@ found:
 		if (!lockparent)
 			vnode_unlock(vdp);
 #endif
-		IULOCK(dp);
+		dp->i_flag &= ~IN_LOOK;
+        IWAKE(dp, flag, flag, IN_LOOKWAIT);
+        IULOCK(dp);
         return (0);
 	}
 
@@ -857,23 +900,35 @@ found:
 	if (nameiop == RENAME && wantparent &&
 	    (flags & ISLASTCN)) {
         IULOCK(dp);
-		if (0 == (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
-            IXLOCK(dp);
-        else
-			ext2_trace_return(error);
+		error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context);
+        IXLOCK(dp);
+        if (0 != error) {
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
+            ext2_trace_return(error);
+        }
+        
 		/*
 		 * Careful about locking second inode.
 		 * This can only occur if the target is ".".
 		 */
 		if (dp->i_number == dp->i_ino) {
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
             IULOCK(dp);
 			ext2_trace_return(EISDIR);
         }
+        
         vallocargs.va_ino = dp->i_ino;
         vallocargs.va_parent = vdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
+        
+        dp->i_flag &= ~IN_LOOK;
+        IWAKE(dp, flag, flag, IN_LOOKWAIT);
         IULOCK(dp);
+        
         if (0 != (error = EXT2_VGET(mp, &vallocargs, &tdp, context)))
 			ext2_trace_return(error);
 		*vpp = tdp;
@@ -906,14 +961,20 @@ found:
 	 */
 	pdp = vdp;
 	if (flags & ISDOTDOT) {
+        IULOCK(dp);
         vallocargs.va_ino = dp->i_ino;
         vallocargs.va_parent = pdp;
         vallocargs.va_vctx = context;
         vallocargs.va_cnp = cnp;
-        IULOCK(dp);
-        if (0 != (error = EXT2_VGET(mp, &vallocargs, &tdp, context))) {
-			ext2_trace_return(error);
-		}
+        error = EXT2_VGET(mp, &vallocargs, &tdp, context);
+        if (0 != error) {
+            IXLOCK(dp);
+            dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
+            ext2_trace_return(error);
+        }
+        
 #ifdef obsolete
 		if (lockparent && (flags & ISLASTCN)) {
             vnode_lock(pdp);
@@ -924,15 +985,21 @@ found:
 #endif
 		*vpp = tdp;
 	} else if (dp->i_number == dp->i_ino) {
-		IULOCK(dp);
+		dp->i_flag &= ~IN_LOOK;
+        IWAKE(dp, flag, flag, IN_LOOKWAIT);
+        IULOCK(dp);
+        
         vnode_get(vdp);	/* we want ourself, ie "." */
 		*vpp = vdp;
 	} else {
+      dp->i_flag &= ~IN_LOOK;
+      IWAKE(dp, flag, flag, IN_LOOKWAIT);
+      IULOCK(dp);
+      
       vallocargs.va_ino = dp->i_ino;
       vallocargs.va_parent = pdp;
       vallocargs.va_vctx = context;
       vallocargs.va_cnp = cnp;
-      IULOCK(dp);
       if ((error = EXT2_VGET(mp, &vallocargs, &tdp, context)) != 0)
 			ext2_trace_return(error);
 #ifdef obsolete
@@ -1064,12 +1131,17 @@ ext2_direnter(ip, dvp, cnp, context)
    dentry.d_inode = ip;
    IXLOCK_WITH_LOCKED_INODE(dp, ip);
    if (is_dx(dp)) {
+        #ifdef notyet
         IULOCK(ip);
         IULOCK(dp);
-		error = ext3_dx_add_entry(&h, &dentry, ip);
-        
+        #endif
+		// XXX ext3_dx* is not lock safe ATM, so don't unlock
+        error = ext3_dx_add_entry(&h, &dentry, ip);
+        #ifdef notyet
         IXLOCK(ip);
         IXLOCK_WITH_LOCKED_INODE(dp, ip);
+        #endif
+        
 		if (!error || (error != ERR_BAD_DX_DIR)) {
             dp->i_flag |= IN_CHANGE | IN_UPDATE;
 			IULOCK(dp);
@@ -1109,8 +1181,10 @@ ext2_direnter(ip, dvp, cnp, context)
          IXLOCK_WITH_LOCKED_INODE(dp, ip);
          dp->f_pos = 0;
          dp->i_flag |= IN_CHANGE;
+         // XXX ext3_dx* is not lock safe ATM, so don't unlock
+         error = make_indexed_dir(&h, &dentry, ip, bp); // bp is released by this routine
          IULOCK(dp);
-         ext2_trace_return (make_indexed_dir(&h, &dentry, ip, bp));
+         ext2_trace_return (error);
       }
       
 		offset = dp->i_offset;
@@ -1248,6 +1322,7 @@ ext2_dirremove(dvp, cnp)
    
    bp = NULL;
    /* Check for indexed dir */
+   IXLOCK(dp);
    if (is_dx(dp)) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
       handle_t h = {cnp};
@@ -1257,14 +1332,23 @@ ext2_dirremove(dvp, cnp)
       dentry.d_name.len = cnp->cn_namelen;
       dentry.d_inode = NULL;
       
-      bp = ext3_dx_find_entry(&dentry, &ep, &error);
-      if (!bp)
+      // XXX ext3_dx* is not lock safe ATM, so don't unlock
+      // IULOCK(dp);
+      
+      if (NULL == (bp = ext3_dx_find_entry(&dentry, &ep, &error))) {
+         IULOCK(dp); // XXX
          return -(error); /* Linux uses -ve errors */
-      error = ext3_delete_entry(&h, dp, ep, bp);
-      if (0 == error) {
-         dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;;
       }
+      error = ext3_delete_entry(&h, dp, ep, bp);
       buf_brelse(bp);
+      
+      if (0 == error) {
+         // IXLOCK(dp);
+         dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+         // IULOCK(dp);
+      }
+      
+      IULOCK(dp); // XXX
       return -(error); /* Linux uses -ve errors */
    }
    
@@ -1272,25 +1356,33 @@ ext2_dirremove(dvp, cnp)
 		/*
 		 * First entry in block: set d_ino to zero.
 		 */
-		if ((error =
-		    ext2_blkatoff(dvp, (off_t)dp->i_offset, (char **)&ep,
-		    &bp)) != 0)
+		IULOCK(dp);
+        if ((error =
+		    ext2_blkatoff(dvp, (off_t)dp->i_offset, (char **)&ep, &bp)) != 0)
 			return (error);
 		ep->inode = 0;
 		error = BUF_WRITE(bp);
+        
+        IXLOCK(dp);
 		dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+        IULOCK(dp);
+        
 		return (error);
 	}
 	/*
 	 * Collapse new free space into previous entry.
 	 */
-	if ((error = ext2_blkatoff(dvp, (off_t)(dp->i_offset - dp->i_count),
-	    (char **)&ep, &bp)) != 0)
+	off_t offset = (off_t)(dp->i_offset - dp->i_count);
+    IULOCK(dp);
+    if ((error = ext2_blkatoff(dvp, offset, (char **)&ep, &bp)) != 0)
 		return (error);
-	ep->rec_len = cpu_to_le16(le16_to_cpu(ep->rec_len) + dp->i_reclen);
-	error = BUF_WRITE(bp);
+    IXLOCK(dp);
+    ep->rec_len = cpu_to_le16(le16_to_cpu(ep->rec_len) + dp->i_reclen);
 	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
-	return (error);
+    IULOCK(dp);
+	error = BUF_WRITE(bp);
+	
+    return (error);
 }
 
 /*
@@ -1322,7 +1414,11 @@ ext2_dirrewrite_nolock(dp, ip, cnp)
       dentry.d_name.len = cnp->cn_namelen;
       dentry.d_inode = NULL;
       
+      // XXX ext3_dx* is not lock safe ATM
+      IXLOCK(dp); // XXX
       bp = ext3_dx_find_entry(&dentry, &ep, &error);
+      IULOCK(dp); // XXX
+      
       if (!bp)
          return -(error); /* Linux uses -ve errors */
    } else {
