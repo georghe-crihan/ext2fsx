@@ -59,7 +59,11 @@ typedef struct ext2_valloc_args {
 	vnode_t va_parent;
 	vfs_context_t va_vctx;
 	struct componentname *va_cnp;
+	u_int16_t va_flags;
+	u_int16_t va_createmode;
 } evalloc_args_t;
+#define EVALLOC_CREATE 0x0001
+
 //xxx this will break if kernel space ever goes 64bit
 #define EVALLOC_ARGS_MAGIC(eap) (ino64_t)(0x5000000000000000LL | (ino64_t)((uintptr_t)(eap)))
 #define IS_EVALLOC_ARGS(ino64) (((ino64_t)(ino64) & 0xffffffff00000000LL) == 0x5000000000000000LL ? 1 : 0)
