@@ -138,7 +138,7 @@ fi
 echo "${E2VER}" > ./.e2configdone
 
 # create universal binaries
-cp -R build-ppc build-uni
+cp -pR build-ppc build-uni
 
 cd build-uni
 for i in `find . -type f \! -name "*.o" -print0 | xargs -0 file | grep Mach-O | awk -F: '{print $1}'`
