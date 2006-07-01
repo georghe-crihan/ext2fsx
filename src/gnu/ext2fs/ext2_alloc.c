@@ -234,7 +234,7 @@ return ENOSPC;
 	struct ext2_sb_info *fs;
 	struct inode *ip;
 	vnode_t vp;
-	buf_t  sbp, *ebp;
+	buf_t  sbp, ebp;
 	int32_t *bap, *sbap, *ebap;
 	struct cluster_save *buflist;
 	int32_t start_lbn, end_lbn, soff, eoff, newblk, blkno;
@@ -408,7 +408,10 @@ ext2_valloc(pvp, mode, vaargsp, vpp)
 		goto noinodes;
    
    vaargsp->va_ino = ino;
+   vaargsp->va_flags |= EVALLOC_CREATE;
+   vaargsp->va_createmode = mode;
    error = EXT2_VGET(vnode_mount(pvp), vaargsp, vpp, vaargsp->va_vctx);
+   vaargsp->va_flags &= ~EVALLOC_CREATE;
    
 	if (error) {
 		ext2_vfree(pvp, ino, mode);
