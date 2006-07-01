@@ -270,7 +270,7 @@ WRITE(ap)
         vp, ip->i_number, ip->i_size, uio_offset(uio), uio_resid(uio));
     
     if (uio_offset(uio) < 0 ||
-	    (u_quad_t)uio_offset(uio) + uio_resid(uio) > fs->s_maxfilesize)
+	    ((u_quad_t)(uio_offset(uio) + uio_resid(uio))) > fs->s_maxfilesize)
 		ext2_trace_return(EFBIG);
     if (uio_resid(uio) == 0)
         return (0);
@@ -340,6 +340,7 @@ WRITE(ap)
          error = ext2_balloc2(ip,
             lbn, blkoffset + xfersize, vfs_context_ucred(context), 
             &bp, local_flags, &blkalloc);
+         assert(NULL == bp);
          if (error)
             break;
          if (first_block) {
@@ -451,9 +452,16 @@ WRITE(ap)
 		if (size < xfersize)
 			xfersize = size;
         
-        caddr_t data = (caddr_t)(((char *)buf_dataptr(bp)) + blkoffset);
-		error = uiomove(data, (int)xfersize, uio);
+        if (xfersize > 0) {
+            caddr_t data = (caddr_t)(((char *)buf_dataptr(bp)) + blkoffset);
+            error = uiomove(data, (int)xfersize, uio);
+        }
+        if (error || xfersize == 0) {
+            buf_brelse(bp);
+			break;
+        }
         
+        ip->i_flag |= IN_CHANGE | IN_UPDATE;
         IULOCK(ip);
 
 		if (0 == dodir && (ioflag & IO_SYNC)) {
@@ -464,12 +472,8 @@ WRITE(ap)
 		} else {
 			buf_bdwrite(bp);
 		}
-		if (error || xfersize == 0)
-			break;
         
         IXLOCK(ip);
-        
-		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
    } /* if (UBCISVALID(vp)) */
 
