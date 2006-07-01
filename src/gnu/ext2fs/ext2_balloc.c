@@ -347,6 +347,7 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
             *bpp = nbp;
 		return (0);
 	}
+    
 	buf_brelse(bp);
     if (alloc_buf) {
         if (flags & B_CLRBUF) {
