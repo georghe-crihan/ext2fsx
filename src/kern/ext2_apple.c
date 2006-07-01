@@ -75,6 +75,24 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
 
+// missing clib functions (as of 10.4.x)
+__private_extern__ char*
+e_strrchr(const char *s, int c)
+{
+   char *name;
+   int i;
+   
+   name = NULL;
+   i = strlen(s);
+   for (--i; i >= 0; --i) {
+      if ((char)c == s[i]) {
+         name = (char*)&s[i];
+         break;
+      }
+   }
+   return (name);
+}
+
 #ifdef obsolete
 /* Cribbed from FreeBSD kern/vfs_subr.c */
 /* This will cause the KEXT to break if/when the kernel proper defines this routine.
