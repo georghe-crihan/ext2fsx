@@ -109,7 +109,7 @@ static int ext2_access(struct vnop_access_args *);
 #endif
 //static int ext2_advlock(struct vnop_advlock_args *);
 static int ext2_chmod(vnode_t, int, ucred_t, proc_t);
-static int ext2_chown(vnode_t, uid_t, gid_t, ucred_t, proc_t);
+static int ext2_chown(struct inode *ip, uid_t, gid_t, ucred_t, proc_t);
 static int ext2_close(struct vnop_close_args *);
 static int ext2_create(struct vnop_create_args *);
 __private_extern__ int ext2_fsync(struct vnop_fsync_args *);
@@ -602,7 +602,7 @@ ext2_access(ap)
 	error = vaccess(imode, uid, gid, mode, vfs_context_ucred(ap->a_context));
 	
     /* If mounted w/o perms, then allow anything except root access. */
-    if (error && (uid > 0) && (vfs_flags(vnode_mount(vp)) & MNT_UNKNOWNPERMISSIONS)) {
+    if (error && (uid > 0) && (vfs_flags(vnode_mount(vp)) & MNT_IGNORE_OWNERSHIP)) {
         error = 0;
     }
     
@@ -634,7 +634,7 @@ ext2_getattr(ap)
     ISLOCK(ip);
     
 	VATTR_RETURN(vap, va_mode, ip->i_mode & ~IFMT);
-    if (0 != ip->i_uid && (vfs_flags(vnode_mount(vp)) & MNT_UNKNOWNPERMISSIONS)) {
+    if (0 != ip->i_uid && (vfs_flags(vnode_mount(vp)) & MNT_IGNORE_OWNERSHIP)) {
         /* The Finder needs to see that the perms are correct.
            Otherwise it won't allow access, even though we would. */
         vap->va_mode = DEFFILEMODE;
@@ -694,8 +694,8 @@ ext2_setattr(ap)
 	ucred_t cred = vfs_context_ucred(ap->a_context);
 	proc_t p = vfs_context_proc(ap->a_context);
 	int error;
-    uid_t nuid;
-	gid_t ngid;
+    uid_t nuid = VNOVAL;
+	gid_t ngid = VNOVAL;
     
     ext2_trace_enter();
     
@@ -715,11 +715,14 @@ ext2_setattr(ap)
 	/*
 	 * Go through the fields and update if not VNOVAL.
 	 */
+    
+    if (VATTR_IS_ACTIVE(vap, va_uid))
+        nuid = vap->va_uid;
+    if (VATTR_IS_ACTIVE(vap, va_gid))
+        ngid = vap->va_gid;
 	if (nuid != (uid_t)VNOVAL || ngid != (gid_t)VNOVAL) {
-		IULOCK(ip);
-        if ((error = ext2_chown(vp, nuid, ngid, cred, p)))
-			ext2_trace_return (error);
-        IXLOCK(ip);
+        if ((error = ext2_chown(ip, nuid, ngid, cred, p)))
+			goto setattr_exit_with_lock;
 	}
 	VATTR_SET_SUPPORTED(vap, va_uid);
 	VATTR_SET_SUPPORTED(vap, va_gid);
@@ -797,7 +800,7 @@ ext2_chmod(vp, mode, cred, p)
    ext2_trace_enter();
    
     super = (0 != kauth_cred_getuid(cred)) ? 0 : 1;
-    if ((vfs_flags(vnode_mount(vp)) & MNT_UNKNOWNPERMISSIONS) && !super)
+    if ((vfs_flags(vnode_mount(vp)) & MNT_IGNORE_OWNERSHIP) && !super)
         return (0);
     
     IXLOCK(ip);
@@ -812,14 +815,13 @@ ext2_chmod(vp, mode, cred, p)
  * Perform chown operation on inode ip
  */
 static int
-ext2_chown(vp, uid, gid, cred, p)
-	vnode_t vp;
+ext2_chown(ip, uid, gid, cred, p)
+	struct inode *ip;
 	uid_t uid;
 	gid_t gid;
 	ucred_t cred;
 	proc_t p;
 {
-	struct inode *ip = VTOI(vp);
 	uid_t ouid;
 	gid_t ogid;
 	int super;
@@ -827,10 +829,9 @@ ext2_chown(vp, uid, gid, cred, p)
    ext2_trace_enter();
 
 	super = (0 != kauth_cred_getuid(cred)) ? 0 : 1;
-    if ((vfs_flags(vnode_mount(vp)) & MNT_UNKNOWNPERMISSIONS) && !super)
+    if ((vfs_flags(vnode_mount(ITOV(ip))) & MNT_IGNORE_OWNERSHIP) && !super)
         return (0);
     
-    IXLOCK(ip);
     if (uid == (uid_t)VNOVAL)
 		uid = ip->i_uid;
 	if (gid == (gid_t)VNOVAL)
@@ -844,7 +845,6 @@ ext2_chown(vp, uid, gid, cred, p)
         if (super)
             ip->i_mode &= ~(ISUID | ISGID);
     }
-    IULOCK(ip);
 	return (0);
 }
 
@@ -1665,7 +1665,8 @@ ext2_mkdir(ap)
 	if (cnp->cn_flags & ISWHITEOUT)
 		ip->i_flags |= UF_OPAQUE;
     IULOCK(ip);
-	error = ext2_update(tvp, 1);
+	if ((error = ext2_update(tvp, 1)))
+        goto bad;
 
 	/*
 	 * Bump link count in parent directory
@@ -1677,8 +1678,7 @@ ext2_mkdir(ap)
     dp->i_nlink++;
 	dp->i_flag |= IN_CHANGE;
     IULOCK(dp);
-	error = ext2_update(dvp, 1);
-	if (error)
+	if ((error = ext2_update(dvp, 1)))
 		goto bad;
 
     /* Initialize directory with "." and ".." from static template. */
@@ -2402,6 +2402,9 @@ ext2_vinit(mntp, args, vpp)
         vfsargs.vnfs_flags = VNFS_NOCACHE;
     if (0 == (args->vi_flags & EXT2_VINIT_INO_LCKD))
         IULOCK(ip);
+    
+    if (VNON == vfsargs.vnfs_vtype)
+        return (ENOENT);
     
     switch(vfsargs.vnfs_vtype) {
 	case VCHR:
