@@ -190,7 +190,11 @@ ext2_pageout(ap)
 	}
 	fs = ip->I_FS;
 
-	if (f_offset < 0 || f_offset >= ip->i_size) {
+	ISLOCK(ip);
+	typeof(ip->i_size) isize = ip->i_size;
+    IULOCK(ip);
+    
+    if (f_offset < 0 || f_offset >= isize) {
         if (!nocommit)
             ubc_upl_abort_range(pl, pl_offset, size, 
 				UPL_ABORT_FREE_ON_EMPTY);
@@ -202,8 +206,8 @@ ext2_pageout(ap)
 	 * need to make sure we abort any pages in the upl
 	 * that we don't issue an I/O for
 	 */
-	if (f_offset + size > ip->i_size)
-        xfer_size = ip->i_size - f_offset;
+	if (f_offset + size > isize)
+        xfer_size = isize - f_offset;
 	else
         xfer_size = size;
 
@@ -250,7 +254,7 @@ ext2_pageout(ap)
 		xfer_size -= save_size;
 	}
 
-	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page_32(xfer_size), ip->i_size, flags);
+	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page_32(xfer_size), isize, flags);
 
 	if(save_error) {
 		lupl_offset = size - save_size;
@@ -304,16 +308,21 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	 * and the file is currently composed of a fragment
 	 * this fragment has to be extended to be a full block.
 	 */
-	nb = lblkno(fs, ip->i_size);
+    ISLOCK(ip);
+	typeof(ip->i_size) isize = ip->i_size;
+    IULOCK(ip);
+    nb = lblkno(fs, isize);
 	if (nb < NDADDR && nb < lbn) {
-		panic("ext2_blkalloc(): cannot extend file: i_size %d, lbn %d\n", ip->i_size, lbn);
+		panic("ext2_blkalloc(): cannot extend file: i_size %d, lbn %d\n", isize, lbn);
 	}
 	/*
 	 * The first NDADDR blocks are direct blocks
 	 */
 	if (lbn < NDADDR) {
-		nb = ip->i_db[lbn];
-		if (nb != 0 && ip->i_size >= (lbn + 1) * EXT2_BLOCK_SIZE(fs)) {
+		ISLOCK(ip);
+        nb = ip->i_db[lbn];
+        IULOCK(ip);
+		if (nb != 0 && isize >= (lbn + 1) * EXT2_BLOCK_SIZE(fs)) {
             /* TBD: trivial case; the block  is already allocated */
 			return (0);
 		}
@@ -321,24 +330,29 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			/*
 			 * Consider need to reallocate a fragment.
 			 */
-			osize = fragroundup(fs, blkoff(fs, ip->i_size));
+			osize = fragroundup(fs, blkoff(fs, isize));
 			nsize = fragroundup(fs, size);
 			if (nsize > osize) {
 				panic("ext2_allocblk: Something is terribly wrong\n");
 			}
 			return(0);
 		} else {
-			if (ip->i_size < (lbn + 1) * EXT2_BLOCK_SIZE(fs))
+			if (isize < (lbn + 1) * EXT2_BLOCK_SIZE(fs))
 				nsize = fragroundup(fs, size);
 			else
 				nsize = EXT2_BLOCK_SIZE(fs);
-			error = ext2_alloc(ip, lbn,
+			
+            IXLOCK(ip);
+            error = ext2_alloc(ip, lbn,
 			    ext2_blkpref(ip, lbn, (int)lbn, &ip->i_db[0], 0),
 			    nsize, cred, &newb);
-			if (error)
+			if (error) {
+                IULOCK(ip);
 				ext2_trace_return(error);
+            }
 			ip->i_db[lbn] = newb;
 			ip->i_flag |= IN_CHANGE | IN_UPDATE;
+            IULOCK(ip);
 			return (0);
 		}
 	}
@@ -357,18 +371,22 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	 * Fetch the first indirect block allocating if necessary.
 	 */
 	--num;
+    ISLOCK(ip);
 	nb = ip->i_ib[indirs[0].in_off];
+    IULOCK(ip);
 	allocib = NULL;
 	allocblk = allociblk;
 	if (nb == 0) {
+        IXLOCK(ip);
 #if 0
       pref = ext2_blkpref(ip, lbn, 0, (int32_t *)0, 0);
 #else
       pref = ext2_blkpref(ip, lbn, indirs[0].in_off +
          EXT2_NDIR_BLOCKS, &ip->i_db[0], 0);
 #endif
-        if (error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs),
-		    cred, &newb))
+        error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb);
+        IULOCK(ip);
+        if (error);
 			ext2_trace_return(error);
 		nb = newb;
 		*allocblk++ = nb;
@@ -381,9 +399,11 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 		 */
 		if (error = buf_bwrite(bp))
 			goto fail;
+        IXLOCK(ip);
 		allocib = &ip->i_ib[indirs[0].in_off];
 		*allocib = nb;
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
+        IULOCK(ip);
 	}
 	/*
 	 * Fetch through the indirect blocks, allocating as necessary.
@@ -395,13 +415,18 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			buf_brelse(bp);
 			goto fail;
 		}
-		bap = (ext2_daddr_t *)buf_dataptr(bp);
+        
+        IXLOCK(ip);
+        bap = (ext2_daddr_t *)buf_dataptr(bp);
 		nb = le32_to_cpu(bap[indirs[i].in_off]);
 
-		if (i == num)
+		if (i == num) {
+            IULOCK(ip);
 			break;
-		i += 1;
-		if (nb != 0) {
+        }
+        i += 1;
+        if (nb != 0) {
+            IULOCK(ip);
 			buf_brelse(bp);
 			continue;
 		}
@@ -411,9 +436,10 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 #else
             pref = ext2_blkpref(ip, lbn, indirs[i].in_off, bap, buf_lblkno(bp));
 #endif
-		if (error =
-		    ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb)) {
-			buf_brelse(bp);
+		error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb);
+        IULOCK(ip);
+        if (error) {
+            buf_brelse(bp);
 			goto fail;
 		}
 		nb = newb;
@@ -430,7 +456,9 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 			goto fail;
 		}
 
-		bap[indirs[i - 1].in_off] = cpu_to_le32(nb);
+		IXLOCK(ip);
+        bap[indirs[i - 1].in_off] = cpu_to_le32(nb);
+        IULOCK(ip);
 
 		/*
 		 * If required, write synchronously, otherwise use
@@ -446,18 +474,21 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 	 * Get the data block, allocating if necessary.
 	 */
 	if (nb == 0) {
-		pref = ext2_blkpref(ip, lbn, indirs[i].in_off, &bap[0], buf_lblkno(bp));
+		IXLOCK(ip);
+        pref = ext2_blkpref(ip, lbn, indirs[i].in_off, &bap[0], buf_lblkno(bp));
 		if (error = ext2_alloc(ip,
 		    lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb)) {
-			buf_brelse(bp);
+			IULOCK(ip);
+            buf_brelse(bp);
 			goto fail;
 		}
 		nb = newb;
 		*allocblk++ = nb;
 
 		bap[indirs[i].in_off] = cpu_to_le32(nb);
-
-		/*
+		IULOCK(ip);
+        
+        /*
 		 * If required, write synchronously, otherwise use
 		 * delayed write.
 		 */
@@ -475,7 +506,8 @@ fail:
 	 * If we have failed part way through block allocation, we
 	 * have to deallocate any indirect blocks that we have allocated.
 	 */
-	for (deallocated = 0, blkp = allociblk; blkp < allocblk; blkp++) {
+	IXLOCK(ip);
+    for (deallocated = 0, blkp = allociblk; blkp < allocblk; blkp++) {
 		ext2_blkfree(ip, *blkp, EXT2_BLOCK_SIZE(fs));
 		deallocated += EXT2_BLOCK_SIZE(fs);
 	}
@@ -485,6 +517,7 @@ fail:
 		ip->i_blocks -= btodb(deallocated, fs->s_d_blocksize);
 		ip->i_flag |= IN_CHANGE | IN_UPDATE;
 	}
+    IULOCK(ip);
 	ext2_trace_return(error);
 }
 
@@ -613,7 +646,10 @@ ext2_blockmap(ap)
            more panics, or system lock-ups.
          */
         if (EXT2_BLOCK_SIZE(fs) < PAGE_SIZE) { 
-            if ((error = ext2_blkalloc(ip, bn, EXT2_BLOCK_SIZE(fs), curproc->p_ucred, 0))) {
+            IXLOCK(ip);
+            error = ext2_blkalloc(ip, bn, EXT2_BLOCK_SIZE(fs), curproc->p_ucred, 0);
+            IULOCK(ip);
+            if (error) {
                 ext2_trace_return(error);
             }
             goto cmap_bmap;
