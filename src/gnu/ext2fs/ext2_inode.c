@@ -93,7 +93,6 @@ ext2_update(vp, waitfor)
 		IULOCK(ip);
 		return (0);
 	}
-	ip->i_flag &= ~(IN_LAZYMOD | IN_MODIFIED);
 	fs = ip->i_e2fs;
 	IULOCK(ip);
 	if ((error = buf_meta_bread(ip->i_devvp,
@@ -105,6 +104,7 @@ ext2_update(vp, waitfor)
 	IXLOCK(ip);
 	ext2_i2ei(ip, (struct ext2_inode *)((char *)buf_dataptr(bp) +
 	    EXT2_INODE_SIZE * ino_to_fsbo(fs, ip->i_number)));
+	ip->i_flag &= ~(IN_LAZYMOD | IN_MODIFIED);
 	IULOCK(ip);
 	if (waitfor && (vfs_flags(vnode_mount(vp)) & MNT_ASYNC) == 0)
 		return (buf_bwrite(bp));
@@ -192,10 +192,12 @@ ext2_truncate(vp, length, flags, cred, p)
 		aflags = B_CLRBUF;
 		if (flags & IO_SYNC)
 			aflags |= B_SYNC;
-		if ((error = ext2_balloc(oip, lbn, offset + 1, cred, &bp,
-		    aflags)) != 0)
+		if ((error = ext2_balloc(oip, lbn, offset + 1, cred, &bp, aflags)) != 0) {
+			IULOCK(oip);
 			return (error);
+		}
 		oip->i_size = length;
+		oip->i_flag |= IN_CHANGE | IN_UPDATE;
 		IULOCK(oip);
 		
 		if (UBCINFOEXISTS(ovp)) {
@@ -208,9 +210,6 @@ ext2_truncate(vp, length, flags, cred, p)
 			else
 				buf_bawrite(bp);
 		}
-		IXLOCK(oip);
-		oip->i_flag |= IN_CHANGE | IN_UPDATE;
-		IULOCK(oip);
 		return (ext2_update(ovp, 1));
 	}
 	/*
@@ -238,9 +237,10 @@ ext2_truncate(vp, length, flags, cred, p)
 		aflags = B_CLRBUF;
 		if (flags & IO_SYNC)
 			aflags |= B_SYNC;
-		if ((error = ext2_balloc(oip, lbn, offset, cred, &bp,
-		    aflags)) != 0)
+		if ((error = ext2_balloc(oip, lbn, offset, cred, &bp, aflags)) != 0) {
+			IULOCK(oip);
 			return (error);
+		}
 		oip->i_size = length;
 		size = blksize(fs, oip, lbn);
 		bzero((char *)buf_dataptr(bp) + offset, (u_int)(size - offset));
@@ -381,8 +381,7 @@ done:
 	for (i = 0; i < NDADDR; i++)
 		if (newblks[i] != oip->i_db[i])
 			panic("ext2: itrunc2");
-   if (length == 0 && (!vnode_hasdirtyblks(ovp) ||
-			    !vnode_hascleanblks(ovp)))
+   if (length == 0 && (vnode_hasdirtyblks(ovp) || vnode_hascleanblks(ovp)))
 		panic("ext2: itrunc3");
 #endif /* DIAGNOSTIC */
 	/*
@@ -459,17 +458,17 @@ ext2_indirtrunc(ip, lbn, dbn, lastbn, level, countp)
 	 */
 	vp = ITOV(ip);
 	vnode_t devvp = ip->i_devvp;
-	IULOCK(ip); // unlike for IO
+	IULOCK(ip); // unlock for IO
 	
 	bp = buf_getblk(vp, (daddr64_t)lbn, (int)fs->s_blocksize, 0, 0, BLK_META);
 #ifdef obsolete
-	if (buf_flags(bp) & (/* B_DONE |*/ B_DELWRI)) {
+	if (buf_valid(bp)) {
 		trace(TR_BREADHIT, pack(vp, fs->fs_bsize), lbn);
 	} else {
 		trace(TR_BREADMISS, pack(vp, fs->fs_bsize), lbn);
 		current_proc()->p_stats->p_ru.ru_inblock++;	/* pay for read */
 #endif
-	if (0 == (buf_flags(bp) & (/* B_DONE |*/ B_DELWRI))) {
+	if (0 == buf_valid(bp)) {
 		// cache miss
 		buf_setflags(bp, B_READ);
 		if (buf_count(bp) > buf_size(bp))
