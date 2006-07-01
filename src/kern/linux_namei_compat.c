@@ -1,5 +1,5 @@
 /*
-* Copyright 2003 Brian Bergstrand.
+* Copyright 2003,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -86,7 +86,14 @@ static __inline__
 int ext3_journal_dirty_metadata(handle_t *handle, buf_t bp)
 {
    // XXX bh->b_flags |= B_NORELSE;
-   return (-buf_bwrite(bp));
+   // There is no B_NORELSE flag in Tiger, so get a ref on the buffer again
+   daddr64_t blk = buf_blkno(bp);
+   vnode_t vp = buf_vnode(bp);
+   int bytes = (int)buf_count(bp);
+   int err = -buf_bwrite(bp);
+   if (bp != buf_getblk(vp, blk, bytes, 0, 0, BLK_ONLYVALID))
+      panic("ext3: dirty buffer %d not found!", blk);
+   return (err);
 }
 
 static __inline__
@@ -132,7 +139,9 @@ buf_t ext3_bread(handle_t *handle, struct inode * inode,
    }
 
    bp = NULL;
+   IULOCK(inode); // XXX the dx routines do not handle locking internally
    *errp = -(buf_bread(ITOV(inode), (daddr64_t)block, blksize, cred, &bp));
+   IXLOCK(inode);
    return (bp);
 }
 
@@ -156,11 +165,14 @@ void kfree(void *p)
 
 /* fs/ext3/dir.c support */
 
-#define update_atime(ip) \
-do { \
- (ip)->i_flag |= IN_ACCESS; \
- ext2_itimes(ITOV((ip))); \
-} while(0)
+static __inline__
+void update_atime(struct inode *ip)
+{
+ (ip)->i_flag |= IN_ACCESS;
+ IULOCK(ip); // XXX the dx routines do not handle locking internally
+ ext2_itimes(ITOV(ip));
+ IXLOCK(ip);
+}
 
 struct filldir_args {
    struct uio *uio;
