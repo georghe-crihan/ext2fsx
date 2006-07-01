@@ -376,12 +376,12 @@ ext2_mount(mp, devvp, data, context)
 	bzero(fs->fs_fsmnt + size, MAXMNTLEN - size);
 	fs->s_mount_opt = args.e2_mnt_flags;
 	
-	if ((vfs_flags(mp) & MNT_UNKNOWNPERMISSIONS)
+	if ((vfs_flags(mp) & MNT_IGNORE_OWNERSHIP)
 		 && 0 == (vfs_flags(mp) & MNT_ROOTFS) && args.e2_uid > 0) {
 		fs->s_uid_noperm = args.e2_uid;
 		fs->s_gid_noperm = args.e2_gid;
 	} else {
-		vfs_clearflags(mp, MNT_UNKNOWNPERMISSIONS);
+		vfs_clearflags(mp, MNT_IGNORE_OWNERSHIP);
 	}
 	
 	// xxx - Unsupported KPI, but we are already linking against that anyway.
@@ -833,6 +833,15 @@ ext2_mountfs(devvp, mp, context)
 	if ((error = buf_meta_bread(devvp, (daddr64_t)SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		goto out;
 	es = (struct ext2_super_block *)(buf_dataptr(bp)+SBOFF);
+#ifdef DEBUG
+#warning dx readonly active
+if (le16_to_cpu(es->s_magic) == EXT2_SUPER_MAGIC && (es->s_feature_compat & cpu_to_le32(EXT3_FEATURE_COMPAT_DIR_INDEX))) {
+	// haven't tested dx write support yet, and with the inode locking there's likely problems
+	vfs_setflags(mp, MNT_RDONLY);
+	ronly = 1;
+	printf("ext2fs: dir_index feature detected - write support disabled\n");
+}
+#endif
 	if (ext2_check_sb_compat(es, dev, ronly) != 0) {
 		error = EINVAL;		/* XXX needs translation */
 		goto out;
@@ -1533,6 +1542,11 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 		used_blocks = (ip->i_size+fs->s_blocksize-1) / fs->s_blocksize;
 		for(i = used_blocks; i < EXT2_NDIR_BLOCKS; i++)
 			ip->i_db[i] = 0;
+	} else if ((eap->va_flags & EVALLOC_CREATE) && eap->va_createmode) {
+		ip->i_mode = eap->va_createmode; // required by ext2_vinit
+		ucred_t cred = vfs_context_ucred(context);
+		ip->i_uid = cred->cr_uid;
+		ip->i_gid = cred->cr_rgid;
 	}
 /*
 	ext2_print_inode(ip);
@@ -1572,10 +1586,7 @@ printf("ext2_vget(%d) dbn= %d ", ino, fsbtodb(fs, ino_to_fsba(fs, ino)));
 	}
 	
 	ip->i_flag &= ~IN_INIT;
-	if (ip->i_flag & IN_INITWAIT) {
-		ip->i_flag &= ~IN_INITWAIT;
-		wakeup(&ip->i_flag);
-	}
+	IWAKE(ip, flag, flag, IN_INITWAIT);
 	IULOCK(ip);
 	
 	*vpp = vp;
@@ -1677,12 +1688,12 @@ printf("\nupdating superblock, waitfor=%s\n", waitfor == MNT_WAIT ? "yes":"no");
 			continue;
 		}
 		//xxx More nastiness because of KPI limitations. We have to get the buf marked as busy to write/relse it.
-		daddr64_t blk = buf_blkno(bp); \
-		vnode_t vp = buf_vnode(bp); \
-		int bytes = (int)buf_count(bp); \
-		buf_clearflags(bp, B_LOCKED); \
-		if (buf_getblk(vp, blk, bytes, 0, 0, BLK_META|BLK_ONLYVALID) != bp) \
-			panic("ext2: cached group buffer not found!"); \
+		daddr64_t blk = buf_blkno(bp);
+		vnode_t vp = buf_vnode(bp);
+		int bytes = (int)buf_count(bp);
+		buf_clearflags(bp, B_LOCKED);
+		if (buf_getblk(vp, blk, bytes, 0, 0, BLK_META|BLK_ONLYVALID) != bp)
+			panic("ext2: cached group buffer not found!");
 		buf_setflags(bp, B_LOCKED);  // re-lock so bwrite puts it back on the lock queue when done
 		BMETA_CLEAN(bp);
 		if (MNT_WAIT == waitfor)
