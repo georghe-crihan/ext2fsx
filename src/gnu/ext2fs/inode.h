@@ -134,6 +134,8 @@ struct inode {
 	ext2_daddr_t i_lastr; /* last read... read-ahead */
 #ifdef DIAGNOSTIC
     thread_t  i_lockowner;
+    char      i_lockfile[64];
+    int32_t   i_lockline;
 #endif
 	
 	/*
@@ -226,6 +228,9 @@ struct inode {
 #define	IN_DX_UPDATE	0x00000100	/* In-core dir index needs to be sync'd with disk */
 #define IN_INIT		0x00000200		/* inode is being created */
 #define IN_INITWAIT 0x00000400		/* waiting for creation */
+/* These are used to protect inode lookup cache members w/o having to hold the lock */
+#define IN_LOOK     0x00000800      /* dir lookup in progress */
+#define IN_LOOKWAIT 0x00001000      /* waiting for lookup completion */
 
 #ifdef _KERNEL
 /*
@@ -259,15 +264,29 @@ struct indir {
 #define ISLOCK(ip) lck_mtx_lock((ip)->i_lock)
 /* Unlock */
 #define IULOCK(ip) lck_mtx_unlock((ip)->i_lock)
+#define IASSERTLOCK(ip)
 #else
 
 static __inline__
-void IXLOCK(struct inode *ip)
+void IXLOCK2(struct inode *ip, const char *file, int32_t line)
 {
     assert(ip->i_lockowner != current_thread()); // lock recursion
+    const char *f = e_strrchr(file, '/');
+    if (f)
+        f++;
+    else
+        f = file;
+    size_t sz = strlen(f);
+    if (sz >= sizeof(ip->i_lockfile))
+        sz = sizeof(ip->i_lockfile)-1;
     lck_mtx_lock(ip->i_lock);
+    bcopy(f, ip->i_lockfile, sz);
+    ip->i_lockfile[sz] = 0;
+    ip->i_lockline = line;
     ip->i_lockowner = current_thread();
 }
+
+#define IXLOCK(ip) IXLOCK2((ip), __FILE__, __LINE__)
 
 static __inline__
 void IULOCK(struct inode *ip)
@@ -278,6 +297,8 @@ void IULOCK(struct inode *ip)
 }
 
 #define ISLOCK(ip) IXLOCK((ip))
+
+#define IASSERTLOCK(ip) assert((ip)->i_lockowner == current_thread())
 
 #endif // DIAGNOSTIC
 
@@ -318,6 +339,23 @@ int inosleep(struct inode *ip, void *chan, const char *wmsg, struct timespec *ts
 	return (error);
 }
 #define ISLEEP(ip, field, ts) inosleep((ip), &(ip)->i_ ## field, __FUNCTION__, (ts))
+
+/* chan is the sleep/wake field, wakefield is the bitfield to test/clear */
+#define IWAKEI(ip, chan, wakefield, wakebit) do { \
+	if ((ip)->i_ ## wakefield & (wakebit)) { \
+		(ip)->i_ ## wakefield &= ~(wakebit); \
+		wakeup(&(ip)->i_ ## chan); \
+	} \
+} while(0)
+
+#ifndef DIAGNOSTIC
+#define IWAKE IWAKEI
+#else
+#define IWAKE(ip, chan, wakefield, wakebit) do { \
+	assert((ip)->i_lockowner == current_thread()); \
+	IWAKEI(ip, chan, wakefield, wakebit); \
+} while(0)
+#endif
 
 /* This overlays the fid structure (see mount.h). */
 struct ufid {
