@@ -79,14 +79,16 @@ ext2_blkatoff(vp, offset, res, bpp)
 	int bsize, error;
 
 	ip = VTOI(vp);
+    ISLOCK(ip);
 	fs = ip->i_e2fs;
 	lbn = lblkno(fs, offset);
 	bsize = blksize(fs, ip, lbn);
+    IULOCK(ip);
 
 	*bpp = NULL;
 	if ((error = buf_bread(vp, (daddr64_t)lbn, bsize, NOCRED, &bp)) != 0) {
 		buf_brelse(bp);
-		return (error);
+        return (error);
 	}
 	if (res)
 		*res = (char *)buf_dataptr(bp) + blkoff(fs, offset);
