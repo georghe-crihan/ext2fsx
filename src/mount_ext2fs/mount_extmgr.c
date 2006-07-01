@@ -69,7 +69,7 @@ void extmgr_mntopts (const char *device, int *mopts, int *eopts, int *nomount)
             
             boolVal = CFDictionaryGetValue(media, EXT_PREF_KEY_NOPERMS);
             if (boolVal && CFBooleanGetValue(boolVal)) {
-               *mopts |= MNT_UNKNOWNPERMISSIONS;
+               *mopts |= MNT_IGNORE_OWNERSHIP;
             }
             
             /* Ext2/3 specific */

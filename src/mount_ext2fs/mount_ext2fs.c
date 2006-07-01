@@ -173,7 +173,7 @@ main(argc, argv)
     dynStoreRef = SCDynamicStoreCreate (kCFAllocatorDefault, EXT_PREF_ID, NULL, NULL);
    
     /* Setup uid/gid for ignore perms */
-    if (mntflags & MNT_UNKNOWNPERMISSIONS) {
+    if (mntflags & MNT_IGNORE_OWNERSHIP) {
         CFStringRef consoleUser;
         
         /* If dynStoreRef happens to be NULL for some reason, a temp session will be created */
