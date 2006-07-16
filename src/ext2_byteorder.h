@@ -31,8 +31,12 @@
 
 #if BYTE_ORDER == BIG_ENDIAN
 #include <ext2_bigendian.h>
+#define E2Q_HIGH 0
+#define E2Q_LOW  1
 #elif BYTE_ORDER == LITTLE_ENDIAN
 #include <ext2_littleendian.h>
+#define E2Q_HIGH 1
+#define E2Q_LOW  0
 #else
 #error "Unknown architecture!"
 #endif
@@ -47,7 +51,7 @@ u_int16_t e2_swap16 (u_int16_t val)
    return (n);
 }
 
-static __inline__ __attribute__((__const__)) 
+static __inline__
 u_int16_t e2_swap16p (const u_int16_t *val)
 {
    u_int16_t n,v;
@@ -68,7 +72,7 @@ u_int32_t e2_swap32 (u_int32_t val)
    return (n);
 }
 
-static __inline__ __attribute__((__const__)) 
+static __inline__
 u_int32_t e2_swap32p (const u_int32_t *val)
 {
    u_int32_t n,v;
@@ -95,7 +99,7 @@ u_int64_t e2_swap64 (u_int64_t val)
    return (n.eq);
 }
 
-static __inline__ __attribute__((__const__)) 
+static __inline__
 u_int64_t e2_swap64p (const u_int64_t *val)
 {
    e2q n;
