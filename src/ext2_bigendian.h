@@ -37,9 +37,6 @@ static __inline__ void __arch_swap_32 (u_int32_t from, u_int32_t *to)
 }
  
 #endif // __ppc__
-
-#define E2Q_HIGH 0
-#define E2Q_LOW  1
  
 #define le16_to_cpu(x) e2_swap16((x))
 #define le16_to_cpup(p) e2_swap16p((p))

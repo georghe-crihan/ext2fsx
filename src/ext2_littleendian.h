@@ -46,9 +46,6 @@ static __inline__ void __arch_swap_32 (u_int32_t from, volatile u_int32_t *to)
 
 #endif // __i386__
 
-#define E2Q_HIGH 1
-#define E2Q_LOW  0
-
 #define be16_to_cpu(x) e2_swap16((x))
 #define be16_to_cpup(p) e2_swap16p((p))
 
