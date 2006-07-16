@@ -340,22 +340,22 @@ int inosleep(struct inode *ip, void *chan, const char *wmsg, struct timespec *ts
 }
 #define ISLEEP(ip, field, ts) inosleep((ip), &(ip)->i_ ## field, __FUNCTION__, (ts))
 
+static __inline__
+int inosleep_nolck(struct inode *ip, void *chan, const char *wmsg, struct timespec *ts)
+{
+	assert(ip->i_lockowner != current_thread());
+	return (msleep(chan, NULL, PINOD, wmsg, ts));
+}
+#define ISLEEP_NOLCK(ip, field, ts) inosleep_nolck((ip), &(ip)->i_ ## field, __FUNCTION__, (ts))
+
 /* chan is the sleep/wake field, wakefield is the bitfield to test/clear */
-#define IWAKEI(ip, chan, wakefield, wakebit) do { \
+#define IWAKE(ip, chan, wakefield, wakebit) do { \
+	IASSERTLOCK(ip); \
 	if ((ip)->i_ ## wakefield & (wakebit)) { \
 		(ip)->i_ ## wakefield &= ~(wakebit); \
 		wakeup(&(ip)->i_ ## chan); \
 	} \
 } while(0)
-
-#ifndef DIAGNOSTIC
-#define IWAKE IWAKEI
-#else
-#define IWAKE(ip, chan, wakefield, wakebit) do { \
-	assert((ip)->i_lockowner == current_thread()); \
-	IWAKEI(ip, chan, wakefield, wakebit); \
-} while(0)
-#endif
 
 /* This overlays the fid structure (see mount.h). */
 struct ufid {
