@@ -54,6 +54,14 @@ struct ext2_args {
 #define UNKNOWNUID ((uid_t)99)
 #define UNKNOWNGID ((gid_t)99)
 
+#ifdef __ppc__
+#define E2_BAD_ADDRESS (void*)0xdeadbeef
+#elif defined(__i386__)
+#define E2_BAD_ADDRESS (void*)0xfeedface
+#else
+#error unknown architecture
+#endif
+
 #ifdef KERNEL
 
 #ifdef DIAGNOSTIC
