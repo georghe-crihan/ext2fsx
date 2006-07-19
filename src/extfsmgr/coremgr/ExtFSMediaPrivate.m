@@ -162,7 +162,6 @@ __private_extern__ NSDictionary *transportNameTypeMap;
         dvd = IsOpticalDVDMedia([parent opticalMediaType]);
         cd = IsOpticalCDMedia([parent opticalMediaType]);
     } else {
-        io_name_t parentClass;
         ioparent = nil;
         kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &ioparent);
         while (kIOReturnSuccess == kr && ioparent &&
