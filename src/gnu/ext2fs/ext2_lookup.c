@@ -212,6 +212,7 @@ ext2_readdir(ap)
    }
    
    /* Check for an indexed dir */
+   int havelook = 0;
    if (EXT3_HAS_COMPAT_FEATURE(ip->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) &&
       ((ip->i_e2flags & EXT3_INDEX_FL) /*||
       ((ip->i_size >> ip->i_e2fs->s_blocksize_bits) == 1)*/)) {
@@ -224,9 +225,19 @@ ext2_readdir(ap)
       
       struct filldir_args fda = {0, 0, 0};
       
+        // dx read may use/modify dir lookup cache, so we need IN_LOOK
+        while (ip->i_flag & IN_LOOK) {
+            ip->i_flag |= IN_LOOKWAIT;
+            ISLEEP(ip, flag, NULL);
+        }
+        havelook = 1;
+        ip->i_flag |= IN_LOOK;
+      
       /* Make sure the caller is not trying to read more than
          they are allowed. */
       if (uio_offset(uio) && EXT3_HTREE_EOF == ip->f_pos) {
+         ip->i_flag &= ~IN_LOOK;
+         IWAKE(ip, flag, flag, IN_LOOKWAIT);
          IULOCK(ip);
          return (EIO);
       }
@@ -268,6 +279,9 @@ ext2_readdir(ap)
       */
       ip->i_e2flags &= ~EXT3_INDEX_FL;
       /* Fall back to normal dir entries. */
+      ip->i_flag &= ~IN_LOOK;
+      havelook = 0;
+      IWAKE(ip, flag, flag, IN_LOOKWAIT);
    }
    
     // Verify we didn't get some partial dx entries
@@ -374,6 +388,10 @@ io_done:
 	}
     
     typeof(ip->i_size) isize = ip->i_size;
+    if (havelook) {
+        ip->i_flag &= ~IN_LOOK;
+        IWAKE(ip, flag, flag, IN_LOOKWAIT);
+    }
     IULOCK(ip);
     
     if (free_dirbuf && dirbuf)
@@ -517,6 +535,7 @@ dolookup:
         ISLEEP(dp, flag, NULL);
     }
     dp->i_flag |= IN_LOOK;
+    dp->i_nameiop = nameiop;
 
    /* Check for indexed dir */
    if (is_dx(dp)) {
@@ -749,6 +768,8 @@ notfound:
 		}
 		dp->i_endoff = roundup(enduseful, DIRBLKSIZ);
 		dp->i_flag |= IN_CHANGE | IN_UPDATE;
+        ext2_debug("dirent: count:%d, endoff:%q, diroff:%q, off:%q, ino:%u, reclen:%u name:%s\n",
+            dp->i_count, dp->i_endoff, dp->i_diroff, dp->i_offset, dp->i_ino, dp->i_reclen, cnp->cn_nameptr);
 		/*
 		 * We return with the directory locked, so that
 		 * the parameters we set up above will still be
@@ -1130,6 +1151,17 @@ ext2_direnter(ip, dvp, cnp, context)
    dentry.d_name.len = cnp->cn_namelen;
    dentry.d_inode = ip;
    IXLOCK_WITH_LOCKED_INODE(dp, ip);
+   
+    // We use/modify dir lookup cache, so we need IN_LOOK
+    while (dp->i_flag & IN_LOOK) {
+        // XXX Can't use ISLEEP here, because msleep knows nothing of our inode locking order
+        dp->i_flag |= IN_LOOKWAIT;
+        IULOCK(dp);
+        ISLEEP_NOLCK(dp, flag, NULL);
+        IXLOCK_WITH_LOCKED_INODE(dp, ip);
+    }
+    dp->i_flag |= IN_LOOK;
+   
    if (is_dx(dp)) {
         #ifdef notyet
         IULOCK(ip);
@@ -1144,7 +1176,9 @@ ext2_direnter(ip, dvp, cnp, context)
         
 		if (!error || (error != ERR_BAD_DX_DIR)) {
             dp->i_flag |= IN_CHANGE | IN_UPDATE;
-			IULOCK(dp);
+			dp->i_flag &= ~IN_LOOK;
+            IWAKE(dp, flag, flag, IN_LOOKWAIT);
+            IULOCK(dp);
             return -(error); /* Linux uses -ve errors */
         }
 		dp->i_flags &= ~EXT3_INDEX_FL;
@@ -1176,13 +1210,16 @@ ext2_direnter(ip, dvp, cnp, context)
       if (spacefree == 1 && !dx_fallback &&
          EXT3_HAS_COMPAT_FEATURE(fs, EXT3_FEATURE_COMPAT_DIR_INDEX)) {
          IULOCK(dp);
-         if ((error = ext2_blkatoff(dvp, (off_t)0, &dirbuf, &bp)))
-            return (error);
+         error = ext2_blkatoff(dvp, (off_t)0, &dirbuf, &bp);
          IXLOCK_WITH_LOCKED_INODE(dp, ip);
-         dp->f_pos = 0;
-         dp->i_flag |= IN_CHANGE;
-         // XXX ext3_dx* is not lock safe ATM, so don't unlock
-         error = make_indexed_dir(&h, &dentry, ip, bp); // bp is released by this routine
+         if (!error) {
+             dp->f_pos = 0;
+             dp->i_flag |= IN_CHANGE;
+             // XXX ext3_dx* is not lock safe ATM, so don't unlock
+             error = make_indexed_dir(&h, &dentry, ip, bp); // bp is released by this routine
+         }
+         dp->i_flag &= ~IN_LOOK;
+         IWAKE(dp, flag, flag, IN_LOOKWAIT);
          IULOCK(dp);
          ext2_trace_return (error);
       }
@@ -1190,27 +1227,33 @@ ext2_direnter(ip, dvp, cnp, context)
 		offset = dp->i_offset;
         IULOCK(dp);
         
-        auio = uio_create(1, offset, UIO_SYSSPACE32, UIO_WRITE);
-        if (!auio)
-            return (ENOMEM);
-        if ((error = uio_addiov(auio, CAST_USER_ADDR_T(&newdir), (user_size_t)newentrysize))) {
-            uio_free(auio);
-            return (error);
+        if ((auio = uio_create(1, offset, UIO_SYSSPACE32, UIO_WRITE)))
+            error = uio_addiov(auio, CAST_USER_ADDR_T(&newdir), (user_size_t)newentrysize);
+        else
+            error = ENOMEM;
+            
+        if (!error) {
+            uio_setresid(auio, newentrysize);
+            newdir.rec_len = cpu_to_le16(DIRBLKSIZ);
+        
+            error = EXT2_WRITE(dvp, auio, IO_SYNC, context);
+            if (DIRBLKSIZ > vfs_statfs(vnode_mount(dvp))->f_bsize) {
+                /* XXX should grow with balloc() */
+                panic("ext2_direnter: frag size");
+            }
         }
-        uio_setresid(auio, newentrysize);
-		newdir.rec_len = cpu_to_le16(DIRBLKSIZ);
-	
-		error = EXT2_WRITE(dvp, auio, IO_SYNC, context);
-		if (DIRBLKSIZ > vfs_statfs(vnode_mount(dvp))->f_bsize)
-			/* XXX should grow with balloc() */
-			panic("ext2_direnter: frag size");
-		else if (!error) {
-			IXLOCK_WITH_LOCKED_INODE(dp, ip);
+        
+        IXLOCK_WITH_LOCKED_INODE(dp, ip);
+        if (!error) {
             dp->i_size = roundup(dp->i_size, DIRBLKSIZ);
-			dp->i_flag |= IN_CHANGE | IN_DX_UPDATE;
-            IULOCK(dp);
-		}
-        uio_free(auio);
+            dp->i_flag |= IN_CHANGE | IN_DX_UPDATE;
+        }
+        dp->i_flag &= ~IN_LOOK;
+        IWAKE(dp, flag, flag, IN_LOOKWAIT);
+        IULOCK(dp);
+        
+        if (auio)
+            uio_free(auio);
 		return (error);
 	}
 
@@ -1238,10 +1281,17 @@ ext2_direnter(ip, dvp, cnp, context)
 	offset = dp->i_offset;
     IULOCK(dp);
     
-    if ((error = ext2_blkatoff(dvp, offset, &dirbuf, &bp)) != 0)
-		return (error);
+    error = ext2_blkatoff(dvp, offset, &dirbuf, &bp);
 	
     IXLOCK_WITH_LOCKED_INODE(dp, ip);
+    
+    if (error) {
+        dp->i_flag &= ~IN_LOOK;
+        IWAKE(dp, flag, flag, IN_LOOKWAIT);
+        IULOCK(dp);
+        return (error);
+    }
+    
     /*
 	 * Find space for the new entry. In the simple case, the entry at
 	 * offset base will have the space. If it does not, then namei
@@ -1283,10 +1333,15 @@ ext2_direnter(ip, dvp, cnp, context)
 		ep = (struct ext2_dir_entry_2 *)((char *)ep + dsize);
 	}
 	bcopy((caddr_t)&newdir, (caddr_t)ep, (u_int)newentrysize);
+    ext2_debug("dirent {%u,%u,%u,%s} @ %u to %u\n",
+        le32_to_cpu(newdir.inode), le16_to_cpu(newdir.rec_len), newdir.name_len, cnp->cn_nameptr,
+        (char*)ep - (char*)buf_dataptr(bp), dp->i_number);
 	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
     
     offset = (off_t)dp->i_endoff;
     off_t isize = dp->i_size;
+    dp->i_flag &= ~IN_LOOK;
+    IWAKE(dp, flag, flag, IN_LOOKWAIT);
     IULOCK(dp);
     
     error = BUF_WRITE(bp);
@@ -1321,8 +1376,16 @@ ext2_dirremove(dvp, cnp)
 	dp = VTOI(dvp);
    
    bp = NULL;
-   /* Check for indexed dir */
    IXLOCK(dp);
+   
+    // We use/modify dir lookup cache, so we need IN_LOOK
+    while (dp->i_flag & IN_LOOK) {
+        dp->i_flag |= IN_LOOKWAIT;
+        ISLEEP(dp, flag, NULL);
+    }
+    dp->i_flag |= IN_LOOK;
+   
+   /* Check for indexed dir */
    if (is_dx(dp)) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
       handle_t h = {cnp};
@@ -1336,6 +1399,8 @@ ext2_dirremove(dvp, cnp)
       // IULOCK(dp);
       
       if (NULL == (bp = ext3_dx_find_entry(&dentry, &ep, &error))) {
+         dp->i_flag &= ~IN_LOOK;
+         IWAKE(dp, flag, flag, IN_LOOKWAIT);
          IULOCK(dp); // XXX
          return -(error); /* Linux uses -ve errors */
       }
@@ -1348,6 +1413,8 @@ ext2_dirremove(dvp, cnp)
          // IULOCK(dp);
       }
       
+      dp->i_flag &= ~IN_LOOK;
+      IWAKE(dp, flag, flag, IN_LOOKWAIT);
       IULOCK(dp); // XXX
       return -(error); /* Linux uses -ve errors */
    }
@@ -1357,14 +1424,19 @@ ext2_dirremove(dvp, cnp)
 		 * First entry in block: set d_ino to zero.
 		 */
 		IULOCK(dp);
-        if ((error =
-		    ext2_blkatoff(dvp, (off_t)dp->i_offset, (char **)&ep, &bp)) != 0)
-			return (error);
-		ep->inode = 0;
-		error = BUF_WRITE(bp);
-        
+        if (!(error = ext2_blkatoff(dvp, (off_t)dp->i_offset, (char **)&ep, &bp))) {
+            IXLOCK(dp);
+            ep->inode = 0;
+            IULOCK(dp);
+            error = BUF_WRITE(bp);
+        }        
         IXLOCK(dp);
-		dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+        if (!error) {
+            dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+            dp->i_flag &= ~IN_LOOK;
+        }
+        dp->i_flag &= ~IN_LOOK;
+        IWAKE(dp, flag, flag, IN_LOOKWAIT);
         IULOCK(dp);
         
 		return (error);
@@ -1374,14 +1446,22 @@ ext2_dirremove(dvp, cnp)
 	 */
 	off_t offset = (off_t)(dp->i_offset - dp->i_count);
     IULOCK(dp);
-    if ((error = ext2_blkatoff(dvp, offset, (char **)&ep, &bp)) != 0)
-		return (error);
-    IXLOCK(dp);
-    ep->rec_len = cpu_to_le16(le16_to_cpu(ep->rec_len) + dp->i_reclen);
-	dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
-    IULOCK(dp);
-	error = BUF_WRITE(bp);
+    error = ext2_blkatoff(dvp, offset, (char **)&ep, &bp);
+    if (!error) {
+        IXLOCK(dp);
+        ep->rec_len = cpu_to_le16(le16_to_cpu(ep->rec_len) + dp->i_reclen);
+        IULOCK(dp);
+        error = BUF_WRITE(bp);
+    }
 	
+    IXLOCK(dp);
+    if (!error)
+        dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+    
+    dp->i_flag &= ~IN_LOOK;
+    IWAKE(dp, flag, flag, IN_LOOKWAIT);
+    IULOCK(dp);
+    
     return (error);
 }
 
@@ -1401,11 +1481,22 @@ ext2_dirrewrite_nolock(dp, ip, cnp)
 	int error;
     off_t offset;
 
-   /* Check for indexed dir */
+   assert(ip->i_lockowner != current_thread());
+   
    IXLOCK(dp);
+   
+    // We use/modify dir lookup cache, so we need IN_LOOK
+    while (dp->i_flag & IN_LOOK) {
+        dp->i_flag |= IN_LOOKWAIT;
+        ISLEEP(dp, flag, NULL);
+    }
+    dp->i_flag |= IN_LOOK;
+   
    int isdx = is_dx(dp);
    offset = (off_t)dp->i_offset;
    IULOCK(dp);
+   
+   /* Check for indexed dir */
    if (isdx) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
       
@@ -1419,20 +1510,27 @@ ext2_dirrewrite_nolock(dp, ip, cnp)
       bp = ext3_dx_find_entry(&dentry, &ep, &error);
       IULOCK(dp); // XXX
       
-      if (!bp)
+      if (!bp) {
+         dp->i_flag &= ~IN_LOOK;
+         IWAKE(dp, flag, flag, IN_LOOKWAIT);
          return -(error); /* Linux uses -ve errors */
+      }
+      error = 0;
    } else {
-      if ((error = ext2_blkatoff(vdp, offset, (char **)&ep, &bp)))
-         return (error);
+      error = ext2_blkatoff(vdp, offset, (char **)&ep, &bp);
    }
 	IXLOCK(dp);
-    ep->inode = cpu_to_le32(ip->i_number);
-	if (EXT2_HAS_INCOMPAT_FEATURE(ip->i_e2fs,
-	    EXT2_FEATURE_INCOMPAT_FILETYPE))
-		ep->file_type = DTTOFT(IFTODT(ip->i_mode));
-	else
-		ep->file_type = EXT2_FT_UNKNOWN;
-    dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+    if (!error) {
+        ep->inode = cpu_to_le32(ip->i_number);
+        if (EXT2_HAS_INCOMPAT_FEATURE(ip->i_e2fs,
+            EXT2_FEATURE_INCOMPAT_FILETYPE))
+            ep->file_type = DTTOFT(IFTODT(ip->i_mode));
+        else
+            ep->file_type = EXT2_FT_UNKNOWN;
+        dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+    }
+    dp->i_flag &= ~IN_LOOK;
+    IWAKE(dp, flag, flag, IN_LOOKWAIT);
 	IULOCK(dp);
     error = BUF_WRITE(bp);
 	return (error);
