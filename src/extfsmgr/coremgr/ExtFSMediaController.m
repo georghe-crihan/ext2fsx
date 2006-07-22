@@ -26,6 +26,7 @@
 static const char whatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
+#import <stdlib.h>
 #import <string.h>
 #import <sys/param.h>
 #import <sys/ucred.h>

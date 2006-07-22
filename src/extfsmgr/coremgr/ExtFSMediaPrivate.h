@@ -50,7 +50,9 @@ withObject:args waitUntilDone:NO]; \
 [args release]; \
 } while(0)
 
+#ifndef EXTFS_DM_BNDL_ID
 #define EXTFS_DM_BNDL_ID @"net.sourceforge.ext2fsx.ExtFSDiskManager"
+#endif
 #define EFS_PROBE_RSRC @"efsprobe"
 
 @interface ExtFSMedia (ExtFSMediaControllerPrivate)

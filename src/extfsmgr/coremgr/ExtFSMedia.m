@@ -26,6 +26,7 @@
 static const char whatid[] __attribute__ ((unused)) =
 "@(#) $Id$";
 
+#import <stdlib.h>
 #import <unistd.h>
 #import <sys/param.h>
 #import <sys/ucred.h>
@@ -36,7 +37,9 @@ static const char whatid[] __attribute__ ((unused)) =
 #import <pthread.h>
 
 #import <ext2_byteorder.h>
+#ifndef NOEXT2
 #import <gnu/ext2fs/ext2_fs.h>
+#endif
 
 #import "ExtFSLock.h"
 #import "ExtFSMedia.h"
@@ -75,6 +78,7 @@ static void *e_mediaIconCacheLck = nil;
 #define SYS_fsctl 242
 #endif
 
+#ifndef NOEXT2
 struct superblock {
    struct ext2_super_block *s_es;
 };
@@ -96,6 +100,9 @@ do { \
 do { \
    if (e_sb) { free(e2sblock); free(e_sb); e_sb = nil; } \
 } while(0)
+#else
+#define e2super_free()
+#endif
 
 #ifndef __HFS_FORMAT__
 #define kHFSPlusSigWord 0x482B
@@ -125,7 +132,6 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    struct timeval now;
    int err;
    char *path;
-   NSString *bsdName = [self bsdName], *tmp;
    
    path = MOUNTPOINTSTR(self);
    if (!path)
@@ -133,6 +139,8 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    
    gettimeofday(&now, nil);
    
+   #ifndef NOEXT2
+   NSString *bsdName = [self bsdName];
    /* Get the superblock if we don't have it */
    ewlock(e_lock);
    if ((fsTypeExt2 == e_fsType || fsTypeExt3 == e_fsType) && !e_sb) {
@@ -146,7 +154,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
          [e_uuid release];
          e_uuid = nil;
          eulock(e_lock);
-         tmp = [self uuidString];
+         NSString *tmp = [self uuidString];
          ewlock(e_lock);
          e_uuid = [tmp retain];
       } else {
@@ -163,6 +171,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    e_lastFSUpdate = now.tv_sec;
    
    eulock(e_lock); // drop the lock while we do the I/O
+   #endif
    
    bzero(&vinfo, sizeof(vinfo));
    bzero(&alist, sizeof(alist));
@@ -796,6 +805,7 @@ emicon_exit:
 - (CFUUIDRef)uuid
 {
    CFUUIDRef uuid = nil;
+   #ifndef NOEXT2
    CFUUIDBytes *bytes;
    
    erlock(e_lock);
@@ -804,6 +814,7 @@ emicon_exit:
       uuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, *bytes);
    }
    eulock(e_lock);
+   #endif
    
    return (uuid);
 }
@@ -837,20 +848,24 @@ emicon_exit:
 - (BOOL)hasIndexedDirs
 {
    BOOL test = NO;
+   #ifndef NOEXT2
    erlock(e_lock);
    if (e_sb)
       test = (0 != EXT3_HAS_COMPAT_FEATURE(e2super, EXT3_FEATURE_COMPAT_DIR_INDEX));
    eulock(e_lock);
+   #endif
    return (test);
 }
 
 - (BOOL)hasLargeFiles
 {
    BOOL test = NO;
+   #ifndef NOEXT2
    erlock(e_lock);
    if (e_sb)
       test = (0 != EXT2_HAS_RO_COMPAT_FEATURE(e2super, EXT2_FEATURE_RO_COMPAT_LARGE_FILE));
    eulock(e_lock);
+   #endif
    return (test);
 }
 

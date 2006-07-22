@@ -51,7 +51,7 @@ static NSPoint lastDisplay = {0.0};
     
     me = [super window];
     // If we have another on screen window, offset ourself from that
-    if (0.0 != lastDisplay.x) {
+    if (lastDisplay.x > 0.0 || lastDisplay.x < 0.0) {
         NSRect r = [me frame];
         lastDisplay.x += 25.0;
         lastDisplay.y -= 25.0;
