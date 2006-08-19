@@ -332,7 +332,6 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
 		} else {
 			buf_bdwrite(bp);
 		}
-        IXLOCK(ip);
         
         if (alloc_buf) {
             nbp = buf_getblk(vp, (daddr64_t)lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
@@ -345,26 +344,27 @@ ext2_balloc2(ip, bn, size, cred, bpp, flags, blk_alloc)
         }
         if (alloc_buf)
             *bpp = nbp;
+        IXLOCK(ip);
 		return (0);
 	}
-    
-	buf_brelse(bp);
+	
+    buf_brelse(bp);
     if (alloc_buf) {
+        IULOCK(ip);
         if (flags & B_CLRBUF) {
-            IULOCK(ip);
             error = buf_bread(vp, (daddr64_t)lbn, (int)fs->s_blocksize, NOCRED, &nbp);
-            IXLOCK(ip);
             if (error) {
                 buf_brelse(nbp);
+                IXLOCK(ip);
                 return (error);
             }
         } else {
-            IULOCK(ip);
             nbp = buf_getblk(vp, (daddr64_t)lbn, fs->s_blocksize, 0, 0, BLK_WRITE);
             buf_setblkno(nbp, (daddr64_t)fsbtodb(fs, nb));
-            IXLOCK(ip);
         }
         *bpp = nbp;
+        IXLOCK(ip);
     } /* alloc_buf */
+    
 	return (0);
 }
