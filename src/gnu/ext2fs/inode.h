@@ -46,7 +46,7 @@
 
 // These are missing from sys/event.h, but knote is exported by the BSD kpi,
 // so we will use it.
-#ifndef KNOTE
+#if defined(EXT_KNOTE) && !defined(KNOTE)
 struct knote {
 	int		kn_inuse;	/* inuse count */
 	struct kqtailq	*kn_tq;		/* pointer to tail queue */
@@ -141,14 +141,16 @@ struct inode {
 	/*
 	 * Various accounting
 	 */
+#ifdef EXT_KNOTE
 	struct klist i_knotes; /* Attached knotes. */ 
+#endif
 	void	*private_data; /* Private storge, used by dir index (others?). */
 	inode_prv_relse_t private_data_relse; /* Function to release private_data storage. */
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
 	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
 	/*
-	 * Side effects; used during directory lookup.
+	 * Side effects; used during directory lookup - protected by IN_LOOK.
 	 */
 	int32_t	  i_count;	/* Size of free slot in directory. */
 	doff_t	  i_endoff;	/* End of useful stuff in directory. */
@@ -156,8 +158,9 @@ struct inode {
 	doff_t	  i_offset;	/* Offset of free space in directory. */
 	ino_t	  i_ino;	/* Inode number of found directory. */
 	u_int32_t i_reclen;	/* Size of found directory entry. */
-	u_int32_t i_dir_start_lookup; /* Index dir lookup */
+	//u_int32_t i_dir_start_lookup; /* Index dir lookup */
 	#define f_pos i_diroff /* Index dir lookups */
+	void*     i_cachetoken; /* used to verify other side effects */
 	
 	u_int32_t i_block_group;
 	u_int32_t i_next_alloc_block;
@@ -247,7 +250,11 @@ struct indir {
 #define VTOI(vp)	((struct inode *)vnode_fsnode(vp))
 #define ITOV(ip)	((ip)->i_vnode)
 #define ITOVFS(ip)  (vnode_mount((ip)->i_vnode))
+#ifdef EXT_KNOTE
 #define VN_KNOTE(vp,hint) KNOTE(&(VTOI(vp))->i_knotes, (hint))
+#else
+#define VN_KNOTE(vp,hint)
+#endif
 
 /* Locking contract:
 	1) If a function takes an inode, the inode is expected locked
@@ -306,7 +313,8 @@ static __inline__
 void IXLOCK_WITH_LOCKED_INODE(struct inode *ip, struct inode *lip)
 {
 #ifdef DIAGNOSTIC
-	if (ip == lip || lip->i_number == ip->i_number)
+	IASSERTLOCK(lip);
+    if (ip == lip || lip->i_number == ip->i_number)
 		panic("ext2: attempt to lock duplicate nodes!");
 #endif
 	if (lip->i_number < ip->i_number) {
