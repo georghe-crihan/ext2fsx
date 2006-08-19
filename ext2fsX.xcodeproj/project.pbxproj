@@ -12,18 +12,6 @@
 			buildConfigurationList = D3DE35570890B0B6003B7227 /* Build configuration list for PBXAggregateTarget "BuildAll" */;
 			buildPhases = (
 			);
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = BuildAll;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 				D32B203609947096001A78A0 /* PBXTargetDependency */,
 				D32B208D09947622001A78A0 /* PBXTargetDependency */,
@@ -254,70 +242,6 @@
 		};
 /* End PBXBuildRule section */
 
-/* Begin PBXBuildStyle section */
-		06AA1262FFB20DD611CA28AA /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = (
-					"\U0001-DOSX",
-					"-DEXT_KNOTE",
-					"-DDEBUG",
-					"-DEXT2FS_DEBUG=1",
-					"-DDIAGNOSTIC",
-					"-DDX_DEBUG",
-					"-DEXT2FS_TRACE",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		06AA1263FFB20DD611CA28AA /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = (
-					"\U0001-DOSX",
-					"-DEXT_KNOTE",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		D3360E46058AF97E004AF361 /* JagDevelopment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = (
-					"\U0001-DOSX",
-					"-DDEBUG",
-					"-DEXT2FS_DEBUG=1",
-					"-DDIAGNOSTIC",
-					"-DDX_DEBUG",
-					"-DEXT2FS_TRACE",
-				);
-			};
-			name = JagDevelopment;
-		};
-		D3360E47058AF9A6004AF361 /* JagDeployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "\U0001-DOSX";
-			};
-			name = JagDeployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXBundleTarget section */
 		D3D485850405AEF400A80164 /* ext2_fs */ = {
 			isa = PBXBundleTarget;
@@ -326,21 +250,6 @@
 				D3D485810405AEF400A80164 /* Resources */,
 				D3D4858C0405F52200A80164 /* CopyFiles */,
 			);
-			buildSettings = {
-				GCC_VERSION = 3.3;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ext2;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = fs;
-			};
 			dependencies = (
 			);
 			name = ext2_fs;
@@ -865,8 +774,8 @@
 				F53FE985035E8E5201A80165 /* ext2_linux_balloc.c */,
 				F54E5107035FDEE601A80165 /* ext2_linux_ialloc.c */,
 				F54E5109035FDFBE01A80165 /* ext2_lookup.c */,
-				F53B8660035FE78601A80165 /* ext2_subr.c */,
 				F53B86BF03610B5901A80165 /* ext2_readwrite.c */,
+				F53B8660035FE78601A80165 /* ext2_subr.c */,
 				F5106D60035A69B701A80165 /* ext2_vfsops.c */,
 				F53B86C10361275401A80165 /* ext2_vnops.c */,
 				D3C06DAB040A137600A80164 /* kern */,
@@ -1181,18 +1090,6 @@
 			buildConfigurationList = D3DE355D0890B0B6003B7227 /* Build configuration list for PBXLegacyTarget "e2fsprogs" */;
 			buildPhases = (
 			);
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = e2fsprogs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			buildToolPath = /bin/sh;
 			buildWorkingDirectory = "${SRCROOT}";
 			dependencies = (
@@ -1219,35 +1116,6 @@
 			buildRules = (
 				D32B1FAD09946A3B001A78A0 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
-				MODULE_START = ext2fs_start;
-				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.3d1;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = (
-					"\U0001-D_KERNEL",
-					"-no-cpp-precomp",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ext2fs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = ext2_kext;
@@ -1270,28 +1138,6 @@
 				D32B2047099470A8001A78A0 /* PBXBuildRule */,
 				D32B2048099470A8001A78A0 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_VERSION = 3.3;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = (
-					"-DAPPLE",
-					"-mdynamic-no-pic",
-				);
-				OTHER_LDFLAGS = "-ldisk";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_ext2;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = mount_ext2fs;
@@ -1313,25 +1159,6 @@
 				D32B209D09947656001A78A0 /* PBXBuildRule */,
 				D32B209E09947656001A78A0 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_VERSION = 3.3;
-				HEADER_SEARCH_PATHS = (
-					src/gnu/ext2fs,
-					src/gnu/ext2fs/linux/include,
-				);
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-mdynamic-no-pic";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ext2fs.util;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = ext2_util;
@@ -1354,21 +1181,6 @@
 				D32B20C80994777A001A78A0 /* PBXBuildRule */,
 				D32B20C90994777A001A78A0 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_VERSION = 3.3;
-				HEADER_SEARCH_PATHS = src;
-				OTHER_CFLAGS = "-mdynamic-no-pic";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = newfs_ext2;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = newfs_ext2;
@@ -1391,25 +1203,6 @@
 				D32B20E0099477DE001A78A0 /* PBXBuildRule */,
 				D32B20E1099477DE001A78A0 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_VERSION = 3.3;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-mdynamic-no-pic";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = fsck_ext2;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = fsck_ext2;
@@ -1432,26 +1225,6 @@
 			buildRules = (
 				D32B210F09947829001A78A0 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_LDFLAGS = (
-					"-bundle",
-					"-twolevel_namespace",
-				);
-				OTHER_REZFLAGS = "";
-				PRECOMPILE_PREFIX_HEADER = YES;
-				PREFIX_HEADER = build/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h;
-				PRODUCT_NAME = ExtFSManager;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = prefPane;
-			};
 			dependencies = (
 				D32B20F009947828001A78A0 /* PBXTargetDependency */,
 			);
@@ -1474,66 +1247,12 @@
 			buildRules = (
 				D3E6C3F30911E88000E3B744 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 2;
-				DYLIB_CURRENT_VERSION = 2;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = B;
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				GCC_ENABLE_CPP_RTTI = NO;
-				GCC_PREFIX_HEADER = src/extfsmgr/coremgr/ExtFSDiskManager.h;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				INFOPLIST_FILE = "Resources/ExtFSDiskManager-Info.plist";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Cocoa,
-					"-seg1addr",
-					0xEB110000,
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ExtFSDiskManager;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
 			dependencies = (
 				D38228140669985C00AD3D37 /* PBXTargetDependency */,
 			);
 			name = ExtFSDiskManager;
 			productName = ExtFSDiskManager;
 			productReference = D3660BFA0643ED20009810C9 /* ExtFSDiskManager.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>ExtFSDiskManager</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.MySoftwareCompany.ExtFSDiskManager</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundlePackageType</key>
-	<string>FMWK</string>
-	<key>CFBundleShortVersionString</key>
-	<string></string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.0.0d1</string>
-</dict>
-</plist>
-";
 			productType = "com.apple.product-type.framework";
 		};
 		D38226D306697F7000AD3D37 /* efsprobe */ = {
@@ -1547,27 +1266,6 @@
 			buildRules = (
 				D3E6C3F60911E89400E3B744 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "";
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				INSTALL_PATH = /usr/local/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = efsprobe;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
 			dependencies = (
 			);
 			name = efsprobe;
@@ -1587,62 +1285,11 @@
 			buildRules = (
 				D3E6C3F20911E86500E3B744 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = build/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				INFOPLIST_FILE = "src/extfsmgr/efssmartd/Resources/efssmartd-Info.plist";
-				INSTALL_PATH = "$(USER_APPS_DIR)";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = efssmartd;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
 			dependencies = (
 			);
 			name = efssmartd;
 			productName = efssmartd;
 			productReference = D38A5F0806711DDB00E9E666 /* efssmartd.app */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>efssmartd</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.MySoftwareCompany.efssmartd</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string></string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.0.0d1</string>
-	<key>NSMainNibFile</key>
-	<string>MainMenu</string>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
-</dict>
-</plist>
-";
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -1651,14 +1298,6 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = D3DE35630890B0B6003B7227 /* Build configuration list for PBXProject "ext2fsX" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				06AA1262FFB20DD611CA28AA /* Development */,
-				06AA1263FFB20DD611CA28AA /* Deployment */,
-				D3360E46058AF97E004AF361 /* JagDevelopment */,
-				D3360E47058AF9A6004AF361 /* JagDeployment */,
-			);
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -2014,10 +1653,8 @@
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					READONLY,
 					_KERNEL,
 					OSX,
-					EXT_KNOTE,
 					DEBUG,
 					"EXT2FS_DEBUG=1",
 					DIAGNOSTIC,
@@ -2037,11 +1674,6 @@
 				MODULE_VERSION = 1.4;
 				OTHER_CFLAGS = "\U0001-no-cpp-precomp";
 				PRODUCT_NAME = ext2fs;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Development;
@@ -2053,7 +1685,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					_KERNEL,
 					OSX,
-					EXT_KNOTE,
 				);
 				HEADER_SEARCH_PATHS = (
 					src,
@@ -2068,41 +1699,9 @@
 				MODULE_VERSION = 1.4;
 				OTHER_CFLAGS = "\U0001-no-cpp-precomp";
 				PRODUCT_NAME = ext2fs;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Deployment;
-		};
-		D32B1FAB09946A3B001A78A0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = _KERNEL;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				INFOPLIST_FILE = "Resources/Info-ext2_kext.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				MODULE_NAME = net.sourceforge.ext2fs.fs.ext2;
-				MODULE_START = ext2fs_start;
-				MODULE_STOP = ext2fs_stop;
-				MODULE_VERSION = 1.4;
-				OTHER_CFLAGS = "\U0001-no-cpp-precomp";
-				PRODUCT_NAME = ext2fs;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = Default;
 		};
 		D32B2043099470A7001A78A0 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2124,11 +1723,6 @@
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = mount_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Development;
 		};
@@ -2147,32 +1741,8 @@
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = mount_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Deployment;
-		};
-		D32B2045099470A7001A78A0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = APPLE;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-					src/depend/disklib,
-				);
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = mount_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
 		};
 		D32B209909947656001A78A0 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2191,11 +1761,6 @@
 					src/gnu/ext2fs/linux/include,
 				);
 				PRODUCT_NAME = ext2fs.util;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Development;
 		};
@@ -2211,29 +1776,8 @@
 					src/gnu/ext2fs/linux/include,
 				);
 				PRODUCT_NAME = ext2fs.util;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Deployment;
-		};
-		D32B209B09947656001A78A0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				HEADER_SEARCH_PATHS = (
-					src/gnu/ext2fs,
-					src/gnu/ext2fs/linux/include,
-				);
-				PRODUCT_NAME = ext2fs.util;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
 		};
 		D32B20C40994777A001A78A0 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2249,11 +1793,6 @@
 				);
 				HEADER_SEARCH_PATHS = src;
 				PRODUCT_NAME = newfs_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Development;
 		};
@@ -2266,26 +1805,8 @@
 				);
 				HEADER_SEARCH_PATHS = src;
 				PRODUCT_NAME = newfs_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Deployment;
-		};
-		D32B20C60994777A001A78A0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				HEADER_SEARCH_PATHS = src;
-				PRODUCT_NAME = newfs_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
 		};
 		D32B20DC099477DD001A78A0 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2304,11 +1825,6 @@
 					src/gnu/ext2fs/linux/include,
 				);
 				PRODUCT_NAME = fsck_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Development;
 		};
@@ -2324,34 +1840,15 @@
 					src/gnu/ext2fs/linux/include,
 				);
 				PRODUCT_NAME = fsck_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Deployment;
-		};
-		D32B20DE099477DD001A78A0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				PRODUCT_NAME = fsck_ext2;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
 		};
 		D32B210B09947828001A78A0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_FAST_OBJC_DISPATCH = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(BUILT_PRODUCTS_DIR)/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -2371,9 +1868,8 @@
 				);
 				PRODUCT_NAME = ExtFSManager;
 				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
+					"$(value)",
+					"-Wunreachable-code",
 				);
 				WRAPPER_EXTENSION = prefPane;
 			};
@@ -2383,6 +1879,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_FAST_OBJC_DISPATCH = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(BUILT_PRODUCTS_DIR)/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -2395,35 +1893,9 @@
 					"-twolevel_namespace",
 				);
 				PRODUCT_NAME = ExtFSManager;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = prefPane;
 			};
 			name = Deployment;
-		};
-		D32B210D09947828001A78A0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(BUILT_PRODUCTS_DIR)/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h";
-				INFOPLIST_FILE = "Resources/Info-extprefpane.plist";
-				OTHER_LDFLAGS = (
-					"-bundle",
-					"-twolevel_namespace",
-				);
-				PRODUCT_NAME = ExtFSManager;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = prefPane;
-			};
-			name = Default;
 		};
 		D3DE353A0890B0B6003B7227 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2485,25 +1957,6 @@
 			};
 			name = Deployment;
 		};
-		D3DE353E0890B0B6003B7227 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_VERSION = 3.3;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ext2;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = fs;
-			};
-			name = Default;
-		};
 		D3DE35400890B0B6003B7227 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2540,7 +1993,6 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = efsprobe;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -2574,37 +2026,9 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = efsprobe;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
-		};
-		D3DE35440890B0B6003B7227 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "";
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				INSTALL_PATH = /usr/local/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-				);
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = efsprobe;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
-			name = Default;
 		};
 		D3DE35460890B0B6003B7227 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2637,6 +2061,10 @@
 					0xEB110000,
 				);
 				PRODUCT_NAME = ExtFSDiskManager;
+				WARNING_CFLAGS = (
+					"$(value)",
+					"-Wunreachable-code",
+				);
 			};
 			name = Development;
 		};
@@ -2677,44 +2105,9 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = ExtFSDiskManager;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
-		};
-		D3DE354A0890B0B6003B7227 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 3;
-				DYLIB_CURRENT_VERSION = 3;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_VERSION = C;
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				GCC_ENABLE_CPP_RTTI = NO;
-				GCC_PREFIX_HEADER = src/extfsmgr/coremgr/ExtFSDiskManager.h;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				HEADER_SEARCH_PATHS = (
-					src,
-					src/gnu/ext2fs/linux/include,
-				);
-				INFOPLIST_FILE = "Resources/ExtFSDiskManager-Info.plist";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Cocoa,
-					"-seg1addr",
-					0xEB110000,
-				);
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = ExtFSDiskManager;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
-			name = Default;
 		};
 		D3DE354C0890B0B6003B7227 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2751,7 +2144,6 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = efssmartd;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -2784,36 +2176,9 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = efssmartd;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
-		};
-		D3DE35500890B0B6003B7227 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(BUILT_PRODUCTS_DIR)/ExtFSDiskManager.framework/Headers/ExtFSDiskManager.h";
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				INFOPLIST_FILE = "src/extfsmgr/efssmartd/Resources/efssmartd-Info.plist";
-				INSTALL_PATH = "$(USER_APPS_DIR)";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-				);
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = efssmartd;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
-			name = Default;
 		};
 		D3DE35580890B0B6003B7227 /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -2870,22 +2235,6 @@
 			};
 			name = Deployment;
 		};
-		D3DE355C0890B0B6003B7227 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = BuildAll;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
 		D3DE355E0890B0B6003B7227 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2941,22 +2290,6 @@
 			};
 			name = Deployment;
 		};
-		D3DE35620890B0B6003B7227 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = e2fsprogs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
 		D3DE35640890B0B6003B7227 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2965,13 +2298,22 @@
 					i386,
 				);
 				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_FAST_OBJC_DISPATCH = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_THREADSAFE_STATICS = NO;
 				PREBINDING = NO;
 				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wfloat-equal",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Development;
 		};
@@ -2983,29 +2325,22 @@
 					i386,
 				);
 				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_FAST_OBJC_DISPATCH = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_THREADSAFE_STATICS = NO;
 				PREBINDING = NO;
 				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wfloat-equal",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Deployment;
-		};
-		D3DE35680890B0B6003B7227 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_THREADSAFE_STATICS = NO;
-				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
-			};
-			name = Default;
 		};
 /* End XCBuildConfiguration section */
 
@@ -3015,130 +2350,117 @@
 			buildConfigurations = (
 				D32B1FA709946A3B001A78A0 /* Development */,
 				D32B1FA809946A3B001A78A0 /* Deployment */,
-				D32B1FAB09946A3B001A78A0 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D32B2042099470A7001A78A0 /* Build configuration list for PBXNativeTarget "mount_ext2fs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D32B2043099470A7001A78A0 /* Development */,
 				D32B2044099470A7001A78A0 /* Deployment */,
-				D32B2045099470A7001A78A0 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D32B209809947656001A78A0 /* Build configuration list for PBXNativeTarget "ext2_util" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D32B209909947656001A78A0 /* Development */,
 				D32B209A09947656001A78A0 /* Deployment */,
-				D32B209B09947656001A78A0 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D32B20C30994777A001A78A0 /* Build configuration list for PBXNativeTarget "newfs_ext2" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D32B20C40994777A001A78A0 /* Development */,
 				D32B20C50994777A001A78A0 /* Deployment */,
-				D32B20C60994777A001A78A0 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D32B20DB099477DD001A78A0 /* Build configuration list for PBXNativeTarget "fsck_ext2" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D32B20DC099477DD001A78A0 /* Development */,
 				D32B20DD099477DD001A78A0 /* Deployment */,
-				D32B20DE099477DD001A78A0 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D32B210A09947828001A78A0 /* Build configuration list for PBXNativeTarget "extprefpane" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D32B210B09947828001A78A0 /* Development */,
 				D32B210C09947828001A78A0 /* Deployment */,
-				D32B210D09947828001A78A0 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D3DE35390890B0B6003B7227 /* Build configuration list for PBXBundleTarget "ext2_fs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D3DE353A0890B0B6003B7227 /* Development */,
 				D3DE353B0890B0B6003B7227 /* Deployment */,
-				D3DE353E0890B0B6003B7227 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D3DE353F0890B0B6003B7227 /* Build configuration list for PBXNativeTarget "efsprobe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D3DE35400890B0B6003B7227 /* Development */,
 				D3DE35410890B0B6003B7227 /* Deployment */,
-				D3DE35440890B0B6003B7227 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D3DE35450890B0B6003B7227 /* Build configuration list for PBXNativeTarget "ExtFSDiskManager" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D3DE35460890B0B6003B7227 /* Development */,
 				D3DE35470890B0B6003B7227 /* Deployment */,
-				D3DE354A0890B0B6003B7227 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D3DE354B0890B0B6003B7227 /* Build configuration list for PBXNativeTarget "efssmartd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D3DE354C0890B0B6003B7227 /* Development */,
 				D3DE354D0890B0B6003B7227 /* Deployment */,
-				D3DE35500890B0B6003B7227 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D3DE35570890B0B6003B7227 /* Build configuration list for PBXAggregateTarget "BuildAll" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D3DE35580890B0B6003B7227 /* Development */,
 				D3DE35590890B0B6003B7227 /* Deployment */,
-				D3DE355C0890B0B6003B7227 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D3DE355D0890B0B6003B7227 /* Build configuration list for PBXLegacyTarget "e2fsprogs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D3DE355E0890B0B6003B7227 /* Development */,
 				D3DE355F0890B0B6003B7227 /* Deployment */,
-				D3DE35620890B0B6003B7227 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 		D3DE35630890B0B6003B7227 /* Build configuration list for PBXProject "ext2fsX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D3DE35640890B0B6003B7227 /* Development */,
 				D3DE35650890B0B6003B7227 /* Deployment */,
-				D3DE35680890B0B6003B7227 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Development;
 		};
 /* End XCConfigurationList section */
 	};
