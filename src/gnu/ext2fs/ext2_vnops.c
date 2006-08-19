@@ -97,10 +97,12 @@ static const char vwhatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/fs.h>
 #include <gnu/ext2fs/ext2_extern.h>
 
+#ifdef EXT_KNOTE
 #define vnop_kqfilter_args vnop_kqfilt_add_args
 // Unsupported KPI
 #define vnop_kqfilter_desc vnop_kqfilt_add_desc
 #define vnop_kqfilter VNOP_KQFILT_ADD
+#endif
 
 static int ext2_makeinode(int mode, vnode_t, vnode_t *, struct componentname *, vfs_context_t);
 
@@ -114,7 +116,9 @@ static int ext2_close(struct vnop_close_args *);
 static int ext2_create(struct vnop_create_args *);
 __private_extern__ int ext2_fsync(struct vnop_fsync_args *);
 static int ext2_getattr(struct vnop_getattr_args *);
+#ifdef EXT_KNOTE
 static int ext2_kqfilter(struct vnop_kqfilter_args *ap);
+#endif
 static int ext2_link(struct vnop_link_args *);
 static int ext2_mkdir(struct vnop_mkdir_args *);
 static int ext2_mknod(struct vnop_mknod_args *);
@@ -133,7 +137,9 @@ static int ext2_strategy(struct vnop_strategy_args *);
 static int ext2_symlink(struct vnop_symlink_args *);
 __private_extern__ int ext2_write(struct vnop_write_args *);
 static int ext2fifo_close(struct vnop_close_args *);
+#ifdef EXT_KNOTE
 static int ext2fifo_kqfilter(struct vnop_kqfilter_args *);
+#endif
 static int ext2fifo_read(struct vnop_read_args *);
 static int ext2fifo_write(struct vnop_write_args *);
 static int ext2spec_close(struct vnop_close_args *);
@@ -155,10 +161,12 @@ static int ext2_mnomap(struct vnop_mnomap_args*);
 #define ext2_vfree err_vfree
 #endif
 
+#ifdef EXT_KNOTE
 static int filt_ext2read(struct knote *kn, long hint);
 static int filt_ext2write(struct knote *kn, long hint);
 static int filt_ext2vnode(struct knote *kn, long hint);
 static void filt_ext2detach(struct knote *kn);
+#endif
 
 #define vnop_defaultop vn_default_error
 #define spec_vnoperate vn_default_error
@@ -175,7 +183,7 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
     // { &vnop_access_desc,		(vnop_t *) ext2_access }, // handled by kernel for us
     // should be handled by the kernel for us, but vfs_setlocklocal is not an exported KPI
     // and the locking code from panther is a huge mess and relies on access to the proc struct
-    { &vnop_advlock_desc,		(vnop_t *) err_advlock },
+    { &vnop_advlock_desc,		(vnop_t *) nop_advlock },
     { &vnop_blockmap_desc,		(vnop_t *) ext2_blockmap },
     { &vnop_close_desc,		(vnop_t *) ext2_close },
     { &vnop_create_desc,		(vnop_t *) ext2_create },
@@ -187,7 +195,9 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
     { &vnop_mknod_desc,		(vnop_t *) ext2_mknod },
     { &vnop_open_desc,		(vnop_t *) ext2_open },
     { &vnop_pathconf_desc,		(vnop_t *) ext2_pathconf },
+#ifdef EXT_KNOTE
     { &vnop_kqfilter_desc,		(vnop_t *) ext2_kqfilter },
+#endif
     { &vnop_read_desc,		(vnop_t *) ext2_read },
     { &vnop_readdir_desc,		(vnop_t *) ext2_readdir },
     { &vnop_readlink_desc,		(vnop_t *) ext2_readlink },
@@ -342,7 +352,9 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
     { &vnop_fsync_desc,		(vnop_t *) ext2_fsync },
     { &vnop_getattr_desc,		(vnop_t *) ext2_getattr },
     { &vnop_inactive_desc,		(vnop_t *) ext2_inactive },
+#ifdef EXT_KNOTE
     { &vnop_kqfilter_desc,		(vnop_t *) ext2fifo_kqfilter },
+#endif
     { &vnop_read_desc,		(vnop_t *) ext2fifo_read },
     { &vnop_reclaim_desc,		(vnop_t *) ext2_reclaim },
     { &vnop_setattr_desc,		(vnop_t *) ext2_setattr },
@@ -625,7 +637,7 @@ ext2_getattr(ap)
     int devBlockSize = ip->i_e2fs->s_d_blocksize;
     enum vtype vtype = vnode_vtype(vp);
    
-   ext2_trace_enter();
+   //ext2_trace_enter();
 
 	ext2_itimes(vp);
 	/*
@@ -988,7 +1000,7 @@ ext2_remove(ap)
 		}
 	}
    
-	error = ext2_dirremove(dvp, ap->a_cnp);
+	error = ext2_dirremove(dvp, ap->a_cnp, ap->a_context);
 	if (error == 0) {
 		IXLOCK(ip);
         ip->i_nlink--;
@@ -1401,7 +1413,7 @@ abortit:
 			goto bad;
 		}
         IULOCK(xp);
-		error = ext2_dirrewrite_nolock(dp, ip, tcnp);
+		error = ext2_dirrewrite_nolock(dp, ip, tcnp, ap->a_context);
 		if (error)
 			goto bad;
 		/*
@@ -1526,7 +1538,7 @@ abortit:
 				}
 			}
 		}
-		error = ext2_dirremove(fdvp, fcnp);
+		error = ext2_dirremove(fdvp, fcnp, ap->a_context);
 		IXLOCK(xp);
         if (!error) {
 			xp->i_nlink--;
@@ -1814,7 +1826,7 @@ ext2_rmdir(ap)
 	 * inode.  If we crash in between, the directory
 	 * will be reattached to lost+found,
 	 */
-	error = ext2_dirremove(dvp, cnp);
+	error = ext2_dirremove(dvp, cnp, ap->a_context);
 	if (error)
 		goto out;
     VN_KNOTE(dvp, NOTE_WRITE | NOTE_LINK);
@@ -1997,8 +2009,8 @@ ext2_strategy(ap)
 	vp = ip->i_devvp;
     bp->b_dev = vp->v_rdev;
     VOCALL (vp->v_op, VOFFSET(vnop_strategy), ap);
-#endif
     return (0);
+#endif
 }
 
 #ifdef obsolete
@@ -2200,6 +2212,7 @@ ext2fifo_close(ap)
 	ext2_trace_return(fifo_close(ap));
 }
 
+#ifdef EXT_KNOTE
 /*
  * Kqfilter wrapper for fifos.
  *
@@ -2218,6 +2231,7 @@ ext2fifo_kqfilter(ap)
 		error = ext2_kqfilter(ap);
 	ext2_trace_return(error);
 }
+#endif
 
 /*
  * Return POSIX pathconf information applicable to ext2 filesystems.
@@ -2358,6 +2372,7 @@ ext2_advlock(ap)
 int
 ext2_mnomap(struct vnop_mnomap_args *ap)
 {
+    ext2_trace_enter();
     return (ENOTSUP);
 }
 
@@ -2611,6 +2626,7 @@ bad:
 	ext2_trace_return(error);
 }
 
+#ifdef EXT_KNOTE
 static struct filterops ext2read_filtops = 
 	{ 1, NULL, filt_ext2detach, filt_ext2read };
 static struct filterops ext2write_filtops = 
@@ -2769,6 +2785,7 @@ filt_ext2vnode(struct knote *kn, long hint)
     
 	return (result);
 }
+#endif EXT_KNOTE
 
 #ifdef obsolete
 int
