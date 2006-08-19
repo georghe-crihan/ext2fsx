@@ -122,9 +122,9 @@ int ext2_readdir(struct vnop_readdir_args *);
 void	ext2_print_inode(struct inode *);
 int	ext2_direnter(struct inode *, 
 		vnode_t , struct componentname *, vfs_context_t);
-int	ext2_dirremove(vnode_t , struct componentname *);
+int	ext2_dirremove(vnode_t , struct componentname *, vfs_context_t);
 int	ext2_dirrewrite_nolock(struct inode *,
-		struct inode *, struct componentname *);
+		struct inode *, struct componentname *, vfs_context_t);
 int	ext2_dirempty(struct inode *, ino_t, struct ucred *);
 int	ext2_checkpath_nolock(struct inode *, struct inode *, evalloc_args_t *);
 struct  ext2_group_desc * get_group_desc(mount_t   , 
@@ -180,5 +180,6 @@ static __inline__ int ext2_balloc(struct inode *ip,
 
 /* Sysctl OID numbers. */
 #define EXT2_SYSCTL_INT_DIRCHECK 1
+#define EXT2_SYSCTL_INT_LOOKCACHEINVAL 2
 
 #endif /* !_SYS_GNU_EXT2FS_EXT2_EXTERN_H_ */
