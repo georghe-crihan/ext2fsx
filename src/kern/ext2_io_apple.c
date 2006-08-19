@@ -386,7 +386,7 @@ ext2_blkalloc(ip, lbn, size, cred, flags)
 #endif
         error = ext2_alloc(ip, lbn, pref, (int)EXT2_BLOCK_SIZE(fs), cred, &newb);
         IULOCK(ip);
-        if (error);
+        if (error)
 			ext2_trace_return(error);
 		nb = newb;
 		*allocblk++ = nb;
@@ -549,8 +549,8 @@ ext2_blktooff (ap)
    ext2_trace_enter();
    
    if (bn < 0) {
-		panic("-ve blkno in ext2_blktooff");
 		bn = -bn;
+        panic("-ve blkno in ext2_blktooff");
 	}
    
 	ip = VTOI(ap->a_vp);
