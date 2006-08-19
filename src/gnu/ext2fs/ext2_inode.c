@@ -381,7 +381,7 @@ done:
 	for (i = 0; i < NDADDR; i++)
 		if (newblks[i] != oip->i_db[i])
 			panic("ext2: itrunc2");
-   if (length == 0 && (vnode_hasdirtyblks(ovp) || vnode_hascleanblks(ovp)))
+   if (length == 0 && (vnode_hasdirtyblks(ovp) /* ??? || vnode_hascleanblks(ovp) */))
 		panic("ext2: itrunc3");
 #endif /* DIAGNOSTIC */
 	/*
