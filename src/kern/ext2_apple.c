@@ -451,8 +451,8 @@ ext2_ioctl(ap)
       case IOCBASECMD(EXT2_IOC_SETVERSION):
          if (cred->cr_uid != ip->i_uid && !super)
             err = EACCES;
-         break;
-         err = ENOTSUP;
+         else
+            err = ENOTSUP;
       break;
       
       case IOCBASECMD(EXT2_IOC_GETSBLOCK):
