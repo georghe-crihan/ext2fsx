@@ -542,14 +542,15 @@ static int compute_sb_data(devvp, context, es, fs)
 	EXT2_DESC_PER_BLOCK(fs);
     fs->s_db_per_group = db_count;
     V(s_db_per_group)
-   if (EXT2_FEATURE_RO_COMPAT_SUPP & EXT2_FEATURE_RO_COMPAT_LARGE_FILE) {
+   #if (EXT2_FEATURE_RO_COMPAT_SUPP & EXT2_FEATURE_RO_COMPAT_LARGE_FILE)
       u_int64_t addrs_per_block = fs->s_blocksize / sizeof(u32);
 	  fs->s_maxfilesize = (EXT2_NDIR_BLOCKS*(u_int64_t)fs->s_blocksize) +
 		(addrs_per_block*(u_int64_t)fs->s_blocksize) +
 		((addrs_per_block*addrs_per_block)*(u_int64_t)fs->s_blocksize) +
 		((addrs_per_block*addrs_per_block*addrs_per_block)*(u_int64_t)fs->s_blocksize);
-   } else
+   #else
       fs->s_maxfilesize = 0x7FFFFFFFLL;
+   #endif
 	for (i = 0; i < 4; ++i)
 		fs->s_hash_seed[i] = le32_to_cpu(es->s_hash_seed[i]);
 	fs->s_def_hash_version = es->s_def_hash_version;
@@ -1821,6 +1822,7 @@ ext2_quotactl(mp, cmd, uid, arg, context)
 }
 
 __private_extern__ int dirchk;
+__private_extern__ u_int32_t lookcacheinval;
 
 static int
 ext2_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp, user_addr_t newp,
@@ -1888,10 +1890,31 @@ ext2_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp, user_ad
 						error = EINVAL;
 				}
 			}
-			return (error);
+			break;
+		
+		case EXT2_SYSCTL_INT_LOOKCACHEINVAL:
+			if (!oldp && !newp) {
+				*oldlenp = sizeof(lookcacheinval);
+				return (0);
+			}
+			if (oldp && *oldlenp < sizeof(lookcacheinval)) {
+				*oldlenp = sizeof(lookcacheinval);
+				return (ENOMEM);
+			}
+			if (oldp) {
+				*oldlenp = sizeof(lookcacheinval);
+				error = copyout(&lookcacheinval, CAST_USER_ADDR_T(oldp), sizeof(lookcacheinval));
+				if (error)
+					return (error);
+			}
 			
+			if (newp)
+				return (ENOTSUP);
+			break;
+		
 		default:
-			return (ENOTSUP);
+			error = ENOTSUP;
+			break;
 	}
 
 	return (error);
@@ -1905,9 +1928,11 @@ __private_extern__ struct vnodeopv_desc ext2fs_fifoop_opv_desc;
 
 extern struct sysctl_oid sysctl__vfs_e2fs;
 extern struct sysctl_oid sysctl__vfs_e2fs_dircheck;
-static struct sysctl_oid* e2sysctl_list[] = {
+extern struct sysctl_oid sysctl__vfs_e2fs_lookcacheinval;
+static struct sysctl_oid* const e2sysctl_list[] = {
 	&sysctl__vfs_e2fs,
 	&sysctl__vfs_e2fs_dircheck,
+	&sysctl__vfs_e2fs_lookcacheinval,
 	(struct sysctl_oid *)0
 };
 static vfstable_t ext2_tableid;
@@ -1953,6 +1978,9 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	sysctl__vfs_e2fs.oid_number = fsc.vfe_fstypenum;
 	/* Register our sysctl's */
 	for (i=0; e2sysctl_list[i]; ++i) {
+		#ifdef DIAGNOSTIC
+		printf ("ext2fs: registering sysctl '%s' with OID %d\n", (e2sysctl_list[i])->oid_name, (e2sysctl_list[i])->oid_number);
+		#endif
 		sysctl_register_oid(e2sysctl_list[i]);
 	};
 	
