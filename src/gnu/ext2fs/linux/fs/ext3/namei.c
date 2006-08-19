@@ -390,7 +390,8 @@ dx_probe(struct dentry *dentry, struct inode *dir,
 				p = m + 1;
 		}
 
-		if (0) // linear search cross check
+		#if 0
+        if (0) // linear search cross check
 		{
 			unsigned n = count - 1;
 			at = entries;
@@ -405,6 +406,7 @@ dx_probe(struct dentry *dentry, struct inode *dir,
 			}
 			assert (at == p - 1);
 		}
+        #endif
 
 		at = p - 1;
 		dxtrace(printk(" %x->%u\n", at == entries? 0: dx_get_hash(at), dx_get_block(at)));
