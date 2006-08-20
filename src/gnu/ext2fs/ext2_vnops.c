@@ -1075,12 +1075,14 @@ ext2_link(ap)
     IXLOCK(ip);
 	if ((nlink_t)ip->i_nlink >= LINK_MAX) {
       //VOP_ABORTOP(tdvp, cnp);
-		error = EMLINK;
+		IULOCK(ip);
+        error = EMLINK;
 		goto link_out;
 	}
 	if (ip->i_flags & (IMMUTABLE | APPEND)) {
       //VOP_ABORTOP(tdvp, cnp);
-		error = EPERM;
+		IULOCK(ip);
+        error = EPERM;
 		goto link_out;
 	}
 	ip->i_nlink++;
@@ -1094,6 +1096,7 @@ ext2_link(ap)
 		ip->i_nlink--;
 		ip->i_flag |= IN_CHANGE;
 	}
+    IULOCK(ip);
 #ifdef obsolete
    FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
 #endif
