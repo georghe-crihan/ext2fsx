@@ -62,6 +62,12 @@ struct ext2_args {
 #error unknown architecture
 #endif
 
+#ifdef DIAGNOSTIC
+#define E2_DGB_ONLY
+#else
+#define E2_DGB_ONLY __unused
+#endif
+
 #ifdef KERNEL
 
 #ifdef DIAGNOSTIC
@@ -155,8 +161,8 @@ __private_extern__ int ext2_setattrlist (struct vop_setattrlist_args *);
 #endif
 #endif
 
-#if 0 //DIAGNOSTIC
-__private_extern__ void ext2_checkdirsize(struct vnode *dvp);
+#if DIAGNOSTIC
+__private_extern__ void ext2_checkdir_locked(struct vnode *dvp);
 #else
 #define ext2_checkdirsize(dvp)
 #endif
