@@ -1403,9 +1403,11 @@ loop:
 }
 
 
-static __inline__ // inode must be locked
+static // inode must be locked
 void ext2_vget_irelse (struct inode *ip)
 {
+	IASSERTLOCK(ip);
+	
 	ext2_ihashrem(ip);
 	do {
 		if (ip->i_flag & IN_INITWAIT) {
@@ -1413,18 +1415,19 @@ void ext2_vget_irelse (struct inode *ip)
 			IULOCK(ip);
 			wakeup(&ip->i_flag);
 			IXLOCK(ip);
-		} else {
+		} else if (ip->i_refct > 0) {
 			struct timespec ts;
 			ts.tv_sec = 0;
 			ts.tv_nsec = 100000000 /* 10ms == 1 sched quantum */;
 			(void)ISLEEP(ip, flag, &ts);
-		}
-	} while (ip->i_refct > 0);
+		} else
+			break;
+	} while (1);
 	
-	typeof(ip->i_lock) lck = ip->i_lock;
-	ip->i_lock = NULL;
+	assert(NULLVP == ITOV(ip));
+	assert(0 == ip->i_refct);
 	IULOCK(ip);
-	lck_mtx_free(lck, EXT2_LCK_GRP);
+	lck_mtx_free(ip->i_lock, EXT2_LCK_GRP);
 	FREE(ip, M_EXT2NODE);
 }
 
