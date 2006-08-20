@@ -34,8 +34,13 @@
 #import <ufs/ffs/fs.h>
 
 #import <ext2_byteorder.h>
+#ifndef NOEXT2
 #import <gnu/ext2fs/ext2_fs.h>
+#endif
 
+#ifndef EFSM_PRIVATE
+#define EFSM_PRIVATE
+#endif
 // We don't want HFSVolumes.h from CarbonCore
 #define __HFSVOLUMES__
 #import "ExtFSMedia.h"
@@ -44,27 +49,34 @@
 
 char *progname;
 
+#ifndef NOEXT2
 struct superblock {
     struct ext2_super_block *s_es;
+};
+#endif
+
+struct efsattrs {
+    NSString *name;
+    NSString *uuid;
+    BOOL isJournaled;
 };
 
 #define EXT_SUPER_SIZE 32768
 #define EXT_SUPER_OFF 1024
 #define HFS_SUPER_OFF 1024
-static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
+static ExtFSType efs_getdevicefs (const char *device, struct efsattrs *fsa)
 {
     int fd, bytes;
     char *buf;
+    #ifndef NOEXT2
     struct superblock sb;
+    #endif
     HFSPlusVolumeHeader *hpsuper;
     HFSMasterDirectoryBlock *hsuper;
     struct fs *usuper;
     ExtFSType type = fsTypeUnknown; 
     char path[PATH_MAX] = "/dev/r";
     BOOL slocked = NO;
-    
-    if (uuidStr)
-        *uuidStr = nil;
     
     buf = malloc(EXT_SUPER_SIZE);
     if (!buf) {
@@ -91,7 +103,6 @@ static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
     }
     
     bytes = read (fd, buf, EXT_SUPER_SIZE);
-    close(fd);
 
     if (EXT_SUPER_SIZE != bytes) {
         fprintf(stderr, "%s: device read '%s' failed, %s\n", progname, path,
@@ -100,6 +111,7 @@ static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
         if (slocked)
             (void)munlock(buf, EXT_SUPER_SIZE);
         free(buf);
+        close(fd);
         return (-errno);
     }
 
@@ -107,51 +119,71 @@ static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
     unsigned char *hfsuidbytes = NULL;
     
     /* Ext2 and HFS(+) Superblocks start at offset 1024 (block 2). */
+    #ifndef NOEXT2
     sb.s_es = (struct ext2_super_block*)(buf+EXT_SUPER_OFF);
     if (EXT2_SUPER_MAGIC == le16_to_cpu(sb.s_es->s_magic)) {
         type = fsTypeExt2;
         if (0 != EXT2_HAS_COMPAT_FEATURE(&sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
             type = fsTypeExt3;
         uuidbytes = sb.s_es->s_uuid;
-    } else {
+    } else
+    #endif
+    {
+efs_hfs:
         hpsuper = (HFSPlusVolumeHeader*)(buf+HFS_SUPER_OFF);
         if (kHFSPlusSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFSPlus;
-            if (be32_to_cpu(hpsuper->attributes) & kHFSVolumeJournaledBit)
+            if (be32_to_cpu(hpsuper->attributes) & kHFSVolumeJournaledMask) {
                 type = fsTypeHFSJ;
+                fsa->isJournaled = YES;
+            }
             // unique id is in the last 8 bytes of the finder info storage
             // this is obviously not a UUID
             hfsuidbytes = &hpsuper->finderInfo[24];
         }
         else if (kHFSXSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFSX;
+            if (be32_to_cpu(hpsuper->attributes) & kHFSVolumeJournaledMask) {
+                fsa->isJournaled = YES;
+            }
             hfsuidbytes = &hpsuper->finderInfo[24];
         } else if (kHFSSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFS;
             hsuper = (HFSMasterDirectoryBlock*)(buf+HFS_SUPER_OFF);
-            if (kHFSPlusSigWord == be16_to_cpu(hsuper->drEmbedSigWord))
-                type = fsTypeHFSPlus; // XXX - we'd have to read the embedded volume header to get the UUID
+            if (0 != hsuper->drEmbedSigWord) {
+                // read the embedded volume header
+                bytes = be32_to_cpu(hsuper->drAlBlkSiz);
+                off_t offset = be16_to_cpu(hsuper->drAlBlSt) * 512 /*XXX*/;
+                offset += (off_t)be16_to_cpu(hsuper->drEmbedExtent.startBlock) * (off_t)bytes;
+                if (bytes < (sizeof(HFSPlusVolumeHeader) + HFS_SUPER_OFF))
+                    bytes = EXT_SUPER_SIZE;
+                if (bytes == pread(fd, buf, bytes, offset)) {
+                    goto efs_hfs;
+                }
+            }
         } else {
             usuper = (struct fs*)(buf+SBOFF);
             if (FS_MAGIC == be32_to_cpu(usuper->fs_magic)) {
                 struct ufslabel *ulabel = (struct ufslabel*)(buf+UFS_LABEL_OFFSET);
                 const u_char lmagic[] = UFS_LABEL_MAGIC;
                 type = fsTypeUFS;
-                if (uuidStr && *((u_int32_t*)&lmagic[0]) == be32_to_cpu(ulabel->ul_magic))
-                    *uuidStr = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(ulabel->ul_uuid)];
+                if (*((u_int32_t*)&lmagic[0]) == be32_to_cpu(ulabel->ul_magic))
+                    fsa->uuid = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(ulabel->ul_uuid)];
             }
         }
     }
     
-    if (uuidStr && uuidbytes) {
+    close(fd);
+    
+    if (uuidbytes) {
         CFUUIDRef cuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault,
             *((CFUUIDBytes*)uuidbytes));
         if (cuuid) {
-            *uuidStr = (NSString*)CFUUIDCreateString(kCFAllocatorDefault, cuuid);
+            fsa->uuid = (NSString*)CFUUIDCreateString(kCFAllocatorDefault, cuuid);
             CFRelease(cuuid);
         }
-    } else if (uuidStr && hfsuidbytes) {
-        *uuidStr = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(*((u_int64_t*)hfsuidbytes))];
+    } else if (hfsuidbytes) {
+        fsa->uuid = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(*((u_int64_t*)hfsuidbytes))];
     }
 
     bzero(buf, EXT_SUPER_SIZE);
@@ -164,8 +196,7 @@ static ExtFSType efs_getdevicefs (const char *device, NSString **uuidStr)
 int main (int argc, char *argv[])
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    NSString *uuid = nil;
-    ExtFSType type;
+    int type;
     
     if (2 != argc)
         return (-1);
@@ -174,10 +205,25 @@ int main (int argc, char *argv[])
     if (!progname)
         progname = argv[0];
     
-    type = efs_getdevicefs(argv[1], &uuid);
-    if (uuid) {
-        printf ("%s", [uuid UTF8String]);
-        [uuid release];
+    struct efsattrs fsa = {0};
+    type = efs_getdevicefs(argv[1], &fsa);
+    if (type > -1 && fsTypeUnknown != type) {
+        NSMutableDictionary *d = [[NSMutableDictionary alloc] init];
+        if (fsa.name) {
+            [d setObject:fsa.name forKey:EPROBE_KEY_NAME];
+        }
+        if (fsa.uuid) {
+            [d setObject:fsa.uuid forKey:EPROBE_KEY_UUID];
+        }
+        [d setObject:[NSNumber numberWithBool:fsa.isJournaled] forKey:EPROBE_KEY_JOURNALED];
+        
+        id plist = [NSPropertyListSerialization dataFromPropertyList:d
+            format:NSPropertyListXMLFormat_v1_0
+        	errorDescription:nil];
+        if (plist)
+            plist = [[NSString alloc] initWithData:plist encoding:NSUTF8StringEncoding]; 
+        if (plist)
+            printf ("%s", [plist  UTF8String]);
     }
     [pool release];
     return (type);
