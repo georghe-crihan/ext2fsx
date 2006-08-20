@@ -160,7 +160,7 @@ struct inode {
 	u_int32_t i_reclen;	/* Size of found directory entry. */
 	//u_int32_t i_dir_start_lookup; /* Index dir lookup */
 	#define f_pos i_diroff /* Index dir lookups */
-	void*     i_cachetoken; /* used to verify other side effects */
+	u_int64_t i_cachetoken; /* used to verify other side effects */
 	
 	u_int32_t i_block_group;
 	u_int32_t i_next_alloc_block;
@@ -259,7 +259,7 @@ struct indir {
 /* Locking contract:
 	1) If a function takes an inode, the inode is expected locked
 	2) If a function takes a vnode, the inode is expected unlocked
-	3) If locking 2 (or more) indoes, always lock from smallest to largest based on the inode #
+	3) If locking 2 (or more) inodes, always lock from smallest to largest based on the inode #
 	4) If locking an inode and the superblock, the inode must be locked before the sb
 	5) Exceptions to the above are marked.
 */
@@ -310,7 +310,13 @@ void IULOCK(struct inode *ip)
 #endif // DIAGNOSTIC
 
 static __inline__
-void IXLOCK_WITH_LOCKED_INODE(struct inode *ip, struct inode *lip)
+#ifndef DIAGNOSTIC
+void IXLOCK_WITH_LOCKED_INODE2(struct inode *ip, struct inode *lip)
+#define IXLOCK_WITH_LOCKED_INODE IXLOCK_WITH_LOCKED_INODE2
+#else
+void IXLOCK_WITH_LOCKED_INODE2(struct inode *ip, struct inode *lip, const char *file, int32_t line)
+#define IXLOCK_WITH_LOCKED_INODE(ip, lip) IXLOCK_WITH_LOCKED_INODE2(ip, lip, __FILE__, __LINE__)
+#endif
 {
 #ifdef DIAGNOSTIC
 	IASSERTLOCK(lip);
@@ -318,13 +324,22 @@ void IXLOCK_WITH_LOCKED_INODE(struct inode *ip, struct inode *lip)
 		panic("ext2: attempt to lock duplicate nodes!");
 #endif
 	if (lip->i_number < ip->i_number) {
+		#ifndef DIAGNOSTIC
 		IXLOCK(ip);
+		#else
+		IXLOCK2(ip, file, line);
+		#endif
 		return;
 	}
 	
 	IULOCK(lip);
+	#ifndef DIAGNOSTIC
 	IXLOCK(ip);
 	IXLOCK(lip);
+	#else
+	IXLOCK2(ip, file, line);
+	IXLOCK2(lip, file, line);
+	#endif
 }
 
 #define IREF(ip) (void)OSIncrementAtomic((SInt32*)&ip->i_refct)
@@ -352,7 +367,10 @@ static __inline__
 int inosleep_nolck(struct inode *ip, void *chan, const char *wmsg, struct timespec *ts)
 {
 	assert(ip->i_lockowner != current_thread());
-	return (msleep(chan, NULL, PINOD, wmsg, ts));
+    IREF(ip);
+	int err = msleep(chan, NULL, PINOD, wmsg, ts);
+    IRELSE(ip);
+	return (err);
 }
 #define ISLEEP_NOLCK(ip, field, ts) inosleep_nolck((ip), &(ip)->i_ ## field, __FUNCTION__, (ts))
 
