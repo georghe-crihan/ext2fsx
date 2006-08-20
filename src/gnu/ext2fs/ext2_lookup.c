@@ -71,8 +71,11 @@ extern struct nchstats nchstats;
 
 #ifdef DIAGNOSTIC
 __private_extern__ int dirchk = 1;
+static u_int32_t lookcachehit = 0;
+#define lookchit() OSIncrementAtomic((SInt32*)&lookcachehit)
 #else
 __private_extern__ int dirchk = 0;
+#define lookchit()
 #endif
 
 __private_extern__ u_int32_t lookcacheinval = 0;
@@ -130,6 +133,9 @@ static int	ext2_dirbadentry_locked(vnode_t dp, struct ext2_dir_entry_2 *de,
 #include "kern/linux_namei_compat.c"
 #include "linux/fs/ext3/namei.c"
 #include "linux/fs/ext3/dir.c"
+
+// Cache token utils
+#define e2cachetoken(cnp) (u_int64_t)(((u_int64_t)(cnp)->cn_hash + (cnp)->cn_nameiop) | ((u_int64_t)((uintptr_t)(cnp)) << 32))
 
 /*
  * Vnode op for reading directories.
@@ -494,7 +500,7 @@ int ext2_lookupi(vnode_t vdp, vnode_t *vpp, struct componentname *cnp, vfs_conte
     
     IXLOCK(dp);
     assert((dp->i_flag & IN_LOOK));
-    dp->i_cachetoken = cnp;
+    dp->i_cachetoken = e2cachetoken(cnp);
 
    /* Check for indexed dir */
    if (is_dx(dp)) {
@@ -1098,7 +1104,7 @@ ext2_direnter(ip, dvp, cnp, context)
     }
     dp->i_flag |= IN_LOOK;
    
-    if (cnp != dp->i_cachetoken) {
+    if (e2cachetoken(cnp) != dp->i_cachetoken) {
         // dir cache is invalid, need to lookup again
         IULOCK(dp);
         
@@ -1108,7 +1114,7 @@ ext2_direnter(ip, dvp, cnp, context)
         IXLOCK_WITH_LOCKED_INODE(dp, ip);
         
         if (0 == error || EJUSTRETURN == error) {
-            assert(cnp == dp->i_cachetoken);
+            assert(e2cachetoken(cnp) == dp->i_cachetoken);
             error = 0;
         } else {
             dp->i_flag &= ~IN_LOOK;
@@ -1116,7 +1122,8 @@ ext2_direnter(ip, dvp, cnp, context)
             IULOCK(dp);
             ext2_trace_return(error);
         }
-    }
+    } else
+        lookchit();
    
    if (is_dx(dp)) {
         #ifdef notyet
@@ -1330,7 +1337,7 @@ ext2_dirremove(dvp, cnp, context)
 	struct inode *dp;
 	struct ext2_dir_entry_2 *ep;
 	buf_t  bp;
-	int error;
+	int error, cacheinval E2_DGB_ONLY = 0;
 	 
 	dp = VTOI(dvp);
    
@@ -1344,17 +1351,20 @@ ext2_dirremove(dvp, cnp, context)
     }
     dp->i_flag |= IN_LOOK;
    
-    if (cnp != dp->i_cachetoken) {
+    if (e2cachetoken(cnp) != dp->i_cachetoken) {
         // dir cache is invalid, need to lookup again
         IULOCK(dp);
         
+        #ifdef DIAGNOSTIC
+        cacheinval = 1;
+        #endif
         OSIncrementAtomic((SInt32*)&lookcacheinval);
         error = ext2_lookupi(dvp, NULL, cnp, context);
         
         IXLOCK(dp);
         
         if (0 == error || EJUSTRETURN == error) {
-            assert(cnp == dp->i_cachetoken);
+            assert(e2cachetoken(cnp) == dp->i_cachetoken);
             error = 0;
         } else {
             dp->i_flag &= ~IN_LOOK;
@@ -1362,7 +1372,8 @@ ext2_dirremove(dvp, cnp, context)
             IULOCK(dp);
             ext2_trace_return(error);
         }
-    }
+    } else
+        lookchit();
    
    /* Check for indexed dir */
    if (is_dx(dp)) {
@@ -1412,8 +1423,9 @@ ext2_dirremove(dvp, cnp, context)
         IXLOCK(dp);
         if (!error) {
             dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
-            dp->i_flag &= ~IN_LOOK;
         }
+        
+        ext2_checkdir_locked(dvp);
         dp->i_flag &= ~IN_LOOK;
         IWAKE(dp, flag, flag, IN_LOOKWAIT);
         IULOCK(dp);
@@ -1437,6 +1449,7 @@ ext2_dirremove(dvp, cnp, context)
     if (!error)
         dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
     
+    ext2_checkdir_locked(dvp);
     dp->i_flag &= ~IN_LOOK;
     IWAKE(dp, flag, flag, IN_LOOKWAIT);
     IULOCK(dp);
@@ -1472,7 +1485,7 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
     }
     dp->i_flag |= IN_LOOK;
    
-    if (cnp != dp->i_cachetoken) {
+    if (e2cachetoken(cnp) != dp->i_cachetoken) {
         // dir cache is invalid, need to lookup again
         IULOCK(dp);
         
@@ -1482,7 +1495,7 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
         IXLOCK(dp);
         
         if (0 == error || EJUSTRETURN == error) {
-            assert(cnp == dp->i_cachetoken);
+            assert(e2cachetoken(cnp) == dp->i_cachetoken);
             error = 0;
         } else {
             dp->i_flag &= ~IN_LOOK;
@@ -1490,7 +1503,8 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
             IULOCK(dp);
             ext2_trace_return(error);
         }
-    }
+    } else
+        lookchit();
    
    int isdx = is_dx(dp);
    offset = (off_t)dp->i_offset;
@@ -1529,6 +1543,8 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
             ep->file_type = EXT2_FT_UNKNOWN;
         dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
     }
+    
+    ext2_checkdir_locked(vdp);
     dp->i_flag &= ~IN_LOOK;
     IWAKE(dp, flag, flag, IN_LOOKWAIT);
 	IULOCK(dp);
