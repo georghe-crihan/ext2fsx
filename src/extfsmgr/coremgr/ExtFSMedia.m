@@ -41,6 +41,9 @@ static const char whatid[] __attribute__ ((unused)) =
 #import <gnu/ext2fs/ext2_fs.h>
 #endif
 
+#ifndef EFSM_PRIVATE
+#define EFSM_PRIVATE
+#endif
 #import "ExtFSLock.h"
 #import "ExtFSMedia.h"
 #import "ExtFSMediaController.h"
@@ -138,11 +141,11 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
       return (EINVAL);
    
    gettimeofday(&now, nil);
+   ewlock(e_lock);
    
    #ifndef NOEXT2
    NSString *bsdName = [self bsdName];
    /* Get the superblock if we don't have it */
-   ewlock(e_lock);
    if ((fsTypeExt2 == e_fsType || fsTypeExt3 == e_fsType) && !e_sb) {
       e2super_alloc();
       if (e_sb)
@@ -163,6 +166,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
          e2super_free();
       }
    }
+   #endif
    
    if (e_lastFSUpdate + VOL_INFO_CACHE_TIME > now.tv_sec) {
       eulock(e_lock);
@@ -171,7 +175,6 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    e_lastFSUpdate = now.tv_sec;
    
    eulock(e_lock); // drop the lock while we do the I/O
-   #endif
    
    bzero(&vinfo, sizeof(vinfo));
    bzero(&alist, sizeof(alist));
@@ -234,24 +237,34 @@ eminfo_exit:
             [probe setStandardOutput:output];
             [probe setArguments:[NSArray arrayWithObjects:[self bsdName], nil]];
             [probe setLaunchPath:probePath];
-            NS_DURING
+            @try {
             [probe launch];
             [probe waitUntilExit];
-            NS_HANDLER
-            // Launch failed
-            NS_ENDHANDLER
             type = [probe terminationStatus];
+            } @catch (NSException *e) {
+            // Launch failed
+            type = -1;
+            }
             if (type >= 0 && type < fsTypeNULL) {
                 NSFileHandle *f;
                 NSData *d;
                 unsigned len;
                 
-                // See if there was a UUID output
+                // See if there was any attributes output
                 f = [output fileHandleForReading];
                 uuid = nil;
-                if ((d = [f availableData]) && (len = [d length]) > 0)
-                    uuid = [[NSString alloc] initWithBytes:[d bytes]
-                        length:len encoding:NSUTF8StringEncoding];
+                @try {
+                if ((d = [f availableData]) && (len = [d length]) > 0) {
+                    NSDictionary *plist = [NSPropertyListSerialization propertyListFromData:d
+                        mutabilityOption:NSPropertyListImmutable format:NULL errorDescription:nil];
+                    uuid = [[plist objectForKey:EPROBE_KEY_UUID] retain];
+                    if ([[plist objectForKey:EPROBE_KEY_JOURNALED] boolValue])
+                        e_volCaps |= (VOL_CAP_FMT_JOURNAL|VOL_CAP_FMT_JOURNAL_ACTIVE);
+                    else
+                        e_volCaps &= ~(VOL_CAP_FMT_JOURNAL|VOL_CAP_FMT_JOURNAL_ACTIVE);
+                    
+                }
+                } @catch (NSException *e) {}
                 
                 tmp = nil;
                 ewlock(e_lock);
@@ -708,7 +721,7 @@ emicon_exit:
 
 - (u_int64_t)blockCount
 {
-   return (e_blockCount);
+   return (e_blockCount ? e_blockCount : e_size / e_devBlockSize);
 }
 
 - (u_int64_t)fileCount
