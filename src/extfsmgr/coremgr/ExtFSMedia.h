@@ -546,3 +546,9 @@ extern NSString * const ExtFSMediaNotificationChildChange;
 @abstract Convenience macro to convert a C string to an NSString.
 */
 #define NSSTR(cstr) [NSString stringWithUTF8String:(cstr)]
+
+#ifdef EFSM_PRIVATE
+#define EPROBE_KEY_NAME @"name"
+#define EPROBE_KEY_UUID @"uuid"
+#define EPROBE_KEY_JOURNALED @"journaled"
+#endif
