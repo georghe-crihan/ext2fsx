@@ -1628,6 +1628,7 @@ ext2_checkpath_nolock(source, target, vallocp)
 	int error, rootino, namlen;
 	struct dirtemplate dirbuf;
     u_int32_t dotdot_ino;
+    int put = 0;
 
 	assert(NULL != context);
     
@@ -1666,19 +1667,21 @@ ext2_checkpath_nolock(source, target, vallocp)
 		}
 		if (dotdot_ino == rootino)
 			break;
-		vnode_put(vp);
+        if (put)
+            vnode_put(vp);
         vallocp->va_ino = dotdot_ino;
         if ((error = EXT2_VGET(vnode_mount(vp), vallocp, &vp, context)) != 0)
 		{
 			vp = NULL;
 			break;
 		}
+        put = 1;
 	}
 
 out:
 	if (error == ENOTDIR)
 		printf("ext2_checkpath: .. not a directory\n");
-	if (vp != NULL)
+	if (vp != NULL && put)
 		vnode_put(vp);
 	return (error);
 }
