@@ -1135,7 +1135,9 @@ ext2_rename(ap)
 	vnode_t tdvp = ap->a_tdvp;
 	vnode_t fvp = ap->a_fvp;
 	vnode_t fdvp = ap->a_fdvp;
+#ifdef obsolete
     vnode_t relsevp = NULL;
+#endif
 	struct componentname *tcnp = ap->a_tcnp;
 	struct componentname *fcnp = ap->a_fcnp;
 	struct inode *ip, *xp, *dp;
@@ -1143,7 +1145,6 @@ ext2_rename(ap)
 	int doingdirectory = 0, oldparent = 0, newparent = 0;
 	int error = 0;
 	u_char namlen;
-    struct vnop_lookup_args largs;
     ucred_t cred = vfs_context_ucred(ap->a_context);
    
    ext2_trace_enter();
@@ -1297,27 +1298,20 @@ abortit:
       if ((tcnp->cn_flags & SAVESTART) == 0)
 			panic("ext2_rename: lost to startdir");
 		VREF(tdvp);
-#endif
-		// XXX - missing from KPI, hope this replacement works
-        // error = relookup(tdvp, &tvp, tcnp);
+
         vnode_ref(tdvp);
-        largs.a_desc = &vnop_lookup_desc;
-        largs.a_dvp = tdvp;
-        largs.a_vpp = &tvp;
-        largs.a_cnp = tcnp;
-        largs.a_context = ap->a_context;
-        error = ext2_lookup(&largs);
+        error = ext2_relookup(tdvp, &tvp, tcnp, ap->a_context);
         vnode_rele(tdvp);
         
 		if (error)
 			goto bad;
         relsevp = tvp;
-		//vrele(tdvp);
 		dp = VTOI(tdvp);
 		if (tvp)
 			xp = VTOI(tvp);
         else
             xp = NULL;
+#endif
 	}
 	/*
 	 * 2) If target doesn't exist, link the target
@@ -1459,6 +1453,7 @@ abortit:
 		//vput(tvp);
 		xp = NULL;
 	}
+#ifdef obsolete
     if (relsevp) {
         vnode_put(relsevp);
         relsevp = NULL;
@@ -1467,17 +1462,10 @@ abortit:
 	/*
 	 * 3) Unlink the source.
 	 */
-	//fcnp->cn_flags &= ~MODMASK;
+    //fcnp->cn_flags &= ~MODMASK;
 	//fcnp->cn_flags |= LOCKPARENT | LOCKLEAF;
-	vnode_ref(fdvp);
-    largs.a_desc = &vnop_lookup_desc;
-    largs.a_dvp = fdvp;
-    largs.a_vpp = &fvp;
-    largs.a_cnp = fcnp;
-    largs.a_context = ap->a_context;
-    (void)ext2_lookup(&largs);
-	//error = relookup(fdvp, &fvp, fcnp);
-    vnode_rele(fdvp);
+	(void)ext2_relookup(fdvp, &fvp, fcnp, ap->a_context);
+    // vnode_rele(fdvp);
 
 	if (fvp != NULL) {
 		xp = VTOI(fvp);
@@ -1491,6 +1479,9 @@ abortit:
 			panic("ext2_rename: lost dir entry");
 		return (0);
 	}
+#endif
+    xp = VTOI(fvp);
+    dp = VTOI(fdvp);
 	/*
 	 * Ensure that the directory entry still exists and has not
 	 * changed while the new name has been entered. If the source is
@@ -1557,11 +1548,10 @@ abortit:
 	if (xp)
 		vput(fvp);
 	vrele(ap->a_fvp);
-#endif
-    
+
     if (relsevp)
         vnode_put(relsevp);
-    
+#endif    
 	ext2_trace_return(error);
 
 bad:
@@ -1584,9 +1574,10 @@ out:
     IULOCK(ip);
     
 abortit:
+#ifdef obsolete
     if (relsevp)
         vnode_put(relsevp);
-    
+#endif
 	ext2_trace_return(error);
 }
 
