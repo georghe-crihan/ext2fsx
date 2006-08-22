@@ -257,6 +257,11 @@ eminfo_exit:
                 if ((d = [f availableData]) && (len = [d length]) > 0) {
                     NSDictionary *plist = [NSPropertyListSerialization propertyListFromData:d
                         mutabilityOption:NSPropertyListImmutable format:NULL errorDescription:nil];
+                    if (plist) {
+                        [e_probedAttributes release];
+                        e_probedAttributes = [plist retain];
+                    }
+                    
                     uuid = [[plist objectForKey:EPROBE_KEY_UUID] retain];
                     if ([[plist objectForKey:EPROBE_KEY_JOURNALED] boolValue])
                         e_volCaps |= (VOL_CAP_FMT_JOURNAL|VOL_CAP_FMT_JOURNAL_ACTIVE);
@@ -955,6 +960,7 @@ emicon_exit:
    [e_uuid release];
    [e_children release];
    [e_parent release];
+   [e_probedAttributes release];
    
    edlock(e_lock);
    
