@@ -253,14 +253,11 @@ eminfo_exit:
                 // See if there was any attributes output
                 f = [output fileHandleForReading];
                 uuid = nil;
+                NSDictionary *plist = nil, *prevPlist = nil;
                 @try {
                 if ((d = [f availableData]) && (len = [d length]) > 0) {
-                    NSDictionary *plist = [NSPropertyListSerialization propertyListFromData:d
+                    plist = [NSPropertyListSerialization propertyListFromData:d
                         mutabilityOption:NSPropertyListImmutable format:NULL errorDescription:nil];
-                    if (plist) {
-                        [e_probedAttributes release];
-                        e_probedAttributes = [plist retain];
-                    }
                     
                     uuid = [[plist objectForKey:EPROBE_KEY_UUID] retain];
                     if ([[plist objectForKey:EPROBE_KEY_JOURNALED] boolValue])
@@ -278,7 +275,12 @@ eminfo_exit:
                     tmp = e_uuid;
                     e_uuid = uuid;
                 }
+                if (plist) {
+                    prevPlist = e_probedAttributes;
+                    e_probedAttributes = [plist retain];
+                }
                 eulock(e_lock);
+                [prevPlist release];
                 [tmp release];
             }
         #ifdef DIAGNOSTIC
