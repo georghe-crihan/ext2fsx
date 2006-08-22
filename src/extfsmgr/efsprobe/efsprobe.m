@@ -56,6 +56,8 @@ struct superblock {
 #endif
 
 struct efsattrs {
+    u_int64_t fsBlockCount;
+    u_int32_t fsBlockSize;
     NSString *name;
     NSString *uuid;
     BOOL isJournaled;
@@ -126,28 +128,29 @@ static ExtFSType efs_getdevicefs (const char *device, struct efsattrs *fsa)
         if (0 != EXT2_HAS_COMPAT_FEATURE(&sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
             type = fsTypeExt3;
         uuidbytes = sb.s_es->s_uuid;
+        fsa->fsBlockCount = le32_to_cpu(sb.s_es->s_blocks_count);
+        fsa->fsBlockSize = EXT2_MIN_BLOCK_SIZE << le32_to_cpu(sb.s_es->s_log_block_size);
     } else
     #endif
     {
 efs_hfs:
         hpsuper = (HFSPlusVolumeHeader*)(buf+HFS_SUPER_OFF);
-        if (kHFSPlusSigWord == be16_to_cpu(hpsuper->signature)) {
+        if (kHFSPlusSigWord == be16_to_cpu(hpsuper->signature)
+            || (kHFSXSigWord == be16_to_cpu(hpsuper->signature))) {
             type = fsTypeHFSPlus;
             if (be32_to_cpu(hpsuper->attributes) & kHFSVolumeJournaledMask) {
                 type = fsTypeHFSJ;
                 fsa->isJournaled = YES;
             }
+            if (kHFSXSigWord == be16_to_cpu(hpsuper->signature))
+                type = fsTypeHFSX;
             // unique id is in the last 8 bytes of the finder info storage
             // this is obviously not a UUID
             hfsuidbytes = &hpsuper->finderInfo[24];
+            fsa->fsBlockCount = be32_to_cpu(hpsuper->totalBlocks);
+            fsa->fsBlockSize = be32_to_cpu(hpsuper->blockSize);
         }
-        else if (kHFSXSigWord == be16_to_cpu(hpsuper->signature)) {
-            type = fsTypeHFSX;
-            if (be32_to_cpu(hpsuper->attributes) & kHFSVolumeJournaledMask) {
-                fsa->isJournaled = YES;
-            }
-            hfsuidbytes = &hpsuper->finderInfo[24];
-        } else if (kHFSSigWord == be16_to_cpu(hpsuper->signature)) {
+        else if (kHFSSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFS;
             hsuper = (HFSMasterDirectoryBlock*)(buf+HFS_SUPER_OFF);
             if (0 != hsuper->drEmbedSigWord) {
@@ -160,6 +163,9 @@ efs_hfs:
                 if (bytes == pread(fd, buf, bytes, offset)) {
                     goto efs_hfs;
                 }
+            } else {
+                fsa->fsBlockCount = be16_to_cpu(hsuper->drNmAlBlks);
+                fsa->fsBlockSize = be32_to_cpu(hsuper->drAlBlkSiz);
             }
         } else {
             usuper = (struct fs*)(buf+SBOFF);
@@ -170,6 +176,8 @@ efs_hfs:
                 if (*((u_int32_t*)&lmagic[0]) == be32_to_cpu(ulabel->ul_magic))
                     fsa->uuid = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(ulabel->ul_uuid)];
             }
+            fsa->fsBlockCount = be32_to_cpu(usuper->fs_size);
+            fsa->fsBlockSize = be32_to_cpu(usuper->fs_bsize);
         }
     }
     
@@ -216,6 +224,8 @@ int main (int argc, char *argv[])
             [d setObject:fsa.uuid forKey:EPROBE_KEY_UUID];
         }
         [d setObject:[NSNumber numberWithBool:fsa.isJournaled] forKey:EPROBE_KEY_JOURNALED];
+        [d setObject:[NSNumber numberWithUnsignedInt:fsa.fsBlockSize] forKey:EPROBE_KEY_FSBLKSIZE];
+        [d setObject:[NSNumber numberWithUnsignedLongLong:fsa.fsBlockCount] forKey:EPROBE_KEY_FSBLKCOUNT];
         
         id plist = [NSPropertyListSerialization dataFromPropertyList:d
             format:NSPropertyListXMLFormat_v1_0

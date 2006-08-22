@@ -141,6 +141,8 @@ a filesystem or device for its properties.
 */
 @interface ExtFSMedia : NSObject
 {
+@protected
+    NSDictionary *e_probedAttributes;
 @private
    void *e_lock; // lock storage
    ExtFSMedia *e_parent;
@@ -547,8 +549,8 @@ extern NSString * const ExtFSMediaNotificationChildChange;
 */
 #define NSSTR(cstr) [NSString stringWithUTF8String:(cstr)]
 
-#ifdef EFSM_PRIVATE
 #define EPROBE_KEY_NAME @"name"
 #define EPROBE_KEY_UUID @"uuid"
 #define EPROBE_KEY_JOURNALED @"journaled"
-#endif
+#define EPROBE_KEY_FSBLKSIZE @"fsBlockSize"
+#define EPROBE_KEY_FSBLKCOUNT @"fsBlockCount"
