@@ -244,9 +244,6 @@ ext2_truncate(vp, length, flags, cred, p)
 		oip->i_size = length;
 		size = blksize(fs, oip, lbn);
 		bzero((char *)buf_dataptr(bp) + offset, (u_int)(size - offset));
-#ifdef obsolete /* XXX */
-		allocbuf(bp, size);
-#endif
         IULOCK(oip);
 		if (UBCINFOEXISTS(ovp)) {
 			buf_markinvalid(bp);

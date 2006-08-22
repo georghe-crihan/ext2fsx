@@ -58,58 +58,6 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <gnu/ext2fs/ext2_fs_sb.h>
 #include <ext2_byteorder.h>
 
-#ifdef obsolete
-/*
- * Bmap converts a the logical block number of a file to its physical block
- * number on the disk. The conversion is done by using the logical block
- * number to index into the array of block pointers described by the dinode.
- */
-int
-ext2_bmap(ap)
-	struct vop_bmap_args /* {
-		vnode_t a_vp;
-        off_t a_foffset;
-        size_t a_size;
-		daddr64_t *a_bpn;
-        size_t *a_run;
-        void *a_poff;
-        int a_flags;
-        vfs_context_t a_context;
-	} */ *ap;
-{
-	struct ext2_sb_info *fs;
-    ext2_daddr_t blkno, bn;
-	int error;
-
-	/*
-	 * Check for underlying vnode requests and ensure that logical
-	 * to physical mapping is requested.
-	 */
-#ifdef obsolete
-    if (ap->a_vpp != NULL)
-		*ap->a_vpp = VTOI(ap->a_vp)->i_devvp;
-#endif
-	if (ap->a_bpn == NULL)
-		return (0);
-   
-    ext2_trace_enter();
-
-	fs = VTOI(ap->a_vp)->i_e2fs;
-    if ((error = blkoff(fs, ap->a_foffset))) {
-		panic("ext2_bmap: allocation requested inside a block (possible filesystem corruption): "
-         "qbmask=%qd, inode=%u, offset=%qu, blkoff=%d",
-         fs->s_qbmask, VTOI(ap->a_vp)->i_number, ap->a_foffset, error);
-	}
-    
-    bn = (ext2_daddr_t)lblkno(fs, ap->a_foffset);
-    error = ext2_bmaparray(ap->a_vp, bn, &blkno, ap->a_run, NULL);
-	*ap->a_bpn = (daddr64_t)blkno;
-    ext2_trace("returning dblock: %d for lblock: %d in inode %u\n", blkno, bn,
-        VTOI(ap->a_vp)->i_number);
-	return (error);
-}
-#endif
-
 /*
  * Indirect blocks are now on the vnode for the file.  They are given negative
  * logical block numbers.  Indirect blocks are addressed by the negative
@@ -230,14 +178,8 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
 #endif
 
         if (buf_valid(bp)) {
-#ifdef obsolete
-			trace(TR_BREADHIT, pack(vp, iosize), metalbn);
-#endif
             ;
 		} else {
-#ifdef obsolete
-            trace(TR_BREADMISS, pack(vp, iosize), metalbn);
-#endif
             buf_setblkno(bp, (daddr64_t)blkptrtodb(ump, daddr));
             buf_setflags(bp, B_READ);
             
@@ -245,9 +187,6 @@ ext2_bmaparray(vp, bn, bnp, runp, runb)
             vsargs.a_desc = &vnop_strategy_desc;
             vsargs.a_bp = bp;
             buf_strategy(devvp, &vsargs);
-#ifdef obsolete
-			curproc->p_stats->p_ru.ru_inblock++;	/* XXX */
-#endif
 			error = bufwait(bp);
 			if (error) {
 				buf_brelse(bp);

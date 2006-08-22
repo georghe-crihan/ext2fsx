@@ -659,17 +659,9 @@ ext2_reload(mountp, context)
 {
 	struct ext2_iter_cargs cargs;
 	vnode_t devvp;
-#ifdef obsolete
-	vnode_t vp, nvp;
-	struct inode *ip;
-#endif
 	buf_t bp;
 	struct ext2_super_block * es;
 	struct ext2_sb_info *fs;
-#ifdef obsolete
-	proc_t p = vfs_context_proc(context);
-	ucred_t cred = vfs_context_ucred(context);
-#endif
 	int error;
     u_int32_t devBlockSize=0;
 
@@ -707,52 +699,7 @@ ext2_reload(mountp, context)
 		buf_markinvalid(bp);
 #endif
 	buf_brelse(bp);
-
-#ifdef obsolete
-loop:
-   simple_lock(&mntvnode_slock);
-   for (vp = LIST_FIRST(&mountp->mnt_vnodelist); vp != NULL; vp = nvp) {
-		if (vp->v_mount != mountp) {
-			simple_unlock(&mntvnode_slock);
-			goto loop;
-		}
-        nvp = LIST_NEXT(vp, v_mntvnodes);
-		/*
-		 * Step 4: invalidate all inactive vnodes.
-		 */
-  		if (vrecycle(vp, &mntvnode_slock, td))
-  			goto loop;
-		/*
-		 * Step 5: invalidate all cached file data.
-		 */
-        /* XXX Can cause spinlock deadlock because of a bug in vget() when
-           using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly".
-        simple_lock (&vp->v_interlock); */
-		simple_unlock(&mntvnode_slock);
-		if (vget(vp, LK_EXCLUSIVE /*| LK_INTERLOCK */, td)) {
-			goto loop;
-		}
-		if (vinvalbuf(vp, 0, cred, td, 0, 0))
-			panic("ext2_reload: dirty2");
-		/*
-		 * Step 6: re-read inode data for all active vnodes.
-		 */
-		ip = VTOI(vp);
-		error =
-		    bread(devvp, fsbtodb(fs, ino_to_fsba(fs, ip->i_number)),
-		    (int)fs->s_blocksize, NOCRED, &bp);
-		if (error) {
-			vput(vp);
-			ext2_trace_return(error);
-		}
-		ext2_ei2i((struct ext2_inode *) ((char *)bp->b_data +
-		    EXT2_INODE_SIZE * ino_to_fsbo(fs, ip->i_number)), ip);
-		brelse(bp);
-		vput(vp);
-		simple_lock(&mntvnode_slock);
-	}
-	simple_unlock(&mntvnode_slock);
-#endif //obsolete
+	
 	cargs.ca_vctx = context;
 	cargs.ca_wait = cargs.ca_err = 0;
 	if ((error = vnode_iterate(mountp, VNODE_RELOAD|VNODE_NOLOCK_INTERNAL,
@@ -1078,15 +1025,6 @@ ext2_getattrfs(mp, attrs, context)
 	VFSATTR_RETURN(attrs, f_bavail, attrs->f_bfree - le32_to_cpu(es->s_r_blocks_count)); 
 	VFSATTR_RETURN(attrs, f_files, le32_to_cpu(es->s_inodes_count)); 
 	VFSATTR_RETURN(attrs, f_ffree, le32_to_cpu(es->s_free_inodes_count));
-#ifdef obsolete
-	if (attrs != vfs_statfs(mp)) {
-		attrs->f_type = vfs_typenum(mp);
-		bcopy((caddr_t)mp->mnt_stat.f_mntonname,
-			(caddr_t)&attrs->f_mntonname[0], MNAMELEN);
-		bcopy((caddr_t)mp->mnt_stat.f_mntfromname,
-			(caddr_t)&attrs->f_mntfromname[0], MNAMELEN);
-	}
-#endif
 	
 	struct vfsstatfs *sbp = vfs_statfs(mp);
 	int numdirs = fs->s_dircount;
@@ -1291,10 +1229,6 @@ ext2_sync(mp, waitfor, context)
 	vfs_context_t context;
 {
 	struct ext2_iter_cargs args;
-#ifdef obsolete
-	vnode_t nvp, vp;
-	struct inode *ip;
-#endif
 	struct ext2mount *ump = VFSTOEXT2(mp);
 	struct ext2_sb_info *fs;
 	int flags, error, allerror = 0;
@@ -1320,56 +1254,6 @@ ext2_sync(mp, waitfor, context)
 		allerror = error;
 	if (args.ca_err)
 		allerror = args.ca_err;
-#ifdef obsolete
-	simple_lock(&mntvnode_slock);
-loop:
-   for (vp = LIST_FIRST(&mp->mnt_vnodelist); vp != NULL; vp = nvp) {
-		/*
-		 * If the vnode that we are about to sync is no longer
-		 * associated with this mount point, start over.
-		 */
-		if (vp->v_mount != mp)
-			goto loop;
-        VI_LOCK(vp);
-		nvp = LIST_NEXT(vp, v_mntvnodes);
-		ip = VTOI(vp);
-		/* The inode can be NULL when ext2_vget encounters an error from bread()
-			and a sync() gets in before the vnode is invalidated.
-		 */
-		if (NULL == ip || vp->v_flag & (VXLOCK|VORECLAIM)) {
-			VI_UNLOCK(vp);
-			continue;
-		}
-		if (vp->v_type == VNON ||
-		    ((ip->i_flag & (IN_ACCESS | IN_CHANGE | IN_MODIFIED | IN_UPDATE)) == 0 &&
-            LIST_EMPTY(&vp->v_dirtyblkhd) && !(vp->v_flag & VHASDIRTY))) {
-			VI_UNLOCK(vp);
-			continue;
-		}
-		
-		/* XXX Can cause spinlock deadlock because of a bug in vget() when
-           using LK_INTERLOCK. Radar Bug #3193564 -- closed as "Behaves Correctly". */
-		/* XXX */ VI_UNLOCK(vp); /* XXX */
-		simple_unlock(&mntvnode_slock);
-		error = vget(vp, LK_EXCLUSIVE | LK_NOWAIT /*| LK_INTERLOCK */, td);
-		if (error) {
-			simple_lock(&mntvnode_slock);
-			if (error == ENOENT)
-				goto loop;
-			continue;
-		}
-      
-       didhold = ubc_hold(vp);
-	   if ((error = VOP_FSYNC(vp, cred, waitfor, td)) != 0)
-			allerror = error;
-	   VOP_UNLOCK(vp, 0, td);
-       if (didhold)
-         ubc_rele(vp);
-	   vrele(vp);
-	   simple_lock(&mntvnode_slock);
-	}
-	simple_unlock(&mntvnode_slock);
-#endif // obsolete
 
 	/*
 	 * Force stale file system control information to be flushed.

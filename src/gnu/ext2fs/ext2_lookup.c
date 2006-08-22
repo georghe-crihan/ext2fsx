@@ -1067,13 +1067,7 @@ ext2_direnter(ip, dvp, cnp, context)
     int dx_fallback = 0;
     struct dentry dentry, dparent = {NULL, {NULL, 0}, NULL};
     handle_t h = {cnp};
-
-#ifdef obsolete
-#if DIAGNOSTIC
-	if ((cnp->cn_flags & SAVENAME) == 0)
-		panic("ext2_direnter: missing name");
-#endif
-#endif
+    
 	dp = VTOI(dvp);
     fs = dp->i_e2fs;
 	newdir.inode = cpu_to_le32(ip->i_number);

@@ -274,20 +274,6 @@ WRITE(ap)
 		ext2_trace_return(EFBIG);
     if (uio_resid(uio) == 0)
         return (0);
-   
-#ifdef obsolete
-	/*
-	 * Maybe this should be above the vnode op call, but so long as
-	 * file servers have no limits, I don't think it matters.
-	 */
-	td = vfs_context_proc(context);
-	if (vnode_v_type(vp) == VREG && td &&
-	    uio_offset(uio) + uio_resid(uio) >
-        td->p_rlimit[RLIMIT_FSIZE].rlim_cur) {
-        proc_signal(td, SIGXFSZ);
-		ext2_trace_return(EFBIG);
-	}
-#endif
 
 	resid = uio_resid(uio);
     IXLOCK(ip);
@@ -476,8 +462,7 @@ WRITE(ap)
         IXLOCK(ip);
 	}
    } /* if (UBCISVALID(vp)) */
-
-    dprint_clusters(vp);
+   
     /*
 	 * If we successfully wrote any data, and we are not the superuser
 	 * we clear the setuid and setgid bits as a precaution against

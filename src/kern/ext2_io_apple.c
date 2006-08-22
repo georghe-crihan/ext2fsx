@@ -111,14 +111,6 @@ ext2_pagein(ap)
 
 	ip = VTOI(vp);
 
-#ifdef obsolete
-	/* check pageins for reg file only  and ubc info is present*/
-	if  (UBCINVALID(vp))
-		panic("ext2_pagein: Not a  VREG: vp=%x", vp);
-	if (UBCINFOMISSING(vp))
-		panic("ext2_pagein: No mapping: vp=%x", vp);
-#endif
-
 #if DIAGNOSTIC
 	if (VLNK == vnode_vtype(vp)) {
 		if ((int)ip->i_size < vfs_maxsymlen(vnode_mount(vp)))
@@ -173,15 +165,6 @@ ext2_pageout(ap)
     ext2_trace_enter();
 
 	ip = VTOI(vp);
-
-#ifdef obsolete
-	/* check pageouts for reg file only  and ubc info is present*/
-	if  (UBCINVALID(vp))
-		panic("ext2_pageout: Not a  VREG: vp=%x", vp);
-	if (UBCINFOMISSING(vp))
-		panic("ext2_pageout: No mapping: vp=%x", vp);
-#endif
-
     if (vfs_flags(vnode_mount(vp)) & MNT_RDONLY) {
 		if (!nocommit)
   			ubc_upl_abort_range(pl, pl_offset, size, 
@@ -637,7 +620,7 @@ ext2_blockmap(ap)
 	if (ap->a_poff) 
 		*(int *)ap->a_poff = 0;
 
-#ifdef obsolete
+#ifdef cluster_io_bug_fix
     if (daddr == -1) {
         /* XXX - BDB - Workaround for bug #965119
            There is a bug in cluster_io() in all pre 10.4.x kernels that causes nasty problems 
@@ -686,126 +669,6 @@ ext2_blockmap(ap)
             *runp = retsize;
         else
             *runp = size;
-#ifdef obsolete
-        if ((size < EXT2_BLOCK_SIZE(fs))) {
-			*runp = size;
-			return(0);
-		}
-		if (retsize) {
-			retsize += EXT2_BLOCK_SIZE(fs);
-			if(size >= retsize)
-				*runp = retsize;
-			else
-				*runp = size;
-		} else {
-			if (size < EXT2_BLOCK_SIZE(fs)) {
-				retsize = fragroundup(fs, size);
-				if(size >= retsize)
-					*runp = retsize;
-				else
-					*runp = size;
-			} else {
-				*runp = EXT2_BLOCK_SIZE(fs);
-			}
-		}
-#endif
 	}
 	return (0);
 }
-
-#ifdef obsolete
-/* Derived from hfs_cache_lookup() */
-__private_extern__ int
-ext2_cache_lookup(ap)
-	struct vop_lookup_args /* {
-		vnode_t a_dvp;
-		vnode_t *a_vpp;
-		struct componentname *a_cnp;
-	} */ *ap;
-{
-   vnode_t dvp;
-	vnode_t vp;
-	int lockparent; 
-	int error;
-	vnode_t *vpp = ap->a_vpp;
-	struct componentname *cnp = ap->a_cnp;
-	struct ucred *cred = cnp->cn_cred;
-	int flags = cnp->cn_flags;
-	struct proc *p = cnp->cn_proc;
-   int vpid; /* capability number of vnode */
-   
-   *vpp = NULL;
-	dvp = ap->a_dvp;
-	lockparent = flags & LOCKPARENT;
-
-	/*
-	 * Check accessiblity of directory.
-	 */
-	if (dvp->v_type != VDIR)
-		ext2_trace_return(ENOTDIR);
-	if ((flags & ISLASTCN) && (dvp->v_mount->mnt_flag & MNT_RDONLY) &&
-	    (cnp->cn_nameiop == DELETE || cnp->cn_nameiop == RENAME))
-		ext2_trace_return(EROFS);
-	if ((error = VOP_ACCESS(dvp, VEXEC, cred, cnp->cn_proc)))
-		ext2_trace_return(error);
-   
-   /*
-	 * Lookup an entry in the cache
-	 * If the lookup succeeds, the vnode is returned in *vpp, and a status of -1 is
-	 * returned. If the lookup determines that the name does not exist
-	 * (negative cacheing), a status of ENOENT is returned. If the lookup
-	 * fails, a status of zero is returned.
-	 */
-	error = cache_lookup(dvp, vpp, cnp);
-	if (error == 0)  {		/* Unsuccessful */
-		error = ext2_lookup((struct vop_cachedlookup_args*)ap);
-		ext2_trace_return(error);
-	}
-	
-	if (error == ENOENT)
-		ext2_trace_return(error);
-	
-	/* We have a name that matched */
-	vp = *vpp;
-    vpid = vp->v_id;
-   
-    if (dvp == vp) {	/* lookup on "." */
-		VREF(vp);
-		error = 0;
-	} else if (flags & ISDOTDOT) {
-		/* 
-		 * Careful on the locking policy,
-		 * remember we always lock from parent to child, so have
-		 * to release lock on child before trying to lock parent
-		 * then regain lock if needed
-		 */
-		VOP_UNLOCK(dvp, 0, p);
-		error = vget(vp, LK_EXCLUSIVE, p);
-		if (!error && lockparent && (flags & ISLASTCN))
-			error = vn_lock(dvp, LK_EXCLUSIVE, p);
-	} else {
-		error = vget(vp, LK_EXCLUSIVE, p);
-		if (!lockparent || error || !(flags & ISLASTCN))
-			VOP_UNLOCK(dvp, 0, p);
-	}
-   
-   /*
-    * Check that the capability number did not change
-    * while we were waiting for the lock.
-    */
-   if (!error) {
-      if (vpid == vp->v_id)
-         return (0);
-         
-      /* Error condition */
-      vput(vp);
-      if (lockparent && (dvp != vp) && (flags & ISLASTCN))
-         VOP_UNLOCK(dvp, 0, p);
-   }
-   
-   if ((error = vn_lock(dvp, LK_EXCLUSIVE, p)))
-		return (error);
-
-	ext2_trace_return(ext2_lookup((struct vop_cachedlookup_args*)ap));
-}
-#endif

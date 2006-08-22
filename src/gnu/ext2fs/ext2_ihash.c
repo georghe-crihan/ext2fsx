@@ -173,11 +173,6 @@ ext2_ihashins(ip)
 {
 	struct ihashhead *ipp;
 
-#ifdef obsolete
-	/* lock the inode, then put it on the appropriate hash list */
-	vnode_lock(ITOV(ip));
-#endif
-
 	hlock();
 	ipp = INOHASH(ip->i_dev, ip->i_number);
 	LIST_INSERT_HEAD(ipp, ip, i_hash);

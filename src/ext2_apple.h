@@ -151,14 +151,6 @@ int EXT2_WRITE(vnode_t vp, uio_t uio, int flags, vfs_context_t context)
     args.a_context = context;
     return (ext2_write(&args));
 }
-#ifdef obsolete
-__private_extern__ int ext2_lock (struct vop_lock_args *);
-__private_extern__ int ext2_unlock (struct vop_unlock_args *);
-__private_extern__ int ext2_islocked (struct vop_islocked_args *);
-__private_extern__ int ext2_abortop (struct vop_abortop_args *);
-__private_extern__ int ext2_getattrlist (struct vop_getattrlist_args *);
-__private_extern__ int ext2_setattrlist (struct vop_setattrlist_args *);
-#endif
 #endif
 
 #if DIAGNOSTIC
@@ -240,34 +232,6 @@ __private_extern__ int e2securelevel();
 #define VI_MTX(vp) NULL
 /* #define VI_MTX(vp) (&(vp)->v_interlock) */
 
-#ifdef obsolete
-
-#if defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
-
-/* vnode_t */
-#define VI_LOCK(vp) \
-do { \
-ext2_trace("grabbing vp %lu lock\n", vnode_vid((vp))); \
-vnode_lock((vp)); \
-} while(0)
-
-/* vnode_t */
-#define VI_UNLOCK(vp) \
-do { \
-vnode_unlock((vp)); \
-ext2_trace("dropped vp %lu lock\n", vnode_vid((vp))); \
-} while(0)
-
-#else
-
-/* vnode_t */
-#define VI_LOCK(vp) vnode_lock((vp))
-#define VI_UNLOCK(vp) vnode_unlock((vp))
-
-#endif /* defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE) */
-
-#endif /* obsolete */
-
 #define VI_LOCK(vp)
 #define VI_UNLOCK(vp)
 
@@ -291,11 +255,6 @@ int vop_stdfsync(struct vnop_fsync_args *ap)
         BUF_SKIP_LOCKED, "ext2_fsync");
     return (0);
 }
-#endif
-
-#ifdef obsolete
-__private_extern__ int vrefcnt(vnode_t);
-__private_extern__ int vop_stdfsync(struct vnop_fsync_args *);
 #endif
 
 /* Vnode flags */
@@ -343,9 +302,6 @@ int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
 
 #define bqrelse buf_brelse
 #define bufwait buf_biowait
-#ifdef obsolete
-#define bufdone buf_biodone
-#endif
 
 #define hashdestroy(tbl,type,cnt) FREE((tbl), (type))
 
@@ -400,18 +356,6 @@ static __inline void * memscan(void * addr, int c, size_t size)
 __private_extern__ char* e_strrchr(const char *, int);
 
 /* Debug */
-
-#if defined(obsolete) && defined(EXT2FS_DEBUG) && defined(EXT2FS_TRACE)
-
-__private_extern__
-void print_clusters(struct vnode *, char *);
-#define dprint_clusters(vp) print_clusters((vp), __FUNCTION__)
-
-#else
-
-#define dprint_clusters(vp)
-
-#endif /* EXT2FS_DEBUG && EXT2FS_TRACE */
 
 #endif /*KERNEL*/
 

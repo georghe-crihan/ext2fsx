@@ -106,9 +106,6 @@ static const char vwhatid[] __attribute__ ((unused)) =
 
 static int ext2_makeinode(int mode, vnode_t, vnode_t *, struct componentname *, vfs_context_t);
 
-#ifdef obsolete
-static int ext2_access(struct vnop_access_args *);
-#endif
 //static int ext2_advlock(struct vnop_advlock_args *);
 static int ext2_chmod(vnode_t, int, ucred_t, proc_t);
 static int ext2_chown(struct inode *ip, uid_t, gid_t, ucred_t, proc_t);
@@ -124,9 +121,6 @@ static int ext2_mkdir(struct vnop_mkdir_args *);
 static int ext2_mknod(struct vnop_mknod_args *);
 static int ext2_open(struct vnop_open_args *);
 static int ext2_pathconf(struct vnop_pathconf_args *);
-#ifdef obsolete
-static int ext2_print(struct vnop_print_args *);
-#endif
 __private_extern__ int ext2_read(struct vnop_read_args *);
 static int ext2_readlink(struct vnop_readlink_args *);
 static int ext2_remove(struct vnop_remove_args *);
@@ -145,9 +139,6 @@ static int ext2fifo_write(struct vnop_write_args *);
 static int ext2spec_close(struct vnop_close_args *);
 static int ext2spec_read(struct vnop_read_args *);
 static int ext2spec_write(struct vnop_write_args *);
-#ifdef obsolete
-static int ext2fs_truncate (struct vnop_truncate_args *);
-#endif
 static int ext2_mnomap(struct vnop_mnomap_args*);
 #define ext2_whiteout nop_whiteout
 #define ext2_select err_select
@@ -155,11 +146,6 @@ static int ext2_mnomap(struct vnop_mnomap_args*);
 #define ext2_revoke err_revoke
 #define ext2_readdirattr err_readdirattr
 #define ext2_searchfs err_searchfs
-
-#ifdef obsolote
-#define ext2_valloc err_valloc
-#define ext2_vfree err_vfree
-#endif
 
 #ifdef EXT_KNOTE
 static int filt_ext2read(struct knote *kn, long hint);
@@ -225,22 +211,6 @@ static struct vnodeopv_entry_desc ext2_vnodeop_entries[] = {
     { &vnop_mnomap_desc,	(vnop_t *) ext2_mnomap },
     { &vnop_readdirattr_desc,	(vnop_t *) ext2_readdirattr },
     { &vnop_searchfs_desc,	(vnop_t *) ext2_searchfs },
-#ifdef obsolete
-    { &vnop_lookup_desc,	(vnop_t *) ext2_cache_lookup },
-    { &vnop_cachedlookup_desc,	(vnop_t *) ext2_lookup },
-    { &vnop_print_desc,		(vnop_t *) ext2_print },
-    { &vnop_reallocblks_desc,	(vnop_t *) ext2_reallocblks },
-    { &vnop_truncate_desc, (vnop_t *) ext2fs_truncate },		/* truncate */
-    { &vnop_lock_desc, (vnop_t *)ext2_lock },
-    { &vnop_unlock_desc, (vnop_t *)ext2_unlock },
-    { &vnop_islocked_desc, (vnop_t *)ext2_islocked },
-    { &vnop_abortop_desc, (vnop_t *)ext2_abortop },
-    { &vnop_cmap_desc,			(vnop_t *) ext2_cmap },
-    { &vnop_getattrlist_desc,	(vnop_t *) ext2_getattrlist },
-    { &vnop_setattrlist_desc,	(vnop_t *) ext2_setattrlist },
-    { &vnop_valloc_desc,	(vnop_t *) ext2_valloc },
-    { &vnop_vfree_desc,	(vnop_t *) ext2_vfree },
-#endif
     { NULL, NULL }
 };
 __private_extern__ struct vnodeopv_desc ext2fs_vnodeop_opv_desc =
@@ -321,16 +291,6 @@ static struct vnodeopv_entry_desc ext2_specop_entries[] = {
     { &vnop_rmdir_desc,		(vnop_t *) spec_rmdir },
     { &vnop_strategy_desc,		(vnop_t *) spec_strategy },
     { &vnop_symlink_desc,		(vnop_t *) spec_symlink },
-#ifdef obsolete
-    { &vnop_print_desc,		(vnop_t *) ext2_print },
-    { &vnop_reallocblks_desc,	(vnop_t *) spec_reallocblks },
-    { &vnop_truncate_desc, (vnop_t *) spec_truncate },		/* truncate */
-    { &vnop_lock_desc, (vnop_t *)ext2_lock },
-    { &vnop_unlock_desc, (vnop_t *)ext2_unlock },
-    { &vnop_islocked_desc, (vnop_t *)ext2_islocked },
-    { &vnop_abortop_desc, (vnop_t *)spec_abortop },
-    { &vnop_cmap_desc,			(vnop_t *) spec_cmap },
-#endif
     { &vnop_pagein_desc,			(vnop_t *) ext2_pagein },
     { &vnop_pageout_desc,		(vnop_t *) ext2_pageout },
     { &vnop_blktooff_desc,		(vnop_t *) ext2_blktooff },
@@ -376,17 +336,6 @@ static struct vnodeopv_entry_desc ext2_fifoop_entries[] = {
     { &vnop_rename_desc,		(vnop_t *) fifo_rename },
     { &vnop_rmdir_desc,		(vnop_t *) fifo_rmdir },
     { &vnop_strategy_desc,		(vnop_t *) err_strategy },
-    { &vnop_symlink_desc,		(vnop_t *) fifo_symlink },
-#ifdef obsolete
-    { &vnop_print_desc,		(vnop_t *) ext2_print },
-    { &vnop_reallocblks_desc,	(vnop_t *) fifo_reallocblks },
-    { &vnop_truncate_desc, (vnop_t *) fifo_truncate },		/* truncate */
-    { &vnop_lock_desc, (vnop_t *)ext2_lock },
-    { &vnop_unlock_desc, (vnop_t *)ext2_unlock },
-    { &vnop_islocked_desc, (vnop_t *)ext2_islocked },
-    { &vnop_abortop_desc, (vnop_t *)fifo_abortop },
-    { &vnop_cmap_desc,			(vnop_t *) ext2_cmap },
-#endif
     { &vnop_pagein_desc,			(vnop_t *) ext2_pagein },
     { &vnop_pageout_desc,		(vnop_t *) ext2_pageout },
     { &vnop_blktooff_desc,		(vnop_t *) ext2_blktooff },
@@ -555,72 +504,6 @@ ext2_close(ap)
     cluster_push(vp, IO_CLOSE);
     return (0);
 }
-
-#ifdef obsolete
-static int
-ext2_access(ap)
-	struct vnop_access_args /* {
-		vnode_t a_vp;
-		int  a_mode;
-		vfs_context_t a_context
-	} */ *ap;
-{
-	vnode_t vp = ap->a_vp;
-	struct inode *ip = VTOI(vp);
-	mode_t mode;
-	int error;
-   
-   ext2_trace_enter();
-
-	/*
-	 * Disallow write attempts on read-only file systems;
-	 * unless the file is a socket, fifo, or a block or
-	 * character device resident on the file system.
-	 */
-	if (mode & VWRITE) {
-		switch (vnode_vtype(vp)) {
-		case VDIR:
-		case VLNK:
-		case VREG:
-			if (vfs_isrdonly(vnode_mount(vp)))
-				ext2_trace_return(EROFS);
-			break;
-		default:
-			break;
-		}
-	}
-
-	ISLOCK(ip);
-    
-    /* If immutable bit set, nobody gets to write it. */
-	if ((mode & VWRITE) && (ip->i_flags & (IMMUTABLE | SF_SNAPSHOT))) {
-        IULOCK(ip);
-		ext2_trace_return(EPERM);
-    }
-    
-    mode_t imode = ip->i_mode;
-    uid_t uid = ip->i_uid;
-    gid_t gid = ip->i_gid;
-    IULOCK(ip);
-    
-    mode = 0;
-    if (ap->a_action & KAUTH_VNODE_READ_DATA)
-        mode |= VREAD;
-    if (ap->a_action & KAUTH_VNODE_WRITE_RIGHTS)
-        mode |= VWRITE;
-    if (ap->a_action & KAUTH_VNODE_EXECUTE)
-        mode |= VEXEC;
-    
-	error = vaccess(imode, uid, gid, mode, vfs_context_ucred(ap->a_context));
-	
-    /* If mounted w/o perms, then allow anything except root access. */
-    if (error && (uid > 0) && (vfs_flags(vnode_mount(vp)) & MNT_IGNORE_OWNERSHIP)) {
-        error = 0;
-    }
-    
-    ext2_trace_return(error);
-}
-#endif
 
 static int
 ext2_getattr(ap)
@@ -909,9 +792,6 @@ ext2_mknod(ap)
 	vnode_t *vpp = ap->a_vpp;
     struct vnode *dvp = ap->a_dvp;
     struct inode *ip;
-#ifdef obsolete
-	ino_t ino;
-#endif
 	int error;
     struct componentname *cnp = ap->a_cnp;
     
@@ -934,7 +814,7 @@ ext2_mknod(ap)
 		ip->i_rdev = vap->va_rdev;
 	}
     IULOCK(ip);
-#ifdef obsolete // ???
+#ifdef notsure // ???
 	/*
 	 * Remove inode, then reload it through VFS_VGET so it is
 	 * checked to see if it is an alias of an existing entry in
@@ -1010,27 +890,6 @@ ext2_remove(ap)
         VN_KNOTE(vp, NOTE_DELETE);
         VN_KNOTE(dvp, NOTE_WRITE);
 	}
-   
-#ifdef obsolete
-   if (dvp != vp)
-		VOP_UNLOCK(vp, 0, ap->a_cnp->cn_proc);
-   
-   /* ufs calls ubc_uncache even for errors, but we follow hfs precedent */
-   if (!error)
-      (void)ubc_uncache(vp);
-   
-   vrele(vp);
-	vput(dvp);
-
-	ext2_trace_return(error);
-   
-out:
-   if (dvp == vp)
-      vrele(vp);
-   else
-      vput(vp);
-   vput(dvp);
-#endif
 
 remove_out:
 	ext2_trace_return(error);
@@ -1056,21 +915,6 @@ ext2_link(ap)
    
    ext2_trace_enter();
 
-#if defined(obsolete) && defined(DIAGNOSTIC)
-	if ((cnp->cn_flags & HASBUF) == 0)
-		panic("ext2_link: no name");
-#endif
-#ifdef obsolete
-	if (tdvp->v_mount != vp->v_mount) {
-      VOP_ABORTOP(tdvp, cnp);
-		error = EXDEV;
-		goto out;
-	}
-   if (tdvp != vp && (error = vn_lock(vp, LK_EXCLUSIVE, p))) {
-		VOP_ABORTOP(tdvp, cnp);
-		goto out;
-	}
-#endif
 	ip = VTOI(vp);
     IXLOCK(ip);
 	if ((nlink_t)ip->i_nlink >= LINK_MAX) {
@@ -1097,21 +941,10 @@ ext2_link(ap)
 		ip->i_flag |= IN_CHANGE;
 	}
     IULOCK(ip);
-#ifdef obsolete
-   FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
-#endif
    VN_KNOTE(vp, NOTE_LINK);
    VN_KNOTE(tdvp, NOTE_WRITE);
 
-#ifdef obsolete   
-out1:
-   if (tdvp != vp)
-		VOP_UNLOCK(vp, 0, p);
-#endif
 link_out:
-#ifdef obsolete 
-   vput(tdvp);
-#endif
 	ext2_trace_return(error);
 }
 
@@ -1135,9 +968,6 @@ ext2_rename(ap)
 	vnode_t tdvp = ap->a_tdvp;
 	vnode_t fvp = ap->a_fvp;
 	vnode_t fdvp = ap->a_fdvp;
-#ifdef obsolete
-    vnode_t relsevp = NULL;
-#endif
 	struct componentname *tcnp = ap->a_tcnp;
 	struct componentname *fcnp = ap->a_fcnp;
 	struct inode *ip, *xp, *dp;
@@ -1148,31 +978,6 @@ ext2_rename(ap)
     ucred_t cred = vfs_context_ucred(ap->a_context);
    
    ext2_trace_enter();
-
-#if defined(obsolete) &&  defined(DIAGNOSTIC)
-	if ((tcnp->cn_flags & HASBUF) == 0 ||
-	    (fcnp->cn_flags & HASBUF) == 0)
-		panic("ext2_rename: no name");
-	/*
-	 * Check for cross-device rename.
-	 */
-	if ((fvp->v_mount != tdvp->v_mount) ||
-	    (tvp && (fvp->v_mount != tvp->v_mount))) {
-		error = EXDEV;
-abortit:
-      VOP_ABORTOP(tdvp, tcnp);
-		if (tdvp == tvp)
-			vrele(tdvp);
-		else
-			vput(tdvp);
-		if (tvp)
-			vput(tvp);
-      VOP_ABORTOP(fdvp, fcnp);
-		vrele(fdvp);
-		vrele(fvp);
-		ext2_trace_return(error);
-	}
-#endif
     
     if (tvp) {
         ip = VTOI(tvp);
@@ -1274,10 +1079,6 @@ abortit:
 	 * to namei, as the parent directory is unlocked by the
 	 * call to checkpath().
 	 */
-#ifdef obsolete
-	error = VOP_ACCESS(fvp, VWRITE, tcnp->cn_cred, tcnp->cn_thread);
-	VOP_UNLOCK(fvp, 0, p);
-#endif
 	
     // i_number is constant, don't worry about lock
     if (oldparent != dp->i_number)
@@ -1293,25 +1094,6 @@ abortit:
         error = ext2_checkpath_nolock(ip, dp, &vargs);
 		if (error)
 			goto bad;
-
-#ifdef obsolete
-      if ((tcnp->cn_flags & SAVESTART) == 0)
-			panic("ext2_rename: lost to startdir");
-		VREF(tdvp);
-
-        vnode_ref(tdvp);
-        error = ext2_relookup(tdvp, &tvp, tcnp, ap->a_context);
-        vnode_rele(tdvp);
-        
-		if (error)
-			goto bad;
-        relsevp = tvp;
-		dp = VTOI(tdvp);
-		if (tvp)
-			xp = VTOI(tvp);
-        else
-            xp = NULL;
-#endif
 	}
 	/*
 	 * 2) If target doesn't exist, link the target
@@ -1371,20 +1153,6 @@ abortit:
 		 */
 		if (xp->i_number == ip->i_number)
 			panic("ext2_rename: same file");
-#ifdef obsolete
-        /*
-		 * If the parent directory is "sticky", then the user must
-		 * own the parent directory, or the destination of the rename,
-		 * otherwise the destination may not be changed (except by
-		 * root). This implements append-only directories.
-		 */
-		if ((dp->i_mode & S_ISTXT) && tcnp->cn_cred->cr_uid != 0 &&
-		    tcnp->cn_cred->cr_uid != dp->i_uid &&
-		    xp->i_uid != tcnp->cn_cred->cr_uid) {
-			error = EPERM;
-			goto bad;
-		}
-#endif
 		/*
 		 * Target must be empty if a directory and have no links
 		 * to it. Also, ensure source and target are compatible
@@ -1453,33 +1221,7 @@ abortit:
 		//vput(tvp);
 		xp = NULL;
 	}
-#ifdef obsolete
-    if (relsevp) {
-        vnode_put(relsevp);
-        relsevp = NULL;
-    }
-
-	/*
-	 * 3) Unlink the source.
-	 */
-    //fcnp->cn_flags &= ~MODMASK;
-	//fcnp->cn_flags |= LOCKPARENT | LOCKLEAF;
-	(void)ext2_relookup(fdvp, &fvp, fcnp, ap->a_context);
-    // vnode_rele(fdvp);
-
-	if (fvp != NULL) {
-		xp = VTOI(fvp);
-		dp = VTOI(fdvp);
-        relsevp = fvp;
-	} else {
-		/*
-		 * From name has disappeared.
-		 */
-		if (doingdirectory)
-			panic("ext2_rename: lost dir entry");
-		return (0);
-	}
-#endif
+    
     xp = VTOI(fvp);
     dp = VTOI(fdvp);
 	/*
@@ -1541,26 +1283,10 @@ abortit:
 		xp->i_flag &= ~IN_RENAME;
         IULOCK(xp);
 	}
-    VN_KNOTE(ap->a_fvp, NOTE_RENAME);
-#ifdef obsolete
-    if (dp)
-		vput(fdvp);
-	if (xp)
-		vput(fvp);
-	vrele(ap->a_fvp);
-
-    if (relsevp)
-        vnode_put(relsevp);
-#endif    
+    VN_KNOTE(ap->a_fvp, NOTE_RENAME); 
 	ext2_trace_return(error);
 
 bad:
-#ifdef obsolete
-    if (xp)
-		vput(ITOV(xp));
-	vput(ITOV(dp));
-out:
-#endif
 	IXLOCK(ip);
     if (doingdirectory)
 		ip->i_flag &= ~IN_RENAME;
@@ -1574,10 +1300,6 @@ out:
     IULOCK(ip);
     
 abortit:
-#ifdef obsolete
-    if (relsevp)
-        vnode_put(relsevp);
-#endif
 	ext2_trace_return(error);
 }
 
@@ -1608,11 +1330,7 @@ ext2_mkdir(ap)
     ucred_t cred = vfs_context_ucred(context);
     
    ext2_trace_enter();
-
-#if defined(obsolete) && defined(DIAGNOSTIC)
-	if ((cnp->cn_flags & HASBUF) == 0)
-		panic("ext2_mkdir: no name");
-#endif
+   
 	dp = VTOI(dvp);
     ISLOCK(dp);
 	if ((nlink_t)dp->i_nlink >= LINK_MAX) {
@@ -1748,10 +1466,6 @@ bad:
       *ap->a_vpp = tvp;
    }
 out:
-#ifdef obsolete
-   FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
-	vput(dvp);
-#endif
 	ext2_trace_return(error);
 #undef  DIRBLKSIZ
 #define DIRBLKSIZ  DEV_BSIZE
@@ -1784,10 +1498,6 @@ ext2_rmdir(ap)
 	 * No rmdir "." please.
 	 */
 	if (dp == ip) {
-#ifdef obsolete
-		vrele(dvp);
-		vput(vp);
-#endif
 		ext2_trace_return(EINVAL);
 	}
 
@@ -1849,10 +1559,6 @@ ext2_rmdir(ap)
 	cache_purge(ITOV(ip));
 
 out:
-#ifdef obsolete
-   if (dvp)
-		vput(dvp);
-#endif
     VN_KNOTE(vp, NOTE_DELETE);
 	//vput(vp);
 	ext2_trace_return(error);
@@ -1896,9 +1602,6 @@ ext2_symlink(ap)
 		error = vn_rdwr(UIO_WRITE, vp, ap->a_target, len, (off_t)0,
 		    UIO_SYSSPACE, IO_NODELOCKED | IO_NOMACCHECK,
 		    vfs_context_ucred(ap->a_context), (int *)0, (struct proc *)0);
-#ifdef obsolete
-        vput(vp);
-#endif
 	ext2_trace_return(error);
 }
 
@@ -1945,69 +1648,9 @@ ext2_strategy(ap)
 {
 	struct inode *ip = VTOI(buf_vnode(ap->a_bp));
     return (buf_strategy(ip->i_devvp, ap));
-    
-#ifdef obsolete
-	buf_t  bp = ap->a_bp;
-    vnode_t vp = bp->b_vp;
-	int error;
-   
-    ext2_trace_enter();
-
-	ip = VTOI(vp);
-    if (0 == (bp->b_flags & B_VECTORLIST)) {
-        if (vp->v_type == VBLK || vp->v_type == VCHR)
-            panic("ext2_strategy: spec");
-       
-        if (bp->b_flags & B_PAGELIST) {
-          /*
-           * If we have a page list associated with this bp,
-           * then go through cluster_bp since it knows how to 
-           * deal with a page request that might span non-
-           * contiguous physical blocks on the disk...
-           */
-    #if 1
-          if (bp->b_blkno == bp->b_lblkno) {
-             error = ext2_bmaparray(vp, bp->b_lblkno, &bp->b_blkno, NULL, NULL);
-             if (error) {
-                bp->b_error = error;
-                bp->b_ioflags |= BIO_ERROR;
-                bufdone(bp);
-                ext2_trace_return(error);
-             }
-          }
-    #endif      
-          error = cluster_bp(bp);
-          vp = ip->i_devvp;
-          bp->b_dev = vp->v_rdev;
-
-          ext2_trace_return(error);
-        }
-       
-        if (bp->b_blkno == bp->b_lblkno) {
-            error = ext2_bmaparray(vp, bp->b_lblkno, &bp->b_blkno, NULL, NULL);
-            if (error) {
-                bp->b_error = error;
-                bp->b_ioflags |= BIO_ERROR;
-                bufdone(bp);
-                ext2_trace_return(error);
-            }
-            if ((long)bp->b_blkno == -1)
-                vfs_bio_clrbuf(bp);
-        }
-        if ((long)bp->b_blkno == -1) {
-            bufdone(bp);
-            return (0);
-        }
-    } /* B_VECTORLIST */
-    
-	vp = ip->i_devvp;
-    bp->b_dev = vp->v_rdev;
-    VOCALL (vp->v_op, VOFFSET(vnop_strategy), ap);
-    return (0);
-#endif
 }
 
-#ifdef obsolete
+#if 0
 /*
  * Print out the contents of an inode.
  */
@@ -2048,9 +1691,6 @@ ext2spec_read(ap)
 	uio = ap->a_uio;
 	resid = uio_resid(uio);
     error = spec_read(ap);
-#ifdef obsolete
-	error = VOCALL(spec_vnodeop_p, VOFFSET(vnop_read), ap);
-#endif
 	/*
 	 * The inode may have been revoked during the call, so it must not
 	 * be accessed blindly here or in the other wrapper functions.
@@ -2115,9 +1755,6 @@ ext2spec_close(ap)
 	if (vnode_isinuse(vp, 1))
 		ext2_itimes(vp);
     ext2_trace_return(spec_close(ap));
-#ifdef obsolete
-	ext2_trace_return(VOCALL(spec_vnodeop_p, VOFFSET(vnop_close), ap));
-#endif
 }
 
 /*
@@ -2218,7 +1855,7 @@ ext2fifo_kqfilter(ap)
 {
 	int error;
 
-#ifdef obsolete // XXX ?
+#ifdef XXX // ???
 	error = VOCALL(fifo_vnodeop_p, VOFFSET(vnop_kqfilter), ap);
 	if (error)
 #endif
@@ -2267,7 +1904,7 @@ ext2_pathconf(ap)
 	/* NOTREACHED */
 }
 
-#ifdef obsolete
+#ifdef notyet
 /*
  * Advisory record locking support
  */
@@ -2386,10 +2023,6 @@ ext2_vinit(mntp, args, vpp)
 	vnode_t vp;
 	struct timeval tv;
 
-#ifdef obsolete
-    vp = *vpp;
-	ip = VTOI(vp);
-#endif
 	*vpp = NULL;
     bzero(&vfsargs, sizeof(vfsargs));
     if (0 == (args->vi_flags & EXT2_VINIT_INO_LCKD))
@@ -2420,25 +2053,6 @@ ext2_vinit(mntp, args, vpp)
 	case VBLK:
 		vfsargs.vnfs_vops = args->vi_specops;
         vfsargs.vnfs_rdev = ip->i_rdev;
-#ifdef obsolete // XXX ???
-      if (nvp = checkalias(vp, ip->i_rdev, mntp)) {
-			/*
-			 * Discard unneeded vnode, but save its inode.
-			 * Note that the lock is carried over in the inode
-			 * to the replacement vnode.
-			 */
-			nvp->v_data = vp->v_data;
-			vp->v_data = NULL;
-			vp->v_op = spec_vnodeop_p;
-			vrele(vp);
-			vgone(vp);
-			/*
-			 * Reinitialize aliased inode.
-			 */
-			vp = nvp;
-			ip->i_vnode = vp;
-		}
-#endif // obsolete
 		break;
 	case VFIFO:
 		vfsargs.vnfs_vops = args->vi_fifoops;
@@ -2447,10 +2061,6 @@ ext2_vinit(mntp, args, vpp)
 		break;
 
 	}
-#ifdef obsolete
-	if (ip->i_number == ROOTINO)
-		vp->v_vflag |= VV_ROOT;
-#endif
     /*
 	 * Initialize modrev times
 	 */
@@ -2492,10 +2102,6 @@ ext2_makeinode(mode, dvp, vpp, cnp, context)
     ucred_t cred = vfs_context_ucred(context);
 
 	pdir = VTOI(dvp);
-#if defined(obsolete) && defined(DIAGNOSTIC)
-	if ((cnp->cn_flags & HASBUF) == 0)
-		panic("ext2_makeinode: no name");
-#endif
 	*vpp = NULL;
 	if ((mode & IFMT) == 0)
 		mode |= IFREG;
@@ -2506,10 +2112,6 @@ ext2_makeinode(mode, dvp, vpp, cnp, context)
     vargs.va_cnp = cnp;
     error = ext2_valloc(dvp, mode, &vargs, &tvp);
 	if (error) {
-#ifdef obsolete
-        _FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
-		vput(dvp);
-#endif
 		ext2_trace_return(error);
 	}
     
@@ -2556,9 +2158,6 @@ ext2_makeinode(mode, dvp, vpp, cnp, context)
 #endif
 	ip->i_flag |= IN_ACCESS | IN_CHANGE | IN_UPDATE;
 	ip->i_mode = mode;
-#ifdef obsolete
-	tvp->v_type = IFTOVT(mode);	/* Rest init'd in getnewvnode(). */
-#endif
 	ip->i_nlink = 1;
     int isgroupmember = 0;
     (void)kauth_cred_ismember_gid(cred, ip->i_gid, &isgroupmember);
@@ -2569,17 +2168,6 @@ ext2_makeinode(mode, dvp, vpp, cnp, context)
 		ip->i_flags |= UF_OPAQUE;
     
     IULOCK(ip);
-#ifdef obsolete
-   /*
-	 * initialize UBC before calling ext2_update and ext2_direnter
-	 * Not doing so introduces probelms in handling error from
-	 * those calls.
-	 * It results in a "vget: stolen ubc_info" panic due to attempt
-	 * to shutdown uninitialized UBC.
-	 */
-	if (UBCINFOMISSING(tvp) || UBCINFORECLAIMED(tvp))
-		ubc_info_init(tvp);
-#endif
 
 	/*
 	 * Make sure inode goes to disk before directory entry.
@@ -2592,12 +2180,6 @@ ext2_makeinode(mode, dvp, vpp, cnp, context)
     IULOCK(ip);
 	if (error)
 		goto bad;
-   
-#ifdef obsolete
-   if ((cnp->cn_flags & SAVESTART) == 0)
-		FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
-	vput(dvp);
-#endif
 
 	*vpp = tvp;
 	return (0);
@@ -2607,11 +2189,6 @@ bad:
 	 * Write error occurred trying to update the inode
 	 * or the directory so must deallocate the inode.
 	 */
-#ifdef obsolete
-   if ((cnp->cn_flags & SAVESTART) == 0)
-      _FREE_ZONE(cnp->cn_pnbuf, cnp->cn_pnlen, M_NAMEI);
-	vput(dvp);
-#endif
     IXLOCK(ip);
 	ip->i_nlink = 0;
 	ip->i_flag |= IN_CHANGE;
@@ -2780,19 +2357,3 @@ filt_ext2vnode(struct knote *kn, long hint)
 	return (result);
 }
 #endif EXT_KNOTE
-
-#ifdef obsolete
-int
-ext2fs_truncate(ap)
-	struct vnop_truncate_args /* {
-		vnode_t a_vp;
-		off_t a_length;
-		int a_flags;
-		ucred_ta_cred;
-		struct proc *a_p;
-	} */ *ap;
-{
-   ext2_trace_enter();
-   return (ext2_truncate(ap->a_vp, ap->a_length, ap->a_flags, ap->a_cred, ap->a_p));
-}
-#endif
