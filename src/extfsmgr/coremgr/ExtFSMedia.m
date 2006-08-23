@@ -801,6 +801,15 @@ emicon_exit:
    return (test);
 }
 
+- (BOOL)isBlessed
+{
+   BOOL test;
+   erlock(e_lock);
+   test = [[e_probedAttributes objectForKey:EPROBE_KEY_BLESSED] boolValue];
+   eulock(e_lock);
+   return (test);
+}
+
 - (BOOL)hasSparseFiles
 {
    BOOL test;

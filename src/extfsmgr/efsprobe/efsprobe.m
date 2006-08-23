@@ -60,7 +60,7 @@ struct efsattrs {
     u_int32_t fsBlockSize;
     NSString *name;
     NSString *uuid;
-    BOOL isJournaled;
+    BOOL isJournaled, blessed;
 };
 
 #define EXT_SUPER_SIZE 32768
@@ -149,6 +149,11 @@ efs_hfs:
             hfsuidbytes = &hpsuper->finderInfo[24];
             fsa->fsBlockCount = be32_to_cpu(hpsuper->totalBlocks);
             fsa->fsBlockSize = be32_to_cpu(hpsuper->blockSize);
+            /* TN1150:
+               finderInfo[5] contains the directory ID of a bootable Mac OS X system
+               (the /System/Library/CoreServices directory), or zero if there is no bootable Mac OS X system on the volume.
+            */
+            fsa->blessed = ((u_int32_t*)&hpsuper->finderInfo[0])[5] > 0 ? YES : NO;
         }
         else if (kHFSSigWord == be16_to_cpu(hpsuper->signature)) {
             type = fsTypeHFS;
@@ -226,6 +231,7 @@ int main (int argc, char *argv[])
         [d setObject:[NSNumber numberWithBool:fsa.isJournaled] forKey:EPROBE_KEY_JOURNALED];
         [d setObject:[NSNumber numberWithUnsignedInt:fsa.fsBlockSize] forKey:EPROBE_KEY_FSBLKSIZE];
         [d setObject:[NSNumber numberWithUnsignedLongLong:fsa.fsBlockCount] forKey:EPROBE_KEY_FSBLKCOUNT];
+        [d setObject:[NSNumber numberWithBool:fsa.blessed] forKey:EPROBE_KEY_BLESSED];
         
         id plist = [NSPropertyListSerialization dataFromPropertyList:d
             format:NSPropertyListXMLFormat_v1_0

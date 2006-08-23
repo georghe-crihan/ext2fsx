@@ -421,6 +421,12 @@ not support sparse files, while Ext2 and UFS do.
 Always NO if the media is not mounted.
 */
 - (BOOL)hasSparseFiles;
+/*!
+@method isBlessed
+@abstract Determine if the volume contains an OS X blessed folder (always false for non-HFS+).
+@result True if the volume is blessed (bootable).
+*/
+- (BOOL)isBlessed;
 
 /*!
 @method isExtFS
@@ -554,3 +560,4 @@ extern NSString * const ExtFSMediaNotificationChildChange;
 #define EPROBE_KEY_JOURNALED @"journaled"
 #define EPROBE_KEY_FSBLKSIZE @"fsBlockSize"
 #define EPROBE_KEY_FSBLKCOUNT @"fsBlockCount"
+#define EPROBE_KEY_BLESSED @"blessed"
