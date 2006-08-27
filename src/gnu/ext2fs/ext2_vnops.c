@@ -588,7 +588,7 @@ ext2_setattr(ap)
 	struct inode *ip = VTOI(vp);
 	ucred_t cred = vfs_context_ucred(ap->a_context);
 	proc_t p = vfs_context_proc(ap->a_context);
-	int error;
+	int error = 0;
     uid_t nuid = VNOVAL;
 	gid_t ngid = VNOVAL;
     
@@ -1501,6 +1501,15 @@ ext2_rmdir(ap)
 		ext2_trace_return(EINVAL);
 	}
 
+    // Make sure no one else is in the doomed dir
+    IXLOCK(ip);
+    while (ip->i_flag & IN_LOOK) {
+        ip->i_flag |= IN_LOOKWAIT;
+        lookw();
+        ISLEEP(ip, flag, NULL);
+    }
+    ip->i_flag |= IN_LOOK;
+
 	/*
 	 * Verify the directory is empty (and valid).
 	 * (Rmdir ".." won't be valid since
@@ -1509,7 +1518,7 @@ ext2_rmdir(ap)
 	 *  non-empty.)
 	 */
 	error = 0;
-    IXLOCK(ip);
+    
 	if (ip->i_nlink != 2 || !ext2_dirempty(ip, dp->i_number, cred)) {
 		IULOCK(ip);
         error = ENOTEMPTY;
@@ -1559,6 +1568,11 @@ ext2_rmdir(ap)
 	cache_purge(ITOV(ip));
 
 out:
+    IXLOCK(ip);
+    ip->i_flag &= ~IN_LOOK;
+    IWAKE(ip, flag, flag, IN_LOOKWAIT);
+    IULOCK(ip);
+    
     VN_KNOTE(vp, NOTE_DELETE);
 	//vput(vp);
 	ext2_trace_return(error);
