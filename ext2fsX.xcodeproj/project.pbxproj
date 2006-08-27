@@ -282,6 +282,22 @@
 	<string>1.0.1</string>
 	<key>FSMediaTypes</key>
 	<dict>
+		<key>55465300-0000-11AA-AA11-00306543ECAC</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>55465300-0000-11AA-AA11-00306543ECAC</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ext2fs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
 		<key>Apple_UNIX_SVR2</key>
 		<dict>
 			<key>FSMediaProperties</key>
@@ -313,6 +329,22 @@
 			<string>../../ext2fs.util</string>
 			<key>FSProbeOrder</key>
 			<integer>4000</integer>
+		</dict>
+		<key>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ext2fs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>3000</integer>
 		</dict>
 		<key>EXT2</key>
 		<dict>
@@ -2047,12 +2079,12 @@
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				OTHER_CFLAGS = (
 					"-DOSX",
-					"-DEXT_KNOTE",
 					"-DDEBUG",
 					"-DEXT2FS_DEBUG=1",
 					"-DDIAGNOSTIC",
 					"-DDX_DEBUG",
 					"-DEXT2FS_TRACE",
+					"-DEFSM_PRIVATE",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
@@ -2093,7 +2125,7 @@
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = (
 					"-DOSX",
-					"-DEXT_KNOTE",
+					"-DEFSM_PRIVATE",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
