@@ -1,4 +1,4 @@
-{\rtf1\mac\ansicpg10000\cocoartf824\cocoasubrtf330
+{\rtf1\mac\ansicpg10000\cocoartf824\cocoasubrtf380
 {\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica;}
 {\colortbl;\red255\green255\blue255;\red0\green0\blue255;}
 \margl1440\margr1440\vieww12420\viewh14320\viewkind0
@@ -6,22 +6,26 @@
 
 \f0\b\fs24 \cf0 EXT2 Filesystem for Mac OS X\
 
-\f1\b0 1.4d2\
-2006/2/23\
+\f1\b0 1.4d3\
+2006/8/27\
 \
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b \cf0 This release is read-only. In addition it could cause kernel panics and/or deadlocks that hang the machine. Please keep this in mind before using it.
+\f0\b \cf0 This release could cause kernel panics and/or deadlocks that hang the machine. In addition, write support has not been stressed tested, therefore filesystem corruption may be possible. Please keep this in mind before using it.
 \f1\b0 \
 \
 
 \f0\b Donations
 \f1\b0 \
 \
-If you are interested in making a donation, please vist my {\field{\*\fldinst{HYPERLINK "https://order.kagi.com/?VN"}}{\fldrslt \cf2 \ul \ulc2 Kagi Payment page}}. A minimum of US $10 is requested because of the fees Kagi charges. Please don\'d5t take this as a request for donations. Make a donation only if you want to, not because you feel you have to. Gifts from my {\field{\*\fldinst{HYPERLINK "http://www.amazon.com/exec/obidos/registry/1UV8OJ9VKS9VV/"}}{\fldrslt \cf2 \ul \ulc2 Amazon wish list}} are also appreciated (and preferred).\
+Please consider making a donation. Filesystems are particularly onerous bits of software. As such, your support influences my will to work on Ext2. :-)\
 \
-Amazon: http://www.amazon.com/exec/obidos/registry/1UV8OJ9VKS9VV/\
+Gifts from my {\field{\*\fldinst{HYPERLINK "http://www.amazon.com/gp/registry/wishlist/1UV8OJ9VKS9VV/002-0916989-6465659"}}{\fldrslt \cf2 \ul \ulc2 Amazon wish list}} are preferred, or monetary contributions can be made via my {\field{\*\fldinst{HYPERLINK "https://order.kagi.com/?VN"}}{\fldrslt \cf2 \ul \ulc2 Kagi Payment page}}. A minimum of US $10 is requested because of the fees Kagi charges. \
+\
+Amazon: http://www.amazon.com/gp/registry/wishlist/1UV8OJ9VKS9VV/002-0916989-6465659\
 Kagi: https://order.kagi.com/?VN\
+\
+Your support is appreciated.\
 \
 
 \f0\b Requirements
@@ -65,9 +69,8 @@ The ExtFS S.M.A.R.T. monitor is installed in your Login Items the first time you
 If you do not want the S.M.A.R.T. monitor running, simply remove it from your Login Items and it will not be installed again.\
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 \cf0 \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b \cf0 Using command line utilities
+\f0\b Using command line utilities
 \f1\b0 \
 \
 The installation includes the full set of Ext2 command line utilities found in Linux; including newfs, fsck, debugfs, etc.. If you want to use these from Terminal, you may wish to add "/usr/local/bin" and "/usr/local/sbin" to your shell PATH variable for easy access. You may also wish to add "/usr/local/share/man" to your shell MANPATH variable for easy access to the man pages.\
@@ -91,9 +94,8 @@ Ext3 indexed directories are supported. Indexed directories are orders of magnit
 \
 Volumes will fail to auto-mount if they are corrupted. The auto-mounter funs fsck (in verification mode only) before mounting a volume and if fsck fails, the auto-mounter won't even try to mount the volume. If you are having problems with volumes not auto-mounting, try running fsck_ext2 on the device. After any volume errors have been corrected, you can get the auto-mounter to try mounting the device again by running 'disktool -r' from Terminal. Please note that the kernel will also fail to mount any filesystem R/W if it is not clean.
 \f0\b \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f1\b0 \cf0 \
+\f1\b0 \
 If you re-format an existing partition as Ext2, then that partition may fail to automount in the future. This is because re-formating does not change the partition type in the partition header of the disk. Automounter uses this type as a "hint" when trying to find the right filesystem utility to use. Unfortunately, the "hint" is actually literal; automounter will find an incorrect filesystem utility based on the partition type and when that utility fails the probe phase, automounter will return an error without trying other filesystem utilities. There is no known way to change a partition type without re-formating the entire disk. (Amendment:  Dan C. pointed out that pdisk can apparently alter the partition table without destroying other partitions. So you could drop a partition and replace it with a new type. I don't know if I trust this, so for now I'll leave this up to the intrepid user.)\
 \
 Linux does not care what character encoding is used for directory entries (IOW, file names). Linux just treats the name as a byte stream with no interpretation done. If you are using non-ASCII characters in file names,  there is no way to find out what encoding is used for a particular file (or the FS as a whole). The solution to this is to use UTF-8. This is what Mac OS X does. Unfortunatly, if you are not currently using UTF-8 in Linux, then your names will be mis-interpreted on Mac OS X and there is nothing that can be done to fix this.\
@@ -106,9 +108,8 @@ EXT3 journaling, extended attributes, and ACL's are not supported.\
 Quotas are not supported.\
 Advisory (byte) locking is no longer supported in 10.4 due to some kernel limitations.\
 \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\b \cf0 Reporting a Bug
+\f0\b Reporting a Bug
 \f1\b0 \
 \
 Bug reports should be entered into the bug tracking system at\
@@ -122,7 +123,7 @@ Version of Ext2 FS for Mac OS X\
 A copy of your system log in /var/log/system.log.\
 A detailed description of what lead to the problem and how to reproduce it.\
 \
-If the problem is a kernel panic, please include a copy of the panic log (/Library/Logs/panic.log).\
+If the problem is a kernel panic, please include a copy of the panic log (/Library/Logs/panic.log). Also, a core dump file would be infinitely more helpful than just the panic log. If you are so inclined, you can setup a core dump server for 10.3/4 clients as explained by Apple: <{\field{\*\fldinst{HYPERLINK "http://developer.apple.com/technotes/tn2004/tn2118.html"}}{\fldrslt http://developer.apple.com/technotes/tn2004/tn2118.html}}>. You can then compress the resultant file using the Finder's zip command and attach it to a bug report.\
 \
 
 \f0\b Credits
