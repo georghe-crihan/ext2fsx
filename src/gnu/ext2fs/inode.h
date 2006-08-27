@@ -113,6 +113,22 @@ typedef int32_t   ext2_daddr_t;
 struct inode;
 typedef int (*inode_prv_relse_t)(vnode_t, struct inode*);
 
+/* Dir lookup cache entries */
+struct dcache {
+    LIST_ENTRY(dcache) d_hash; // chain
+    doff_t d_offset;
+    int32_t d_count;
+    int32_t d_refct;
+    u_int32_t d_reclen;
+    #ifdef DIAGNOSTIC
+    ino_t  d_ino;
+    #endif
+    unsigned char d_namelen;
+    char d_name[0];
+};
+#define E2DCACHE_BUCKETS 8
+#define E2DCACHE_MASK 7
+
 /*
  * The inode is used to describe each active (or recently active) file in the
  * EXT2FS filesystem. It is composed of two types of information. The first
@@ -136,6 +152,7 @@ struct inode {
     thread_t  i_lockowner;
     char      i_lockfile[64];
     int32_t   i_lockline;
+    int32_t   i_dhashct;
 #endif
 	
 	/*
@@ -148,7 +165,9 @@ struct inode {
 	inode_prv_relse_t private_data_relse; /* Function to release private_data storage. */
 	struct	ext2_sb_info *i_e2fs;	/* EXT2FS */
 	u_quad_t i_modrev;	/* Revision level for NFS lease. */
+#ifdef notyet
 	struct	 ext2lockf *i_lockf;/* Head of byte-level lock list. */
+#endif
 	/*
 	 * Side effects; used during directory lookup - protected by IN_LOOK.
 	 */
@@ -160,7 +179,8 @@ struct inode {
 	u_int32_t i_reclen;	/* Size of found directory entry. */
 	//u_int32_t i_dir_start_lookup; /* Index dir lookup */
 	#define f_pos i_diroff /* Index dir lookups */
-	u_int64_t i_cachetoken; /* used to verify other side effects */
+    LIST_HEAD(idashhead, dcache) *i_dhashtbl; // protected by I_LOOK
+    int32_t i_lastnamei;
 	
 	u_int32_t i_block_group;
 	u_int32_t i_next_alloc_block;
@@ -382,6 +402,13 @@ int inosleep_nolck(struct inode *ip, void *chan, const char *wmsg, struct timesp
 		wakeup(&(ip)->i_ ## chan); \
 	} \
 } while(0)
+
+#ifdef DIAGNOSTIC
+__private_extern__ u_int32_t lookwait;
+#define lookw() OSIncrementAtomic((SInt32*)&lookwait)
+#else
+#define lookw()
+#endif
 
 /* This overlays the fid structure (see mount.h). */
 struct ufid {
