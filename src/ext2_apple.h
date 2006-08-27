@@ -72,8 +72,8 @@ struct ext2_args {
 
 #ifdef DIAGNOSTIC
 #define MACH_ASSERT 1
-#include <kern/assert.h>
 #endif
+#include <kern/assert.h>
 
 #include <sys/ubc.h>
 #include <libkern/OSAtomic.h>
@@ -156,7 +156,7 @@ int EXT2_WRITE(vnode_t vp, uio_t uio, int flags, vfs_context_t context)
 #if DIAGNOSTIC
 __private_extern__ void ext2_checkdir_locked(struct vnode *dvp);
 #else
-#define ext2_checkdirsize(dvp)
+#define ext2_checkdir_locked(dvp)
 #endif
 
 /* Set to 1 to enable inode/block bitmap caching -- currently, this will
