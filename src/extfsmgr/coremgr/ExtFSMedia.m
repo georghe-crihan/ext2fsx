@@ -140,11 +140,14 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    if (!path)
       return (EINVAL);
    
+   #ifndef NOEXT2
+   NSString *bsdName = [self bsdName];
+   #endif
+   
    gettimeofday(&now, nil);
    ewlock(e_lock);
    
    #ifndef NOEXT2
-   NSString *bsdName = [self bsdName];
    /* Get the superblock if we don't have it */
    if ((fsTypeExt2 == e_fsType || fsTypeExt3 == e_fsType) && !e_sb) {
       e2super_alloc();
