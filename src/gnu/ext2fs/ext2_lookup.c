@@ -71,7 +71,7 @@ extern struct nchstats nchstats;
 
 #ifdef DIAGNOSTIC
 __private_extern__ int dirchk = 1;
-static u_int32_t lookcachehit = 0;
+__private_extern__ u_int32_t lookcachehit = 0, lookwait = 0;
 #define lookchit() OSIncrementAtomic((SInt32*)&lookcachehit)
 #else
 __private_extern__ int dirchk = 0;
@@ -134,8 +134,52 @@ static int	ext2_dirbadentry_locked(vnode_t dp, struct ext2_dir_entry_2 *de,
 #include "linux/fs/ext3/namei.c"
 #include "linux/fs/ext3/dir.c"
 
-// Cache token utils
-#define e2cachetoken(cnp) (u_int64_t)(((u_int64_t)(cnp)->cn_hash + (cnp)->cn_nameiop) | ((u_int64_t)((uintptr_t)(cnp)) << 32))
+// Dir lookup cache utils
+#define DCACHE_HASH(dp, cnp) (&dp->i_dhashtbl[cnp->cn_hash & E2DCACHE_MASK])
+static struct dcache* ext2_dcacheget(const struct inode *dp, const struct componentname *cnp)
+{
+    struct dcache *dcp;
+    LIST_FOREACH(dcp, DCACHE_HASH(dp, cnp), d_hash) {
+        if (dcp->d_namelen == cnp->cn_namelen && 0 == strncmp(dcp->d_name, cnp->cn_nameptr, dcp->d_namelen))
+            break;
+    }
+    return (dcp);
+} 
+
+static inline
+void ext2_dcacheins(struct inode *dp, struct dcache *dcp, const struct componentname *cnp)
+{
+    struct idashhead *head = DCACHE_HASH(dp, cnp);
+    LIST_INSERT_HEAD(head, dcp, d_hash);
+    #ifdef DIAGNOSTIC
+    dp->i_dhashct++;
+    #endif
+}
+
+static void ext2_dcacherem(struct dcache *dcp, struct inode *dp E2_DGB_ONLY)
+{
+    dcp->d_refct--;
+    if (dcp->d_refct <= 0) {
+        LIST_REMOVE(dcp, d_hash);
+        FREE(dcp, M_TEMP);
+        #ifdef DIAGNOSTIC
+        dp->i_dhashct--;
+        #endif
+    }
+}
+
+__private_extern__
+void ext2_dcacheremall(struct inode *dp)
+{
+    int i;
+    for (i = 0; i < E2DCACHE_BUCKETS; ++i) {
+        struct idashhead *head = &dp->i_dhashtbl[i];
+        struct dcache *dcp;
+        LIST_FOREACH(dcp, head, d_hash) {
+            ext2_dcacherem(dcp, dp);
+        }
+    }
+}
 
 /*
  * Vnode op for reading directories.
@@ -174,7 +218,7 @@ ext2_readdir(ap)
     struct inode *ip;
     int ncookies;
     struct dirent dstdp;
-    caddr_t dirbuf;
+    caddr_t dirbuf = 0;
     int DIRBLKSIZ;
     int readcnt, free_dirbuf = 1;
     off_t startoffset;
@@ -220,8 +264,15 @@ ext2_readdir(ap)
       return (0);
    }
    
+    while (ip->i_flag & IN_LOOK) {
+        ip->i_flag |= IN_LOOKWAIT;
+        lookw();
+        ISLEEP(ip, flag, NULL);
+    }
+    int havelook = 1;
+    ip->i_flag |= IN_LOOK;
+   
    /* Check for an indexed dir */
-   int havelook = 0;
    if (EXT3_HAS_COMPAT_FEATURE(ip->i_e2fs, EXT3_FEATURE_COMPAT_DIR_INDEX) &&
       ((ip->i_e2flags & EXT3_INDEX_FL) /*||
       ((ip->i_size >> ip->i_e2fs->s_blocksize_bits) == 1)*/)) {
@@ -233,14 +284,6 @@ ext2_readdir(ap)
          or that it would even work. */
       
       struct filldir_args fda = {0, 0, 0};
-      
-        // dx read may use/modify dir lookup cache, so we need IN_LOOK
-        while (ip->i_flag & IN_LOOK) {
-            ip->i_flag |= IN_LOOKWAIT;
-            ISLEEP(ip, flag, NULL);
-        }
-        havelook = 1;
-        ip->i_flag |= IN_LOOK;
       
       /* Make sure the caller is not trying to read more than
          they are allowed. */
@@ -300,7 +343,7 @@ ext2_readdir(ap)
     }
 
 	IULOCK(ip);
-    auio = uio_create(1, 0, UIO_SYSSPACE32, UIO_READ);
+    auio = uio_create(1, startoffset, UIO_SYSSPACE32, UIO_READ);
     if (!auio) {
         error = ENOMEM;
         IXLOCK(ip);
@@ -500,7 +543,7 @@ int ext2_lookupi(vnode_t vdp, vnode_t *vpp, struct componentname *cnp, vfs_conte
     
     IXLOCK(dp);
     assert((dp->i_flag & IN_LOOK));
-    dp->i_cachetoken = e2cachetoken(cnp);
+    
 
    /* Check for indexed dir */
    if (is_dx(dp)) {
@@ -657,6 +700,7 @@ searchloop:
 				 * reclen in ndp->ni_ufs area, and release
 				 * directory buffer.
 				 */
+                
 				dp->i_ino = le32_to_cpu(ep->inode);
 				dp->i_reclen = le16_to_cpu(ep->rec_len);
 				goto found;
@@ -780,10 +824,12 @@ found:
 		/*
 		 * Write access to directory required to delete files.
 		 */
-		IULOCK(dp);
+		if (vpp) {
+        IULOCK(dp);
         if (0 != (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
             ext2_trace_return(error);
         IXLOCK(dp);
+        }
 		/*
 		 * Return pointer to current entry in dp->i_offset,
 		 * and distance past previous entry (if there
@@ -846,9 +892,10 @@ found:
 	if (nameiop == RENAME && wantparent &&
 	    (flags & ISLASTCN)) {
         IULOCK(dp);
+        if (vpp) {
 		if (0 != (error = vnode_authorize(vdp, NULL, KAUTH_VNODE_WRITE_DATA, context)))
             ext2_trace_return(error);
-        
+        }
 		/*
 		 * Careful about locking second inode.
 		 * This can only occur if the target is ".".
@@ -961,18 +1008,48 @@ dolookup:
 	 */
     
     struct inode *dp = VTOI(ap->a_dvp);
+    struct componentname *cnp = ap->a_cnp;
     
     IXLOCK(dp);
     while (dp->i_flag & IN_LOOK) {
         dp->i_flag |= IN_LOOKWAIT;
+        lookw();
         ISLEEP(dp, flag, NULL);
     }
     dp->i_flag |= IN_LOOK;
     IULOCK(dp);
     
-    error = ext2_lookupi(ap->a_dvp, ap->a_vpp, ap->a_cnp, ap->a_context);
+    int nameiop = cnp->cn_nameiop;
+    error = ext2_lookupi(ap->a_dvp, ap->a_vpp, cnp, ap->a_context);
+    
+    if ((DELETE == nameiop || RENAME == nameiop) && (0 == error || EJUSTRETURN == error)) {
+        if (!dp->i_dhashtbl) {
+            u_long dummy;
+            dp->i_dhashtbl = hashinit(E2DCACHE_BUCKETS, M_TEMP, &dummy);
+        }
+        if (dp->i_dhashtbl) {
+            struct dcache *dcp = ext2_dcacheget(dp, cnp);
+            if (!dcp) {
+                MALLOC(dcp, typeof(dcp), sizeof(*dcp) + cnp->cn_namelen + 1, M_TEMP, M_WAITOK);
+                bzero(dcp, sizeof(*dcp)); // don't care about name
+                dcp->d_namelen = (typeof(dcp->d_namelen))cnp->cn_namelen;
+                bcopy(cnp->cn_nameptr, dcp->d_name, dcp->d_namelen);
+                dcp->d_name[dcp->d_namelen] = 0;
+                ext2_dcacheins(dp, dcp, cnp);
+            }
+            
+            dcp->d_offset = dp->i_offset;
+            dcp->d_count = dp->i_count;
+            dcp->d_reclen = dp->i_reclen;
+            #ifdef DIAGNOSTIC
+            dcp->d_ino = dp->i_ino;
+            #endif
+            dcp->d_refct++;
+        }
+    }
     
     IXLOCK(dp);
+    dp->i_lastnamei = nameiop;
     dp->i_flag &= ~IN_LOOK;
     IWAKE(dp, flag, flag, IN_LOOKWAIT);
     IULOCK(dp);
@@ -1092,23 +1169,24 @@ ext2_direnter(ip, dvp, cnp, context)
     while (dp->i_flag & IN_LOOK) {
         // XXX Can't use ISLEEP here, because msleep knows nothing of our inode locking order
         dp->i_flag |= IN_LOOKWAIT;
+        lookw();
         IULOCK(dp);
         ISLEEP_NOLCK(dp, flag, NULL);
         IXLOCK_WITH_LOCKED_INODE(dp, ip);
     }
     dp->i_flag |= IN_LOOK;
-   
-    if (e2cachetoken(cnp) != dp->i_cachetoken) {
-        // dir cache is invalid, need to lookup again
+    
+    dsize = EXT2_DIR_REC_LEN(cnp->cn_namelen);
+    if (CREATE == dp->i_lastnamei && dsize <= dp->i_count) {
+        lookchit();
+    } else {
         IULOCK(dp);
         
         OSIncrementAtomic((SInt32*)&lookcacheinval);
         error = ext2_lookupi(dvp, NULL, cnp, context);
         
         IXLOCK_WITH_LOCKED_INODE(dp, ip);
-        
         if (0 == error || EJUSTRETURN == error) {
-            assert(e2cachetoken(cnp) == dp->i_cachetoken);
             error = 0;
         } else {
             dp->i_flag &= ~IN_LOOK;
@@ -1116,8 +1194,7 @@ ext2_direnter(ip, dvp, cnp, context)
             IULOCK(dp);
             ext2_trace_return(error);
         }
-    } else
-        lookchit();
+    }
    
    if (is_dx(dp)) {
         #ifdef notyet
@@ -1310,6 +1387,22 @@ ext2_direnter(ip, dvp, cnp, context)
 	ext2_trace_return(error);
 }
 
+static inline
+void e2copydcache(const struct dcache *dcp, struct inode *dp)
+{
+    dp->i_offset = dcp->d_offset;
+    dp->i_count = dcp->d_count;
+    dp->i_reclen = dcp->d_reclen;
+    #ifdef DIAGNOSTIC
+    dp->i_ino = dcp->d_ino;
+    #if 0
+    bcopy(dcp->d_name, dp->i_cachename, dcp->d_namelen);
+    dp->i_cachenamelen = dcp->d_namelen;
+    dp->i_cachename[dp->i_cachenamelen] = 0;
+    #endif
+    #endif
+}
+
 /*
  * Remove a directory entry after a call to namei, using
  * the parameters which it left in nameidata. The entry
@@ -1341,11 +1434,18 @@ ext2_dirremove(dvp, cnp, context)
     // We use/modify dir lookup cache, so we need IN_LOOK
     while (dp->i_flag & IN_LOOK) {
         dp->i_flag |= IN_LOOKWAIT;
+        lookw();
         ISLEEP(dp, flag, NULL);
     }
     dp->i_flag |= IN_LOOK;
    
-    if (e2cachetoken(cnp) != dp->i_cachetoken) {
+    struct dcache *dcp = dp->i_dhashtbl ? ext2_dcacheget(dp, cnp) : NULL;
+    if (dcp) {
+        lookchit();
+        e2copydcache(dcp, dp);
+        dcp->d_namelen = 0;
+        ext2_dcacherem(dcp, dp);
+    } else {
         // dir cache is invalid, need to lookup again
         IULOCK(dp);
         
@@ -1357,17 +1457,15 @@ ext2_dirremove(dvp, cnp, context)
         
         IXLOCK(dp);
         
-        if (0 == error || EJUSTRETURN == error) {
-            assert(e2cachetoken(cnp) == dp->i_cachetoken);
-            error = 0;
+        if (0 == error) {
+            ;
         } else {
             dp->i_flag &= ~IN_LOOK;
             IWAKE(dp, flag, flag, IN_LOOKWAIT);
             IULOCK(dp);
             ext2_trace_return(error);
         }
-    } else
-        lookchit();
+    }
    
    /* Check for indexed dir */
    if (is_dx(dp)) {
@@ -1417,9 +1515,9 @@ ext2_dirremove(dvp, cnp, context)
         IXLOCK(dp);
         if (!error) {
             dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+            ext2_checkdir_locked(dvp);
         }
         
-        ext2_checkdir_locked(dvp);
         dp->i_flag &= ~IN_LOOK;
         IWAKE(dp, flag, flag, IN_LOOKWAIT);
         IULOCK(dp);
@@ -1433,17 +1531,46 @@ ext2_dirremove(dvp, cnp, context)
     IULOCK(dp);
     error = ext2_blkatoff(dvp, offset, (char **)&ep, &bp);
     if (!error) {
+        #ifdef DIAGNOSTIC
+        buf_t bp2;
+        struct ext2_dir_entry_2 *ep2;
+        if (lblkno(dp->i_e2fs, dp->i_offset) == buf_lblkno(bp)) {
+            ep2 = (typeof(ep))((char*)buf_dataptr(bp) + blkoff(dp->i_e2fs, dp->i_offset));
+            bp2 = NULL;
+        } else if (0 != ext2_blkatoff(dvp, dp->i_offset, (char **)&ep2, &bp2)) {
+            bp2 = NULL;
+            ep2 = NULL;
+        }
+        #endif
         IXLOCK(dp);
+        #if DIAGNOSTIC
+        if (ep2) {
+            assert(0 == (ep2->file_type & 0xF0));
+            assert(dp->i_ino == le32_to_cpu(ep2->inode));
+            ep2->file_type |= 0xF0;
+            int i = cnp->cn_namelen - 1;
+            for (; i >= 0; --i) {
+                if (ep2->name[i] != cnp->cn_nameptr[i])
+                    panic("ext2: cn name != entry name");
+            }
+        }
+        #endif
         ep->rec_len = cpu_to_le16(le16_to_cpu(ep->rec_len) + dp->i_reclen);
         IULOCK(dp);
         error = BUF_WRITE(bp);
+        #ifdef DIAGNOSTIC
+        if (bp2 && bp2 != bp)
+            BUF_WRITE(bp2);
+        else if (bp2)
+            buf_brelse(bp2);
+        #endif
     }
 	
     IXLOCK(dp);
-    if (!error)
+    if (!error) {
         dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
-    
-    ext2_checkdir_locked(dvp);
+        ext2_checkdir_locked(dvp);
+    }
     dp->i_flag &= ~IN_LOOK;
     IWAKE(dp, flag, flag, IN_LOOKWAIT);
     IULOCK(dp);
@@ -1475,11 +1602,18 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
     // We use/modify dir lookup cache, so we need IN_LOOK
     while (dp->i_flag & IN_LOOK) {
         dp->i_flag |= IN_LOOKWAIT;
+        lookw();
         ISLEEP(dp, flag, NULL);
     }
     dp->i_flag |= IN_LOOK;
    
-    if (e2cachetoken(cnp) != dp->i_cachetoken) {
+    struct dcache *dcp = dp->i_dhashtbl ? ext2_dcacheget(dp, cnp) : NULL;
+    if (dcp) {
+        lookchit();
+        e2copydcache(dcp, dp);
+        dcp->d_namelen = 0;
+        ext2_dcacherem(dcp, dp);
+    } else {
         // dir cache is invalid, need to lookup again
         IULOCK(dp);
         
@@ -1489,7 +1623,6 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
         IXLOCK(dp);
         
         if (0 == error || EJUSTRETURN == error) {
-            assert(e2cachetoken(cnp) == dp->i_cachetoken);
             error = 0;
         } else {
             dp->i_flag &= ~IN_LOOK;
@@ -1497,8 +1630,7 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
             IULOCK(dp);
             ext2_trace_return(error);
         }
-    } else
-        lookchit();
+    }
    
    int isdx = is_dx(dp);
    offset = (off_t)dp->i_offset;
@@ -1536,9 +1668,9 @@ ext2_dirrewrite_nolock(dp, ip, cnp, context)
         else
             ep->file_type = EXT2_FT_UNKNOWN;
         dp->i_flag |= IN_CHANGE | IN_UPDATE | IN_DX_UPDATE;
+        ext2_checkdir_locked(vdp);
     }
     
-    ext2_checkdir_locked(vdp);
     dp->i_flag &= ~IN_LOOK;
     IWAKE(dp, flag, flag, IN_LOOKWAIT);
 	IULOCK(dp);
