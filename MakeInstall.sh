@@ -97,6 +97,11 @@ DESTDIR="${INSTALL}" make install >> ${BUILDLOG} 2>&1
 
 cd "${EXT2BUILD}"
 
+# XXX remove when we fully support index dir option
+if [ -d "${INSTALL}/etc" ]; then
+rm -rf "${INSTALL}/etc"
+fi
+
 echo "Copying other userland utils..."
 cd "${INSTALL}/usr/local/share/man/man8"
 ln -f e2fsck.8 ./fsck_ext2.8
