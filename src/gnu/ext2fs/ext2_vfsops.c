@@ -198,6 +198,10 @@ static int	compute_sb_data(vnode_t devvp, vfs_context_t context,
 #define EXT2_ATTR_FILE_SETTABLE 0
 #define EXT2_ATTR_FORK_SETTABLE 0
 
+#ifdef DEBUG
+#define INDEXRO
+#endif
+
 #ifdef notyet
 static int ext2_mountroot(void);
 
@@ -375,6 +379,9 @@ ext2_mount(mp, devvp, data, context)
 	size = strlen(fs->fs_fsmnt);
 	bzero(fs->fs_fsmnt + size, MAXMNTLEN - size);
 	fs->s_mount_opt = args.e2_mnt_flags;
+	#ifdef INDEXRO
+	fs->s_mount_opt &= ~EXT2_MNT_INDEX;
+	#endif
 	
 	if ((vfs_flags(mp) & MNT_IGNORE_OWNERSHIP)
 		 && 0 == (vfs_flags(mp) & MNT_ROOTFS) && args.e2_uid > 0) {
@@ -781,7 +788,7 @@ ext2_mountfs(devvp, mp, context)
 	if ((error = buf_meta_bread(devvp, (daddr64_t)SBLOCK, SBSIZE, NOCRED, &bp)) != 0)
 		goto out;
 	es = (struct ext2_super_block *)(buf_dataptr(bp)+SBOFF);
-#ifdef DEBUG
+#ifdef INDEXRO
 #warning dx readonly active
 if (le16_to_cpu(es->s_magic) == EXT2_SUPER_MAGIC && (es->s_feature_compat & cpu_to_le32(EXT3_FEATURE_COMPAT_DIR_INDEX))) {
 	// haven't tested dx write support yet, and with the inode locking there's likely problems
