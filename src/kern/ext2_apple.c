@@ -210,6 +210,7 @@ ext2_checkdir_locked(dvp)
       return;
 
    off_t offset = 0, size = 0;
+   int live = 0;
    while (size < dp->i_size) {
    
     assert(0 != (dp->i_flag & IN_LOOK));
@@ -225,7 +226,10 @@ ext2_checkdir_locked(dvp)
 			((char *)buf_dataptr(bp) + (size - offset));
       if (ep->rec_len == 0)
          break;
+      live++;
       size += le16_to_cpu(ep->rec_len);
+      if (ep->file_type & 0xF0)
+        panic("ext2: dir (%d) zombie entry %s", dp->i_number, ep->name);
    }
    
    buf_brelse(bp);
