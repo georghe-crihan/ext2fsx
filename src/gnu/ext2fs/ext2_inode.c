@@ -634,6 +634,8 @@ ext2_reclaim(ap)
 		(void)ISLEEP(ip, flag, &ts);
 	}
 	
+	assert(0 == (ip->i_flag & (IN_LOOK|IN_LOOKWAIT)));
+	
 	/*
 	 * Purge old data structures associated with the inode.
 	 */
@@ -646,6 +648,12 @@ ext2_reclaim(ap)
 		ip->private_data_relse(NULL, ip);
 	vnode_clearfsnode(vp);
 	vnode_removefsref(vp);
+	
+	if (ip->i_dhashtbl) {
+		__private_extern__ void ext2_dcacheremall(struct inode *);
+		ext2_dcacheremall(ip);
+		hashdestroy(ip->i_dhashtbl, M_TEMP, ip->i_dhashsz);
+	}
 	
 	IULOCK(ip);
 	lck_mtx_free(ip->i_lock, EXT2_LCK_GRP);
