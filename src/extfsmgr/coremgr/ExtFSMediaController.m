@@ -921,6 +921,10 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
    ExtFSMediaController *mc = [ExtFSMediaController mediaController];
    
    if ((emedia = [mc mediaWithBSDName:bsd])) {
+      // XXX For some reason the following error is returned by DA instead of kDAReturnBusy (as of 10.4.7)
+      if (0xc001 == status)
+        status = (status << 16) | (kDAReturnBusy & 0xFF);
+      
       short idx = (status & 0xFF);
       NSDictionary *dict;
       
@@ -942,6 +946,8 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
       switch (type) {
         /* XXX - No mount errors from Disk Arb??? */
         case EXT_DISK_ARB_MOUNT_FAILURE:
+            if ([emedia isMounted]) // make sure it's not mounted
+                return;
             op = @"Mount";
             msg = @"The filesystem may need repair. Please use Disk Utility to check the filesystem.";
             break;
