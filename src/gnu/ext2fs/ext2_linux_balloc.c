@@ -535,13 +535,13 @@ got_block:
 		wait_on_buffer (bp);
 	}
 ****/
+	sync = vfs_issynchronous(mp);
 	if (j >= le32_to_cpu(es->s_blocks_count)) {
 		printf ( "ext2_new_block: "
 			    "block(%d) >= blocks count(%d) - "
 			    "block_group = %d", j, le32_to_cpu(es->s_blocks_count), i);
 		unlock_super (sb);
 
-		sync = vfs_issynchronous(mp);
 #if !EXT2_SB_BITMAP_CACHE
 		if (0 == sync)
 			buf_bdwrite(bp);
