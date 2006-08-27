@@ -1143,7 +1143,7 @@ ext2_direnter(ip, dvp, cnp, context)
     struct ext2_sb_info *fs;
     int dx_fallback = 0;
     struct dentry dentry, dparent = {NULL, {NULL, 0}, NULL};
-    handle_t h = {cnp};
+    handle_t h = {cnp, context};
     
 	dp = VTOI(dvp);
     fs = dp->i_e2fs;
@@ -1470,7 +1470,7 @@ ext2_dirremove(dvp, cnp, context)
    /* Check for indexed dir */
    if (is_dx(dp)) {
       struct dentry dentry, dparent = {NULL, {NULL, 0}, dp};
-      handle_t h = {cnp};
+      handle_t h = {cnp, context};
       
       dentry.d_parent = &dparent;
       dentry.d_name.name = cnp->cn_nameptr;
