@@ -913,6 +913,34 @@ static NSString * const e_DiskArbErrorTable[] = {
 };
 #define DA_ERR_TABLE_LAST 0x0C
 
+static int const e_DiskArbUnixErrorTable[] = {
+    0, // no err
+    (kDAReturnNotPermitted & 0xFF), // EPERM
+    (kDAReturnNotFound & 0xFF), // ENOENT
+    1, // ESRCH
+    1, // EINTR
+    1, // EIO
+    (kDAReturnNotReady & 0xFF), // ENXIO
+    1, // E2BIG
+    1, // ENOEXEC
+    1, // EBADF
+    1, // ECHILD
+    1, // EDEADLK
+    1, // ENOMEM
+    1, // EACCES
+    1, // EFAULT
+    1, // ENOTBLK
+    (kDAReturnBusy & 0xFF), // EBUSY
+    1, // EEXIST
+    1, // EXDEV
+    1, // ENODEV
+    1, // ENOTDIR
+    1, // EISDIR
+    (kDAReturnBadArgument & 0xFF), // EINVAL
+};
+#define DA_UNIX_ERR_TABLE_LAST EINVAL
+#define MACH_ERR_UNIX_DOMAIN 3
+
 static void DiskArb_CallFailed(const char *device, int type, int status)
 {
    NSString *bsd = NSSTR(device), *err = nil, *op, *msg;
@@ -921,11 +949,14 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
    ExtFSMediaController *mc = [ExtFSMediaController mediaController];
    
    if ((emedia = [mc mediaWithBSDName:bsd])) {
-      // XXX For some reason the following error is returned by DA instead of kDAReturnBusy (as of 10.4.7)
-      if (0xc001 == status)
-        status = (status << 16) | (kDAReturnBusy & 0xFF);
-      
       short idx = (status & 0xFF);
+      if (MACH_ERR_UNIX_DOMAIN == err_get_sub(status)) {
+         if (idx <= DA_UNIX_ERR_TABLE_LAST)
+            idx = e_DiskArbUnixErrorTable[idx];
+         else
+            idx = 1;
+      }
+      
       NSDictionary *dict;
       
       [mc removePending:emedia];
@@ -953,6 +984,7 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
             break;
         case kDiskArbUnmountRequestFailed:
             op = @"Unmount";
+            msg = @"The disk may be in use by an application.";
             break;
         case kDiskArbUnmountAndEjectRequestFailed:
         case kDiskArbEjectRequestFailed:
