@@ -394,6 +394,22 @@
 			<key>FSProbeOrder</key>
 			<integer>3000</integer>
 		</dict>
+		<key>Linux</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>Linux</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ext2fs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>2000</integer>
+		</dict>
 		<key>Linux_Ext2FS</key>
 		<dict>
 			<key>FSMediaProperties</key>
