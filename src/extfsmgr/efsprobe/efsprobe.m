@@ -180,10 +180,10 @@ efs_hfs:
                 type = fsTypeUFS;
                 if (*((u_int32_t*)&lmagic[0]) == be32_to_cpu(ulabel->ul_magic))
                     fsa->uuid = [[NSString alloc] initWithFormat:@"%qX", be64_to_cpu(ulabel->ul_uuid)];
-            }
             fsa->fsBlockCount = be32_to_cpu(usuper->fs_size);
             fsa->fsBlockSize = be32_to_cpu(usuper->fs_bsize);
         }
+    }
     }
     
     close(fd);
