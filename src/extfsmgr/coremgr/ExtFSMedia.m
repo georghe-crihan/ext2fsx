@@ -327,6 +327,7 @@ init_err:
       
       e_attributeFlags = kfsDiskArb | kfsGetAttrlist;
       e_bsdName = [[properties objectForKey:NSSTR(kIOBSDNameKey)] retain];
+      e_fsType = fsTypeUnknown;
       [self updateProperties:properties];
       
       ewlock(e_mediaIconCacheLck);

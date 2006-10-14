@@ -321,7 +321,6 @@ __private_extern__ void PantherInitSMART()
         
         e_size = [[e_media objectForKey:NSSTR(kIOMediaSizeKey)] unsignedLongLongValue];
         e_devBlockSize = [[e_media objectForKey:NSSTR(kIOMediaPreferredBlockSizeKey)] unsignedLongValue];
-        e_fsType = fsTypeUnknown;
         e_opticalType = efsOpticalTypeUnknown;
 
         e_attributeFlags &= ~(kfsEjectable|kfsWritable|kfsWholeDisk|kfsLeafDisk|kfsNoMount);
