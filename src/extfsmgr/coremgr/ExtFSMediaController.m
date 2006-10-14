@@ -663,6 +663,15 @@ static NSDictionary *opticalMediaNames = nil;
     // mount detection
     DARegisterDiskAppearedCallback(daSession, NULL, DiskArbCallback_AppearedNotification, NULL);
     
+    // approval callbacks
+    if ((daApprovalSession = DAApprovalSessionCreate(kCFAllocatorDefault))) {
+        DAApprovalSessionScheduleWithRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop],
+            kCFRunLoopCommonModes);
+        DARegisterDiskMountApprovalCallback(daApprovalSession, kDADiskDescriptionMatchVolumeMountable, DiskArbCallback_ApproveMount, NULL);
+    } else {
+        E2Log(@"ExtFS: Failed to create DAApprovalSession!\n");
+    }
+    
     pthread_mutex_unlock(&e_initMutex);
     
     [pool release];
@@ -796,15 +805,6 @@ static NSDictionary *opticalMediaNames = nil;
     deviceMountBlockList = [[NSMutableSet alloc] init];
     #endif
     e_instanceLock = e_lock;
-   
-    // approval callbacks -- these are on the main thread because our delegate may not be thread safe
-    if ((daApprovalSession = DAApprovalSessionCreate(kCFAllocatorDefault))) {
-        DAApprovalSessionScheduleWithRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop],
-            kCFRunLoopCommonModes);
-        DARegisterDiskMountApprovalCallback(daApprovalSession, kDADiskDescriptionMatchVolumeMountable, DiskArbCallback_ApproveMount, NULL);
-    } else {
-        E2Log(@"ExtFS: Failed to create DAApprovalSession!\n");
-    }
    
    pthread_mutex_unlock(&e_initMutex);
    
