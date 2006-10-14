@@ -343,6 +343,7 @@ __private_extern__ void PantherInitSMART()
         NSString *hint = [e_media objectForKey:NSSTR(kIOMediaContentHintKey)];
         if ([gptIgnore containsObject:hint]
             || NSNotFound != [hint rangeOfString:@"partition"].location
+            || NSNotFound != [hint rangeOfString:@"Boot"].location
             || NSNotFound != [hint rangeOfString:@"Driver"].location
             || NSNotFound != [hint rangeOfString:@"Patches"].location
             || NSNotFound != [hint rangeOfString:@"CD_DA"].location) {
