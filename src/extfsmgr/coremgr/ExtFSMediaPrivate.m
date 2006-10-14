@@ -146,7 +146,7 @@ __private_extern__ void PantherInitSMART()
       regName = NSSTR(ioname);
    else {
       if (kr)
-        E2DiagLog(@"ExtFS: IORegistryEntryGetNameInPlane (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
+        E2DiagLog(@"ExtFS: IORegistryEntryGetNameInPlane (%@) error: 0x%X\n", self, kr);
       return (NO);
    }
    
@@ -173,16 +173,15 @@ __private_extern__ void PantherInitSMART()
          iterations++;
       }
      if (kr)
-        E2DiagLog(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
+        E2DiagLog(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: 0x%X\n", self, kr);
 #ifdef DIAGNOSTIC
      if (iterations >= MAX_PARENT_ITERS)
-        E2Log(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: max iterations exceeded\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)]);
+        E2Log(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: max iterations exceeded\n", self);
 #endif
 #ifdef notyet
       IOObjectRelease(piter);
 #endif
       if (kIOReturnNoDevice == kr && 0 == iterations) {
-         [e_parent remChild:self];
          return (NO);
       }
       
@@ -298,7 +297,7 @@ __private_extern__ void PantherInitSMART()
     // Update child status
     if (oldParent) {
         [oldParent remChild:self];
-        E2DiagLog(@"ExtFS: '%@' removing parent '%@'\n", self, e_parent);
+        E2DiagLog(@"ExtFS: '%@' removing self from parent '%@'\n", self, oldParent);
         [oldParent release];
     }
     if (addToParent)
@@ -361,8 +360,6 @@ __private_extern__ void PantherInitSMART()
     eulock(e_lock);
     
     [oldprops release];
-    
-    [self probe];
 }
 
 - (void)setIsMounted:(struct statfs*)stat
