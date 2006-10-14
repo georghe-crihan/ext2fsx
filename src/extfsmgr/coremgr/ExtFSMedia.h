@@ -149,7 +149,7 @@ a filesystem or device for its properties.
    id e_children;
    
    id e_media, e_iconDesc, e_object;
-   NSString *e_where, *e_ioregName, *e_volName, *e_uuid;
+   NSString *e_where, *e_ioregName, *e_volName, *e_uuid, *e_bsdName;
    struct superblock *e_sb;
    u_int64_t e_size, e_blockCount, e_blockAvail;
    u_int32_t e_devBlockSize, e_fsBlockSize, e_attributeFlags,

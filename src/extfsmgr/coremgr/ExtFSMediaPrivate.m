@@ -317,6 +317,11 @@ __private_extern__ void PantherInitSMART()
         oldprops = e_media;
         e_media = [properties retain];
         
+        #ifdef DEBUG
+        if (NO == [e_bsdName isEqualToString:[e_media objectForKey:NSSTR(kIOBSDNameKey)]])
+            trap(); // XXX This should NEVER happen
+        #endif
+        
         e_size = [[e_media objectForKey:NSSTR(kIOMediaSizeKey)] unsignedLongLongValue];
         e_devBlockSize = [[e_media objectForKey:NSSTR(kIOMediaPreferredBlockSizeKey)] unsignedLongValue];
         e_fsType = fsTypeUnknown;

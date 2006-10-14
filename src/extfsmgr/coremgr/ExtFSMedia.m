@@ -318,6 +318,7 @@ init_err:
       }
       
       e_attributeFlags = kfsDiskArb | kfsGetAttrlist;
+      e_bsdName = [[properties objectForKey:NSSTR(kIOBSDNameKey)] retain];
       [self updateProperties:properties];
       
       ewlock(e_mediaIconCacheLck);
@@ -421,16 +422,16 @@ init_err:
 
 - (NSString*)ioRegistryName
 {
-   return ([[e_ioregName retain] autorelease]);
+   NSString *name;
+   erlock(e_lock);
+   name = [e_ioregName retain];
+   eulock(e_lock);
+   return ([name autorelease]);
 }
 
 - (NSString*)bsdName
 {
-   NSString *name;
-   erlock(e_lock);
-   name = [[e_media objectForKey:NSSTR(kIOBSDNameKey)] retain];
-   eulock(e_lock);
-   return ([name autorelease]);
+   return ([[e_bsdName retain] autorelease]);
 }
 
 - (NSImage*)icon
@@ -883,25 +884,25 @@ emicon_exit:
 
 - (NSComparisonResult)compare:(ExtFSMedia *)media
 {
-   return ([[self bsdName] compare:[media bsdName]]);
+   return ((self != media) ? [[self bsdName] compare:[media bsdName]] : NSOrderedSame);
 }
 
 /* Super */
 
 - (NSString*)description
 {
-   return ([self bsdName]);
+   return (e_bsdName);
 }
 
 - (unsigned)hash
 {
-   return ([[self bsdName] hash]);
+   return ([e_bsdName hash]);
 }
 
 - (BOOL)isEqual:(id)obj
 {
    if ([obj respondsToSelector:@selector(bsdName)])
-      return ([[self bsdName] isEqualToString:[obj bsdName]]);
+      return ((self == obj) || [e_bsdName isEqualToString:[obj bsdName]]);
    
    return (NO);
 }
@@ -935,6 +936,7 @@ emicon_exit:
    [e_children release];
    [e_parent release];
    [e_probedAttributes release];
+   [e_bsdName release];
    
    if (e_smartService)
       IOObjectRelease((io_service_t)e_smartService);
