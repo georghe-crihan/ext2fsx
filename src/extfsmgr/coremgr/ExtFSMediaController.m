@@ -113,7 +113,9 @@ static void DiskArbCallback_UnmountNotification(DADiskRef disk,
    DADissenterRef dissenter, void * context);
 static void DiskArbCallback_EjectNotification(DADiskRef disk,
    DADissenterRef dissenter, void * context);
-static void DiskArbCallback_ChangeNotification(DADiskRef disk,
+static void DiskArbCallback_PathChangeNotification(DADiskRef disk,
+   CFArrayRef keys, void * context);
+static void DiskArbCallback_NameChangeNotification(DADiskRef disk,
    CFArrayRef keys, void * context);
 static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context);
 static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context);
@@ -164,7 +166,7 @@ static NSDictionary *opticalMediaNames = nil;
    for (i = 0; i < count; ++i) {
       device = [[NSString stringWithUTF8String:stats[i].f_mntfromname] lastPathComponent];      
       e2media = [e_media objectForKey:device];
-      if (!e2media || [e2media isMounted])
+      if (!e2media)
          continue;
       
       [pMounts removeObject:e2media];
@@ -399,6 +401,14 @@ eulock(e_lock); \
         return (allow);
     }
     return (YES);
+}
+
+- (void)nameOfDevice:(NSString*)device didChangeTo:(NSString*)name
+{
+    ExtFSMedia *media = [self mediaWithBSDName:device];
+    if (media) {
+        (void)[media fsInfoUsingCache:NO];
+    }
 }
 
 /* Public */
@@ -716,9 +726,12 @@ unmount_failed:
 
     // unmount detection
     DARegisterDiskDescriptionChangedCallback(daSession, NULL, kDADiskDescriptionWatchVolumePath,
-        DiskArbCallback_ChangeNotification, NULL);
+        DiskArbCallback_PathChangeNotification, NULL);
     // mount detection
     DARegisterDiskAppearedCallback(daSession, NULL, DiskArbCallback_AppearedNotification, NULL);
+    // rename detection
+    DARegisterDiskDescriptionChangedCallback(daSession, NULL, kDADiskDescriptionWatchVolumeName,
+        DiskArbCallback_NameChangeNotification, NULL);
     
     // approval callbacks
     if ((daApprovalSession = DAApprovalSessionCreate(kCFAllocatorDefault))) {
@@ -892,7 +905,8 @@ exit:
     DAApprovalSessionUnscheduleFromRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
     CFRelease(daApprovalSession);
     
-   DAUnregisterCallback(DiskArbCallback_ChangeNotification, NULL);
+   DAUnregisterCallback(DiskArbCallback_PathChangeNotification, NULL);
+   DAUnregisterCallback(DiskArbCallback_NameChangeNotification, NULL);
    DAUnregisterCallback(DiskArbCallback_AppearedNotification, NULL);
    DASessionUnscheduleFromRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
    CFRelease(daSession);
@@ -1089,7 +1103,7 @@ static void DiskArbCallback_EjectNotification(DADiskRef disk,
     [pool release];
 }
 
-static void DiskArbCallback_ChangeNotification(DADiskRef disk,
+static void DiskArbCallback_PathChangeNotification(DADiskRef disk,
    CFArrayRef keys __unused, void * context __unused)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
@@ -1107,6 +1121,20 @@ static void DiskArbCallback_ChangeNotification(DADiskRef disk,
     } else if (d && (!path || NO == [[NSFileManager defaultManager] fileExistsAtPath:[path path]])) {
         (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(DADiskGetBSDName(disk))];
     }
+    [d release];
+    [pool release];
+}
+
+static void DiskArbCallback_NameChangeNotification(DADiskRef disk,
+   CFArrayRef keys __unused, void * context __unused)
+{
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
+    NSString *name = [d objectForKey:(NSString*)kDADiskDescriptionVolumeNameKey];
+    
+    if (d && name)
+        (void)[[ExtFSMediaController mediaController] nameOfDevice:NSSTR(DADiskGetBSDName(disk)) didChangeTo:name];
+    
     [d release];
     [pool release];
 }
