@@ -506,7 +506,7 @@ static NSDictionary *opticalMediaNames = nil;
       ke = EINVAL;
    if (0 == ke) {
       ewlock(e_lock);
-      if (NO == [pMounts containsObject:media])
+      if (NO == [pUMounts containsObject:media])
         [pUMounts addObject:media];
       eulock(e_lock);
    }
