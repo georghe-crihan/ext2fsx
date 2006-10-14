@@ -137,21 +137,30 @@ ExtFSMediaNotificationOpFailure notification will be sent.
 - (int)unmount:(ExtFSMedia*)media force:(BOOL)force eject:(BOOL)eject;
 
 /*!
-@method requestExclusiveUseOfMedia:delegate:
-@abstract Use this to prevent the system from attempting to use the disk.
+@method claimMedia:
+@abstract Use this to prevent DiskArb from attempting to recognize the disk.
 @discussion This is an asynchronous method. The claim is not completed
 until you receive an ExtFSMediaNotificationExclusiveRequestDidComplete notification.
 @param media Media to claim
 */
-- (void)requestExclusiveUseOfMedia:(ExtFSMedia*)media;
+- (void)claimMedia:(ExtFSMedia*)media;
 
-- (void)releaseExclusiveUseOfMedia:(ExtFSMedia*)media;
+/*!
+@method releaseClaimOnMedia:
+@abstract Release a previous claim granted by claimMedia:
+@param media Media to release
+*/
+- (void)releaseClaimOnMedia:(ExtFSMedia*)media;
 
 - (ExtFSOpticalMediaType)opticalMediaTypeForName:(NSString*)name;
 - (NSString*)opticalMediaNameForType:(ExtFSOpticalMediaType)type;
 
 - (id)delegate;
 - (void)setDelegate:(id)obj;
+
+#ifdef DIAGNOSTIC
+- (void)dumpState;
+#endif
 
 @end
 
@@ -211,13 +220,21 @@ A string containing the device name is attached.
 */
 extern NSString * const ExtFSMediaNotificationCreationFailed;
 
-extern NSString * const ExtFSMediaNotificationExclusiveRequestDidComplete;
-extern NSString * const ExtFSMediaNotificationDidReleaseExclusiveClaim;
+extern NSString * const ExtFSMediaNotificationClaimRequestDidComplete;
+
+extern NSString * const ExtFSMediaNotificationDidReleaseClaim;
 
 /*!
+@const ExtMediaKeyOpFailureID
+@abstract Key for ExtFSMediaNotificationOpFailure that contains one
+of the operation notification types above (ExtFSMediaNotificationMounted, etc).
+@discussion Will be an empty string if the operation is unknown.
+*/
+extern NSString * const ExtMediaKeyOpFailureID;
+/*!
 @const ExtMediaKeyOpFailureType
-@abstract Key for ExtFSMediaNotificationOpFailure to determine
-the type of failure (as an NSString -- Unknown, Unmount, Eject, etc).
+@abstract Key for ExtFSMediaNotificationOpFailure that gives a localized
+name for the failure (as an NSString -- Unknown, Unmount, Eject, etc).
 */
 extern NSString * const ExtMediaKeyOpFailureType;
 /*!

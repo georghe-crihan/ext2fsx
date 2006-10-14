@@ -56,8 +56,8 @@ NSString * const ExtFSMediaNotificationMounted = @"ExtFSMediaNotificationMounted
 NSString * const ExtFSMediaNotificationUnmounted = @"ExtFSMediaNotificationUnmounted";
 NSString * const ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotificationCreationFailed";
 NSString * const ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
-NSString * const ExtFSMediaNotificationExclusiveRequestDidComplete = @"ExtFSMediaNotificationExclusiveRequestDidComplete";
-NSString * const ExtFSMediaNotificationDidReleaseExclusiveClaim = @"ExtFSMediaNotificationDidReleaseExclusiveClaim";
+NSString * const ExtFSMediaNotificationClaimRequestDidComplete = @"ExtFSMediaNotificationClaimRequestDidComplete";
+NSString * const ExtFSMediaNotificationDidReleaseClaim = @"ExtFSMediaNotificationDidReleaseClaim";
 
 static ExtFSMediaController *e_instance;
 static void* e_instanceLock = nil; // Ptr to global controller internal lock
@@ -213,10 +213,11 @@ static NSDictionary *opticalMediaNames = nil;
          ewlock(e_lock);
          [e_media removeObjectForKey:device];
          eulock(e_lock);
+         [self removePending:e2media];
          [e2media release];
          return (nil);
       }
-      E2DiagLog(@"ExtFS: Media %@ created with parent %@.\n", device, [e2media parent]);
+      E2DiagLog(@"ExtFS: Media %@ created with parent %@.\n", e2media, [e2media parent]);
       
       EFSMCPostNotification(ExtFSMediaNotificationAppeared, e2media, nil);
       [e2media release];
@@ -574,7 +575,7 @@ static NSDictionary *opticalMediaNames = nil;
    return (ke);
 }
 
-- (void)requestExclusiveUseOfMedia:(ExtFSMedia*)media
+- (void)claimMedia:(ExtFSMedia*)media
 {
     DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
     if (!dadisk) {
@@ -587,7 +588,7 @@ static NSDictionary *opticalMediaNames = nil;
     CFRelease(dadisk);
 }
 
-- (void)releaseExclusiveUseOfMedia:(ExtFSMedia*)media
+- (void)releaseClaimOnMedia:(ExtFSMedia*)media
 {
     if (![media claimedExclusive])
         return;
@@ -633,6 +634,39 @@ static NSDictionary *opticalMediaNames = nil;
     eulock(e_lock);
     [tmp release];
 }
+
+#ifdef DIAGNOSTIC
+- (void)dumpState
+{
+    NSMutableString *state = [NSMutableString string];
+    
+    [state appendString:@"\n== EFSM STATE ==\n"];
+    [state appendString:@"media = {\n"];
+    
+    NSEnumerator *en;
+    erlock(e_lock);
+    en = [[[e_media allValues] sortedArrayUsingSelector:@selector(compare:)] objectEnumerator];
+    eulock(e_lock);
+    ExtFSMedia *m;
+    while ((m = [en nextObject])) {
+        [state appendFormat:@"\t'%@', children = %@\n", m, [m children]];
+    }
+    
+    [state appendString:@"}\n"];
+    
+    erlock(e_lock);
+    [state appendFormat:@"pending mounts = %@\n", [e_pending objectAtIndex:kPendingMounts]];
+    [state appendFormat:@"pending unmounts = %@\n", [e_pending objectAtIndex:kPendingUMounts]];
+    #ifdef EFSM_GLOBAL_DEVICE_ALLOW
+    [state appendFormat:@"denied mounts = %@\n", deviceMountBlockList];
+    #endif
+    eulock(e_lock);
+    
+    [state appendString:@"== EFSM STATE END ==\n"];
+    
+    E2Log(@"%@", state);
+}
+#endif
 
 /* Super */
 
@@ -1115,6 +1149,7 @@ static DADissenterRef DiskArbCallback_ClaimRelease(DADiskRef disk, void *context
      return (DADissenterCreate(kCFAllocatorDefault, kDAReturnExclusiveAccess, NULL));
 }
 
+NSString * const ExtMediaKeyOpFailureID = @"ExtMediaKeyOpFailureID";
 NSString * const ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
 NSString * const ExtMediaKeyOpFailureDevice = @"ExtMediaKeyOpFailureBSDName";
 NSString * const ExtMediaKeyOpFailureError = @"ExtMediaKeyOpFailureError";
@@ -1172,7 +1207,7 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
 {
    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
    
-   NSString *bsd = NSSTR(device), *err = nil, *op, *msg;
+   NSString *bsd = NSSTR(device), *err = nil, *op, *msg, *opid;
    ExtFSMedia *emedia;
    NSBundle *me;
    ExtFSMediaController *mc = [ExtFSMediaController mediaController];
@@ -1208,21 +1243,26 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
         case EXT_DISK_ARB_MOUNT_FAILURE:
             if ([emedia isMounted]) // make sure it's not mounted
                 return;
+            opid = ExtFSMediaNotificationMounted;
             op = @"Mount";
             msg = @"The filesystem may need repair. Please use Disk Utility to check the filesystem.";
             break;
         case kDiskArbUnmountRequestFailed:
+            opid = ExtFSMediaNotificationUnmounted;
             op = @"Unmount";
             msg = @"The disk may be in use by an application.";
             break;
         case kDiskArbUnmountAndEjectRequestFailed:
         case kDiskArbEjectRequestFailed:
+            opid = ExtFSMediaNotificationUnmounted;
             op = @"Eject";
             break;
         case kDiskArbDiskChangeRequestFailed:
+            opid = @"";
             op = @"Change Request";
             break;
         default:
+            opid = @"";
             op = @"Unknown";
             break;
       }
@@ -1249,6 +1289,7 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
       eulock(e_instanceLock);
       
       dict = [NSDictionary dictionaryWithObjectsAndKeys:
+         opid, ExtMediaKeyOpFailureID,
          op, ExtMediaKeyOpFailureType,
          bsd, ExtMediaKeyOpFailureDevice,
          [NSNumber numberWithInt:status], ExtMediaKeyOpFailureError,
