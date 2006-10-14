@@ -331,8 +331,7 @@ void IULOCK(struct inode *ip)
 
 static __inline__
 #ifndef DIAGNOSTIC
-void IXLOCK_WITH_LOCKED_INODE2(struct inode *ip, struct inode *lip)
-#define IXLOCK_WITH_LOCKED_INODE IXLOCK_WITH_LOCKED_INODE2
+void IXLOCK_WITH_LOCKED_INODE(struct inode *ip, struct inode *lip)
 #else
 void IXLOCK_WITH_LOCKED_INODE2(struct inode *ip, struct inode *lip, const char *file, int32_t line)
 #define IXLOCK_WITH_LOCKED_INODE(ip, lip) IXLOCK_WITH_LOCKED_INODE2(ip, lip, __FILE__, __LINE__)
@@ -363,7 +362,7 @@ void IXLOCK_WITH_LOCKED_INODE2(struct inode *ip, struct inode *lip, const char *
 }
 
 #define IREF(ip) (void)OSIncrementAtomic((SInt32*)&ip->i_refct)
-#define IRELSE(ip) (void)OSDecrementAtomic((SInt32*)&ip->i_refct);
+#define IRELSE(ip) (void)OSDecrementAtomic((SInt32*)&ip->i_refct)
 
 static __inline__
 int inosleep(struct inode *ip, void *chan, const char *wmsg, struct timespec *ts)
