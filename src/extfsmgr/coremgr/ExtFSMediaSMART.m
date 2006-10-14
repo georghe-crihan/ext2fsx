@@ -152,12 +152,12 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
                     status = e_SMARTErrorTxlate[data.selfTestExecutionStatus];
             } else if (kr) {
                 status = efsSMARTOSError;
-                NSLog(@"ExtFS: SMART status query failed with: 0x%x!\n", kr);
+                E2Log(@"ExtFS: SMART status query failed with: 0x%x!\n", kr);
             }
             kr = (*sipp)->Release(sipp);
         } else {
             status = efsSMARTOSError;
-            NSLog(@"ExtFS: Could not create SMART plug-in interface! (0x%x).\n", kr);
+            E2Log(@"ExtFS: Could not create SMART plug-in interface! (0x%x).\n", kr);
         }
         
         if (cfipp)
@@ -196,7 +196,7 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
         me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
         if (nil == me) {
             eulock(e_lock);
-            NSLog(@"ExtFS: Could not find bundle!\n");
+            E2Log(@"ExtFS: Could not find bundle!\n");
             return (nil);
         }
 

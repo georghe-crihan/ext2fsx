@@ -107,10 +107,16 @@ withObject:args waitUntilDone:NO]; \
 #endif
 #endif
 
+#ifndef E2DiagLog
 #ifdef DEBUG
 #define E2DiagLog NSLog
 #else
 #define E2DiagLog()
+#endif
+#endif
+
+#ifndef E2Log
+#define E2Log NSLog
 #endif
 
 #if MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3

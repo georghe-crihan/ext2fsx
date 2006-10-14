@@ -108,7 +108,7 @@ __private_extern__ void PantherInitSMART()
     if (me) {
         path = [me pathForResource:resource ofType:nil];
     } else {
-        NSLog(@"ExtFS: Could not find bundle!\n");
+        E2Log(@"ExtFS: Could not find bundle!\n");
     }
     eulock(e_lock);
     return (path);
@@ -145,10 +145,8 @@ __private_extern__ void PantherInitSMART()
    if (0 == (kr = IORegistryEntryGetNameInPlane(service, kIOServicePlane, ioname)))
       regName = NSSTR(ioname);
    else {
-      #ifdef DIAGNOSTIC
       if (kr)
-        NSLog(@"ExtFS: IORegistryEntryGetNameInPlane (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
-      #endif
+        E2DiagLog(@"ExtFS: IORegistryEntryGetNameInPlane (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
       return (NO);
    }
    
@@ -174,11 +172,11 @@ __private_extern__ void PantherInitSMART()
          IOObjectRelease(ioparentold);
          iterations++;
       }
-#ifdef DIAGNOSTIC
      if (kr)
-        NSLog(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
+        E2DiagLog(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
+#ifdef DIAGNOSTIC
      if (iterations >= MAX_PARENT_ITERS)
-        NSLog(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: max iterations exceeded\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)]);
+        E2Log(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: max iterations exceeded\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)]);
 #endif
 #ifdef notyet
       IOObjectRelease(piter);
@@ -298,9 +296,7 @@ __private_extern__ void PantherInitSMART()
     // Update child status
     if (oldParent) {
         [oldParent remChild:self];
-        #ifdef DIAGNOSTIC
-        NSLog(@"ExtFS: '%@' removing parent '%@'\n", self, e_parent);
-        #endif
+        E2DiagLog(@"ExtFS: '%@' removing parent '%@'\n", self, e_parent);
         [oldParent release];
     }
     if (addToParent)
@@ -413,7 +409,7 @@ __private_extern__ void PantherInitSMART()
    if (fstype)
       ftype = [fstype intValue];
    else
-      NSLog(@"ExtFS: Unknown filesystem '%@'.\n", fstype);
+      E2Log(@"ExtFS: Unknown filesystem '%@'.\n", fstype);
    [fsTypes release];
    tmp = [[NSString alloc] initWithUTF8String:stat->f_mntonname];
    
@@ -548,7 +544,7 @@ __private_extern__ void PantherInitSMART()
 - (ExtFSMedia*)initWithDeviceName:(NSString*)device
 {
     if (0 != eilock(&e_lock)) {
-        NSLog(@"ExtFS: Failed to allocate media object lock!\n");
+        E2Log(@"ExtFS: Failed to allocate media object lock!\n");
         [super release];
         return (nil);
     }

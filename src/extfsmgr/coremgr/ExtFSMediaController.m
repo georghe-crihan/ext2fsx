@@ -170,9 +170,9 @@ static NSDictionary *opticalMediaNames = nil;
    eulock(e_lock);
 #ifdef DIAGNOSTIC
    if (nil == e2media)
-      NSLog(@"ExtFS: Oops! Received unmount for an unknown device: '%@'.\n", device);
+      E2Log(@"ExtFS: Oops! Received unmount for an unknown device: '%@'.\n", device);
    else if (NO == isMounted)
-      NSLog(@"ExtFS: Oops! Received unmount for a device that is already unmounted: '%@'.\n", device);
+      E2Log(@"ExtFS: Oops! Received unmount for a device that is already unmounted: '%@'.\n", device);
 #endif
    return (NO);
 }
@@ -197,9 +197,7 @@ static NSDictionary *opticalMediaNames = nil;
          [e2media release];
          return (nil);
       }
-   #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Media %@ created with parent %@.\n", device, [e2media parent]);
-   #endif
+      E2DiagLog(@"ExtFS: Media %@ created with parent %@.\n", device, [e2media parent]);
       
       EFSMCPostNotification(ExtFSMediaNotificationAppeared, e2media, nil);
       [e2media release];
@@ -215,7 +213,7 @@ static NSDictionary *opticalMediaNames = nil;
    ExtFSMedia *parent;
    
    if ([e2media isMounted])
-      NSLog(@"ExtFS: Oops! Media '%@' removed while still mounted!\n", device);
+      E2Log(@"ExtFS: Oops! Media '%@' removed while still mounted!\n", device);
    
    if ((parent = [e2media parent]))
       [parent remChild:e2media];
@@ -228,10 +226,8 @@ static NSDictionary *opticalMediaNames = nil;
 
    EFSMCPostNotification(ExtFSMediaNotificationDisappeared, e2media, nil);
 
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: Media '%@' removed. Retain count = %u.\n",
+   E2DiagLog(@"ExtFS: Media '%@' removed. Retain count = %u.\n",
       device, [e2media retainCount]);
-#endif
    [e2media release];
 }
 
@@ -256,9 +252,7 @@ static NSDictionary *opticalMediaNames = nil;
             if (remove)
                [self removeMedia:e2media device:device];
             else {
-               #ifdef DIAGNOSTIC
-               NSLog(@"ExtFS: Existing media %@ appeared again.\n", device);
-         #endif
+               E2DiagLog(@"ExtFS: Existing media %@ appeared again.\n", device);
                [e2media updateProperties:(NSDictionary*)properties];
                // XXX updateProperties is a re-entry point (as NSTask can be called and re-enter the run loop)
                // so the media could have been removed.
@@ -472,10 +466,8 @@ static NSDictionary *opticalMediaNames = nil;
    pUMounts = [e_pending objectAtIndex:kPendingUMounts];
    if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
         eulock(e_lock);
-    #ifdef DIAGNOSTIC
-        NSLog(@"ExtFS: Can't mount '%@'. Operation is already in progress.",
+        E2DiagLog(@"ExtFS: Can't mount '%@'. Operation is already in progress.",
             [media bsdName]);
-    #endif
         return (EINPROGRESS);
    }
    
@@ -516,10 +508,8 @@ static NSDictionary *opticalMediaNames = nil;
    pUMounts = [e_pending objectAtIndex:kPendingUMounts];
    if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
         eulock(e_lock);
-    #ifdef DIAGNOSTIC
-        NSLog(@"ExtFS: Can't unmount '%@'. Operation is already in progress.",
+        E2DiagLog(@"ExtFS: Can't unmount '%@'. Operation is already in progress.",
             [media bsdName]);
-    #endif
         return (EINPROGRESS);
    }
    eulock(e_lock);
@@ -684,9 +674,7 @@ static NSDictionary *opticalMediaNames = nil;
       
    if (0 != eilock(&e_lock)) {
       pthread_mutex_unlock(&e_initMutex);
-#ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Failed to allocate lock for media controller!\n");
-#endif
+      E2DiagLog(@"ExtFS: Failed to allocate lock for media controller!\n");
       [super release];
       return (nil);
    }
@@ -791,7 +779,7 @@ static NSDictionary *opticalMediaNames = nil;
             kCFRunLoopCommonModes);
         DARegisterDiskMountApprovalCallback(daApprovalSession, kDADiskDescriptionMatchVolumeMountable, DiskArbCallback_ApproveMount, NULL);
     } else {
-        NSLog(@"ExtFS: Failed to create DAApprovalSession!\n");
+        E2Log(@"ExtFS: Failed to create DAApprovalSession!\n");
     }
    
    e_instanceLock = e_lock;
@@ -818,7 +806,7 @@ exit:
 /* This singleton lives forever. */
 - (void)dealloc
 {
-   NSLog(@"ExtFS: Oops! Somebody released the global media controller!\n");
+   E2Log(@"ExtFS: Oops! Somebody released the global media controller!\n");
 #if 0
     DAUnregisterApprovalCallback(daApprovalSession, DiskArbCallback_ApproveMount, NULL);
     DAApprovalSessionUnscheduleFromRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
@@ -875,7 +863,7 @@ NSString* EFSNSPrettyNameFromType(unsigned long type)
         me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
         if (nil == me) {
             pthread_mutex_unlock(&e_fsTableInitMutex);
-            NSLog(@"ExtFS: Could not find bundle!\n");
+            E2Log(@"ExtFS: Could not find bundle!\n");
             return (nil);
         }
 
@@ -927,7 +915,7 @@ NSString* EFSIOTransportNameFromType(unsigned long type)
         me = [NSBundle bundleWithIdentifier:EXTFS_DM_BNDL_ID];
         if (nil == me) {
             pthread_mutex_unlock(&e_fsTableInitMutex);
-            NSLog(@"ExtFS: Could not find bundle!\n");
+            E2Log(@"ExtFS: Could not find bundle!\n");
             return (nil);
         }
 
@@ -1048,10 +1036,8 @@ static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context _
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
     NSURL *path;
-    #ifdef DIAGNOSTIC
     const char *bsd = DADiskGetBSDName(disk);
-    NSLog(@"%s: %p - %s\n", __FUNCTION__,  disk, bsd ? bsd : "NULL DEVICE!");
-    #endif
+    E2DiagLog(@"%s: %p - %s\n", __FUNCTION__,  disk, bsd ? bsd : "NULL DEVICE!");
     if (d && (path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey])
         /* && [[NSFileManager defaultManager] fileExistsAtPath:[path path]]*/) {
         (void)[[ExtFSMediaController mediaController] updateMountStatus];
@@ -1064,9 +1050,7 @@ static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     BOOL allow = [[ExtFSMediaController mediaController] allowMount:NSSTR(DADiskGetBSDName(disk))];
-    #ifdef DIAGNOSTIC
-    NSLog(@"ExtFS: Mount '%s' %s.\n", DADiskGetBSDName(disk), allow ? "allowed" : "denied");
-    #endif
+    E2DiagLog(@"ExtFS: Mount '%s' %s.\n", DADiskGetBSDName(disk), allow ? "allowed" : "denied");
     [pool release];
     if (allow)
         return (NULL);
@@ -1237,7 +1221,7 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
 
       EFSMCPostNotification(ExtFSMediaNotificationOpFailure, emedia, dict);
       
-      NSLog(@"ExtFS: DiskArb failure for device '%s', with type %d and status 0x%X\n",
+      E2Log(@"ExtFS: DiskArb failure for device '%s', with type %d and status 0x%X\n",
          device, type, status);
    }
    

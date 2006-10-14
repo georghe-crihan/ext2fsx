@@ -164,7 +164,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
          ewlock(e_lock);
          e_uuid = [tmp retain];
       } else {
-         NSLog(@"ExtFS: Failed to load superblock for device '%@' mounted on '%s' (%d).\n",
+         E2Log(@"ExtFS: Failed to load superblock for device '%@' mounted on '%s' (%d).\n",
             bsdName, path, err);
          e2super_free();
       }
@@ -286,10 +286,8 @@ eminfo_exit:
                 [prevPlist release];
                 [tmp release];
             }
-        #ifdef DIAGNOSTIC
             else
-                NSLog(@"ExtFS: efsprobe failed with '%d'.\n", type);
-        #endif
+                E2DiagLog(@"ExtFS: efsprobe failed with '%d'.\n", type);
             [output release];
             [probe release];
         }
@@ -305,7 +303,7 @@ eminfo_exit:
          // Just to make sure someone else doesn't get in during creation...
          e_mediaIconCacheLck = (void*)E2_BAD_ADDR;
          if (0 != eilock(&e_mediaIconCacheLck)) {// This is never released
-             NSLog(@"ExtFS: Failed to allocate media icon cache lock!\n");
+             E2Log(@"ExtFS: Failed to allocate media icon cache lock!\n");
             e_mediaIconCacheLck = nil;
 init_err:
             [super release];
@@ -313,7 +311,7 @@ init_err:
          }
       }
       if (0 != eilock(&e_lock)) {
-        NSLog(@"ExtFS: Failed to allocate media object lock!\n");
+        E2Log(@"ExtFS: Failed to allocate media object lock!\n");
         goto init_err;
       }
       
@@ -382,18 +380,14 @@ init_err:
 
 - (void)addChild:(ExtFSMedia*)media
 {
-#ifdef DIAGNOSTIC
    NSString *myname = [self bsdName], *oname = [media bsdName];
-#endif   
    ewlock(e_lock);
    if (!e_children)
       e_children = [[NSMutableArray alloc] init];
 
    if ([e_children containsObject:media]) {
-#ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Oops! Parent '%@' already contains child '%@'.\n",
+      E2DiagLog(@"ExtFS: Oops! Parent '%@' already contains child '%@'.\n",
          myname, oname);
-#endif
       eulock(e_lock);
       return;
    };
@@ -405,15 +399,11 @@ init_err:
 
 - (void)remChild:(ExtFSMedia*)media
 {
-#ifdef DIAGNOSTIC
-   NSString *myname = [self bsdName], *oname = [media bsdName];
-#endif
+   NSString *myname = e_bsdName, *oname = [media bsdName];
    ewlock(e_lock);
    if (nil == e_children || NO == [e_children containsObject:media]) {
-#ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Oops! Parent '%@' does not contain child '%@'.\n",
+      E2DiagLog(@"ExtFS: Oops! Parent '%@' does not contain child '%@'.\n",
          myname, oname);
-#endif
       eulock(e_lock);
       return;
    };
@@ -454,9 +444,7 @@ init_err:
    if (e_parent && (e_icon = [e_parent icon])) {
       (void)[e_icon retain]; // For ourself
       eulock(e_lock);
-#ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Retrieved icon %@ from %@ (%u).\n", [e_icon name], e_parent, [e_icon retainCount]);
-#endif
+      E2DiagLog(@"ExtFS: Retrieved icon %@ from %@ (%u).\n", [e_icon name], e_parent, [e_icon retainCount]);
       return ([[e_icon retain] autorelease]);
    }
    
@@ -470,9 +458,7 @@ init_err:
    cacheKey = [NSString stringWithFormat:@"%@.%@", bundleid, [iconName lastPathComponent]];
    if (!bundleid || !iconName) {
       eulock(e_lock);
-#ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Could not find icon path for %@.\n", [self bsdName]);
-#endif
+      E2DiagLog(@"ExtFS: Could not find icon path for %@.\n", [self bsdName]);
       return (nil);
    }
    
@@ -482,9 +468,7 @@ init_err:
       (void)[e_icon retain]; // For ourself
       eulock(e_mediaIconCacheLck);
       eulock(e_lock);
-#ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Retrieved icon %@ from icon cache (%u).\n", cacheKey, [e_icon retainCount]);
-#endif
+      E2DiagLog(@"ExtFS: Retrieved icon %@ from icon cache (%u).\n", cacheKey, [e_icon retainCount]);
       return ([[e_icon retain] autorelease]);
    }
    eulock(e_mediaIconCacheLck);
@@ -541,9 +525,7 @@ init_err:
          // This supposedly allows images to be cached safely across threads
          [e_icon setCachedSeparately:YES];
          [e_mediaIconCache setObject:e_icon forKey:cacheKey];
-#ifdef DIAGNOSTIC
-         NSLog(@"ExtFS: Added icon %@ to icon cache (%u).\n", cacheKey, [e_icon retainCount]);
-#endif
+         E2DiagLog(@"ExtFS: Added icon %@ to icon cache (%u).\n", cacheKey, [e_icon retainCount]);
       } else {
          // Use the cached icon instead of the one we found
          [ico release];
@@ -916,10 +898,8 @@ emicon_exit:
 - (void)dealloc
 {
    unsigned count;
-#ifdef DIAGNOSTIC
-   NSLog(@"ExtFS: Media '%@' dealloc.\n",
+   E2DiagLog(@"ExtFS: Media '%@' dealloc.\n",
       [e_media objectForKey:NSSTR(kIOBSDNameKey)]);
-#endif
    
    // Icon cache
    ewlock(e_mediaIconCacheLck);
