@@ -153,14 +153,11 @@ static NSDictionary *opticalMediaNames = nil;
 
 - (BOOL)volumeDidUnmount:(NSString*)device
 {
-   ExtFSMedia *e2media;
-   BOOL isMounted;
-   
    ewlock(e_lock);
-   e2media = [e_media objectForKey:device];
-   isMounted = [e2media isMounted];
-   if (e2media && isMounted) {
+   ExtFSMedia *e2media = [e_media objectForKey:device];
       NSMutableArray *pUMounts = [e_pending objectAtIndex:kPendingUMounts];
+   BOOL isMounted = ([e2media isMounted] || [pUMounts containsObject:e2media]);
+   if (e2media && isMounted) {
       [pUMounts removeObject:e2media];
       eulock(e_lock);
       [e2media setIsMounted:nil];
@@ -178,21 +175,26 @@ static NSDictionary *opticalMediaNames = nil;
 
 - (ExtFSMedia*)createMediaWithIOService:(io_service_t)service properties:(NSDictionary*)props
 {
-   ExtFSMedia *e2media, *parent;
-   NSString *device;
-   
-   e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
+   ExtFSMedia *e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
    if (e2media) {
-      device = [e2media bsdName];
+      NSString *device = [e2media bsdName];
       ewlock(e_lock);
       [e_media setObject:e2media forKey:device];
       eulock(e_lock);
       
-      [e2media updateAttributesFromIOService:service];
-      if ((parent = [e2media parent]))
-         [parent addChild:e2media];
+      // It's possible for us to get in a race condition where we are created from a device that
+      // has disappeared by the time we get to this point. updateAttributesFromIOService
+      // will detect this and return false if the race occurs.
+      BOOL good = [e2media updateAttributesFromIOService:service];
+      if (!good) {
+         ewlock(e_lock);
+         [e_media removeObjectForKey:device];
+         eulock(e_lock);
+         [e2media release];
+         return (nil);
+      }
    #ifdef DIAGNOSTIC
-      NSLog(@"ExtFS: Media %@ created with parent %@.\n", device, parent);
+      NSLog(@"ExtFS: Media %@ created with parent %@.\n", device, [e2media parent]);
    #endif
       
       EFSMCPostNotification(ExtFSMediaNotificationAppeared, e2media, nil);
@@ -244,20 +246,32 @@ static NSDictionary *opticalMediaNames = nil;
       if (0 == kr) {
          device = [(NSMutableDictionary*)properties objectForKey:NSSTR(kIOBSDNameKey)];
          erlock(e_lock);
-         e2media = [e_media objectForKey:device];
+         e2media = [[e_media objectForKey:device] retain];
          eulock(e_lock);
          if (e2media) {
             if (remove)
                [self removeMedia:e2media device:device];
-         #ifdef DIAGNOSTIC
             else {
+               #ifdef DIAGNOSTIC
                NSLog(@"ExtFS: Existing media %@ appeared again.\n", device);
-            }
          #endif
+               [e2media updateProperties:(NSDictionary*)properties];
+               // XXX updateProperties is a re-entry point (as NSTask can be called and re-enter the run loop)
+               // so the media could have been removed.
+               erlock(e_lock);
+               kr = [e_media objectForKey:device] ? 0 : 1;
+               eulock(e_lock);
+               if (0 == kr && [e2media updateAttributesFromIOService:iomedia]) {
+                   EFSMCPostNotification(ExtFSMediaNotificationUpdatedInfo, e2media, nil);
+               }
+            }
+            [e2media release];
             CFRelease(properties);
+            IOObjectRelease(iomedia);
             continue;
          }
          
+         if (!remove)
          (void)[self createMediaWithIOService:iomedia properties:(NSDictionary*)properties];
          
          CFRelease(properties);
