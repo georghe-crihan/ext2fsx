@@ -565,10 +565,45 @@ static NSDictionary *opticalMediaNames = nil;
 
 /* Super */
 
+- (void)processDiskNotifications:(id)arg
+{
+    pthread_mutex_lock(&e_initMutex);
+    
+    CFRunLoopSourceRef rlSource = IONotificationPortGetRunLoopSource(notify_port_ref);
+    
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    CFRunLoopAddSource([[NSRunLoop currentRunLoop] getCFRunLoop], rlSource,
+        kCFRunLoopCommonModes);
+    
+    /* Process the initial registry entrires */
+    iomatch_add_callback(nil, notify_add_iter);
+    iomatch_rem_callback(nil, notify_rem_iter);
+
+    /* Init Disk Arb */
+    if (NULL == (daSession = DASessionCreate(kCFAllocatorDefault))) {
+        pthread_mutex_unlock(&e_initMutex);
+        [NSThread exit];
+    }
+    DASessionScheduleWithRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
+
+    // unmount detection
+    DARegisterDiskDescriptionChangedCallback(daSession, NULL, kDADiskDescriptionWatchVolumePath,
+        DiskArbCallback_ChangeNotification, NULL);
+    // mount detection
+    DARegisterDiskAppearedCallback(daSession, NULL, DiskArbCallback_AppearedNotification, NULL);
+    
+    pthread_mutex_unlock(&e_initMutex);
+    
+    [pool release];
+    
+    pool = [[NSAutoreleasePool alloc] init];
+    [[NSRunLoop currentRunLoop] run];
+    [pool release];
+}
+
 - (id)init
 {
    kern_return_t kr = 0;
-   CFRunLoopSourceRef rlSource;
    id obj;
    int i;
    
@@ -664,9 +699,6 @@ static NSDictionary *opticalMediaNames = nil;
 		kr = 1;
       goto exit;
 	}
-   rlSource = IONotificationPortGetRunLoopSource(notify_port_ref);
-   CFRunLoopAddSource([[NSRunLoop currentRunLoop] getCFRunLoop], rlSource,
-      kCFRunLoopCommonModes);
    
    /* Setup callbacks to get notified of additions/removals. */
    kr = IOServiceAddMatchingNotification (notify_port_ref,
@@ -690,22 +722,8 @@ static NSDictionary *opticalMediaNames = nil;
 #endif
    
    e_media = [[NSMutableDictionary alloc] init];
-   /* Process the initial registry entrires */
-   iomatch_add_callback(nil, notify_add_iter);
-   iomatch_rem_callback(nil, notify_rem_iter);
    
-   /* Init Disk Arb */
-   if (NULL == (daSession = DASessionCreate(kCFAllocatorDefault)))
-      goto exit;
-   DASessionScheduleWithRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
-   
-   // unmount detection
-   DARegisterDiskDescriptionChangedCallback(daSession, NULL, kDADiskDescriptionWatchVolumePath,
-      DiskArbCallback_ChangeNotification, NULL);
-   // mount detection
-   DARegisterDiskAppearedCallback(daSession, NULL, DiskArbCallback_AppearedNotification, NULL);
-   
-    // approval callbacks
+    // approval callbacks -- these are on the main thread because our delegate may not be thread safe
     if ((daApprovalSession = DAApprovalSessionCreate(kCFAllocatorDefault))) {
         DAApprovalSessionScheduleWithRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop],
             kCFRunLoopCommonModes);
@@ -716,6 +734,10 @@ static NSDictionary *opticalMediaNames = nil;
    
    e_instanceLock = e_lock;
    pthread_mutex_unlock(&e_initMutex);
+   
+    // Start the thread that will receive all non-approval notifications
+    [NSThread detachNewThreadSelector:@selector(processDiskNotifications:) toTarget:self withObject:nil];
+   
    return (self);
 
 exit:
@@ -882,28 +904,35 @@ fstrans_lookup:
 
 static void iomatch_add_callback(void *refcon, io_iterator_t iter)
 {
+   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
    [[ExtFSMediaController mediaController] updateMedia:iter remove:NO];
+   [pool release];
 }
 
 static void iomatch_rem_callback(void *refcon, io_iterator_t iter)
 {
+   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
    [[ExtFSMediaController mediaController] updateMedia:iter remove:YES];
+   [pool release];
 }
 
 static void DiskArbCallback_MountNotification(DADiskRef disk,
    DADissenterRef dissenter, void * context __unused)
 {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     if (NULL == dissenter)
         (void)[[ExtFSMediaController mediaController] updateMountStatus];
     else
         DiskArb_CallFailed(DADiskGetBSDName(disk), EXT_DISK_ARB_MOUNT_FAILURE,
             DADissenterGetStatus(dissenter));
+    [pool release];
 }
 
 static void DiskArbCallback_UnmountNotification(DADiskRef disk,
    DADissenterRef dissenter, void * context)
 {
     const char *device = DADiskGetBSDName(disk);
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     
     if (NULL == dissenter) {
         (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(device)];
@@ -912,11 +941,13 @@ static void DiskArbCallback_UnmountNotification(DADiskRef disk,
     } else
         DiskArb_CallFailed(device, kDiskArbUnmountRequestFailed,
             DADissenterGetStatus(dissenter));
+    [pool release];
 }
 
 static void DiskArbCallback_EjectNotification(DADiskRef disk,
    DADissenterRef dissenter, void * context __unused)
 {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     const char *device = DADiskGetBSDName(disk);
     ExtFSMedia *emedia = [[ExtFSMediaController mediaController] mediaWithBSDName:NSSTR(device)];
     
@@ -925,11 +956,13 @@ static void DiskArbCallback_EjectNotification(DADiskRef disk,
     else if (dissenter)
         DiskArb_CallFailed(device, kDiskArbUnmountAndEjectRequestFailed,
             DADissenterGetStatus(dissenter));
+    [pool release];
 }
 
 static void DiskArbCallback_ChangeNotification(DADiskRef disk,
    CFArrayRef keys __unused, void * context __unused)
 {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
     NSURL *path = [d objectForKey:(NSString*)kDADiskDescriptionVolumePathKey];
     
@@ -945,10 +978,12 @@ static void DiskArbCallback_ChangeNotification(DADiskRef disk,
         (void)[[ExtFSMediaController mediaController] volumeDidUnmount:NSSTR(DADiskGetBSDName(disk))];
     }
     [d release];
+    [pool release];
 }
 
 static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context __unused)
 {
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	NSDictionary *d = (NSDictionary*)DADiskCopyDescription(disk);
     NSURL *path;
     #ifdef DIAGNOSTIC
@@ -960,14 +995,17 @@ static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context _
         (void)[[ExtFSMediaController mediaController] updateMountStatus];
     }
     [d release];
+    [pool release];
 }
 
 static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context)
 {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     BOOL allow = [[ExtFSMediaController mediaController] allowMount:NSSTR(DADiskGetBSDName(disk))];
     #ifdef DIAGNOSTIC
     NSLog(@"ExtFS: Mount '%s' %s.\n", DADiskGetBSDName(disk), allow ? "allowed" : "denied");
     #endif
+    [pool release];
     if (allow)
         return (NULL);
     
@@ -1029,6 +1067,8 @@ static int const e_DiskArbUnixErrorTable[] = {
 
 static void DiskArb_CallFailed(const char *device, int type, int status)
 {
+   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+   
    NSString *bsd = NSSTR(device), *err = nil, *op, *msg;
    ExtFSMedia *emedia;
    NSBundle *me;
@@ -1118,4 +1158,6 @@ static void DiskArb_CallFailed(const char *device, int type, int status)
       NSLog(@"ExtFS: DiskArb failure for device '%s', with type %d and status 0x%X\n",
          device, type, status);
    }
+   
+   [pool release];
 }
