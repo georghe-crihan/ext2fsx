@@ -337,27 +337,27 @@ __private_extern__ void PantherInitSMART()
         if ([[e_media objectForKey:NSSTR(kIOMediaLeafKey)] boolValue])
             e_attributeFlags |= kfsLeafDisk;
         
-        NSString *hint = [e_media objectForKey:NSSTR(kIOMediaContentHintKey)];
-        NSRange r = [hint rangeOfString:@"partition"];
-        if (hint && NSNotFound != r.location)
-            e_attributeFlags |= kfsNoMount;
-         
-        r = [hint rangeOfString:@"Driver"];
-        if (hint && NSNotFound != r.location)
-            e_attributeFlags |= kfsNoMount;
-         
-        r = [hint rangeOfString:@"Patches"];
-        if (hint && NSNotFound != r.location)
-            e_attributeFlags |= kfsNoMount;
+        NSSet *gptIgnore = [NSSet setWithObjects:
+            @"024DEE41-33E7-11D3-9D69-0008C781F39F", // MBR
+            @"C12A7328-F81F-11D2-BA4B-00A0C93EC93B", // EFI
+            @"0657FD6D-A4AB-43C4-84E5-0933C84B4F4F", // Linux Swap
+            @"8DA63339-0007-60C0-C436-083AC8230908", // Linxu reserved
+            nil];
 
-        r = [hint rangeOfString:@"CD_DA"]; /* Digital Audio tracks */
-        if (hint && NSNotFound != r.location)
+        NSString *hint = [e_media objectForKey:NSSTR(kIOMediaContentHintKey)];
+        if ([gptIgnore containsObject:hint]
+            || NSNotFound != [hint rangeOfString:@"partition"].location
+            || NSNotFound != [hint rangeOfString:@"Driver"].location
+            || NSNotFound != [hint rangeOfString:@"Patches"].location
+            || NSNotFound != [hint rangeOfString:@"CD_DA"].location) {
             e_attributeFlags |= kfsNoMount;
-         
+        } else {
         hint = [e_media objectForKey:NSSTR(kIOMediaContentKey)];
-        r = [hint rangeOfString:@"partition"];
-        if (hint && NSNotFound != r.location)
+            if ([gptIgnore containsObject:hint]
+                || NSNotFound != [hint rangeOfString:@"partition"].location) {
             e_attributeFlags |= kfsNoMount;
+    }
+        }
     }
     eulock(e_lock);
     
@@ -524,6 +524,24 @@ __private_extern__ void PantherInitSMART()
     if (0 == e_smartService) {
         e_attributeFlags |= kfsNotSMART;
     }
+    eulock(e_lock);
+}
+
+- (BOOL)claimedExclusive
+{
+    erlock(e_lock);
+    BOOL claimed = (0 != (e_attributeFlags & kfsClaimedWithDA));
+    eulock(e_lock);
+    return (claimed);
+}
+
+- (void)setClaimedExclusive:(BOOL)claimed
+{
+    ewlock(e_lock);
+    if (claimed)
+        e_attributeFlags |= kfsClaimedWithDA;
+    else
+        e_attributeFlags &= ~kfsClaimedWithDA;
     eulock(e_lock);
 }
 
