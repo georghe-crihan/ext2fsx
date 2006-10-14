@@ -136,6 +136,17 @@ ExtFSMediaNotificationOpFailure notification will be sent.
 */
 - (int)unmount:(ExtFSMedia*)media force:(BOOL)force eject:(BOOL)eject;
 
+/*!
+@method requestExclusiveUseOfMedia:delegate:
+@abstract Use this to prevent the system from attempting to use the disk.
+@discussion This is an asynchronous method. The claim is not completed
+until you receive an ExtFSMediaNotificationExclusiveRequestDidComplete notification.
+@param media Media to claim
+*/
+- (void)requestExclusiveUseOfMedia:(ExtFSMedia*)media;
+
+- (void)releaseExclusiveUseOfMedia:(ExtFSMedia*)media;
+
 - (ExtFSOpticalMediaType)opticalMediaTypeForName:(NSString*)name;
 - (NSString*)opticalMediaNameForType:(ExtFSOpticalMediaType)type;
 
@@ -199,6 +210,9 @@ A string containing the device name is attached.
 @discussion This is guarranteed to be delivered on the main thread.
 */
 extern NSString * const ExtFSMediaNotificationCreationFailed;
+
+extern NSString * const ExtFSMediaNotificationExclusiveRequestDidComplete;
+extern NSString * const ExtFSMediaNotificationDidReleaseExclusiveClaim;
 
 /*!
 @const ExtMediaKeyOpFailureType

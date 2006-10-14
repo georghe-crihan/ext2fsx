@@ -71,6 +71,8 @@ withObject:args waitUntilDone:NO]; \
 - (void)setSMARTService:(io_service_t)is;
 - (BOOL)isSMART;
 - (void)setNotSMART;
+- (BOOL)claimedExclusive;
+- (void)setClaimedExclusive:(BOOL)claimed;
 // This is a special init used for one specific purpose ([ExtFSMediaController allowMount]).
 - (ExtFSMedia*)initWithDeviceName:(NSString*)device;
 @end
@@ -103,6 +105,12 @@ withObject:args waitUntilDone:NO]; \
 #ifndef trap
 #define trap() asm volatile("int $3")
 #endif
+#endif
+
+#ifdef DEBUG
+#define E2DiagLog NSLog
+#else
+#define E2DiagLog()
 #endif
 
 #if MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3
@@ -140,5 +148,6 @@ enum {
    kfsIconNotFound	= (1<<10),
    kfsNoMount		= (1<<11),
    kfsPermsEnabled  = (1<<12),
-   kfsNotSMART         = (1<<13)
+   kfsNotSMART      = (1<<13),
+   kfsClaimedWithDA = (1<<14)
 };

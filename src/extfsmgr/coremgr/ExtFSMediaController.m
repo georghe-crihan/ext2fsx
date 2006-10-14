@@ -56,6 +56,8 @@ NSString * const ExtFSMediaNotificationMounted = @"ExtFSMediaNotificationMounted
 NSString * const ExtFSMediaNotificationUnmounted = @"ExtFSMediaNotificationUnmounted";
 NSString * const ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotificationCreationFailed";
 NSString * const ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
+NSString * const ExtFSMediaNotificationExclusiveRequestDidComplete = @"ExtFSMediaNotificationExclusiveRequestDidComplete";
+NSString * const ExtFSMediaNotificationDidReleaseExclusiveClaim = @"ExtFSMediaNotificationDidReleaseExclusiveClaim";
 
 static ExtFSMediaController *e_instance;
 static void* e_instanceLock = nil; // Ptr to global controller internal lock
@@ -96,6 +98,8 @@ static void DiskArbCallback_ChangeNotification(DADiskRef disk,
    CFArrayRef keys, void * context);
 static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context);
 static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context);
+static void DiskArbCallback_Claimed(DADiskRef disk, DADissenterRef dissenter, void *context);
+static DADissenterRef DiskArbCallback_ClaimRelease(DADiskRef disk, void *context);
 
 static void DiskArb_CallFailed(const char *device, int type, int status);
 
@@ -334,6 +338,34 @@ static NSDictionary *opticalMediaNames = nil;
     return (YES);
 }
 
+- (void)claimDidCompleteWithDevice:(NSString*)device error:(int)error
+{
+    ExtFSMedia *media = [self mediaWithBSDName:device];
+    if (media) {
+        if (!error)
+            [media setClaimedExclusive:YES];
+        
+        E2DiagLog(@"exclusive claim of '%@' %s\n", device, !error ? "granted" : "denied");
+        
+        NSDictionary *d = [NSDictionary dictionaryWithObjectsAndKeys:
+            [NSNumber numberWithInt:error], ExtMediaKeyOpFailureError,
+            nil];
+        
+        EFSMCPostNotification(ExtFSMediaNotificationExclusiveRequestDidComplete, media, d);
+    }
+}
+
+- (BOOL)releaseClaimForDevice:(NSString*)device
+{
+    ExtFSMedia *media = [self mediaWithBSDName:device];
+    if (media) {
+        BOOL allow = ![media claimedExclusive];
+        E2DiagLog(@"exclusive claim for '%@' %s\n", device, allow ? "released" : "retained");
+        return (allow);
+    }
+    return (YES);
+}
+
 /* Public */
 
 + (ExtFSMediaController*)mediaController
@@ -531,6 +563,36 @@ static NSDictionary *opticalMediaNames = nil;
    CFRelease(dadisk);
    
    return (ke);
+}
+
+- (void)requestExclusiveUseOfMedia:(ExtFSMedia*)media
+{
+    DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
+    if (!dadisk) {
+        return;
+    }
+    
+    DADiskClaim(dadisk, kDADiskClaimOptionDefault, DiskArbCallback_ClaimRelease, NULL,
+        DiskArbCallback_Claimed, NULL);
+    
+    CFRelease(dadisk);
+}
+
+- (void)releaseExclusiveUseOfMedia:(ExtFSMedia*)media
+{
+    if (![media claimedExclusive])
+        return;
+        
+    DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
+    if (!dadisk) {
+        return;
+    }
+    [media setClaimedExclusive:NO];
+    
+    DADiskUnclaim(dadisk);
+    CFRelease(dadisk);
+    
+    EFSMCPostNotification(ExtFSMediaNotificationDidReleaseExclusiveClaim, media, nil);
 }
 
 - (ExtFSOpticalMediaType)opticalMediaTypeForName:(NSString*)name
@@ -1010,6 +1072,26 @@ static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context
         return (NULL);
     
     return (DADissenterCreate(kCFAllocatorDefault, kDAReturnExclusiveAccess, NULL));
+}
+
+static void DiskArbCallback_Claimed(DADiskRef disk, DADissenterRef dissenter, void *context)
+{
+     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+     [[ExtFSMediaController mediaController] claimDidCompleteWithDevice:NSSTR(DADiskGetBSDName(disk))
+        error:!dissenter ? 0 : DADissenterGetStatus(dissenter)];
+     [pool release];
+}
+
+static DADissenterRef DiskArbCallback_ClaimRelease(DADiskRef disk, void *context)
+{
+     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+     BOOL allow = [[ExtFSMediaController mediaController] releaseClaimForDevice:NSSTR(DADiskGetBSDName(disk))];
+     [pool release];
+     
+     if (allow)
+        return (NULL);
+        
+     return (DADissenterCreate(kCFAllocatorDefault, kDAReturnExclusiveAccess, NULL));
 }
 
 NSString * const ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
