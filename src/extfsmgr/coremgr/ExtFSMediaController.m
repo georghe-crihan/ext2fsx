@@ -328,7 +328,7 @@ eulock(e_lock); \
     pMounts = [e_pending objectAtIndex:kPendingMounts];
     if ([pMounts containsObject:media]) {
         eulock(e_lock);
-        // Send an error
+        // Send an error - this also clears the pending state
         DiskArb_CallFailed(BSDNAMESTR(media),
             EXT_DISK_ARB_MOUNT_FAILURE, ETIMEDOUT);
         return;
@@ -345,6 +345,7 @@ eulock(e_lock); \
     pMounts = [e_pending objectAtIndex:kPendingMounts];
     pUMounts = [e_pending objectAtIndex:kPendingUMounts];
    
+    E2DiagLog(@"Attempting to remove %@ from pending states.\n", media);
     [pMounts removeObject:media];
     [pUMounts removeObject:media];
     eulock(e_lock);
@@ -538,9 +539,9 @@ eulock(e_lock); \
    int flags = kDADiskUnmountOptionDefault;
    NSMutableArray *pMounts;
    NSMutableArray *pUMounts;
-   kern_return_t ke;
+   kern_return_t ke = 0;
    
-   erlock(e_lock);
+   ewlock(e_lock);
    pMounts = [e_pending objectAtIndex:kPendingMounts];
    pUMounts = [e_pending objectAtIndex:kPendingUMounts];
    if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
@@ -549,6 +550,8 @@ eulock(e_lock); \
             [media bsdName]);
         return (EINPROGRESS);
    }
+   
+   [pUMounts addObject:media];
    eulock(e_lock);
    
    if (force)
@@ -570,24 +573,24 @@ eulock(e_lock); \
         flags |= kDADiskUnmountOptionWhole;
    }
    DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
-   if (!dadisk)
-      return (ENOENT);
+   if (!dadisk) {
+      ke = ENOENT;
+      goto unmount_failed;
+   }
    
-   ke = 0;
    if ([media isMounted] || (nil != [media children]))
       DADiskUnmount(dadisk, flags, DiskArbCallback_UnmountNotification, (eject ? (void*)EXT2_DISK_EJECT : NULL));
    else if (eject)
       DADiskEject(dadisk, kDADiskEjectOptionDefault, DiskArbCallback_EjectNotification, NULL);
    else
       ke = EINVAL;
-   if (0 == ke) {
-      ewlock(e_lock);
-      if (NO == [pUMounts containsObject:media])
-        [pUMounts addObject:media];
-      eulock(e_lock);
-   }
    
    CFRelease(dadisk);
+   
+unmount_failed:
+    if (ke) {
+        [self removePending:media];
+    }
    
    return (ke);
 }
