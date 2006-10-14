@@ -228,13 +228,7 @@ e_curSelection = nil; \
 
 - (void)volInfoUpdated:(NSNotification*)notification
 {
-#if 0
-   ExtFSMedia *media;
-   
-   media = [notification object];
-    if (media == e_curSelection)
-      [self generateInfo:media];
-#endif
+    [e_vollist reloadItem:[notification object]];
 }
 
 - (void)childChanged:(NSNotification*)notification
