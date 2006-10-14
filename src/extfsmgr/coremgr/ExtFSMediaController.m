@@ -324,7 +324,10 @@ static NSDictionary *opticalMediaNames = nil;
     (void)[delegate autorelease];
     if (delegate && [delegate respondsToSelector:@selector(allowMediaToMount:)]) {
         ExtFSMedia *media = [self mediaWithBSDName:device];
-        if (media)
+        if (!media) {
+            // XXX we can get race condtions between IOKit and DiskArb (or even various DiskArb callbacks)
+            media = [[[ExtFSMedia alloc] initWithDeviceName:device] autorelease];
+        }
             return ([delegate allowMediaToMount:media]);
     }
     
@@ -962,6 +965,9 @@ static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context _
 static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context)
 {
     BOOL allow = [[ExtFSMediaController mediaController] allowMount:NSSTR(DADiskGetBSDName(disk))];
+    #ifdef DIAGNOSTIC
+    NSLog(@"ExtFS: Mount '%s' %s.\n", DADiskGetBSDName(disk), allow ? "allowed" : "denied");
+    #endif
     if (allow)
         return (NULL);
     
