@@ -300,9 +300,6 @@ eminfo_exit:
 
 - (ExtFSMedia*)initWithIORegProperties:(NSDictionary*)properties
 {
-   NSString *hint;
-   NSRange r;
-   
    if ((self = [super init])) {
       if (nil == e_mediaIconCacheLck) {
          // Just to make sure someone else doesn't get in during creation...
@@ -320,45 +317,8 @@ init_err:
         goto init_err;
       }
       
-      e_media = [properties retain];
-      e_size = [[e_media objectForKey:NSSTR(kIOMediaSizeKey)] unsignedLongLongValue];
-      e_devBlockSize = [[e_media objectForKey:NSSTR(kIOMediaPreferredBlockSizeKey)] unsignedLongValue];
-      e_fsType = fsTypeUnknown;
-      e_opticalType = efsOpticalTypeUnknown;
-      
       e_attributeFlags = kfsDiskArb | kfsGetAttrlist;
-      if ([[e_media objectForKey:NSSTR(kIOMediaEjectableKey)] boolValue])
-         e_attributeFlags |= kfsEjectable;
-      if ([[e_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
-         e_attributeFlags |= kfsWritable;
-      if ([[e_media objectForKey:NSSTR(kIOMediaWholeKey)] boolValue])
-         e_attributeFlags |= kfsWholeDisk;
-      if ([[e_media objectForKey:NSSTR(kIOMediaLeafKey)] boolValue])
-         e_attributeFlags |= kfsLeafDisk;
-      
-      hint = [e_media objectForKey:NSSTR(kIOMediaContentHintKey)];
-      r = [hint rangeOfString:@"partition"];
-      if (hint && NSNotFound != r.location)
-         e_attributeFlags |= kfsNoMount;
-         
-      r = [hint rangeOfString:@"Driver"];
-      if (hint && NSNotFound != r.location)
-         e_attributeFlags |= kfsNoMount;
-         
-      r = [hint rangeOfString:@"Patches"];
-      if (hint && NSNotFound != r.location)
-         e_attributeFlags |= kfsNoMount;
-      
-      r = [hint rangeOfString:@"CD_DA"]; /* Digital Audio tracks */
-      if (hint && NSNotFound != r.location)
-         e_attributeFlags |= kfsNoMount;
-         
-      hint = [e_media objectForKey:NSSTR(kIOMediaContentKey)];
-      r = [hint rangeOfString:@"partition"];
-      if (hint && NSNotFound != r.location)
-         e_attributeFlags |= kfsNoMount;
-      
-      [self probe];
+      [self updateProperties:properties];
       
       ewlock(e_mediaIconCacheLck);
       if (nil != e_mediaIconCache)
