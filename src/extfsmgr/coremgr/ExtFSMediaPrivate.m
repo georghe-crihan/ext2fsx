@@ -340,7 +340,7 @@ __private_extern__ void PantherInitSMART()
             @"8DA63339-0007-60C0-C436-083AC8230908", // Linxu reserved
             nil];
 
-        NSString *hint = [e_media objectForKey:NSSTR(kIOMediaContentHintKey)];
+        NSString *hint = [e_media objectForKey:NSSTR(kIOMediaContentKey)];
         if ([gptIgnore containsObject:hint]
             || NSNotFound != [hint rangeOfString:@"partition"].location
             || NSNotFound != [hint rangeOfString:@"Boot"].location
