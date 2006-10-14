@@ -181,8 +181,10 @@ __private_extern__ void PantherInitSMART()
 #ifdef notyet
       IOObjectRelease(piter);
 #endif
-      if (kIOReturnNoDevice == kr && 0 == iterations)
+      if (kIOReturnNoDevice == kr && 0 == iterations) {
+         [e_parent remChild:self];
          return (NO);
+      }
       
       if (ioparent) {
          kr = IORegistryEntryCreateCFProperties(ioparent, &props,
