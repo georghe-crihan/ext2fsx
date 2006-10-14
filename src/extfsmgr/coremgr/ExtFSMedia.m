@@ -890,7 +890,7 @@ emicon_exit:
 
 - (NSString*)description
 {
-   return (e_bsdName);
+   return ([NSString stringWithFormat:@"<%@, %p>", e_bsdName, self]);
 }
 
 - (unsigned)hash
@@ -909,8 +909,8 @@ emicon_exit:
 - (void)dealloc
 {
    unsigned count;
-   E2DiagLog(@"ExtFS: Media '%@' dealloc.\n",
-      [e_media objectForKey:NSSTR(kIOBSDNameKey)]);
+   E2DiagLog(@"ExtFS: Media <%@, %p> dealloc.\n",
+      [e_media objectForKey:NSSTR(kIOBSDNameKey)], self);
    
    // Icon cache
    ewlock(e_mediaIconCacheLck);
