@@ -976,6 +976,9 @@ emicon_exit:
    [e_parent release];
    [e_probedAttributes release];
    
+   if (e_smartService)
+      IOObjectRelease((io_service_t)e_smartService);
+   
    edlock(e_lock);
    
    [super dealloc];

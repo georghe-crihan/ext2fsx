@@ -158,6 +158,7 @@ a filesystem or device for its properties.
    ExtFSIOTransportType e_ioTransport;
    NSImage *e_icon;
    ExtFSOpticalMediaType e_opticalType;
+   unsigned int e_smartService;
    unsigned char e_reserved[32];
 }
 

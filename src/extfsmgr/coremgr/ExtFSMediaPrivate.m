@@ -51,6 +51,43 @@ enum {
 
 __private_extern__ NSDictionary *transportNameTypeMap;
 
+static
+#ifndef EFSM_1030_SUPPORT
+inline __attribute__((always_inline))
+#endif
+BOOL IsSMARTCapableTiger(io_service_t is)
+{
+    CFMutableDictionaryRef props;
+    BOOL smart = NO;
+    if (kIOReturnSuccess == IORegistryEntryCreateCFProperties(is, &props, kCFAllocatorDefault, 0)) {
+        smart = (nil != [(NSDictionary*)props objectForKey:NSSTR(kIOPropertySMARTCapableKey)]);
+        CFRelease(props);
+    }
+    return (smart);
+}
+
+#ifndef EFSM_1030_SUPPORT
+#define IsSMARTCapable IsSMARTCapableTiger
+#else
+static BOOL (*IsSMARTCapable)(io_service_t) = IsSMARTCapableTiger;
+
+static
+BOOL IsSMARTCapablePan(io_service_t is)
+{
+    io_name_t class;
+    if (kIOReturnSuccess == IOObjectGetClass(is, class)) {
+        if (0 == strncmp(class, "IOATABlockStorageDevice", sizeof(class)))
+            return (YES);
+    }
+    return (NO);
+}
+
+__private_extern__ void PantherInitSMART()
+{
+    IsSMARTCapable = IsSMARTCapablePan;
+}
+#endif
+
 @implementation ExtFSMediaController (Private)
 
 - (void)postNotification:(NSArray*)args
@@ -352,14 +389,10 @@ __private_extern__ NSDictionary *transportNameTypeMap;
     io_service_t me = nil, tmp, parent = nil;
     
     if ((me = [self copyIOService])) {
-        kern_return_t kr;
-        CFMutableDictionaryRef props;
-        kr = IORegistryEntryGetParentEntry(me, kIOServicePlane, &parent);
+        kern_return_t kr = IORegistryEntryGetParentEntry(me, kIOServicePlane, &parent);
         while (kIOReturnSuccess == kr && parent) {
-            if (kIOReturnSuccess == IORegistryEntryCreateCFProperties(parent, &props, kCFAllocatorDefault, 0)) {
-                if ([(NSDictionary*)props objectForKey:NSSTR(kIOPropertySMARTCapableKey)])
+            if (IsSMARTCapable(parent))
                     break;
-            }
             tmp = parent;
             parent = nil;
             kr = IORegistryEntryGetParentEntry(tmp, kIOServicePlane, &parent);
@@ -369,6 +402,40 @@ __private_extern__ NSDictionary *transportNameTypeMap;
     }
     
     return (parent);
+}
+
+- (io_service_t)SMARTService
+{
+    erlock(e_lock);
+    io_service_t is = (io_service_t)e_smartService;
+    eulock(e_lock);
+    return (is);
+}
+
+- (void)setSMARTService:(io_service_t)is
+{
+    ewlock(e_lock);
+    if (0 == e_smartService && kIOReturnSuccess == IOObjectRetain(is)) {
+        e_smartService = is;
+    }
+    eulock(e_lock);
+}
+
+- (BOOL)isSMART
+{
+    erlock(e_lock);
+    BOOL test = (0 == (e_attributeFlags & kfsNotSMART));
+    eulock(e_lock);
+    return (test);
+}
+
+- (void)setNotSMART
+{
+    ewlock(e_lock);
+    if (0 == e_smartService) {
+        e_attributeFlags |= kfsNotSMART;
+    }
+    eulock(e_lock);
 }
 
 @end

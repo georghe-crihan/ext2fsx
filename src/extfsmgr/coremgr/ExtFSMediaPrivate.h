@@ -65,6 +65,10 @@ withObject:args waitUntilDone:NO]; \
 - (io_service_t)copySMARTIOService; // Get SMART capable service
 /* Implemented in ExtFSMedia.m -- this just gets rid of the compiler warnings. */
 - (int)fsInfo;
+- (io_service_t)SMARTService;
+- (void)setSMARTService:(io_service_t)is;
+- (BOOL)isSMART;
+- (void)setNotSMART;
 @end
 
 #ifndef EXT2FS_NAME
@@ -89,6 +93,11 @@ withObject:args waitUntilDone:NO]; \
 #define E2_BAD_ADDR 0xdeadbeef
 #elif defined(__i386__)
 #define E2_BAD_ADDR 0xbaadf00d
+#endif
+
+#if MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3
+#define EFSM_1030_SUPPORT
+__private_extern__ void PantherInitSMART();
 #endif
 
 /*!
@@ -120,5 +129,6 @@ enum {
    kfsGetAttrlist	= (1<<9),  /* getattrlist supported */
    kfsIconNotFound	= (1<<10),
    kfsNoMount		= (1<<11),
-   kfsPermsEnabled  = (1<<12)
+   kfsPermsEnabled  = (1<<12),
+   kfsNotSMART         = (1<<13)
 };

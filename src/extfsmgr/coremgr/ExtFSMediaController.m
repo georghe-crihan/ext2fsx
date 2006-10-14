@@ -627,6 +627,13 @@ static NSDictionary *opticalMediaNames = nil;
       goto exit;
    }
    
+#ifdef EFSM_1030_SUPPORT
+    if (floor(NSFoundationVersionNumber) <= NSFoundationVersionNumber10_3) {
+        // We are running on 10.3
+        PantherInitSMART();
+    }
+#endif
+   
    e_media = [[NSMutableDictionary alloc] init];
    /* Process the initial registry entrires */
    iomatch_add_callback(nil, notify_add_iter);

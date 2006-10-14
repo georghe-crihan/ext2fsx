@@ -88,8 +88,18 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
         }
     }
     
-    io_service_t service;
-    if ((service = [media copySMARTIOService])) {
+    io_service_t service = [media SMARTService];
+    BOOL setService = NO;
+    if (service) {
+        if (kIOReturnSuccess != IOObjectRetain(service))
+            service = nil;
+    } else if ([media isSMART]) {
+        service = [media copySMARTIOService];
+        setService = YES;
+    } else
+        service = nil;
+    
+    if (service) {
         kern_return_t kr;
         IOCFPlugInInterface **cfipp;
         IOATASMARTInterface **sipp;
@@ -109,6 +119,9 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
         if (S_OK == kr && sipp) {
             // Query for SMART status
             kr = (*sipp)->SMARTReturnStatus(sipp, &exceeded);
+            if (kIOReturnSuccess == kr && setService) {
+                [media setSMARTService:service];
+            }
             if (kIOReturnSuccess == kr && exceeded) {
                 ATASMARTData data;
                 status = efsSMARTTestUnknownFail;
@@ -134,8 +147,12 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
         
         if (disk)
             *disk = media;
-    } else
+    } else {
         status = efsSMARTInvalidTransport;
+        if (setService) {
+            [media setNotSMART];
+        }
+    }
     
     return (status);
 }
