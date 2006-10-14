@@ -535,6 +535,7 @@ __private_extern__ void PantherInitSMART()
         return (nil);
     }
     e_media = [[NSDictionary alloc] initWithObjectsAndKeys:device, NSSTR(kIOBSDNameKey), nil];
+    e_bsdName = [device retain];
     return (self);
 }
 
