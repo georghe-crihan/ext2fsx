@@ -204,6 +204,24 @@ is attached.
 */
 extern NSString * const ExtFSMediaNotificationUnmounted;
 /*!
+@const ExtFSMediaNotificationApplicationWillMount
+@abstract This notification is sent to the default Notification center
+when the current application has requested a mount. This notification
+does not apply to mount requests made by other applications.
+The mounted media object is attached.
+@discussion This is guarranteed to be delivered on the main thread.
+*/
+extern NSString * const ExtFSMediaNotificationApplicationWillMount;
+/*!
+@const ExtFSMediaNotificationApplicationWillUnmount
+@abstract This notification is sent to the default Notification center
+when the current application has requested a unmount. This notification
+does not apply to unmount requests made by other applications.
+The mounted media object is attached.
+@discussion This is guarranteed to be delivered on the main thread.
+*/
+extern NSString * const ExtFSMediaNotificationApplicationWillUnmount;
+/*!
 @const ExtFSMediaNotificationOpFailure
 @abstract This notification is sent to the default Notification center
 when an asynchronous operation fails. The media object that failed is

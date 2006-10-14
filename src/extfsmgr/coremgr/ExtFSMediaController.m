@@ -58,6 +58,8 @@ NSString * const ExtFSMediaNotificationCreationFailed = @"ExtFSMediaNotification
 NSString * const ExtFSMediaNotificationOpFailure = @"ExtFSMediaNotificationOpFailure";
 NSString * const ExtFSMediaNotificationClaimRequestDidComplete = @"ExtFSMediaNotificationClaimRequestDidComplete";
 NSString * const ExtFSMediaNotificationDidReleaseClaim = @"ExtFSMediaNotificationDidReleaseClaim";
+NSString * const ExtFSMediaNotificationApplicationWillMount = @"ExtFSMediaNotificationApplicationWillMount";
+NSString * const ExtFSMediaNotificationApplicationWillUnmount = @"ExtFSMediaNotificationApplicationWillUnmount";
 
 static ExtFSMediaController *e_instance;
 static void* e_instanceLock = nil; // Ptr to global controller internal lock
@@ -528,6 +530,7 @@ eulock(e_lock); \
    DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
    if (dadisk) {
       ke = 0;
+      EFSMCPostNotification(ExtFSMediaNotificationApplicationWillMount, media, nil);
       NSURL *url = dir ? [NSURL fileURLWithPath:dir] : nil;
       DADiskMount(dadisk, (CFURLRef)url, kDADiskMountOptionDefault, DiskArbCallback_MountNotification, NULL);
       CFRelease(dadisk);
@@ -591,9 +594,10 @@ eulock(e_lock); \
       goto unmount_failed;
    }
    
-   if ([media isMounted] || (nil != [media children]))
+   if ([media isMounted] || (nil != [media children])) {
+      EFSMCPostNotification(ExtFSMediaNotificationApplicationWillUnmount, media, nil);
       DADiskUnmount(dadisk, flags, DiskArbCallback_UnmountNotification, (eject ? (void*)EXT2_DISK_EJECT : NULL));
-   else if (eject)
+   } else if (eject)
       DADiskEject(dadisk, kDADiskEjectOptionDefault, DiskArbCallback_EjectNotification, NULL);
    else
       ke = EINVAL;
