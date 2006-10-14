@@ -91,7 +91,7 @@ typedef enum {
 
 /*!
 @enum ExtFSOpticalMediaType
-@abstract Optical Media Type ids's to identify read-only, write-once, re-writable media sepcifics.
+@abstract Optical Media Type id's to identify read-only, write-once, re-writable media sepcifics.
 @constant efsOpticalTypeCD Read only CD.
 @constant efsOpticalTypeCDR CD-R
 @constant efsOpticalTypeCDRW CD-RW
@@ -159,7 +159,11 @@ a filesystem or device for its properties.
    NSImage *e_icon;
    ExtFSOpticalMediaType e_opticalType;
    unsigned int e_smartService;
+   u_int32_t e_lastSMARTUpdate;
+   int e_smartStatus;
+#ifndef NOEXT2
    unsigned char e_reserved[32];
+#endif
 }
 
 /*!

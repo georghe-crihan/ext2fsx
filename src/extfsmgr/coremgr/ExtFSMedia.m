@@ -171,7 +171,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    }
    #endif
    
-   if (e_lastFSUpdate + VOL_INFO_CACHE_TIME > now.tv_sec) {
+   if ((e_lastFSUpdate + VOL_INFO_CACHE_TIME) > now.tv_sec) {
       eulock(e_lock);
       return (0);
    }

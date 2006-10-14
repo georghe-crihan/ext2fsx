@@ -1,5 +1,5 @@
 /*
-* Copyright 2003-2004 Brian Bergstrand.
+* Copyright 2003-2004,2006 Brian Bergstrand.
 *
 * Redistribution and use in source and binary forms, with or without modification, 
 * are permitted provided that the following conditions are met:
@@ -45,7 +45,9 @@ There should only be one instance of this class.
    id e_delegate;
    u_int64_t e_smonPollInterval;
    BOOL e_smonActive;
+#ifndef NOEXT2
    unsigned char e_reserved[32];
+#endif
 }
 
 /*!

@@ -63,9 +63,29 @@ static NSDictionary *e_SMARTDescrip = nil, *e_SMARTSeverityDescrip = nil;
 
 @implementation ExtFSMedia (ExtFSMediaSMART)
 
+#ifndef SMART_CACHE_TIME
+#define SMART_CACHE_TIME 300
+#endif
 - (ExtFSMARTStatus)SMARTStatus
 {
-    return ([[ExtFSMediaController mediaController] SMARTStatusForMedia:self parentDisk:nil]);
+    struct timeval now;
+    gettimeofday(&now, nil);
+    
+    erlock(e_lock);
+    if ((e_lastSMARTUpdate + SMART_CACHE_TIME) > now.tv_sec) {
+        eulock(e_lock);
+        return ((ExtFSMARTStatus)e_smartStatus);
+    }
+    eulock(e_lock);
+    
+    int smartStat = [[ExtFSMediaController mediaController] SMARTStatusForMedia:self parentDisk:nil];
+    ewlock(e_lock);
+    e_smartStatus = smartStat;
+    if (now.tv_sec > e_lastSMARTUpdate)
+        e_lastSMARTUpdate = now.tv_sec;
+    eulock(e_lock);
+
+    return ((ExtFSMARTStatus)e_smartStatus);
 }
 
 @end
