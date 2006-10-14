@@ -301,11 +301,12 @@ eulock(e_lock); \
                    // [self removeMedia:e2media device:device];
                    E2DiagLog(@"ExtFS: failed to update existing media %@!\n", e2media);
                }
+            
+                [e2media release];
+                CFRelease(properties);
+                IOObjectRelease(iomedia);
+                continue;
             }
-            [e2media release];
-            CFRelease(properties);
-            IOObjectRelease(iomedia);
-            continue;
          }
          
          if (!remove) {
@@ -390,7 +391,7 @@ eulock(e_lock); \
             [NSNumber numberWithInt:error], ExtMediaKeyOpFailureError,
             nil];
         
-        EFSMCPostNotification(ExtFSMediaNotificationExclusiveRequestDidComplete, media, d);
+        EFSMCPostNotification(ExtFSMediaNotificationClaimRequestDidComplete, media, d);
     }
 }
 
@@ -639,7 +640,7 @@ unmount_failed:
     DADiskUnclaim(dadisk);
     CFRelease(dadisk);
     
-    EFSMCPostNotification(ExtFSMediaNotificationDidReleaseExclusiveClaim, media, nil);
+    EFSMCPostNotification(ExtFSMediaNotificationDidReleaseClaim, media, nil);
 }
 
 - (ExtFSOpticalMediaType)opticalMediaTypeForName:(NSString*)name
