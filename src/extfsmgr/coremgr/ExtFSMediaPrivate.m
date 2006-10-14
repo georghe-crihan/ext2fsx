@@ -416,6 +416,7 @@ __private_extern__ void PantherInitSMART()
    ewlock(e_lock);
    e_fsType = ftype;
    
+   BOOL wasMounted = (0 != (e_attributeFlags & kfsMounted));
    e_attributeFlags |= kfsMounted;
    // CD-Audio needs the following
    e_attributeFlags &= ~kfsNoMount;
@@ -434,7 +435,7 @@ __private_extern__ void PantherInitSMART()
    
    tmp = nil;
    
-   (void)[self fsInfo];
+   (void)[self fsInfoUsingCache:NO];
    hasJournal = [self hasJournal];
    isJournaled = [self isJournaled];
    
@@ -449,6 +450,7 @@ __private_extern__ void PantherInitSMART()
    }
    eulock(e_lock);
    
+   if (!wasMounted)
    EFSMCPostNotification(ExtFSMediaNotificationMounted, self, nil);
 }
 
