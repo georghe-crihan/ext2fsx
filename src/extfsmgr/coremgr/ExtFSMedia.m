@@ -385,10 +385,14 @@ init_err:
    if (!e_children)
       e_children = [[NSMutableArray alloc] init];
 
-   if ([e_children containsObject:media]) {
+   unsigned idx = [e_children indexOfObject:media];
+   if (NSNotFound != idx) {
+      (void)[media retain]; // Just in case the ptr is the same as that at idx
+      [e_children replaceObjectAtIndex:idx withObject:media];
+      eulock(e_lock);
+      [media release];
       E2DiagLog(@"ExtFS: Oops! Parent '%@' already contains child '%@'.\n",
          myname, oname);
-      eulock(e_lock);
       return;
    };
 
@@ -401,14 +405,15 @@ init_err:
 {
    NSString *myname = e_bsdName, *oname = [media bsdName];
    ewlock(e_lock);
-   if (nil == e_children || NO == [e_children containsObject:media]) {
+   unsigned idx = [e_children indexOfObject:media];
+   if (nil == e_children || NSNotFound == idx) {
+      eulock(e_lock);
       E2DiagLog(@"ExtFS: Oops! Parent '%@' does not contain child '%@'.\n",
          myname, oname);
-      eulock(e_lock);
       return;
    };
 
-   [e_children removeObject:media];
+   [e_children removeObjectAtIndex:idx];
    eulock(e_lock);
    EFSMPostNotification(ExtFSMediaNotificationChildChange, nil);
 }
