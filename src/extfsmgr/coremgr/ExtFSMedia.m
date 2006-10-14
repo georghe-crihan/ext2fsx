@@ -353,7 +353,10 @@ init_err:
 
 - (ExtFSMedia*)parent
 {
-   return ([[e_parent retain] autorelease]);
+    erlock(e_lock);
+    ExtFSMedia *p = [e_parent retain];
+    eulock(e_lock);
+    return ([p autorelease]);
 }
 
 - (NSArray*)children
@@ -717,7 +720,10 @@ emicon_exit:
 
 - (NSString*)volName
 {
-   return ([[e_volName retain] autorelease]);
+   erlock(e_lock);
+   NSString *s = [e_volName retain];
+   eulock(e_lock);
+   return ([s autorelease]);
 }
 
 - (BOOL)hasPermissions
