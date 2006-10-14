@@ -74,6 +74,7 @@ withObject:args waitUntilDone:NO]; \
 - (void)setNotSMART;
 - (BOOL)claimedExclusive;
 - (void)setClaimedExclusive:(BOOL)claimed;
+- (BOOL)loadCustomVolumeIcon;
 // This is a special init used for one specific purpose ([ExtFSMediaController allowMount]).
 - (ExtFSMedia*)initWithDeviceName:(NSString*)device;
 @end
@@ -156,5 +157,6 @@ enum {
    kfsNoMount		= (1<<11),
    kfsPermsEnabled  = (1<<12),
    kfsNotSMART      = (1<<13),
-   kfsClaimedWithDA = (1<<14)
+   kfsClaimedWithDA = (1<<14),
+   kfsHasCustomIcon = (1<<15)
 };

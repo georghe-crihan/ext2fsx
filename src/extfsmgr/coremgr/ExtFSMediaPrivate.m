@@ -366,7 +366,8 @@ __private_extern__ void PantherInitSMART()
 {
    NSDictionary *fsTypes;
    NSNumber *fstype;
-   NSString *tmp;
+   NSString *tmpstr;
+   id tmp;
    ExtFSType ftype;
    BOOL hasJournal, isJournaled;
    
@@ -385,9 +386,17 @@ __private_extern__ void PantherInitSMART()
          but the mounted filesystem was not */
       if ([[e_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
          e_attributeFlags |= kfsWritable;
+
+        if (e_attributeFlags & kfsHasCustomIcon) {
+            e_attributeFlags &= ~kfsHasCustomIcon;
+            tmp = e_icon;
+            e_icon = nil;
+        } else
+            tmp = nil;
       eulock(e_lock);
       
       EFSMCPostNotification(ExtFSMediaNotificationUnmounted, self, nil);
+      [tmp release];
       return;
    }
    
@@ -411,7 +420,7 @@ __private_extern__ void PantherInitSMART()
    else
       E2Log(@"ExtFS: Unknown filesystem '%@'.\n", fstype);
    [fsTypes release];
-   tmp = [[NSString alloc] initWithUTF8String:stat->f_mntonname];
+   tmpstr = [[NSString alloc] initWithUTF8String:stat->f_mntonname];
    
    ewlock(e_lock);
    e_fsType = ftype;
@@ -429,11 +438,17 @@ __private_extern__ void PantherInitSMART()
    e_fsBlockSize = stat->f_bsize;
    e_blockCount = stat->f_blocks;
    e_blockAvail = stat->f_bavail;
-   [e_where release];
-   e_where = tmp;
+   tmp = e_where;
+   e_where = tmpstr;
    eulock(e_lock);
-   
+   [tmp release];
    tmp = nil;
+   tmpstr = nil;
+   
+    if (!wasMounted) {
+       // Attemp to load custom icon
+       (void)[self loadCustomVolumeIcon];
+    }
    
    (void)[self fsInfoUsingCache:NO];
    hasJournal = [self hasJournal];
@@ -541,6 +556,43 @@ __private_extern__ void PantherInitSMART()
     else
         e_attributeFlags &= ~kfsClaimedWithDA;
     eulock(e_lock);
+}
+
+- (BOOL)loadCustomVolumeIcon
+{
+    NSString *path;
+    NSImage *customIcon;
+    id tmp;
+    BOOL found = NO;
+    
+    erlock(e_lock);
+    path = [e_where retain];
+    eulock(e_lock);
+    
+    FSRef fref;
+    CFURLRef url = path ? (CFURLRef)[NSURL fileURLWithPath:path] : NULL;
+    if (url)
+        CFURLGetFSRef(url, &fref);
+    FSCatalogInfo cinfo;
+    ((FolderInfo*)&cinfo.finderInfo)->finderFlags = 0;
+    (void)FSGetCatalogInfo(&fref, kFSCatInfoFinderInfo, &cinfo, NULL, NULL, NULL);
+    if (((FolderInfo*)&cinfo.finderInfo)->finderFlags & kHasCustomIcon) {        
+        customIcon = [[NSImage alloc] initWithContentsOfFile:[path stringByAppendingPathComponent:@".VolumeIcon.icns"]];
+        if (!customIcon)
+            customIcon = [[NSImage alloc] initWithContentsOfFile:[path stringByAppendingPathComponent:@"Icon\r"]];
+        if (customIcon) {
+            [customIcon setName:[self bsdName]];
+            ewlock(e_lock);
+            tmp = e_icon;
+            e_icon = customIcon;
+            e_attributeFlags |= kfsHasCustomIcon;
+            eulock(e_lock);
+            [tmp release];
+            found  = YES;
+        }
+    }
+    [path release];
+    return (found);
 }
 
 - (ExtFSMedia*)initWithDeviceName:(NSString*)device
