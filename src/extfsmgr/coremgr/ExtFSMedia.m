@@ -183,9 +183,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    bzero(&alist, sizeof(alist));
    alist.bitmapcount = ATTR_BIT_MAP_COUNT;
    alist.volattr = ATTR_VOL_INFO|ATTR_VOL_SIGNATURE|ATTR_VOL_SPACEAVAIL|
-      ATTR_VOL_FILECOUNT|ATTR_VOL_DIRCOUNT;
-   if (!e_volName)
-      alist.volattr |= ATTR_VOL_CAPABILITIES|ATTR_VOL_NAME;
+      ATTR_VOL_FILECOUNT|ATTR_VOL_DIRCOUNT|ATTR_VOL_CAPABILITIES|ATTR_VOL_NAME;
    
    err = getattrlist(path, &alist, &vinfo.vinfo, sizeof(vinfo.vinfo), 0);
    if (!err) {
@@ -193,8 +191,10 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
       e_fileCount = vinfo.vinfo.v_filecount;
       e_dirCount = vinfo.vinfo.v_dircount;
       e_blockAvail = vinfo.vinfo.v_availspace / e_fsBlockSize;
-      if (0 != vinfo.vinfo.v_name[VOL_CAPABILITIES_FORMAT])
+      if (0 != vinfo.vinfo.v_name[VOL_CAPABILITIES_FORMAT]) {
+         [e_volName release];
          e_volName = [[NSString alloc] initWithUTF8String:vinfo.vinfo.v_name];
+      }
       if (alist.volattr & ATTR_VOL_CAPABILITIES)
          e_volCaps = vinfo.vinfo.v_caps.capabilities[0];
       if (fsTypeHFS == e_fsType && kHFSPlusSigWord == vinfo.vinfo.v_signature)
