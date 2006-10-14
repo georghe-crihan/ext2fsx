@@ -42,6 +42,7 @@ There should only be one instance of this class.
    void *e_lock;
    id e_media;
    id e_pending;
+   id e_delegate;
    u_int64_t e_smonPollInterval;
    BOOL e_smonActive;
    unsigned char e_reserved[32];
@@ -135,6 +136,15 @@ ExtFSMediaNotificationOpFailure notification will be sent.
 
 - (ExtFSOpticalMediaType)opticalMediaTypeForName:(NSString*)name;
 - (NSString*)opticalMediaNameForType:(ExtFSOpticalMediaType)type;
+
+- (id)delegate;
+- (void)setDelegate:(id)obj;
+
+@end
+
+@interface NSObject (ExtFSMediaControllerDelegate)
+
+- (BOOL)allowMediaToMount:(ExtFSMedia*)media;
 
 @end
 

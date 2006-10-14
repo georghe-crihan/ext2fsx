@@ -63,6 +63,7 @@ static pthread_mutex_t e_initMutex = PTHREAD_MUTEX_INITIALIZER;
 static IONotificationPortRef notify_port_ref=0;
 static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
 static DASessionRef daSession = NULL;
+static DAApprovalSessionRef daApprovalSession = NULL;
 
 static const char *e_fsNames[] = {
    EXT2FS_NAME,
@@ -94,6 +95,7 @@ static void DiskArbCallback_EjectNotification(DADiskRef disk,
 static void DiskArbCallback_ChangeNotification(DADiskRef disk,
    CFArrayRef keys, void * context);
 static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context);
+static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context);
 
 static void DiskArb_CallFailed(const char *device, int type, int status);
 
@@ -297,6 +299,22 @@ static NSDictionary *opticalMediaNames = nil;
     [pMounts removeObject:media];
     [pUMounts removeObject:media];
     eulock(e_lock);
+}
+
+- (BOOL)allowMount:(NSString*)device
+{
+    erlock(e_lock);
+    id delegate = [e_delegate retain];
+    eulock(e_lock);
+    
+    (void)[delegate autorelease];
+    if (delegate && [delegate respondsToSelector:@selector(allowMediaToMount:)]) {
+        ExtFSMedia *media = [self mediaWithBSDName:device];
+        if (media)
+            return ([delegate allowMediaToMount:media]);
+    }
+    
+    return (YES);
 }
 
 /* Public */
@@ -508,6 +526,26 @@ static NSDictionary *opticalMediaNames = nil;
     return ([opticalMediaNames objectForKey:[NSNumber numberWithInt:type]]);
 }
 
+- (id)delegate
+{
+    erlock(e_lock);
+    id obj = [e_delegate retain];
+    eulock(e_lock);
+    return ([obj autorelease]);
+}
+
+- (void)setDelegate:(id)obj
+{
+    id tmp = nil;
+    ewlock(e_lock);
+    if (obj != e_delegate) {
+        tmp = e_delegate;
+        e_delegate = [obj retain];
+    }
+    eulock(e_lock);
+    [tmp release];
+}
+
 /* Super */
 
 - (id)init
@@ -650,6 +688,15 @@ static NSDictionary *opticalMediaNames = nil;
    // mount detection
    DARegisterDiskAppearedCallback(daSession, NULL, DiskArbCallback_AppearedNotification, NULL);
    
+    // approval callbacks
+    if ((daApprovalSession = DAApprovalSessionCreate(kCFAllocatorDefault))) {
+        DAApprovalSessionScheduleWithRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop],
+            kCFRunLoopCommonModes);
+        DARegisterDiskMountApprovalCallback(daApprovalSession, kDADiskDescriptionMatchVolumeMountable, DiskArbCallback_ApproveMount, NULL);
+    } else {
+        NSLog(@"ExtFS: Failed to create DAApprovalSession!\n");
+    }
+   
    e_instanceLock = e_lock;
    pthread_mutex_unlock(&e_initMutex);
    return (self);
@@ -672,9 +719,12 @@ exit:
 {
    NSLog(@"ExtFS: Oops! Somebody released the global media controller!\n");
 #if 0
+    DAUnregisterApprovalCallback(daApprovalSession, DiskArbCallback_ApproveMount, NULL);
+    DAApprovalSessionUnscheduleFromRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
+    CFRelease(daApprovalSession);
+    
    DAUnregisterCallback(DiskArbCallback_ChangeNotification, NULL);
    DAUnregisterCallback(DiskArbCallback_AppearedNotification, NULL);
-   
    DASessionUnscheduleFromRunLoop(daSession, [[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes);
    CFRelease(daSession);
    
@@ -893,6 +943,15 @@ static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context _
         (void)[[ExtFSMediaController mediaController] updateMountStatus];
     }
     [d release];
+}
+
+static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context)
+{
+    BOOL allow = [[ExtFSMediaController mediaController] allowMount:NSSTR(DADiskGetBSDName(disk))];
+    if (allow)
+        return (NULL);
+    
+    return (DADissenterCreate(kCFAllocatorDefault, kDAReturnExclusiveAccess, NULL));
 }
 
 NSString * const ExtMediaKeyOpFailureType = @"ExtMediaKeyOpFailureType";
