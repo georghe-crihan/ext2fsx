@@ -210,20 +210,23 @@ eulock(e_lock); \
 {
    ExtFSMedia *e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
    if (e2media) {
-      NSString *device = [e2media bsdName];
-      ewlock(e_lock);
-      [e_media setObject:e2media forKey:device];
-      eulock(e_lock);
-      
       // It's possible for us to get in a race condition where we are created from a device that
       // has disappeared by the time we get to this point. updateAttributesFromIOService
       // will detect this and return false if the race occurs.
       BOOL good = [e2media updateAttributesFromIOService:service];
       if (!good) {
-         rmmedia(e2media, device);
          [e2media release];
          return (nil);
       }
+      NSString *device = [e2media bsdName];
+      ewlock(e_lock);
+      #ifdef DIAGNOSTIC
+      if ([e_media objectForKey:device])
+        trap();
+      #endif
+      [e_media setObject:e2media forKey:device];
+      eulock(e_lock);
+      
       E2DiagLog(@"ExtFS: Media %@ created with parent %@.\n", e2media, [e2media parent]);
       
       EFSMCPostNotification(ExtFSMediaNotificationAppeared, e2media, nil);
