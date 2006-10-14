@@ -119,7 +119,7 @@ __private_extern__ void PantherInitSMART()
 #define MAX_PARENT_ITERS 10
 @implementation ExtFSMedia (ExtFSMediaController)
 
-- (void)updateAttributesFromIOService:(io_service_t)service
+- (BOOL)updateAttributesFromIOService:(io_service_t)service
 {
    ExtFSMediaController *mc;
    NSString *regName = nil;
@@ -142,8 +142,15 @@ __private_extern__ void PantherInitSMART()
    eulock(e_lock);
    
    /* Get IOKit name */
-   if (0 == IORegistryEntryGetNameInPlane(service, kIOServicePlane, ioname))
+   if (0 == (kr = IORegistryEntryGetNameInPlane(service, kIOServicePlane, ioname)))
       regName = NSSTR(ioname);
+   else {
+      #ifdef DIAGNOSTIC
+      if (kr)
+        NSLog(@"ExtFS: IORegistryEntryGetNameInPlane (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
+      #endif
+      return (NO);
+   }
    
    /* Get Parent */
    CFMutableDictionaryRef props;
@@ -167,9 +174,17 @@ __private_extern__ void PantherInitSMART()
          IOObjectRelease(ioparentold);
          iterations++;
       }
+#ifdef DIAGNOSTIC
+     if (kr)
+        NSLog(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: 0x%X\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)], kr);
+     if (iterations >= MAX_PARENT_ITERS)
+        NSLog(@"ExtFS: IORegistryEntryGetParentEntry (%@) error: max iterations exceeded\n", [e_media objectForKey:NSSTR(kIOBSDNameKey)]);
+#endif
 #ifdef notyet
       IOObjectRelease(piter);
 #endif
+      if (kIOReturnNoDevice == kr && 0 == iterations)
+         return (NO);
       
       if (ioparent) {
          kr = IORegistryEntryCreateCFProperties(ioparent, &props,
@@ -182,8 +197,7 @@ __private_extern__ void PantherInitSMART()
             parent = [mc mediaWithBSDName:pdevice];
             if (!parent) {
                /* Parent does not exist */
-               parent = [mc createMediaWithIOService:ioparent
-                  properties:(NSDictionary*)props];
+               parent = [mc createMediaWithIOService:ioparent properties:(NSDictionary*)props];
             }
             CFRelease(props);
          }
@@ -245,13 +259,18 @@ __private_extern__ void PantherInitSMART()
          CFSTR(kIOMediaIconKey), kCFAllocatorDefault,
          kIORegistryIterateParents | kIORegistryIterateRecursively);
    
+   ExtFSMedia *oldParent = nil;
+   BOOL addToParent = NO;
    ewlock(e_lock);
    
    e_ioTransport = transType;
-   if (regName && nil == e_ioregName)
+   [e_ioregName release];
       e_ioregName = [regName retain];
-   if (parent && nil == e_parent)
+   if (e_parent != parent) {
+       oldParent = e_parent;
       e_parent = [parent retain];
+       addToParent = YES;
+   }
    if (iconDesc) {
       [e_iconDesc release];
       e_iconDesc = [(NSDictionary*)iconDesc retain];
@@ -275,6 +294,71 @@ __private_extern__ void PantherInitSMART()
         e_opticalType = efsOpticalTypeUnknown;
 
    eulock(e_lock);
+   
+    // Update child status
+    if (oldParent) {
+        [oldParent remChild:self];
+        #ifdef DIAGNOSTIC
+        NSLog(@"ExtFS: '%@' removing parent '%@'\n", self, e_parent);
+        #endif
+        [oldParent release];
+    }
+    if (addToParent)
+        [e_parent addChild:self];
+    
+    return (YES);
+}
+
+- (void)updateProperties:(NSDictionary*)properties
+{
+    id oldprops = nil;
+    ewlock(e_lock);
+    if (properties != e_media) {
+        oldprops = e_media;
+        e_media = [properties retain];
+        
+        e_size = [[e_media objectForKey:NSSTR(kIOMediaSizeKey)] unsignedLongLongValue];
+        e_devBlockSize = [[e_media objectForKey:NSSTR(kIOMediaPreferredBlockSizeKey)] unsignedLongValue];
+        e_fsType = fsTypeUnknown;
+        e_opticalType = efsOpticalTypeUnknown;
+
+        e_attributeFlags &= ~(kfsEjectable|kfsWritable|kfsWholeDisk|kfsLeafDisk|kfsNoMount);
+        if ([[e_media objectForKey:NSSTR(kIOMediaEjectableKey)] boolValue])
+            e_attributeFlags |= kfsEjectable;
+        if ([[e_media objectForKey:NSSTR(kIOMediaWritableKey)] boolValue])
+            e_attributeFlags |= kfsWritable;
+        if ([[e_media objectForKey:NSSTR(kIOMediaWholeKey)] boolValue])
+            e_attributeFlags |= kfsWholeDisk;
+        if ([[e_media objectForKey:NSSTR(kIOMediaLeafKey)] boolValue])
+            e_attributeFlags |= kfsLeafDisk;
+        
+        NSString *hint = [e_media objectForKey:NSSTR(kIOMediaContentHintKey)];
+        NSRange r = [hint rangeOfString:@"partition"];
+        if (hint && NSNotFound != r.location)
+            e_attributeFlags |= kfsNoMount;
+         
+        r = [hint rangeOfString:@"Driver"];
+        if (hint && NSNotFound != r.location)
+            e_attributeFlags |= kfsNoMount;
+         
+        r = [hint rangeOfString:@"Patches"];
+        if (hint && NSNotFound != r.location)
+            e_attributeFlags |= kfsNoMount;
+
+        r = [hint rangeOfString:@"CD_DA"]; /* Digital Audio tracks */
+        if (hint && NSNotFound != r.location)
+            e_attributeFlags |= kfsNoMount;
+         
+        hint = [e_media objectForKey:NSSTR(kIOMediaContentKey)];
+        r = [hint rangeOfString:@"partition"];
+        if (hint && NSNotFound != r.location)
+            e_attributeFlags |= kfsNoMount;
+    }
+    eulock(e_lock);
+    
+    [oldprops release];
+    
+    [self probe];
 }
 
 - (void)setIsMounted:(struct statfs*)stat
