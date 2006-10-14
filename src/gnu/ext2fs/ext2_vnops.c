@@ -880,7 +880,8 @@ ext2_remove(ap)
 		}
 	}
    
-	error = ext2_dirremove(dvp, ap->a_cnp, ap->a_context);
+	cache_purge(vp);
+    error = ext2_dirremove(dvp, ap->a_cnp, ap->a_context);
 	if (error == 0) {
 		IXLOCK(ip);
         ip->i_nlink--;
@@ -1102,7 +1103,9 @@ ext2_rename(ap)
 	 *    entry to reference the source inode and
 	 *    expunge the original entry's existence.
 	 */
-	if (xp == NULL) {
+	if (tvp)
+        cache_purge(tvp);
+    if (xp == NULL) {
 		IXLOCK(dp);
         IXLOCK_WITH_LOCKED_INODE(ip, dp);
         if (dp->i_dev != ip->i_dev)
@@ -1222,6 +1225,10 @@ ext2_rename(ap)
 		xp = NULL;
 	}
     
+    /*
+     * 3) Unlink the source
+     */
+    
     xp = VTOI(fvp);
     dp = VTOI(fdvp);
 	/*
@@ -1274,7 +1281,8 @@ ext2_rename(ap)
 				}
 			}
 		}
-		error = ext2_dirremove(fdvp, fcnp, ap->a_context);
+		cache_purge(fvp);
+        error = ext2_dirremove(fdvp, fcnp, ap->a_context);
 		IXLOCK(xp);
         if (!error) {
 			xp->i_nlink--;
