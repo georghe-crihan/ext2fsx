@@ -544,6 +544,7 @@ int ext2_lookupi(vnode_t vdp, vnode_t *vpp, struct componentname *cnp, vfs_conte
     IXLOCK(dp);
     assert((dp->i_flag & IN_LOOK));
     
+    dp->i_lastnamei = nameiop;
 
    /* Check for indexed dir */
    if (is_dx(dp)) {
@@ -1049,7 +1050,6 @@ dolookup:
     }
     
     IXLOCK(dp);
-    dp->i_lastnamei = nameiop;
     dp->i_flag &= ~IN_LOOK;
     IWAKE(dp, flag, flag, IN_LOOKWAIT);
     IULOCK(dp);
