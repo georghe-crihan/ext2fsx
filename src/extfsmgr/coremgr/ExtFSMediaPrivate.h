@@ -65,6 +65,7 @@ withObject:args waitUntilDone:NO]; \
 - (io_service_t)copyIOService;
 - (io_service_t)copySMARTIOService; // Get SMART capable service
 /* Implemented in ExtFSMedia.m -- this just gets rid of the compiler warnings. */
+- (int)fsInfoUsingCache:(BOOL)cache;
 - (int)fsInfo;
 - (void)probe;
 - (io_service_t)SMARTService;

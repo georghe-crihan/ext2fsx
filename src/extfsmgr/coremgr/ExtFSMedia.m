@@ -128,7 +128,8 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
 [args release]; \
 } while(0)
 
-- (int)fsInfo
+
+- (int)fsInfoUsingCache:(BOOL)cache
 {
    struct attrlist alist;
    union volinfo vinfo;
@@ -171,7 +172,7 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
    }
    #endif
    
-   if ((e_lastFSUpdate + VOL_INFO_CACHE_TIME) > now.tv_sec) {
+   if (cache && (e_lastFSUpdate + VOL_INFO_CACHE_TIME) > now.tv_sec) {
       eulock(e_lock);
       return (0);
    }
@@ -204,6 +205,10 @@ NSArray *args = [[NSArray alloc] initWithObjects:note, info, nil]; \
       eulock(e_lock);
       goto eminfo_exit;
    }
+    #ifdef DIAGNOSTIC
+    if (ENOENT == err)
+        trap();
+    #endif
    
    /* Fall back to statfs to get the info. */
    err = statfs(path, &vinfo.vstat);
@@ -223,6 +228,11 @@ eminfo_exit:
       EFSMPostNotification(ExtFSMediaNotificationUpdatedInfo, nil);
    }
    return (err);
+}
+
+- (int)fsInfo
+{
+    return ([self fsInfoUsingCache:YES]);
 }
 
 - (void)probe
