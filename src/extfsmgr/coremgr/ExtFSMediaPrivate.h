@@ -71,6 +71,8 @@ withObject:args waitUntilDone:NO]; \
 - (void)setSMARTService:(io_service_t)is;
 - (BOOL)isSMART;
 - (void)setNotSMART;
+// This is a special init used for one specific purpose ([ExtFSMediaController allowMount]).
+- (ExtFSMedia*)initWithDeviceName:(NSString*)device;
 @end
 
 #ifndef EXT2FS_NAME

@@ -522,4 +522,15 @@ __private_extern__ void PantherInitSMART()
     eulock(e_lock);
 }
 
+- (ExtFSMedia*)initWithDeviceName:(NSString*)device
+{
+    if (0 != eilock(&e_lock)) {
+        NSLog(@"ExtFS: Failed to allocate media object lock!\n");
+        [super release];
+        return (nil);
+    }
+    e_media = [[NSDictionary alloc] initWithObjectsAndKeys:device, NSSTR(kIOBSDNameKey), nil];
+    return (self);
+}
+
 @end
