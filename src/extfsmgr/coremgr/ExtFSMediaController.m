@@ -196,6 +196,16 @@ static NSDictionary *opticalMediaNames = nil;
    return (NO);
 }
 
+#define rmmedia(m, dev) do { \
+ExtFSMedia *parent; \
+if ((parent = [m parent])) \
+    [parent remChild:m]; \
+ewlock(e_lock); \
+[e_media removeObjectForKey:dev]; \
+eulock(e_lock); \
+[self removePending:m]; \
+} while(0)
+
 - (ExtFSMedia*)createMediaWithIOService:(io_service_t)service properties:(NSDictionary*)props
 {
    ExtFSMedia *e2media = [[ExtFSMedia alloc] initWithIORegProperties:props];
@@ -210,10 +220,7 @@ static NSDictionary *opticalMediaNames = nil;
       // will detect this and return false if the race occurs.
       BOOL good = [e2media updateAttributesFromIOService:service];
       if (!good) {
-         ewlock(e_lock);
-         [e_media removeObjectForKey:device];
-         eulock(e_lock);
-         [self removePending:e2media];
+         rmmedia(e2media, device);
          [e2media release];
          return (nil);
       }
@@ -230,24 +237,16 @@ static NSDictionary *opticalMediaNames = nil;
 
 - (void)removeMedia:(ExtFSMedia*)e2media device:(NSString *)device
 {
-   ExtFSMedia *parent;
+  if ([e2media isMounted])
+      E2DiagLog(@"ExtFS: Oops! Media '%@' removed while still mounted!\n", device);
    
-   if ([e2media isMounted])
-      E2Log(@"ExtFS: Oops! Media '%@' removed while still mounted!\n", device);
-   
-   if ((parent = [e2media parent]))
-      [parent remChild:e2media];
-
-   [e2media retain];
-   ewlock(e_lock);
-   [e_media removeObjectForKey:device];
-   eulock(e_lock);
-   [self removePending:e2media];
+   (void)[e2media retain];
+   rmmedia(e2media, device);
 
    EFSMCPostNotification(ExtFSMediaNotificationDisappeared, e2media, nil);
-
+   
    E2DiagLog(@"ExtFS: Media '%@' removed. Retain count = %u.\n",
-      device, [e2media retainCount]);
+      e2media, [e2media retainCount]);
    [e2media release];
 }
 
@@ -258,6 +257,12 @@ static NSDictionary *opticalMediaNames = nil;
    ExtFSMedia *e2media;
    CFMutableDictionaryRef properties;
    NSString *device;
+   NSMutableArray *needProbe;
+   
+    if (!remove)
+        needProbe = [NSMutableArray array];
+    else
+        needProbe = nil;
    
    /* Init all media devices */
    while ((iomedia = IOIteratorNext(iter))) {
@@ -272,15 +277,22 @@ static NSDictionary *opticalMediaNames = nil;
             if (remove)
                [self removeMedia:e2media device:device];
             else {
-               E2DiagLog(@"ExtFS: Existing media %@ appeared again.\n", device);
+               E2DiagLog(@"ExtFS: Existing media %@ appeared again.\n", e2media);
                [e2media updateProperties:(NSDictionary*)properties];
-               // XXX updateProperties is a re-entry point (as NSTask can be called and re-enter the run loop)
-               // so the media could have been removed.
+               #ifdef DIAGNOSTIC
                erlock(e_lock);
-               kr = [e_media objectForKey:device] ? 0 : 1;
+               kr = (e2media == [e_media objectForKey:device]) ? 0 : 1;
                eulock(e_lock);
-               if (0 == kr && [e2media updateAttributesFromIOService:iomedia]) {
+               if (kr)
+                  trap();
+               #endif
+               if ([e2media updateAttributesFromIOService:iomedia]) {
                    EFSMCPostNotification(ExtFSMediaNotificationUpdatedInfo, e2media, nil);
+                   [needProbe addObject:e2media];
+               } else {
+                   // most likely, the service handle is simply stale, so don't rem
+                   // [self removeMedia:e2media device:device];
+                   E2DiagLog(@"ExtFS: failed to update existing media %@!\n", e2media);
                }
             }
             [e2media release];
@@ -289,13 +301,18 @@ static NSDictionary *opticalMediaNames = nil;
             continue;
          }
          
-         if (!remove)
-         (void)[self createMediaWithIOService:iomedia properties:(NSDictionary*)properties];
+         if (!remove) {
+            if ((e2media = [self createMediaWithIOService:iomedia properties:(NSDictionary*)properties]))
+                [needProbe addObject:e2media];
+         }
          
          CFRelease(properties);
       }
       IOObjectRelease(iomedia);
    }
+   
+   // XXX re-entry point (as NSTask can be called and re-enter the run loop)
+   [needProbe makeObjectsPerformSelector:@selector(probe)];
    
    [self updateMountStatus];
    
