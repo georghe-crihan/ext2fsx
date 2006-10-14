@@ -56,7 +56,8 @@ withObject:args waitUntilDone:NO]; \
 #define EFS_PROBE_RSRC @"efsprobe"
 
 @interface ExtFSMedia (ExtFSMediaControllerPrivate)
-- (void)updateAttributesFromIOService:(io_service_t)service;
+- (BOOL)updateAttributesFromIOService:(io_service_t)service;
+- (void)updateProperties:(NSDictionary*)properties;
 - (void)setIsMounted:(struct statfs*)stat;
 - (NSDictionary*)iconDescription;
 - (void)addChild:(ExtFSMedia*)media;
@@ -65,6 +66,7 @@ withObject:args waitUntilDone:NO]; \
 - (io_service_t)copySMARTIOService; // Get SMART capable service
 /* Implemented in ExtFSMedia.m -- this just gets rid of the compiler warnings. */
 - (int)fsInfo;
+- (void)probe;
 - (io_service_t)SMARTService;
 - (void)setSMARTService:(io_service_t)is;
 - (BOOL)isSMART;
@@ -91,8 +93,14 @@ withObject:args waitUntilDone:NO]; \
 
 #ifdef __ppc__
 #define E2_BAD_ADDR 0xdeadbeef
+#ifndef trap
+#define trap() asm volatile("trap")
+#endif
 #elif defined(__i386__)
 #define E2_BAD_ADDR 0xbaadf00d
+#ifndef trap
+#define trap() asm volatile("int $3")
+#endif
 #endif
 
 #if MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3
