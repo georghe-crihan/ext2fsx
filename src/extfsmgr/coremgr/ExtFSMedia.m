@@ -659,7 +659,10 @@ emicon_exit:
 
 - (NSString*)mountPoint
 {
-   return ([[e_where retain] autorelease]);
+    erlock(e_lock);
+    NSString *s = [e_where retain];
+    eulock(e_lock);
+    return ([s autorelease]);
 }
 
 - (u_int64_t)availableSize
@@ -677,7 +680,10 @@ emicon_exit:
 
 - (u_int64_t)blockCount
 {
-   return (e_blockCount ? e_blockCount : e_size / e_devBlockSize);
+    erlock(e_lock);
+    u_int64_t ct = e_blockCount ? e_blockCount : e_size / e_devBlockSize;
+    eulock(e_lock);
+    return (ct);
 }
 
 - (u_int64_t)fileCount
