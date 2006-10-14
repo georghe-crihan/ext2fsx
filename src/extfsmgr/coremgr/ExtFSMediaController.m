@@ -67,6 +67,25 @@ static io_iterator_t notify_add_iter=0, notify_rem_iter=0;
 static DASessionRef daSession = NULL;
 static DAApprovalSessionRef daApprovalSession = NULL;
 
+#ifdef EFSM_GLOBAL_DEVICE_ALLOW
+static NSMutableSet *deviceMountBlockList = nil;
+__private_extern__ void
+EFSMBlockMountOfDevice(NSString *device)
+{
+    ewlock(e_instanceLock);
+    [deviceMountBlockList addObject:device];
+    eulock(e_instanceLock);
+}
+
+__private_extern__ void
+EFSMAllowMountOfDevice(NSString *device)
+{
+    ewlock(e_instanceLock);
+    [deviceMountBlockList removeObject:device];
+    eulock(e_instanceLock);
+}
+#endif
+
 static const char *e_fsNames[] = {
    EXT2FS_NAME,
    EXT3FS_NAME,
@@ -773,6 +792,11 @@ static NSDictionary *opticalMediaNames = nil;
    
    e_media = [[NSMutableDictionary alloc] init];
    
+    #ifdef EFSM_GLOBAL_DEVICE_ALLOW
+    deviceMountBlockList = [[NSMutableSet alloc] init];
+    #endif
+    e_instanceLock = e_lock;
+   
     // approval callbacks -- these are on the main thread because our delegate may not be thread safe
     if ((daApprovalSession = DAApprovalSessionCreate(kCFAllocatorDefault))) {
         DAApprovalSessionScheduleWithRunLoop(daApprovalSession, [[NSRunLoop currentRunLoop] getCFRunLoop],
@@ -782,7 +806,6 @@ static NSDictionary *opticalMediaNames = nil;
         E2Log(@"ExtFS: Failed to create DAApprovalSession!\n");
     }
    
-   e_instanceLock = e_lock;
    pthread_mutex_unlock(&e_initMutex);
    
     // Start the thread that will receive all non-approval notifications
@@ -1049,7 +1072,21 @@ static void DiskArbCallback_AppearedNotification(DADiskRef disk, void *context _
 static DADissenterRef DiskArbCallback_ApproveMount(DADiskRef disk, void *context)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    BOOL allow = [[ExtFSMediaController mediaController] allowMount:NSSTR(DADiskGetBSDName(disk))];
+    NSString *dev = NSSTR(DADiskGetBSDName(disk));
+    BOOL allow = YES;
+    
+    #ifdef EFSM_GLOBAL_DEVICE_ALLOW
+    NSRange r = [dev rangeOfString:@"disk"];
+    r.length++; // include the disk #
+    NSString *rootDev = [dev substringWithRange:r];
+    erlock(e_instanceLock);
+    if ([deviceMountBlockList containsObject:dev] || [deviceMountBlockList containsObject:rootDev])
+        allow = NO;
+    eulock(e_instanceLock);
+    if (allow)
+    #endif
+    allow = [[ExtFSMediaController mediaController] allowMount:dev];
+    
     E2DiagLog(@"ExtFS: Mount '%s' %s.\n", DADiskGetBSDName(disk), allow ? "allowed" : "denied");
     [pool release];
     if (allow)
