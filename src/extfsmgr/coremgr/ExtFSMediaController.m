@@ -558,19 +558,6 @@ eulock(e_lock); \
    NSMutableArray *pUMounts;
    kern_return_t ke = 0;
    
-   ewlock(e_lock);
-   pMounts = [e_pending objectAtIndex:kPendingMounts];
-   pUMounts = [e_pending objectAtIndex:kPendingUMounts];
-   if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
-        eulock(e_lock);
-        E2DiagLog(@"ExtFS: Can't unmount '%@'. Operation is already in progress.",
-            [media bsdName]);
-        return (EINPROGRESS);
-   }
-   
-   [pUMounts addObject:media];
-   eulock(e_lock);
-   
    if (force)
       flags |= kDADiskUnmountOptionForce;
    
@@ -589,6 +576,20 @@ eulock(e_lock); \
         }
         flags |= kDADiskUnmountOptionWhole;
    }
+   
+   ewlock(e_lock);
+   pMounts = [e_pending objectAtIndex:kPendingMounts];
+   pUMounts = [e_pending objectAtIndex:kPendingUMounts];
+   if ([pMounts containsObject:media] || [pUMounts containsObject:media]) {
+        eulock(e_lock);
+        E2DiagLog(@"ExtFS: Can't unmount '%@'. Operation is already in progress.",
+            [media bsdName]);
+        return (EINPROGRESS);
+   }
+   
+   [pUMounts addObject:media];
+   eulock(e_lock);
+   
    DADiskRef dadisk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, BSDNAMESTR(media));
    if (!dadisk) {
       ke = ENOENT;
