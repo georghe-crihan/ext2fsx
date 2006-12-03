@@ -671,6 +671,12 @@ data = [data stringByAppendingString:@"\n"]; \
    }
 }
 
+- (IBAction)donate:(id)sender
+{
+    [[NSWorkspace sharedWorkspace] openURL:
+        [NSURL URLWithString:@"http://www.bergstrand.org/brian/donate"]];
+}
+
 - (void)doEject:(id)sender
 {
    int err;
@@ -749,6 +755,8 @@ info_alt_switch:
    NSString *alt_images[] = {EXT_TOOLBAR_ALT_ACTION_MOUNT, nil, EXT_TOOLBAR_ALT_ACTION_INFO, nil};
    NSNumber *boolVal;
    int i;
+   
+   [self setValue:ExtLocalizedString(@"Donate", "") forKey:@"donateTitle"];
    
    e_infoButtonAlt = NO; // Used to deterimine state
    

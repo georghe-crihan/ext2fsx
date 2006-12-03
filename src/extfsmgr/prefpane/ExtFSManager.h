@@ -51,6 +51,7 @@
    IBOutlet id e_opProgress;
    
    id e_volData, e_curSelection;
+   NSString *donateTitle;
    BOOL e_infoButtonAlt;
 }
 
@@ -58,6 +59,7 @@
 - (IBAction)click_automount:(id)sender;
 - (IBAction)click_ignorePerms:(id)sender;
 - (IBAction)click_indexedDirs:(id)sender;
+- (IBAction)donate:(id)sender;
 
 - (void)doMount:(id)sender;
 - (void)doEject:(id)sender;

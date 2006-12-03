@@ -6,6 +6,7 @@
                 "click_ignorePerms" = id; 
                 "click_indexedDirs" = id; 
                 "click_readOnly" = id; 
+                donate = id; 
             }; 
             CLASS = ExtFSManager; 
             LANGUAGE = ObjC; 
