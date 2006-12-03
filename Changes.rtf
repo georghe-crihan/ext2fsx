@@ -1,16 +1,24 @@
-{\rtf1\mac\ansicpg10000\cocoartf824\cocoasubrtf380
+{\rtf1\mac\ansicpg10000\cocoartf824\cocoasubrtf410
 {\fonttbl\f0\fswiss\fcharset77 Helvetica;\f1\fnil\fcharset77 Verdana;}
 {\colortbl;\red255\green255\blue255;}
 \margl1440\margr1440\vieww11160\viewh11700\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural
 
-\f0\fs24 \cf0 1.4d3\
+\f0\fs24 \cf0 1.4d4\
+\
+Bug Fix: With a particular rename usage, it was possible for directory entries to be lost.\
+\
+Added partition probe type support for "Linux". This should enable automatic GUI mounting for those having problems with previous releases.\
+\
+EFSM changes.\
+\
+1.4d3\
 \
 Write support (excepting dir_index FS's -  I have not had a chance to test write support with that feature, so if it's enabled R/O is forced during mount).\
 \
 Updated to e2fsprogs 1.39.\
 \
-Added partition type support for GPT UUIDs.\
+Added partition probe type support for GPT UUIDs.\
 \
 Bug Fix: Duplicate file listings and/or missing files for directories larger than 4K (or whatever buffer size is passed to readdir - ls and Finder both use 4K).\
 \
