@@ -13,7 +13,7 @@ DEP_MAKEFILE = $(DEP_LIB_MAKEFILES)
 
 @MCONFIG@
 
-all:: compile_et
+all:: compile_et com_err.pc
 
 OBJS= error_message.o et_name.o init_et.o com_err.o com_right.o
 SRCS = $(srcdir)/error_message.c $(srcdir)/et_name.c $(srcdir)/init_et.c \
@@ -24,15 +24,6 @@ SHARE_FILES= et_c.awk et_h.awk
 
 LIBRARY= libcom_err
 LIBDIR= et
-
-DLL_ADDRESS = 0x66800000
-DLL_JUMPSIZE = 0x1000
-DLL_GOTSIZE  = 0x1000
-DLL_VERSION = 1.1
-DLL_IMAGE = libet
-DLL_STUB = libcom_err
-DLL_MYDIR = et
-DLL_INSTALL_DIR = $(root_libdir)
 
 ELF_VERSION = 2.1
 ELF_SO_VERSION = 2
@@ -50,27 +41,30 @@ BSDLIB_INSTALL_DIR = $(root_libdir)
 # what to build...
 #
 .c.o:
-	$(CC) $(ALL_CFLAGS) -c $< -o $@
-@PROFILE_CMT@	$(CC) $(ALL_CFLAGS) -g -pg -o profiled/$*.o -c $<
-@CHECKER_CMT@	$(CC) $(ALL_CFLAGS) -checker -g -o checker/$*.o -c $<
-@DLL_CMT@	(export JUMP_DIR=`pwd`/jump; $(CC) -B$(JUMP_PREFIX) $(ALL_CFLAGS) \
-@DLL_CMT@		-o jump/$*.o -c $<)
-@ELF_CMT@	$(CC) $(ALL_CFLAGS) -fPIC -o elfshared/$*.o -c $<
-@BSDLIB_CMT@	$(CC) $(ALL_CFLAGS) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
+	@echo "	CC $<"
+	@$(CC) $(ALL_CFLAGS) -c $< -o $@
+@PROFILE_CMT@	@$(CC) $(ALL_CFLAGS) -g -pg -o profiled/$*.o -c $<
+@CHECKER_CMT@	@$(CC) $(ALL_CFLAGS) -checker -g -o checker/$*.o -c $<
+@ELF_CMT@	@$(CC) $(ALL_CFLAGS) -fPIC -o elfshared/$*.o -c $<
+@BSDLIB_CMT@	@$(CC) $(ALL_CFLAGS) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
 
 @MAKEFILE_LIBRARY@
-@MAKEFILE_DLL@
 @MAKEFILE_ELF@
 @MAKEFILE_BSDLIB@
 @MAKEFILE_PROFILE@
 @MAKEFILE_CHECKER@
 
 compile_et: $(DEP_SUBSTITUTE) $(srcdir)/compile_et.sh.in
-	$(SUBSTITUTE) $(srcdir)/compile_et.sh.in compile_et
-	$(CHMOD) +x compile_et
+	@echo "	SUBST $@"
+	@$(SUBSTITUTE) $(srcdir)/compile_et.sh.in compile_et
+	@$(CHMOD) +x compile_et
 
 com_err.ps : com_err.dvi
 com_err.dvi: com_err.texinfo
+
+com_err.pc: $(srcdir)/com_err.pc.in $(top_builddir)/config.status
+	@echo "	CONFIG.STATUS $@"
+	@cd $(top_builddir); CONFIG_FILES=lib/et/com_err.pc ./config.status
 
 #libcom_err.o:	$(LIBOBJS)
 #	$(LD) -r -s -o libcom_err.o $(LIBOBJS)
@@ -80,30 +74,39 @@ TAGS:	$(SRCS)
 	$(TAGS) $(SRCS)
 
 installdirs::
-	$(top_srcdir)/mkinstalldirs $(DESTDIR)$(libdir) \
+	@echo "	MKINSTALLDIRS $(libdir) $(includedir)/et $(datadir)/et $(bindir) $(man1dir) $(man3dir)"
+	@$(MKINSTALLDIRS) $(DESTDIR)$(libdir) \
 		$(DESTDIR)$(includedir)/et $(DESTDIR)$(datadir)/et \
 		$(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) \
-		$(DESTDIR)$(man3dir)
+		$(DESTDIR)$(man3dir) $(DESTDIR)$(libdir)/pkgconfig
 
-install:: compile_et libcom_err.a $(HFILES) installdirs
-	$(INSTALL_DATA) libcom_err.a $(DESTDIR)$(libdir)/libcom_err.a
-	$(CHMOD) 644 $(DESTDIR)$(libdir)/libcom_err.a
-	-$(RANLIB) $(DESTDIR)$(libdir)/libcom_err.a
-	$(CHMOD) $(LIBMODE) $(DESTDIR)$(libdir)/libcom_err.a
-	for i in $(HFILES); do \
+install:: compile_et libcom_err.a $(HFILES) installdirs com_err.pc
+	@echo "	INSTALL_DATA $(libdir)/libcom_err.a"
+	@$(INSTALL_DATA) libcom_err.a $(DESTDIR)$(libdir)/libcom_err.a
+	@-$(RANLIB) $(DESTDIR)$(libdir)/libcom_err.a
+	@$(CHMOD) $(LIBMODE) $(DESTDIR)$(libdir)/libcom_err.a
+	@for i in $(HFILES); do \
+		echo "	INSTALL_DATA $(includedir)/et/$$i"; \
 		$(INSTALL_DATA) $(srcdir)/$$i $(DESTDIR)$(includedir)/et/$$i; \
 	done
-	for i in $(SHARE_FILES); do \
+	@for i in $(SHARE_FILES); do \
+		echo "	INSTALL_DATA $(datadir)/et/$$i"; \
 		$(INSTALL_DATA) $(srcdir)/$$i $(DESTDIR)$(datadir)/et/$$i; \
 	done
-	$(INSTALL) compile_et $(DESTDIR)$(bindir)/compile_et
-	$(INSTALL_DATA) $(srcdir)/com_err.3 $(DESTDIR)$(man3dir)/com_err.3
-	$(INSTALL_DATA) $(srcdir)/compile_et.1 \
+	@echo "	INSTALL_SCRIPT $(bindir)/compile_et"
+	@$(INSTALL_SCRIPT) compile_et $(DESTDIR)$(bindir)/compile_et
+	@echo "	INSTALL_DATA $(man3dir)/com_err.3"
+	@$(INSTALL_DATA) $(srcdir)/com_err.3 $(DESTDIR)$(man3dir)/com_err.3
+	@echo "	INSTALL_DATA $(man1dir)/compile_et.1"
+	@$(INSTALL_DATA) $(srcdir)/compile_et.1 \
 			$(DESTDIR)$(man1dir)/compile_et.1
+	@echo "	INSTALL_DATA $(libdir)/pkgconfig/com_err.pc"
+	@$(INSTALL_DATA) com_err.pc $(DESTDIR)$(libdir)/pkgconfig/com_err.pc
 
 uninstall::
 	$(RM) -f $(DESTDIR)$(libdir)/libcom_err.a \
-			$(DESTDIR)$(bindir)/compile_et
+		$(DESTDIR)$(bindir)/compile_et \
+		$(DESTDIR)$(libdir)/pkgconfig/com_err.pc
 	$(RM) -rf $(DESTDIR)$(includedir)/et $(DESTDIR)$(datadir)/et
 
 check:: compile_et
@@ -126,7 +129,10 @@ clean::
 
 mostlyclean:: clean
 distclean:: clean
-	$(RM) -f .depend Makefile $(srcdir)/TAGS $(srcdir)/Makefile.in.old
+	$(RM) -f .depend Makefile com_err.pc \
+		$(srcdir)/TAGS $(srcdir)/Makefile.in.old
+
+$(OBJS): subdirs
 
 # +++ Dependency line eater +++
 # 
