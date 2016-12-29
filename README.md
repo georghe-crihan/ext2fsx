@@ -14,3 +14,10 @@ Why another ext2fs module? Why not use fusefs? Rationale behind:
 * Port ext2fs code from FreeBSD 11, see: https://wiki.freebsd.org/Ext2fs
 * Drop e2fs progs, integrate the code used. Macports does better.
 
+# REFERENCE
+
+* ext2_util
+
+NB: all arguments are required.
+
+sudo ./ext2_util -m disk1 /mnt fixed/removable writable/readonly suid/nosuid dev/nodev

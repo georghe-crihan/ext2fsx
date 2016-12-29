@@ -1860,11 +1860,17 @@ kern_return_t ext2fs_start (kmod_info_t * ki, void * d) {
 	fsc.vfe_vopcnt = 3;
 	fsc.vfe_opvdescs = vnops;
 	strncpy(&fsc.vfe_fsname[0], EXT2FS_NAME, MFSNAMELEN);
+#ifdef OSX4
 	// If we let the kernel assign our typenum, there is no way to access it
 	// until a vol is mounted. So, we have to use a static # so we can register
 	// our sysctl's.
 	fsc.vfe_fstypenum = (int)EXT2_SUPER_MAGIC;
-	fsc.vfe_flags = VFS_TBLTHREADSAFE/*|VFS_TBLNOTYPENUM*/|VFS_TBLLOCALVOL;
+	fsc.vfe_flags = VFS_TBLTHREADSAFE|VFS_TBLLOCALVOL;
+#else
+        // Otherwise, the VFS is not installed, at least under OSX 10.8
+        // Something has to be done to sysctl though.
+	fsc.vfe_flags = VFS_TBLTHREADSAFE|VFS_TBLNOTYPENUM|VFS_TBLLOCALVOL;
+#endif
 	kret = vfs_fsadd(&fsc, &ext2_tableid);
 	if (kret) {
 		printf ("ext2fs_start: Failed to register with kernel, error = %d\n", kret);
