@@ -28,6 +28,9 @@
 #define _EXT2_BYTEORDER_H
 
 #include <sys/types.h>
+#ifndef OSX4
+#include <stdint.h>
+#endif
 
 #if BYTE_ORDER == BIG_ENDIAN
 #include <ext2_bigendian.h>

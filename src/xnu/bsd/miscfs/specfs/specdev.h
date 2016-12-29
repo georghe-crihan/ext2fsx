@@ -107,7 +107,9 @@ extern struct vnode *speclisth[SPECHSZ];
 extern	int (**spec_vnodeop_p)(void *);
 struct	nameidata;
 struct	componentname;
+#ifdef OSX4
 struct	ucred;
+#endif
 struct	flock;
 struct	buf;
 struct	uio;

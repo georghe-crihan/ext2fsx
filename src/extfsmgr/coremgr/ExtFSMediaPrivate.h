@@ -102,7 +102,7 @@ withObject:args waitUntilDone:NO]; \
 #ifndef trap
 #define trap() asm volatile("trap")
 #endif
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__x86_64__)
 #define E2_BAD_ADDR 0xbaadf00d
 #ifndef trap
 #define trap() asm volatile("int $3")

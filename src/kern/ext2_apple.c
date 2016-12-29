@@ -93,7 +93,7 @@ ext2_ioctl(ap)
    struct ext2_sb_info *fs;
    int err = 0, super;
    u_int32_t flags, oldflags;
-   ucred_t cred = vfs_context_ucred(ap->a_context);
+   kauth_cred_t cred = vfs_context_ucred(ap->a_context);
    
    super = (0 == kauth_cred_getuid(cred));
    fs = ip->i_e2fs;
@@ -108,7 +108,7 @@ ext2_ioctl(ap)
          if (ip->i_e2fs->s_rd_only)
             return (EROFS);
          
-         if (cred->cr_uid != ip->i_uid && !super)
+         if (kauth_cred_getuid(cred) != ip->i_uid && !super)
             return (EACCES);
          
          bcopy(ap->a_data, &flags, sizeof(u_int32_t));
@@ -173,7 +173,7 @@ ext2_ioctl(ap)
       break;
       
       case IOCBASECMD(EXT2_IOC_SETVERSION):
-         if (cred->cr_uid != ip->i_uid && !super)
+         if (kauth_cred_getuid(cred) != ip->i_uid && !super)
             err = EACCES;
          else
             err = ENOTSUP;

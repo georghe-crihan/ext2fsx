@@ -30,6 +30,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef OSX4
+#include <strings.h>
+#endif
 #include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>

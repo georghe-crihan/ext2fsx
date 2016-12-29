@@ -56,7 +56,7 @@ struct ext2_args {
 
 #ifdef __ppc__
 #define E2_BAD_ADDRESS (void*)0xdeadbeef
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__x86_64__)
 #define E2_BAD_ADDRESS (void*)0xfeedface
 #else
 #error unknown architecture
@@ -267,7 +267,9 @@ int vop_stdfsync(struct vnop_fsync_args *ap)
 /* FreeBSD Mount flags */
 #define MNT_NOCLUSTERR 0
 #define MNT_NOCLUSTERW 0
+#ifndef MNT_NOATIME
 #define MNT_NOATIME 0
+#endif
 
 /* Soft Updates */
 #define SF_SNAPSHOT 0
@@ -315,7 +317,7 @@ int vn_write_suspend_wait(vnode_t vp, mount_t mp, int flag)
 #define mtx_unlock(mp) lck_mtx_unlock((mp))
 #endif
 
-#ifndef __i386__
+#if !defined(__i386__) && !defined(__x86_64__)
 // i386-bitops.h contains a memscan implementation
 static __inline void * memscan(void * addr, int c, size_t size)
 {
@@ -341,6 +343,13 @@ static __inline void * memscan(void * addr, int c, size_t size)
 #define	GENERIC_DIRSIZ(dp) \
     ((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((dp)->d_namlen+1 + 3) &~ 3))
     
+/* Legacy OSX */
+#ifdef OSX4
+#define kauth_cred_t ucred_t
+#define kauth_cred_getgid((cred)) (cred)->cr_rgid 
+#define kauth_cred_getuid((cred)) (cred)->cr_uid
+#endif
+
 /* Linux compat */
 
 #define printk printf

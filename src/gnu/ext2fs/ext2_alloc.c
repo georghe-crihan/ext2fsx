@@ -46,6 +46,9 @@ static const char whatid[] __attribute__ ((unused)) =
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/syslog.h>
+#ifndef OSX4
+#include <sys/kauth.h>
+#endif
 
 #ifdef APPLE
 #include "ext2_apple.h"
@@ -126,7 +129,7 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 #endif /* DIAGNOSTIC */
 	if (size == fs->s_blocksize && fs->s_es->s_free_blocks_count == 0)
 		goto nospace;
-	if (cred->cr_uid != 0 && 
+	if (kauth_cred_getuid(cred) != 0 && 
 		le32_to_cpu(fs->s_es->s_free_blocks_count) < le32_to_cpu(fs->s_es->s_r_blocks_count))
 		goto nospace;
 	if (bpref >= le32_to_cpu(fs->s_es->s_blocks_count))
@@ -184,7 +187,7 @@ ext2_alloc(ip, lbn, bpref, size, cred, bnp)
 		return (0);
 	}
 nospace:
-	ext2_fserr(fs, cred->cr_uid, "file system full");
+	ext2_fserr(fs, kauth_cred_getuid(cred), "file system full");
 	uprintf("\n%s: write failed, file system is full\n", fs->fs_fsmnt);
 	return (ENOSPC);
 }
@@ -447,7 +450,7 @@ printf("ext2_valloc: allocated inode %d\n", ino);
 */
 	return (0);
 noinodes:
-	ext2_fserr(fs, (vfs_context_ucred(vaargsp->va_vctx))->cr_uid, "out of inodes");
+	ext2_fserr(fs, (kauth_cred_getuid(vfs_context_ucred(vaargsp->va_vctx))), "out of inodes");
 	uprintf("\n%s: create/symlink failed, no inodes free\n", fs->fs_fsmnt);
 	return (ENOSPC);
 }

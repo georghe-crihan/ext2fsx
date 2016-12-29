@@ -100,7 +100,7 @@ static __inline__ int find_first_zero_bit(void * addr, unsigned size)
 
 static __inline__ int find_next_zero_bit (void * addr, int size, int offset)
 {
-	unsigned long * p = ((unsigned long *) addr) + (offset >> 5);
+	uint32_t * p = ((uint32_t *) addr) + (offset >> 5);
 	int set = 0, bit = offset & 31, res;
 	
 	if (bit) {
@@ -122,7 +122,7 @@ static __inline__ int find_next_zero_bit (void * addr, int size, int offset)
 	/*
 	 * No zero yet, search remaining full bytes for a zero
 	 */
-	res = find_first_zero_bit (p, size - 32 * (p - (unsigned long *) addr));
+	res = find_first_zero_bit (p, size - 32 * (p - (uint32_t *) addr));
 	return (offset + set + res);
 }
 

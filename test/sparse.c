@@ -29,6 +29,10 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#ifndef OSX4
+#include <strings.h>
+#include <stdlib.h>
+#endif
 
 int main (int argc, char *argv[])
 {
